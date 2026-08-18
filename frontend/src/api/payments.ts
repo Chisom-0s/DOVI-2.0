@@ -43,4 +43,13 @@ export const paymentsApi = {
       throw normalizeApiError(err);
     }
   },
+
+  getSavedMethods: async (): Promise<any[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/users/me/payment-methods/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
 };

@@ -28,8 +28,21 @@ import OrderDetailPage from '@/pages/Orders/OrderDetailPage';
 import RefundRequestPage from '@/pages/Refunds/RefundRequestPage';
 import RefundDetailPage from '@/pages/Refunds/RefundDetailPage';
 
+// Phase 5 — Buyer Dashboard
+import DashboardLayout from '@/pages/Dashboard/DashboardLayout';
+import DashboardOverviewPage from '@/pages/Dashboard/DashboardOverviewPage';
+import ProfilePage from '@/pages/Dashboard/ProfilePage';
+import AddressesPage from '@/pages/Dashboard/AddressesPage';
+import PaymentMethodsPage from '@/pages/Dashboard/PaymentMethodsPage';
+import WishlistPage from '@/pages/Dashboard/WishlistPage';
+import RecentlyViewedPage from '@/pages/Dashboard/RecentlyViewedPage';
+import MyReviewsPage from '@/pages/Dashboard/MyReviewsPage';
+import NotificationsPage from '@/pages/Dashboard/NotificationsPage';
+import AccountSettingsPage from '@/pages/Dashboard/AccountSettingsPage';
+import SecuritySettingsPage from '@/pages/Dashboard/SecuritySettingsPage';
+
 // ============================================================
-// Placeholder component — used for pages not yet built (Phase 5+)
+// Placeholder component — used for pages not yet built (Phase 6+)
 // ============================================================
 function Placeholder({ name }: { name: string }) {
   return (
@@ -122,126 +135,31 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ---- Buyer Dashboard (Phase 4 & 5) ----
+      // ---- Buyer Dashboard (Phase 5 — LIVE Layout) ----
       {
         path: 'dashboard',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="Dashboard Overview" />
+            <DashboardLayout />
           </RoleGuard>
         ),
-      },
-      {
-        path: 'dashboard/profile',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Profile" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/orders',
-        element: (
-          <RoleGuard role="BUYER">
-            <OrderHistoryPage />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/orders/:ref',
-        element: (
-          <RoleGuard role="BUYER">
-            <OrderDetailPage />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/wishlist',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Wishlist" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/recently-viewed',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Recently Viewed" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/save2own',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Save2Own Goals" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/reviews',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="My Reviews" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/refunds',
-        element: (
-          <RoleGuard role="BUYER">
-            <RefundRequestPage />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/refunds/:id',
-        element: (
-          <RoleGuard role="BUYER">
-            <RefundDetailPage />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/notifications',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Notifications" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/addresses',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Saved Addresses" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/payment-methods',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Payment Methods" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/settings',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Account Settings" />
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'dashboard/security',
-        element: (
-          <RoleGuard role="BUYER">
-            <Placeholder name="Security Settings" />
-          </RoleGuard>
-        ),
+        children: [
+          { path: '', element: <DashboardOverviewPage /> },
+          { path: 'profile', element: <ProfilePage /> },
+          { path: 'orders', element: <OrderHistoryPage /> },
+          { path: 'orders/:ref', element: <OrderDetailPage /> },
+          { path: 'wishlist', element: <WishlistPage /> },
+          { path: 'recently-viewed', element: <RecentlyViewedPage /> },
+          { path: 'save2own', element: <Placeholder name="Save2Own Goals" /> },
+          { path: 'reviews', element: <MyReviewsPage /> },
+          { path: 'refunds', element: <RefundRequestPage /> },
+          { path: 'refunds/:id', element: <RefundDetailPage /> },
+          { path: 'notifications', element: <NotificationsPage /> },
+          { path: 'addresses', element: <AddressesPage /> },
+          { path: 'payment-methods', element: <PaymentMethodsPage /> },
+          { path: 'settings', element: <AccountSettingsPage /> },
+          { path: 'security', element: <SecuritySettingsPage /> },
+        ],
       },
 
       // ---- Save2Own (Phase 6) ----

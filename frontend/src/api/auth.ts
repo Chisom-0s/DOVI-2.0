@@ -79,9 +79,10 @@ export const authApi = {
     }
   },
 
-  updateMe: async (payload: Partial<User>): Promise<User> => {
+  updateMe: async (payload: Partial<User> | FormData): Promise<User> => {
     try {
-      const { data } = await apiClient.patch('/api/v1/users/me/', payload);
+      const headers = payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined;
+      const { data } = await apiClient.patch('/api/v1/users/me/', payload, { headers });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -119,6 +120,46 @@ export const authApi = {
   }) => {
     try {
       const { data } = await apiClient.post('/api/v1/users/me/addresses/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateAddress: async (id: string, payload: {
+    label?: string;
+    full_name?: string;
+    phone?: string;
+    address_line_1?: string;
+    address_line_2?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postal_code?: string;
+    is_default?: boolean;
+  }) => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/users/me/addresses/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteAddress: async (id: string) => {
+    try {
+      await apiClient.delete(`/api/v1/users/me/addresses/${id}/`);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  changePassword: async (payload: {
+    old_password: string;
+    new_password: string;
+  }): Promise<{ message: string }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/auth/password/change/', payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
