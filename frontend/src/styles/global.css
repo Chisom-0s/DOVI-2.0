@@ -73,17 +73,17 @@
   --container-max: 1280px;
   --container-padding: var(--space-4);
 
-  /* Neutral colors — Phase 1 functional only */
-  --color-text: #1a1a1a;
+  /* Neutral colors & Brand Colors */
+  --color-text: #1f2937;
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
   --color-bg: #ffffff;
   --color-bg-subtle: #f9fafb;
-  --color-primary: #0ea5e9;
-  --color-primary-dark: #0284c7;
+  --color-primary: #ff7a00;
+  --color-primary-dark: #e06c00;
   --color-danger: #ef4444;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
+  --color-success: #27ae60;
+  --color-warning: #ff9f43;
 }
 
 /* ----------------------------------------------------------

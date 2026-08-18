@@ -20,7 +20,7 @@ export default function Header() {
       <div className="container site-header__container" style={containerStyles}>
         {/* Brand Logo */}
         <Link to="/" style={logoStyles}>
-          <img src="/logo.jpg" alt="Dovi" style={logoImageStyles} />
+          <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
         </Link>
 
         {/* Search Bar */}
@@ -206,7 +206,7 @@ const registerBtnStyles: React.CSSProperties = {
 };
 
 const logoImageStyles: React.CSSProperties = {
-  height: '42px',
+  height: '48px',
   width: 'auto',
   objectFit: 'contain',
   display: 'block',
