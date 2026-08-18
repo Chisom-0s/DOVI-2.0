@@ -671,15 +671,84 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Header Category Links */
+/* Header Category Links - Orange capsule blocks */
 .header-category-link {
-  text-decoration: none;
-  color: var(--color-text-muted);
-  font-weight: var(--font-medium);
-  transition: color var(--transition-fast);
+  text-decoration: none !important;
+  color: #ffffff !important;
+  background-color: var(--color-primary);
+  font-weight: var(--font-semibold);
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full); /* pill/capsule shape */
+  display: inline-block;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--color-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .header-category-link:hover {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.header-category-link.page-link {
+  background-color: #ffffff;
   color: var(--color-primary) !important;
+  border: 1px solid var(--color-primary);
+}
+.header-category-link.page-link:hover {
+  background-color: rgba(255, 122, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Hide scrollbars for categories scroll row */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Responsive grid layout for header */
+.site-header__container {
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+.site-header__search-container {
+  grid-column: 1 / span 2;
+  width: 100%;
+}
+.site-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .site-header__container {
+    display: flex !important;
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+  }
+  .site-header__logo {
+    order: 1;
+  }
+  .site-header__search-container {
+    order: 2;
+    flex: 1;
+    max-width: 500px;
+  }
+  .site-header__actions {
+    order: 3;
+  }
 }
 
 /* Cart Layout Grid */

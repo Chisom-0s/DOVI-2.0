@@ -14,7 +14,6 @@ import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import SearchResultsPage from '@/pages/Products/SearchResultsPage';
-import AuthorsPage from '@/pages/Authors/AuthorsPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
 
 // Phase 4 — Cart, Checkout, Orders, Payments, Refunds
@@ -67,7 +66,9 @@ const router = createBrowserRouter([
       { path: 'categories/:slug', element: <CategoryPage /> },
       { path: 'search', element: <SearchResultsPage /> },
       { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
-      { path: 'authors', element: <AuthorsPage /> },
+      { path: 'faq', element: <Placeholder name="FAQ" /> },
+      { path: 'contact', element: <Placeholder name="Contact Support" /> },
+      { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },
 
       // ---- Cart & Checkout (Phase 4 — LIVE) ----
       {

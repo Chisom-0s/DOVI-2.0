@@ -17,32 +17,22 @@ export default function Header() {
 
   return (
     <header className="site-header" style={headerStyles}>
-      <div className="container site-header__container" style={containerStyles}>
-        {/* Brand Logo */}
-        <Link to="/" style={logoStyles}>
+      <div className="container site-header__container">
+        {/* Brand Logo (Row 1, Col 1 on mobile) */}
+        <Link to="/" style={logoStyles} className="site-header__logo">
           <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
         </Link>
 
-        {/* Search Bar */}
-        <div style={searchContainerStyles}>
-          <SearchBar />
-          <div style={categoryLinksStyles} className="hide-mobile">
-            <Link to="/categories/electronics" className="header-category-link">Electronics</Link>
-            <Link to="/categories/gadgets" className="header-category-link">Gadgets</Link>
-            <Link to="/categories/phones" className="header-category-link">Phones</Link>
-            <Link to="/categories/books" className="header-category-link">Books</Link>
-            <Link to="/categories/fashion" className="header-category-link">Fashion</Link>
-          </div>
-        </div>
+        {/* Header Actions (Row 1, Col 2 on mobile) */}
+        <div style={actionsContainerStyles} className="site-header__actions">
+          {/* Desktop Navigation Links */}
+          <nav style={navLinksStyles} className="hide-mobile">
+            <Link to="/products" style={navLinkStyles}>Marketplace</Link>
+            <Link to="/auto" style={navLinkStyles}>Dovi Auto</Link>
+            <Link to="/save2own" style={navLinkStyles}>Save2Own</Link>
+          </nav>
 
-        {/* Navigation Action Links */}
-        <nav style={navStyles} className="hide-mobile">
-          <Link to="/products" style={navLinkStyles}>Marketplace</Link>
-          <Link to="/auto" style={navLinkStyles}>Dovi Auto</Link>
-          <Link to="/save2own" style={navLinkStyles}>Save2Own</Link>
-          <Link to="/authors" style={navLinkStyles}>Dovi Authors</Link>
-
-          {/* Cart Status Indicator */}
+          {/* Cart Status Indicator (visible everywhere) */}
           <Link to="/cart" style={cartButtonStyles}>
             <svg
               width="20"
@@ -58,10 +48,10 @@ export default function Header() {
               <circle cx="20" cy="21" r="1" />
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
-            <span style={cartLabelStyles}>Cart</span>
+            <span style={cartLabelStyles} className="hide-mobile">Cart</span>
           </Link>
 
-          {/* User Account State */}
+          {/* User Account State (visible everywhere) */}
           {isAuthenticated ? (
             <div style={userMenuStyles}>
               <Link to="/dashboard" style={avatarLinkStyles}>
@@ -72,17 +62,46 @@ export default function Header() {
                     {user?.first_name?.[0]?.toUpperCase() ?? 'U'}
                   </div>
                 )}
-                <span style={userNameStyles}>{user?.first_name}</span>
+                <span style={userNameStyles} className="hide-mobile">{user?.first_name}</span>
               </Link>
-              <button onClick={handleLogout} style={logoutBtnStyles}>Logout</button>
+              <button onClick={handleLogout} style={logoutBtnStyles} className="hide-mobile">Logout</button>
             </div>
           ) : (
             <div style={authButtonsStyles}>
               <Link to="/login" style={loginBtnStyles}>Sign In</Link>
-              <Link to="/register" style={registerBtnStyles}>Register</Link>
+              <Link to="/register" style={registerBtnStyles} className="hide-mobile">Register</Link>
             </div>
           )}
-        </nav>
+        </div>
+
+        {/* Search Bar & Categories (Row 2 on mobile) */}
+        <div style={searchContainerStyles} className="site-header__search-container">
+          <SearchBar />
+          <div style={categoryLinksStyles} className="no-scrollbar">
+            {/* Nav links for mobile & desktop views */}
+            <Link to="/products" className="header-category-link page-link">🛍️ Marketplace</Link>
+            <Link to="/auto" className="header-category-link page-link">🚗 Dovi Auto</Link>
+            <Link to="/save2own" className="header-category-link page-link">🎯 Save2Own</Link>
+            
+            {/* Extensive categories in premium orange block capsules */}
+            <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
+            <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
+            <Link to="/categories/phones-tablets" className="header-category-link">📱 Phones & Tablets</Link>
+            <Link to="/categories/computers" className="header-category-link">🖥️ Computers</Link>
+            <Link to="/categories/audio-video" className="header-category-link">🎧 Audio & Video</Link>
+            <Link to="/categories/gaming" className="header-category-link">🎮 Gaming</Link>
+            <Link to="/categories/smart-home" className="header-category-link">🏠 Smart Home</Link>
+            <Link to="/categories/fashion" className="header-category-link">👗 Fashion & Apparel</Link>
+            <Link to="/categories/shoes" className="header-category-link">👟 Shoes</Link>
+            <Link to="/categories/books" className="header-category-link">📚 Books & Media</Link>
+            <Link to="/categories/home-kitchen" className="header-category-link">🍳 Home & Kitchen</Link>
+            <Link to="/categories/beauty-health" className="header-category-link">💄 Beauty & Health</Link>
+            <Link to="/categories/sports-outdoors" className="header-category-link">⚽ Sports & Outdoors</Link>
+            <Link to="/categories/automotive" className="header-category-link">🚗 Automotive</Link>
+            <Link to="/categories/groceries" className="header-category-link">🍎 Groceries</Link>
+            <Link to="/categories/toys-games" className="header-category-link">🧸 Toys & Games</Link>
+          </div>
+        </div>
       </div>
     </header>
   );
@@ -99,15 +118,6 @@ const headerStyles: React.CSSProperties = {
   zIndex: 100,
 };
 
-const containerStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 'var(--space-4)',
-  paddingTop: 'var(--space-3)',
-  paddingBottom: 'var(--space-3)',
-};
-
 const logoStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -117,23 +127,29 @@ const logoStyles: React.CSSProperties = {
 };
 
 const searchContainerStyles: React.CSSProperties = {
-  flex: 1,
-  maxWidth: '500px',
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
 };
 
-const navStyles: React.CSSProperties = {
+const actionsContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-6)',
+  gap: 'var(--space-4)',
+};
+
+const navLinksStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-4)',
+  marginRight: 'var(--space-2)',
 };
 
 const navLinkStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-medium)',
   color: 'var(--color-text)',
+  textDecoration: 'none',
   transition: 'color var(--transition-fast)',
 };
 
@@ -144,6 +160,7 @@ const cartButtonStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-medium)',
   color: 'var(--color-text)',
+  textDecoration: 'none',
 };
 
 const cartLabelStyles: React.CSSProperties = {
@@ -161,6 +178,7 @@ const avatarLinkStyles: React.CSSProperties = {
   alignItems: 'center',
   gap: 'var(--space-2)',
   color: 'var(--color-text)',
+  textDecoration: 'none',
 };
 
 const avatarStyles: React.CSSProperties = {
@@ -192,6 +210,9 @@ const logoutBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-xs)',
   color: 'var(--color-danger)',
   fontWeight: 'var(--font-medium)',
+  backgroundColor: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
 };
 
 const authButtonsStyles: React.CSSProperties = {
@@ -204,6 +225,7 @@ const loginBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   fontWeight: 'var(--font-medium)',
+  textDecoration: 'none',
 };
 
 const registerBtnStyles: React.CSSProperties = {
@@ -213,6 +235,7 @@ const registerBtnStyles: React.CSSProperties = {
   padding: 'var(--space-2) var(--space-4)',
   borderRadius: 'var(--radius-md)',
   fontWeight: 'var(--font-medium)',
+  textDecoration: 'none',
 };
 
 const logoImageStyles: React.CSSProperties = {
@@ -224,10 +247,9 @@ const logoImageStyles: React.CSSProperties = {
 
 const categoryLinksStyles: React.CSSProperties = {
   display: 'flex',
-  gap: 'var(--space-3)',
-  fontSize: '11px',
-  color: 'var(--color-text-muted)',
-  paddingLeft: '14px',
-  flexWrap: 'wrap',
+  gap: 'var(--space-2)',
+  overflowX: 'auto',
+  whiteSpace: 'nowrap',
+  padding: '4px 0 8px 0',
+  width: '100%',
 };
-
