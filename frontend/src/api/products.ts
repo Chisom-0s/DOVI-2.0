@@ -1,7 +1,7 @@
 // Products API — GET /api/v1/products/*
 // Stub: full implementation in Phase 2 & 3
 import apiClient, { normalizeApiError } from './client';
-import type { PaginatedResponse, Product, ProductSummary } from '@/types';
+import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
 export interface ProductFilters {
   page?: number;
@@ -100,6 +100,44 @@ export const productsApi = {
   topRated: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/top-rated/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getVariants: async (id: string): Promise<ProductVariant[]> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/variants/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getReviews: async (id: string, params?: { page?: number; rating?: number; sort?: string }): Promise<PaginatedResponse<Review>> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/reviews/`, { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  submitReview: async (id: string, payload: FormData): Promise<Review> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/products/${id}/reviews/`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getRelated: async (id: string): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);

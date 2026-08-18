@@ -15,6 +15,7 @@ import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import SearchResultsPage from '@/pages/Products/SearchResultsPage';
 import AuthorsPage from '@/pages/Authors/AuthorsPage';
+import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
 
 // ============================================================
 // Placeholder component — used for pages not yet built (Phase 2+)
@@ -50,7 +51,7 @@ const router = createBrowserRouter([
     children: [
       { path: '', element: <HomePage /> },
       { path: 'products', element: <ProductListingPage /> },
-      { path: 'products/:id', element: <Placeholder name="Product Detail" /> },
+      { path: 'products/:id', element: <ProductDetailPage /> },
       { path: 'categories/:slug', element: <CategoryPage /> },
       { path: 'search', element: <SearchResultsPage /> },
       { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
