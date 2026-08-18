@@ -23,8 +23,8 @@ export default function Header() {
           <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
         </Link>
 
-        {/* Header Actions (Row 1, Col 2 on mobile) */}
-        <div style={actionsContainerStyles} className="site-header__actions">
+        {/* Header Actions (Desktop only, hidden on mobile) */}
+        <div style={actionsContainerStyles} className="site-header__actions hide-mobile">
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" style={navLinkStyles}>Marketplace</Link>
