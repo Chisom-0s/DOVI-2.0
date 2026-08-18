@@ -176,7 +176,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Main product columns */}
-      <div style={detailGridStyles}>
+      <div className="product-detail-grid">
         {/* Left Column: Image Gallery & Socials */}
         <div style={leftColStyles}>
           <ProductImageGallery images={product.images} />
@@ -363,17 +363,6 @@ const activeBreadcrumbStyles: React.CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   maxWidth: '24ch',
-};
-
-const detailGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr',
-  gap: 'var(--space-8)',
-  width: '100%',
-  // Desktop layout min-width target
-  '@media (min-width: 1024px)': {
-    gridTemplateColumns: '1.2fr 1fr',
-  },
 };
 
 const leftColStyles: React.CSSProperties = {

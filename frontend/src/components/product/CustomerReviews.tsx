@@ -85,7 +85,7 @@ export default function CustomerReviews({
   return (
     <div style={containerStyles}>
       {/* Top Aggregates Summary Row */}
-      <div style={aggregatesGridStyles}>
+      <div className="reviews-aggregates-grid">
         {/* Average Stars */}
         <div style={avgCardStyles}>
           <span style={avgNumStyles}>{averageRating.toFixed(1)}</span>
@@ -247,17 +247,6 @@ const containerStyles: React.CSSProperties = {
   flexDirection: 'column',
   gap: 'var(--space-6)',
   width: '100%',
-};
-
-const aggregatesGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr',
-  gap: 'var(--space-6)',
-  // Media query target
-  '@media (min-width: 768px)': {
-    gridTemplateColumns: '1fr 2fr',
-    alignItems: 'center',
-  },
 };
 
 const avgCardStyles: React.CSSProperties = {

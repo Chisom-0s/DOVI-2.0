@@ -18,7 +18,7 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
 
   return (
     <div style={sectionWrapperStyles}>
-      <div style={headerStyles}>
+      <div className="vendor-section-header">
         {/* Vendor Logo & Info */}
         <div style={profileStyles}>
           <img
@@ -75,18 +75,6 @@ const sectionWrapperStyles: React.CSSProperties = {
   marginTop: 'var(--space-4)',
   marginBottom: 'var(--space-4)',
   width: '100%',
-};
-
-const headerStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-4)',
-  justifyContent: 'space-between',
-  // Responsive desktop style
-  '@media (min-width: 768px)': {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
 };
 
 const profileStyles: React.CSSProperties = {
