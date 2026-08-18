@@ -14,6 +14,7 @@ import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import SearchResultsPage from '@/pages/Products/SearchResultsPage';
+import AuthorsPage from '@/pages/Authors/AuthorsPage';
 
 // ============================================================
 // Placeholder component — used for pages not yet built (Phase 2+)
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
       { path: 'categories/:slug', element: <CategoryPage /> },
       { path: 'search', element: <SearchResultsPage /> },
       { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
+      { path: 'authors', element: <AuthorsPage /> },
 
       // ---- Cart & Checkout (Phase 4) ----
       {

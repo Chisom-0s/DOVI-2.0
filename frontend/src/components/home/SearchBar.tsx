@@ -60,18 +60,7 @@ export default function SearchBar() {
   return (
     <div ref={containerRef} style={searchWrapperStyles}>
       <form onSubmit={handleSubmit} style={formStyles}>
-        <input
-          type="text"
-          placeholder="Search products, brands, categories..."
-          value={query}
-          onChange={e => {
-            setQuery(e.target.value);
-            setShowDropdown(true);
-          }}
-          onFocus={() => setShowDropdown(true)}
-          style={inputStyles}
-        />
-        <button type="submit" style={buttonStyles} aria-label="Submit Search">
+        <div style={iconContainerStyles}>
           <svg
             width="18"
             height="18"
@@ -85,7 +74,18 @@ export default function SearchBar() {
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-        </button>
+        </div>
+        <input
+          type="text"
+          placeholder="Search products, books, gadgets..."
+          value={query}
+          onChange={e => {
+            setQuery(e.target.value);
+            setShowDropdown(true);
+          }}
+          onFocus={() => setShowDropdown(true)}
+          style={inputStyles}
+        />
       </form>
 
       {/* Autocomplete Dropdown */}
@@ -150,25 +150,30 @@ const formStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   position: 'relative',
+  width: '100%',
 };
 
 const inputStyles: React.CSSProperties = {
   width: '100%',
-  padding: 'var(--space-2) var(--space-10) var(--space-2) var(--space-4)',
-  border: '1px solid var(--color-border)',
+  padding: '10px 16px 10px 42px',
+  border: 'none',
   borderRadius: 'var(--radius-full)',
   fontSize: 'var(--text-sm)',
   outline: 'none',
-  transition: 'border-color var(--transition-fast)',
+  backgroundColor: '#f2f2f2',
+  color: 'var(--color-text)',
+  transition: 'background-color var(--transition-fast)',
 };
 
-const buttonStyles: React.CSSProperties = {
+const iconContainerStyles: React.CSSProperties = {
   position: 'absolute',
-  right: '12px',
+  left: '14px',
   color: 'var(--color-text-muted)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  pointerEvents: 'none',
+  zIndex: 2,
 };
 
 const dropdownStyles: React.CSSProperties = {

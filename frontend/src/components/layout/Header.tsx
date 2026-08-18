@@ -20,7 +20,7 @@ export default function Header() {
       <div className="container site-header__container" style={containerStyles}>
         {/* Brand Logo */}
         <Link to="/" style={logoStyles}>
-          <span style={logoTextStyles}>DOVI</span>
+          <img src="/logo.jpg" alt="Dovi" style={logoImageStyles} />
         </Link>
 
         {/* Search Bar */}
@@ -29,10 +29,11 @@ export default function Header() {
         </div>
 
         {/* Navigation Action Links */}
-        <nav style={navStyles}>
+        <nav style={navStyles} className="hide-mobile">
           <Link to="/products" style={navLinkStyles}>Marketplace</Link>
           <Link to="/auto" style={navLinkStyles}>Dovi Auto</Link>
           <Link to="/save2own" style={navLinkStyles}>Save2Own</Link>
+          <Link to="/authors" style={navLinkStyles}>Dovi Authors</Link>
 
           {/* Cart Status Indicator */}
           <Link to="/cart" style={cartButtonStyles}>
@@ -106,10 +107,6 @@ const logoStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-xl)',
   color: 'var(--color-primary)',
-};
-
-const logoTextStyles: React.CSSProperties = {
-  letterSpacing: '1px',
 };
 
 const searchContainerStyles: React.CSSProperties = {
@@ -207,3 +204,11 @@ const registerBtnStyles: React.CSSProperties = {
   borderRadius: 'var(--radius-md)',
   fontWeight: 'var(--font-medium)',
 };
+
+const logoImageStyles: React.CSSProperties = {
+  height: '42px',
+  width: 'auto',
+  objectFit: 'contain',
+  display: 'block',
+};
+

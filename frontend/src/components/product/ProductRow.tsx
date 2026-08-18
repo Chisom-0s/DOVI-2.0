@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { SkeletonCard } from '@/components/common/Skeleton';
 import type { ProductSummary } from '@/types';
@@ -14,10 +15,36 @@ export default function ProductRow({ title, products, isLoading }: ProductRowPro
     return null;
   }
 
+  // Choose icon and subtitle based on title
+  let icon = '🛍️';
+  let subtitle = '';
+  if (title.toLowerCase().includes('flash')) {
+    icon = '⚡';
+    subtitle = 'Hurry up! Limited time offers';
+  } else if (title.toLowerCase().includes('trending')) {
+    icon = '🔥';
+    subtitle = 'People are looking at these right now';
+  } else if (title.toLowerCase().includes('recommended') || title.toLowerCase().includes('marketplace')) {
+    icon = '❤️';
+    subtitle = "Curated products we think you'll love";
+  } else if (title.toLowerCase().includes('new')) {
+    icon = '✨';
+    subtitle = 'Freshly added to the catalog';
+  }
+
   return (
     <section style={sectionStyles} className="product-row-section">
-      <div style={headerStyles}>
-        <h2 style={titleStyles}>{title}</h2>
+      <div className="decorated-header">
+        <div style={headerTextWrapper}>
+          <div className="decorated-header__title">
+            <span>{icon}</span>
+            <span>{title}</span>
+          </div>
+          {subtitle && <span className="decorated-header__subtitle">{subtitle}</span>}
+        </div>
+        <Link to="/products" className="decorated-header__link">
+          See all &gt;
+        </Link>
       </div>
 
       <div style={scrollWrapperStyles} className="hide-scrollbar">
@@ -39,6 +66,11 @@ export default function ProductRow({ title, products, isLoading }: ProductRowPro
   );
 }
 
+const headerTextWrapper: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+};
+
 // ----------------------------------------------------------
 // Styling Tokens
 // ----------------------------------------------------------
@@ -49,18 +81,6 @@ const sectionStyles: React.CSSProperties = {
   paddingTop: 'var(--space-6)',
   paddingBottom: 'var(--space-6)',
   width: '100%',
-};
-
-const headerStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-};
-
-const titleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-lg)',
-  fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
 };
 
 const scrollWrapperStyles: React.CSSProperties = {
