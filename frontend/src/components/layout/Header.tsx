@@ -26,6 +26,13 @@ export default function Header() {
         {/* Search Bar */}
         <div style={searchContainerStyles}>
           <SearchBar />
+          <div style={categoryLinksStyles} className="hide-mobile">
+            <Link to="/categories/electronics" className="header-category-link">Electronics</Link>
+            <Link to="/categories/gadgets" className="header-category-link">Gadgets</Link>
+            <Link to="/categories/phones" className="header-category-link">Phones</Link>
+            <Link to="/categories/books" className="header-category-link">Books</Link>
+            <Link to="/categories/fashion" className="header-category-link">Fashion</Link>
+          </div>
         </div>
 
         {/* Navigation Action Links */}
@@ -112,6 +119,9 @@ const logoStyles: React.CSSProperties = {
 const searchContainerStyles: React.CSSProperties = {
   flex: 1,
   maxWidth: '500px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
 };
 
 const navStyles: React.CSSProperties = {
@@ -210,5 +220,14 @@ const logoImageStyles: React.CSSProperties = {
   width: 'auto',
   objectFit: 'contain',
   display: 'block',
+};
+
+const categoryLinksStyles: React.CSSProperties = {
+  display: 'flex',
+  gap: 'var(--space-3)',
+  fontSize: '11px',
+  color: 'var(--color-text-muted)',
+  paddingLeft: '14px',
+  flexWrap: 'wrap',
 };
 

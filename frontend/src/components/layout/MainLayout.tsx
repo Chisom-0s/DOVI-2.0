@@ -5,7 +5,7 @@ import Footer from './Footer';
 
 export default function MainLayout() {
   const location = useLocation();
-  const isHomePage = location.pathname === '/';
+  const hideFooter = location.pathname === '/' || location.pathname === '/products';
 
   return (
     <div style={layoutWrapperStyles}>
@@ -41,7 +41,7 @@ export default function MainLayout() {
       </nav>
 
       {/* Universal Footer */}
-      {!isHomePage && <Footer />}
+      {!hideFooter && <Footer />}
     </div>
   );
 }

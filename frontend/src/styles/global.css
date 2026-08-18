@@ -671,4 +671,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Header Category Links */
+.header-category-link {
+  text-decoration: none;
+  color: var(--color-text-muted);
+  font-weight: var(--font-medium);
+  transition: color var(--transition-fast);
+}
+.header-category-link:hover {
+  color: var(--color-primary) !important;
+}
+
+
 
