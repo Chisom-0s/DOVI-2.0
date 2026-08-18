@@ -682,5 +682,53 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-primary) !important;
 }
 
+/* Cart Layout Grid */
+.cart-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+@media (min-width: 1024px) {
+  .cart-layout-grid {
+    grid-template-columns: 1fr 360px;
+  }
+}
+
+/* Checkout Steps Layout */
+.checkout-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+@media (min-width: 1024px) {
+  .checkout-layout-grid {
+    grid-template-columns: 1fr 380px;
+  }
+}
+
+/* Order Detail Layout */
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+@media (min-width: 1024px) {
+  .order-detail-grid {
+    grid-template-columns: 1fr 340px;
+  }
+}
+
+/* Status Badge Colors */
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+
 
 

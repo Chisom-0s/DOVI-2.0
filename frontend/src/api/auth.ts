@@ -104,4 +104,24 @@ export const authApi = {
       throw normalizeApiError(err);
     }
   },
+
+  addAddress: async (payload: {
+    label: string;
+    full_name: string;
+    phone: string;
+    address_line_1: string;
+    address_line_2?: string;
+    city: string;
+    state: string;
+    country: string;
+    postal_code?: string;
+    is_default?: boolean;
+  }) => {
+    try {
+      const { data } = await apiClient.post('/api/v1/users/me/addresses/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
 };

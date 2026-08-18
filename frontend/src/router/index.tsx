@@ -17,8 +17,20 @@ import SearchResultsPage from '@/pages/Products/SearchResultsPage';
 import AuthorsPage from '@/pages/Authors/AuthorsPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
 
+// Phase 4 — Cart, Checkout, Orders, Payments, Refunds
+import CartPage from '@/pages/Cart/CartPage';
+import CheckoutPage from '@/pages/Checkout/CheckoutPage';
+import CheckoutSessionPage from '@/pages/Checkout/CheckoutSessionPage';
+import PaymentSuccessPage from '@/pages/Payment/PaymentSuccessPage';
+import PaymentFailedPage from '@/pages/Payment/PaymentFailedPage';
+import OrderConfirmationPage from '@/pages/Orders/OrderConfirmationPage';
+import OrderHistoryPage from '@/pages/Orders/OrderHistoryPage';
+import OrderDetailPage from '@/pages/Orders/OrderDetailPage';
+import RefundRequestPage from '@/pages/Refunds/RefundRequestPage';
+import RefundDetailPage from '@/pages/Refunds/RefundDetailPage';
+
 // ============================================================
-// Placeholder component — used for pages not yet built (Phase 2+)
+// Placeholder component — used for pages not yet built (Phase 5+)
 // ============================================================
 function Placeholder({ name }: { name: string }) {
   return (
@@ -57,12 +69,12 @@ const router = createBrowserRouter([
       { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
       { path: 'authors', element: <AuthorsPage /> },
 
-      // ---- Cart & Checkout (Phase 4) ----
+      // ---- Cart & Checkout (Phase 4 — LIVE) ----
       {
         path: 'cart',
         element: (
           <AuthGuard>
-            <Placeholder name="Cart" />
+            <CartPage />
           </AuthGuard>
         ),
       },
@@ -70,7 +82,7 @@ const router = createBrowserRouter([
         path: 'checkout',
         element: (
           <AuthGuard>
-            <Placeholder name="Checkout" />
+            <CheckoutPage />
           </AuthGuard>
         ),
       },
@@ -78,17 +90,17 @@ const router = createBrowserRouter([
         path: 'checkout/:id',
         element: (
           <AuthGuard>
-            <Placeholder name="Checkout Session" />
+            <CheckoutSessionPage />
           </AuthGuard>
         ),
       },
 
-      // ---- Order & Payment results (Phase 4) ----
+      // ---- Order & Payment results (Phase 4 — LIVE) ----
       {
         path: 'orders/:ref',
         element: (
           <AuthGuard>
-            <Placeholder name="Order Confirmation" />
+            <OrderConfirmationPage />
           </AuthGuard>
         ),
       },
@@ -96,7 +108,7 @@ const router = createBrowserRouter([
         path: 'payment/success',
         element: (
           <AuthGuard>
-            <Placeholder name="Payment Success" />
+            <PaymentSuccessPage />
           </AuthGuard>
         ),
       },
@@ -104,7 +116,7 @@ const router = createBrowserRouter([
         path: 'payment/failed',
         element: (
           <AuthGuard>
-            <Placeholder name="Payment Failed" />
+            <PaymentFailedPage />
           </AuthGuard>
         ),
       },
@@ -130,7 +142,7 @@ const router = createBrowserRouter([
         path: 'dashboard/orders',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="My Orders" />
+            <OrderHistoryPage />
           </RoleGuard>
         ),
       },
@@ -138,7 +150,7 @@ const router = createBrowserRouter([
         path: 'dashboard/orders/:ref',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="Order Detail" />
+            <OrderDetailPage />
           </RoleGuard>
         ),
       },
@@ -178,7 +190,15 @@ const router = createBrowserRouter([
         path: 'dashboard/refunds',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="Refund Requests" />
+            <RefundRequestPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'dashboard/refunds/:id',
+        element: (
+          <RoleGuard role="BUYER">
+            <RefundDetailPage />
           </RoleGuard>
         ),
       },
