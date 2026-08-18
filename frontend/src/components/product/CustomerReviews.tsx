@@ -62,22 +62,20 @@ export default function CustomerReviews({
     setReviewCount(prev => prev + 1);
   };
 
-  // Mock breakdowns tailored around averageRating to guarantee gorgeous aggregates display
+  // Dynamically calculate rating breakdown percentages based on actual fetched reviews
   const getRatingBreakdown = () => {
     const breakdown = [0, 0, 0, 0, 0]; // Index 0 represents 1 star, Index 4 represents 5 stars
-    if (reviewCount === 0) return breakdown;
+    if (reviews.length === 0) return breakdown;
 
-    // Distribute weights dynamically based on averageRating
-    const rounded = Math.round(averageRating);
-    if (rounded === 5) {
-      return [3, 2, 5, 15, 75];
-    } else if (rounded === 4) {
-      return [5, 5, 10, 60, 20];
-    } else if (rounded === 3) {
-      return [10, 15, 50, 15, 10];
-    } else {
-      return [40, 30, 20, 5, 5];
-    }
+    const counts = [0, 0, 0, 0, 0];
+    reviews.forEach(r => {
+      const star = r.product_rating;
+      if (star >= 1 && star <= 5) {
+        counts[star - 1] += 1;
+      }
+    });
+
+    return counts.map(count => Math.round((count / reviews.length) * 100));
   };
 
   const breakdownPercentages = getRatingBreakdown();

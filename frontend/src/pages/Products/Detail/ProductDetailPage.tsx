@@ -56,49 +56,9 @@ export default function ProductDetailPage() {
         }
       } catch (err) {
         console.error('Failed to load product detail:', err);
-        // Fallback to beautiful mock product to enable visual verification in offline development
-        const mockProduct: Product = {
-          id: id || 'mock-id',
-          name: 'Dovi Premium Smart Wing Gadget',
-          price: '45000.00',
-          sku: 'DOVI-WING-5G',
-          stock_quantity: 12,
-          status: 'ACTIVE',
-          description: 'Experience the cutting edge of bird-inspired technology with the Dovi Premium Smart Wing.\n\nFeaturing high-altitude stable GPS mapping, silent glide motor integration, and direct media transfer, this gadget is the ideal addition to your modern hardware setup.\n\nCrafted from lightweight aerospace carbon fiber and styled to blend with clean modern design systems.',
-          vendor: {
-            id: 'vendor-1',
-            name: 'Dovi Official Hub',
-            logo_url: '/logo.jpg?v=2',
-            rating: 4.9,
-            review_count: 124,
-            location: 'Lagos, Nigeria'
-          },
-          category: {
-            id: 'cat-1',
-            name: 'Gadgets',
-            slug: 'gadgets',
-            icon_url: null
-          },
-          images: [
-            { id: 'img-1', url: '/logo.jpg?v=2', alt_text: 'Dovi Orange Wing', is_primary: true, display_order: 1 },
-            { id: 'img-2', url: '/logo.jpg?v=2', alt_text: 'Dovi Green Wing details', is_primary: false, display_order: 2 }
-          ],
-          variants: [
-            { id: 'var-1', sku: 'DOVI-WING-ORANGE', name: 'Orange Wing Variant', price: '45000.00', stock_quantity: 8, attributes: { Color: 'Orange', Size: 'Standard' }, image_url: '/logo.jpg?v=2' },
-            { id: 'var-2', sku: 'DOVI-WING-GREEN', name: 'Green Wing Variant', price: '48000.00', stock_quantity: 4, attributes: { Color: 'Green', Size: 'Standard' }, image_url: '/logo.jpg?v=2' }
-          ],
-          average_rating: 4.8,
-          review_count: 3,
-          related_products: [],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setProduct(mockProduct);
-        setQuantity(1);
-        if (mockProduct.variants && mockProduct.variants.length > 0) {
-          setSelectedVariant(mockProduct.variants[0]);
-        }
-        toast.success('Loaded offline mock demo product for visual verification.');
+        setProduct(null);
+        setSelectedVariant(null);
+        toast.error('Product not found or offline.');
       } finally {
         setIsLoading(false);
         setIsLoadingRelated(false);
