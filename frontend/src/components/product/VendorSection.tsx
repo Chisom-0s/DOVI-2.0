@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import type { VendorSummary } from '@/types';
 
 interface VendorSectionProps {
@@ -11,10 +10,6 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
 
   // Premium fallback logo if vendor has no custom logo
   const fallbackLogo = '/logo.jpg?v=2';
-
-  const handleChatClick = () => {
-    toast.success('Vendor Live Chat is coming in Phase 5!');
-  };
 
   return (
     <div style={sectionWrapperStyles}>
@@ -52,9 +47,6 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
 
         {/* Action Buttons */}
         <div style={actionsStyles}>
-          <button onClick={handleChatClick} style={chatBtnStyles}>
-            💬 Chat with Vendor
-          </button>
           <Link to={`/vendors/${vendor.id}`} style={visitBtnStyles}>
             🏪 Visit Store
           </Link>
@@ -143,20 +135,6 @@ const actionsStyles: React.CSSProperties = {
   display: 'flex',
   gap: 'var(--space-2)',
   flexWrap: 'wrap',
-};
-
-const chatBtnStyles: React.CSSProperties = {
-  flex: '1',
-  padding: '8px 16px',
-  borderRadius: 'var(--radius-md)',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-semibold)',
-  backgroundColor: '#ffffff',
-  color: 'var(--color-text)',
-  border: '1px solid var(--color-border)',
-  cursor: 'pointer',
-  transition: 'all var(--transition-fast)',
-  minWidth: '140px',
 };
 
 const visitBtnStyles: React.CSSProperties = {
