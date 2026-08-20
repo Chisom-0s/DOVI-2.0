@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
@@ -8,6 +8,8 @@ import type { Notification } from '@/types';
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHomepage = location.pathname === '/';
 
   // Notification States
   const [unreadCount, setUnreadCount] = useState(0);
@@ -99,9 +101,11 @@ export default function Header() {
     <header className="site-header" style={headerStyles}>
       <div className="container site-header__container">
         {/* Brand Logo (Row 1, Col 1 on mobile) */}
-        <Link to="/" style={logoStyles} className="site-header__logo">
-          <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
-        </Link>
+        {!isHomepage && (
+          <Link to="/" style={logoStyles} className="site-header__logo">
+            <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
+          </Link>
+        )}
 
         {/* Header Actions (Desktop only, hidden on mobile) */}
         <div style={actionsContainerStyles} className="site-header__actions hide-mobile">
@@ -236,7 +240,13 @@ export default function Header() {
         </div>
 
         {/* Search Bar & Categories (Row 2 on mobile) */}
-        <div style={searchContainerStyles} className="site-header__search-container">
+        <div 
+          style={{
+            ...searchContainerStyles,
+            maxWidth: isHomepage ? '900px' : undefined,
+          }} 
+          className="site-header__search-container"
+        >
           <SearchBar />
           <div style={categoryLinksStyles} className="no-scrollbar">
             {/* Nav links for mobile & desktop views */}
