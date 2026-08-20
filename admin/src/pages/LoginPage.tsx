@@ -37,7 +37,9 @@ export default function LoginPage() {
     <div style={containerStyles}>
       <div style={cardStyles}>
         <div style={headerStyles}>
-          <span style={logoIconStyles}>🎯</span>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            <img src="/logo.jpg" alt="Dovi Logo" style={{ height: '48px', objectFit: 'contain' }} />
+          </div>
           <h1 style={titleStyles}>DOVI Admin</h1>
           <p style={subtitleStyles}>Administrative Control Panel</p>
         </div>
@@ -117,13 +119,6 @@ const headerStyles: React.CSSProperties = {
   textAlign: 'center',
   marginBottom: '24px',
 };
-
-const logoIconStyles: React.CSSProperties = {
-  fontSize: '48px',
-  display: 'block',
-  marginBottom: '8px',
-};
-
 const titleStyles: React.CSSProperties = {
   fontSize: '24px',
   fontWeight: 800,

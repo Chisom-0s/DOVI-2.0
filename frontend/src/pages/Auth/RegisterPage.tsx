@@ -84,6 +84,9 @@ export default function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <img src="/logo.jpg?v=2" alt="Dovi Logo" style={{ height: '48px', objectFit: 'contain' }} />
+        </div>
         <div className="auth-card__header">
           <h1 className="auth-card__title">Create your account</h1>
           <p className="auth-card__subtitle">Join Dovi and start shopping.</p>
