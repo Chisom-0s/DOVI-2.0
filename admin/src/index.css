@@ -1,0 +1,82 @@
+:root {
+  --color-primary: #ff7a00;
+  --color-primary-hover: #e06b00;
+  --color-text: #1f2937;
+  --color-text-secondary: #4b5563;
+  --color-bg-light: #f3f4f6;
+  --color-border: #e5e7eb;
+
+  --sans-font: Inter, system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--sans-font);
+  color: var(--color-text);
+  background-color: var(--color-bg-light);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Custom layout rules for mobile/responsive sidebar */
+@media (max-width: 768px) {
+  .sidebar-aside {
+    display: none !important;
+  }
+  .mobile-nav-open {
+    display: flex !important;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    width: 260px;
+    height: calc(100vh - 64px);
+    z-index: 99;
+    box-shadow: 10px 0 25px rgba(0,0,0,0.1);
+  }
+  header button {
+    display: block !important;
+  }
+}

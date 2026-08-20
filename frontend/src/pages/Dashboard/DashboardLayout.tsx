@@ -12,6 +12,7 @@ export default function DashboardLayout() {
   const navItems: NavItem[] = [
     { label: 'Overview', path: '/dashboard', icon: '📊' },
     { label: 'Orders', path: '/dashboard/orders', icon: '📦' },
+    { label: 'Save2Own', path: '/dashboard/save2own', icon: '🎯' },
     { label: 'Profile', path: '/dashboard/profile', icon: '👤' },
     { label: 'Saved Addresses', path: '/dashboard/addresses', icon: '📍' },
     { label: 'Wishlist', path: '/dashboard/wishlist', icon: '❤️' },

@@ -618,3 +618,22 @@ export interface CheckoutSession {
   total: string;
   expires_at: string;
 }
+
+// ----------------------------------------------------------
+// ADMIN AUDIT LOG
+// ----------------------------------------------------------
+export interface AuditLog {
+  id: string;
+  actor: {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+  };
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  ip_address: string | null;
+  result: string;
+  created_at: string;
+}

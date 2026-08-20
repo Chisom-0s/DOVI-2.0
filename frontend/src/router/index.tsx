@@ -41,6 +41,16 @@ import NotificationsPage from '@/pages/Dashboard/NotificationsPage';
 import AccountSettingsPage from '@/pages/Dashboard/AccountSettingsPage';
 import SecuritySettingsPage from '@/pages/Dashboard/SecuritySettingsPage';
 
+// Phase 6 — Save2Own
+import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
+import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
+import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
+
+// Phase 10 — Dovi Auto
+import AutoLandingPage from '@/pages/Auto/AutoLandingPage';
+import CarListingsPage from '@/pages/Auto/CarListingsPage';
+import CarDetailPage from '@/pages/Auto/CarDetailPage';
+
 // ============================================================
 // Placeholder component — used for pages not yet built (Phase 6+)
 // ============================================================
@@ -150,7 +160,7 @@ const router = createBrowserRouter([
           { path: 'orders/:ref', element: <OrderDetailPage /> },
           { path: 'wishlist', element: <WishlistPage /> },
           { path: 'recently-viewed', element: <RecentlyViewedPage /> },
-          { path: 'save2own', element: <Placeholder name="Save2Own Goals" /> },
+          { path: 'save2own', element: <Save2OwnGoalsPage /> },
           { path: 'reviews', element: <MyReviewsPage /> },
           { path: 'refunds', element: <RefundRequestPage /> },
           { path: 'refunds/:id', element: <RefundDetailPage /> },
@@ -163,20 +173,27 @@ const router = createBrowserRouter([
       },
 
       // ---- Save2Own (Phase 6) ----
-      { path: 'save2own', element: <Placeholder name="Save2Own" /> },
+      {
+        path: 'save2own',
+        element: (
+          <RoleGuard role="BUYER">
+            <Save2OwnCreateGoalPage />
+          </RoleGuard>
+        ),
+      },
       {
         path: 'save2own/goals/:id',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="Save2Own Goal Detail" />
+            <Save2OwnGoalDetailPage />
           </RoleGuard>
         ),
       },
 
       // ---- Dovi Auto (Phase 10, 11, 12) ----
-      { path: 'auto', element: <Placeholder name="Dovi Auto" /> },
-      { path: 'auto/cars', element: <Placeholder name="Cars" /> },
-      { path: 'auto/cars/:id', element: <Placeholder name="Car Listing Detail" /> },
+      { path: 'auto', element: <AutoLandingPage /> },
+      { path: 'auto/cars', element: <CarListingsPage /> },
+      { path: 'auto/cars/:id', element: <CarDetailPage /> },
       { path: 'auto/parts', element: <Placeholder name="Car Parts" /> },
       { path: 'auto/parts/:id', element: <Placeholder name="Part Detail" /> },
       { path: 'auto/accessories', element: <Placeholder name="Accessories" /> },
