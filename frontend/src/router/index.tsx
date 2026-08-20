@@ -46,10 +46,14 @@ import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 
-// Phase 10 — Dovi Auto
+// Phase 10 & 11 — Dovi Auto
 import AutoLandingPage from '@/pages/Auto/AutoLandingPage';
 import CarListingsPage from '@/pages/Auto/CarListingsPage';
 import CarDetailPage from '@/pages/Auto/CarDetailPage';
+import PartListingsPage from '@/pages/Auto/PartListingsPage';
+import PartDetailPage from '@/pages/Auto/PartDetailPage';
+import AccessoryListingsPage from '@/pages/Auto/AccessoryListingsPage';
+import AccessoryDetailPage from '@/pages/Auto/AccessoryDetailPage';
 
 // ============================================================
 // Placeholder component — used for pages not yet built (Phase 6+)
@@ -194,10 +198,10 @@ const router = createBrowserRouter([
       { path: 'auto', element: <AutoLandingPage /> },
       { path: 'auto/cars', element: <CarListingsPage /> },
       { path: 'auto/cars/:id', element: <CarDetailPage /> },
-      { path: 'auto/parts', element: <Placeholder name="Car Parts" /> },
-      { path: 'auto/parts/:id', element: <Placeholder name="Part Detail" /> },
-      { path: 'auto/accessories', element: <Placeholder name="Accessories" /> },
-      { path: 'auto/accessories/:id', element: <Placeholder name="Accessory Detail" /> },
+      { path: 'auto/parts', element: <PartListingsPage /> },
+      { path: 'auto/parts/:id', element: <PartDetailPage /> },
+      { path: 'auto/accessories', element: <AccessoryListingsPage /> },
+      { path: 'auto/accessories/:id', element: <AccessoryDetailPage /> },
       { path: 'auto/rentals', element: <Placeholder name="Rentals" /> },
       { path: 'auto/rentals/:id', element: <Placeholder name="Rental Detail" /> },
       {
