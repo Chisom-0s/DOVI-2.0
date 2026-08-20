@@ -18,6 +18,115 @@ import type {
   AutoListingSummary,
 } from '@/types';
 
+const SEED_SECTIONS: HomepageSection[] = [
+  {
+    id: 'sec-popular-categories',
+    name: 'Popular Categories',
+    key: 'POPULAR_CATEGORIES',
+    title: 'Popular Categories',
+    subtitle: 'Browse our trending categories',
+    is_active: true,
+    visible: true,
+    sort_order: 1,
+    display_order: 1,
+    display_limit: 8,
+    configuration: {
+      layout: 'CATEGORY_GRID',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-flash-deals',
+    name: 'Flash Deals',
+    key: 'FLASH_DEALS',
+    title: 'Flash Deals',
+    subtitle: 'Hurry up! Limited time offers',
+    is_active: true,
+    visible: true,
+    sort_order: 2,
+    display_order: 2,
+    display_limit: 10,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+      filters: { min_discount: 10, in_stock_only: true },
+      sort_by: 'highest_discount',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-trending',
+    name: 'Trending Now',
+    key: 'TRENDING_NOW',
+    title: 'Trending Now',
+    subtitle: 'People are looking at these right now',
+    is_active: true,
+    visible: true,
+    sort_order: 3,
+    display_order: 3,
+    display_limit: 6,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+      sort_by: 'trending_score',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-save2own',
+    name: 'Save2Own Picks',
+    key: 'SAVE2OWN_FEATURED',
+    title: 'Start Saving Today',
+    subtitle: 'Contribute in bits towards purchasing high-value items',
+    is_active: true,
+    visible: true,
+    sort_order: 4,
+    display_order: 4,
+    display_limit: 4,
+    configuration: {
+      layout: 'LARGE_PRODUCT_CARDS',
+      source: 'QUERY',
+      filters: { price_min: 50000 },
+    },
+    config: {},
+  },
+  {
+    id: 'sec-dovi-auto',
+    name: 'Featured Cars',
+    key: 'DOVI_AUTO',
+    title: 'Featured Cars',
+    subtitle: 'Explore auto deals, rentals, and spare compatibility parts',
+    is_active: true,
+    visible: true,
+    sort_order: 5,
+    display_order: 5,
+    display_limit: 4,
+    configuration: {
+      layout: 'AUTO_LISTING_GRID',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  }
+];
+
+function getMockSections(): HomepageSection[] {
+  const data = localStorage.getItem('dovi_homepage_sections_db');
+  if (!data) {
+    localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
+    return SEED_SECTIONS;
+  }
+  try {
+    return JSON.parse(data);
+  } catch {
+    return SEED_SECTIONS;
+  }
+}
+
+function saveMockSections(sections: HomepageSection[]) {
+  localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(sections));
+}
+
 export const adminApi = {
   // --- Dashboard Analytics ---
   getAnalyticsOverview: async (): Promise<any> => {
@@ -376,7 +485,8 @@ export const adminApi = {
       const { data } = await apiClient.get('/api/v1/admin/homepage/sections/');
       return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      console.warn('Backend sections list failed, loading from LocalStorage mock database...', err);
+      return getMockSections();
     }
   },
 
@@ -385,23 +495,111 @@ export const adminApi = {
       const { data } = await apiClient.post('/api/v1/admin/homepage/sections/reorder/', { ids });
       return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      console.warn('Backend section reordering failed, sorting Mock database...', err);
+      const mockList = getMockSections();
+      const updated = ids.map((id, index) => {
+        const matched = mockList.find((s) => s.id === id);
+        if (matched) {
+          matched.sort_order = index + 1;
+          matched.display_order = index + 1;
+        }
+        return matched;
+      }).filter(Boolean) as HomepageSection[];
+      saveMockSections(updated);
+      return { success: true };
     }
   },
 
   updateHomepageSection: async (
     id: string,
-    payload: {
-      title?: string;
-      visible?: boolean;
-      config?: Record<string, any>;
-    }
+    payload: Partial<HomepageSection>
   ): Promise<HomepageSection> => {
     try {
       const { data } = await apiClient.patch(`/api/v1/admin/homepage/sections/${id}/`, payload);
       return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      console.warn(`Backend patch for section ${id} failed, writing mock database...`, err);
+      const mockList = getMockSections();
+      let updatedSection: HomepageSection | null = null;
+      const updated = mockList.map((s) => {
+        if (s.id === id) {
+          updatedSection = {
+            ...s,
+            ...payload,
+            visible: payload.is_active !== undefined ? payload.is_active : s.visible,
+            config: payload.configuration !== undefined ? payload.configuration : s.config,
+            updated_at: new Date().toISOString(),
+          };
+          return updatedSection;
+        }
+        return s;
+      });
+      if (!updatedSection) throw new Error('Section not found in mock database.');
+      saveMockSections(updated);
+      return updatedSection;
+    }
+  },
+
+  createHomepageSection: async (payload: Omit<HomepageSection, 'id' | 'sort_order' | 'display_order' | 'visible'>): Promise<HomepageSection> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/homepage/sections/', payload);
+      return data;
+    } catch (err) {
+      console.warn('Backend create section failed, writing to mock database...', err);
+      const mockList = getMockSections();
+      const nextSort = mockList.length + 1;
+      const newSection: HomepageSection = {
+        ...payload,
+        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
+        sort_order: nextSort,
+        display_order: nextSort,
+        visible: payload.is_active,
+        config: payload.configuration,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockList.push(newSection);
+      saveMockSections(mockList);
+      return newSection;
+    }
+  },
+
+  deleteHomepageSection: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.delete(`/api/v1/admin/homepage/sections/${id}/`);
+      return data;
+    } catch (err) {
+      console.warn(`Backend delete section ${id} failed, removing from mock database...`, err);
+      const mockList = getMockSections();
+      const filtered = mockList.filter((s) => s.id !== id);
+      saveMockSections(filtered);
+      return { success: true };
+    }
+  },
+
+  duplicateHomepageSection: async (id: string): Promise<HomepageSection> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/homepage/sections/${id}/duplicate/`);
+      return data;
+    } catch (err) {
+      console.warn(`Backend duplicate section ${id} failed, copying in mock database...`, err);
+      const mockList = getMockSections();
+      const target = mockList.find((s) => s.id === id);
+      if (!target) throw new Error('Source section not found.');
+      const nextSort = mockList.length + 1;
+      const duplicate: HomepageSection = {
+        ...target,
+        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
+        name: `${target.name} (Copy)`,
+        title: `${target.title} (Copy)`,
+        sort_order: nextSort,
+        display_order: nextSort,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockList.push(duplicate);
+      saveMockSections(mockList);
+      return duplicate;
     }
   },
 

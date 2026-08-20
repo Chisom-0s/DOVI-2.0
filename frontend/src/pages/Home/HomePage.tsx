@@ -1,72 +1,49 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
-import CategoryGrid from '@/components/home/CategoryGrid';
-import ProductRow from '@/components/product/ProductRow';
+import ProductCard from '@/components/product/ProductCard';
 import { homepageApi } from '@/api/homepage';
-import { productsApi } from '@/api/products';
 import type { HomepageSection, ProductSummary } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
+const DEFAULT_CATEGORIES = [
+  { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', icon: '📱' },
+  { id: 'cat-computers', name: 'Computers', slug: 'computers', icon: '💻' },
+  { id: 'cat-electronics', name: 'Electronics', slug: 'electronics', icon: '🔌' },
+  { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon: '🎮' },
+  { id: 'cat-auto-parts', name: 'Auto Parts', slug: 'auto-parts', icon: '⚙️' },
+  { id: 'cat-auto-acc', name: 'Auto Accessories', slug: 'auto-accessories', icon: '🚗' },
+];
+
+const DEFAULT_VENDORS = [
+  { id: 'vend-slot', name: 'SLOT Nigeria', rating: '4.8', location: 'Ikeja, Lagos' },
+  { id: 'vend-apple', name: 'iConnect Store', rating: '4.9', location: 'Lekki, Lagos' },
+  { id: 'vend-lubes', name: 'Dovi Auto Hub', rating: '4.7', location: 'Enugu, Nigeria' },
+];
+
 export default function HomePage() {
   const [sections, setSections] = useState<HomepageSection[]>([]);
-  const [sectionData, setSectionData] = useState<Record<string, ProductSummary[]>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch sections config and product data for sections
   useEffect(() => {
     const loadHomeData = async () => {
       try {
-        const sectionsConfig = await homepageApi.getSections();
-        const activeSections = sectionsConfig
-          .filter(s => s.visible)
-          .sort((a, b) => a.display_order - b.display_order);
+        setIsLoading(true);
+        const data = await homepageApi.getData();
+        const now = new Date();
+        const active = (data.sections || []).filter(section => {
+          // 1. Verify general activation status
+          if (!section.is_active) return false;
 
-        setSections(activeSections);
+          // 2. Schedule bounds validations
+          if (section.starts_at && new Date(section.starts_at) > now) return false;
+          if (section.ends_at && new Date(section.ends_at) < now) return false;
 
-        // Fetch product list data for all visible sections in parallel
-        const dataPromises = activeSections.map(async section => {
-          let products: ProductSummary[] = [];
-          try {
-            switch (section.key) {
-              case 'flash_deals':
-                products = await productsApi.flashDeals();
-                break;
-              case 'trending_now':
-                products = await productsApi.trending();
-                break;
-              case 'best_sellers':
-                products = await productsApi.bestSellers();
-                break;
-              case 'new_arrivals':
-                products = await productsApi.newArrivals();
-                break;
-              case 'top_rated':
-                products = await productsApi.topRated();
-                break;
-              case 'budget_deals':
-                products = await productsApi.budgetDeals();
-                break;
-              case 'featured_products':
-                products = await productsApi.featured();
-                break;
-              case 'marketplace_feed':
-                const feed = await productsApi.list({ page_size: 10 });
-                products = feed.results;
-                break;
-            }
-          } catch (err) {
-            console.warn(`Failed to load products for section: ${section.key}`, err);
-          }
-          return { key: section.key, products };
+          return true;
         });
 
-        const results = await Promise.all(dataPromises);
-        const mappedData: Record<string, ProductSummary[]> = {};
-        results.forEach(res => {
-          mappedData[res.key] = res.products;
-        });
-
-        setSectionData(mappedData);
+        // Ensure sorted by sort_order
+        setSections(active.sort((a, b) => a.sort_order - b.sort_order));
       } catch (err) {
         console.error('Failed to load homepage sections:', err);
       } finally {
@@ -77,65 +54,159 @@ export default function HomePage() {
     loadHomeData();
   }, []);
 
-  // Section component mapper
-  const renderSection = (section: HomepageSection) => {
-    const products = sectionData[section.key] ?? [];
+  // Registry parser mapping configuration layout rules dynamically to HTML blocks
+  const renderLayout = (section: HomepageSection) => {
+    const layout = section.configuration?.layout || 'PRODUCT_GRID';
+    const products: ProductSummary[] = section.products || [];
+    const categories = section.categories || DEFAULT_CATEGORIES;
+    const vendors = section.vendors || DEFAULT_VENDORS;
 
-    switch (section.key) {
-      case 'popular_categories':
-        return <CategoryGrid key={section.id} />;
-
-      case 'flash_deals':
-      case 'trending_now':
-      case 'best_sellers':
-      case 'new_arrivals':
-      case 'top_rated':
-      case 'budget_deals':
-      case 'featured_products':
-      case 'marketplace_feed':
+    switch (layout) {
+      case 'PRODUCT_GRID':
         return (
-          <ProductRow
-            key={section.id}
-            title={section.title}
-            products={products}
-            isLoading={isLoading}
-          />
+          <div style={gridStyles}>
+            {products.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
         );
 
-      case 'student_essentials':
+      case 'HORIZONTAL_CAROUSEL':
         return (
-          <section key={section.id} style={teaserCardStyles}>
-            <div style={teaserContentStyles}>
-              <span style={teaserBadgeStyles}>Student Hub</span>
-              <h2 style={teaserTitleStyles}>{section.title}</h2>
-              <p style={teaserDescStyles}>Back to school essentials at special discounted rates.</p>
-              <a href="/products?category=student" style={teaserLinkStyles}>Shop Essentials &rarr;</a>
-            </div>
-          </section>
+          <div style={carouselScrollStyles} className="hide-scrollbar">
+            {products.map(p => (
+              <div key={p.id} style={{ minWidth: '180px', flexShrink: 0 }}>
+                <ProductCard product={p} />
+              </div>
+            ))}
+          </div>
         );
 
-      case 'save2own':
+      case 'COMPACT_LIST':
         return (
-          <section key={section.id} style={teaserCardStyles}>
-            <div style={{ ...teaserContentStyles, borderLeftColor: 'var(--color-primary)' }}>
-              <span style={{ ...teaserBadgeStyles, backgroundColor: 'var(--color-primary)' }}>Save2Own</span>
-              <h2 style={teaserTitleStyles}>{section.title}</h2>
-              <p style={teaserDescStyles}>Contribute in bits towards purchasing high-value items without breaking the bank.</p>
-              <a href="/save2own" style={teaserLinkStyles}>Start Saving &rarr;</a>
-            </div>
-          </section>
+          <div style={listStyles}>
+            {products.map(p => (
+              <Link to={`/products/${p.id}`} key={p.id} style={listItemStyles}>
+                <img src={p.primary_image_url || ''} alt={p.name} style={listThumbStyles} />
+                <div style={{ flex: 1 }}>
+                  <div style={listItemNameStyles}>{p.name}</div>
+                  <div style={listItemPriceStyles}>
+                    ₦{parseFloat(p.price).toLocaleString()}
+                    {p.original_price && (
+                      <span style={listOriginalPriceStyles}>
+                        ₦{parseFloat(p.original_price).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         );
 
-      case 'dovi_auto':
+      case 'LARGE_PRODUCT_CARDS':
         return (
-          <section key={section.id} style={teaserCardStyles}>
-            <div style={{ ...teaserContentStyles, borderLeftColor: 'var(--color-success)' }}>
-              <span style={{ ...teaserBadgeStyles, backgroundColor: 'var(--color-success)' }}>Dovi Auto</span>
-              <h2 style={teaserTitleStyles}>{section.title}</h2>
-              <p style={teaserDescStyles}>Discover cars, compatibility parts, accessories, and bookings on auto rentals.</p>
-              <a href="/auto" style={teaserLinkStyles}>Go to Dovi Auto &rarr;</a>
+          <div style={largeGridStyles}>
+            {products.map(p => (
+              <Link to={`/products/${p.id}`} key={p.id} style={largeCardStyles}>
+                <div style={largeCardImageWrapperStyles}>
+                  <img src={p.primary_image_url || ''} alt={p.name} style={largeCardImageStyles} />
+                </div>
+                <div style={largeCardBodyStyles}>
+                  <div style={largeCardTitleStyles}>{p.name}</div>
+                  <div style={largeCardFooterStyles}>
+                    <span style={largeCardPriceStyles}>₦{parseFloat(p.price).toLocaleString()}</span>
+                    {p.discount_percentage !== undefined && p.discount_percentage > 0 && (
+                      <span style={largeCardDiscountStyles}>-{p.discount_percentage}% OFF</span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        );
+
+      case 'CATEGORY_GRID':
+      case 'CATEGORY_CIRCLES':
+        return (
+          <div style={categoriesGridStyles}>
+            {categories.map(c => (
+              <Link to={`/categories/${c.slug}`} key={c.id} style={categoryCircleStyles}>
+                <div style={categoryIconCircleStyles}>
+                  {c.icon || '📦'}
+                </div>
+                <span style={categoryNameStyles}>{c.name}</span>
+              </Link>
+            ))}
+          </div>
+        );
+
+      case 'CATEGORY_PILLS':
+        return (
+          <div style={carouselScrollStyles} className="hide-scrollbar">
+            {categories.map(c => (
+              <Link to={`/categories/${c.slug}`} key={c.id} style={pillStyles}>
+                <span>{c.icon || '📦'}</span>
+                <span>{c.name}</span>
+              </Link>
+            ))}
+          </div>
+        );
+
+      case 'BANNER':
+        return (
+          <div
+            style={{
+              ...bannerStyles,
+              backgroundColor: section.configuration?.background_color || 'rgba(255, 122, 0, 0.05)',
+            }}
+          >
+            <div style={bannerContentStyles}>
+              <h3 style={bannerTitleStyles}>{section.title}</h3>
+              {section.subtitle && <p style={bannerSubtitleStyles}>{section.subtitle}</p>}
+              {section.configuration?.cta_text && (
+                <a href={section.configuration.cta_url || '#'} style={bannerCtaStyles}>
+                  {section.configuration.cta_text}
+                </a>
+              )}
             </div>
-          </section>
+          </div>
+        );
+
+      case 'VENDOR_GRID':
+      case 'BRAND_GRID':
+        return (
+          <div style={vendorsGridStyles}>
+            {vendors.map(v => (
+              <Link to={`/vendors/${v.id}`} key={v.id} style={vendorCardStyles}>
+                <div style={vendorAvatarStyles}>
+                  {v.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={vendorNameStyles}>{v.name}</div>
+                <div style={vendorRatingStyles}>⭐ {v.rating} · {v.location}</div>
+              </Link>
+            ))}
+          </div>
+        );
+
+      case 'AUTO_LISTING_GRID':
+        return (
+          <div style={autoTeaserGridStyles}>
+            {products.map(p => (
+              <Link to={`/products/${p.id}`} key={p.id} style={autoTeaserCardStyles}>
+                <div style={autoTeaserImgWrapperStyles}>
+                  <img src={p.primary_image_url || ''} alt={p.name} style={autoTeaserImgStyles} />
+                  <span style={autoTeaserBadgeStyles}>
+                    ₦{parseFloat(p.price).toLocaleString()}
+                  </span>
+                </div>
+                <div style={autoTeaserBodyStyles}>
+                  <div style={autoTeaserTitleStyles}>{p.name}</div>
+                  <div style={autoTeaserCategoryStyles}>{p.category?.name || 'Auto'}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         );
 
       default:
@@ -158,11 +229,34 @@ export default function HomePage() {
             <p style={loaderTextStyles}>Loading marketplace sections...</p>
           </div>
         ) : sections.length > 0 ? (
-          sections.map(section => renderSection(section))
+          sections.map(section => (
+            <section key={section.id} style={sectionWrapperStyles}>
+              {/* Section Header */}
+              {section.configuration?.layout !== 'BANNER' && (
+                <div style={sectionHeaderStyles}>
+                  <div>
+                    <h2 style={sectionTitleStyles}>
+                      {section.icon && <span style={{ marginRight: '8px' }}>{section.icon}</span>}
+                      {section.title}
+                    </h2>
+                    {section.subtitle && <p style={sectionSubtitleStyles}>{section.subtitle}</p>}
+                  </div>
+                  {section.configuration?.cta_text && (
+                    <Link to={section.configuration.cta_url || '/products'} style={seeAllStyles}>
+                      {section.configuration.cta_text} &gt;
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {/* Dynamic Layout Parser */}
+              {renderLayout(section)}
+            </section>
+          ))
         ) : (
           <div style={emptyStyles}>
-            <h3>Welcome to Dovi</h3>
-            <p>Connection with backend server is offline.</p>
+            <h3>No Sections Active</h3>
+            <p>Go to Admin Dashboard homepage manager to configure section layouts.</p>
           </div>
         )}
       </div>
@@ -189,7 +283,363 @@ const topBannerWrapperStyles: React.CSSProperties = {
 const sectionsListStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-6)',
+  gap: 'var(--space-8)',
+};
+
+const sectionWrapperStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-4)',
+  width: '100%',
+};
+
+const sectionHeaderStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '4px',
+};
+
+const sectionTitleStyles: React.CSSProperties = {
+  fontSize: 'var(--text-lg)',
+  fontWeight: 'var(--font-bold)',
+  color: 'var(--color-text)',
+  margin: 0,
+};
+
+const sectionSubtitleStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  color: 'var(--color-text-muted)',
+  margin: '4px 0 0 0',
+};
+
+const seeAllStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  color: 'var(--color-primary)',
+  textDecoration: 'none',
+};
+
+const gridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+  gap: '16px',
+};
+
+const carouselScrollStyles: React.CSSProperties = {
+  display: 'flex',
+  gap: '16px',
+  overflowX: 'auto',
+  paddingBottom: '8px',
+  width: '100%',
+};
+
+const listStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px',
+};
+
+const listItemStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '16px',
+  textDecoration: 'none',
+  color: 'inherit',
+  padding: '12px',
+  border: '1px solid var(--color-border)',
+  borderRadius: '8px',
+  backgroundColor: '#ffffff',
+  transition: 'border-color 150ms ease',
+};
+
+const listThumbStyles: React.CSSProperties = {
+  width: '48px',
+  height: '48px',
+  objectFit: 'contain',
+  borderRadius: '4px',
+  backgroundColor: '#f9fafb',
+};
+
+const listItemNameStyles: React.CSSProperties = {
+  fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-bold)',
+  color: 'var(--color-text)',
+};
+
+const listItemPriceStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  color: 'var(--color-primary)',
+  marginTop: '4px',
+  display: 'flex',
+  gap: '8px',
+  alignItems: 'center',
+};
+
+const listOriginalPriceStyles: React.CSSProperties = {
+  textDecoration: 'line-through',
+  color: 'var(--color-text-muted)',
+  fontWeight: 'var(--font-normal)',
+};
+
+const largeGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '16px',
+};
+
+const largeCardStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  textDecoration: 'none',
+  color: 'inherit',
+  border: '1px solid var(--color-border)',
+  borderRadius: '12px',
+  overflow: 'hidden',
+  backgroundColor: '#ffffff',
+};
+
+const largeCardImageWrapperStyles: React.CSSProperties = {
+  height: '180px',
+  backgroundColor: '#f9fafb',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '16px',
+};
+
+const largeCardImageStyles: React.CSSProperties = {
+  maxHeight: '100%',
+  maxWidth: '100%',
+  objectFit: 'contain',
+};
+
+const largeCardBodyStyles: React.CSSProperties = {
+  padding: '16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+};
+
+const largeCardTitleStyles: React.CSSProperties = {
+  fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-bold)',
+  height: '40px',
+  overflow: 'hidden',
+  lineHeight: '1.4',
+};
+
+const largeCardFooterStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: '4px',
+};
+
+const largeCardPriceStyles: React.CSSProperties = {
+  color: 'var(--color-primary)',
+  fontWeight: 'var(--font-bold)',
+  fontSize: 'var(--text-sm)',
+};
+
+const largeCardDiscountStyles: React.CSSProperties = {
+  fontSize: '9px',
+  color: '#ffffff',
+  backgroundColor: 'var(--color-primary)',
+  padding: '2px 6px',
+  borderRadius: '4px',
+  fontWeight: 'var(--font-bold)',
+};
+
+const categoriesGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: '16px',
+};
+
+const categoryCircleStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px',
+  textDecoration: 'none',
+  color: 'inherit',
+};
+
+const categoryIconCircleStyles: React.CSSProperties = {
+  width: '64px',
+  height: '64px',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(255, 122, 0, 0.06)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '24px',
+  transition: 'transform 150ms ease',
+};
+
+const categoryNameStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  textAlign: 'center',
+};
+
+const pillStyles: React.CSSProperties = {
+  padding: '8px 16px',
+  borderRadius: '99px',
+  border: '1px solid var(--color-border)',
+  backgroundColor: '#ffffff',
+  textDecoration: 'none',
+  color: 'inherit',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  whiteSpace: 'nowrap',
+};
+
+const bannerStyles: React.CSSProperties = {
+  display: 'flex',
+  borderRadius: '12px',
+  padding: '24px',
+  border: '1px solid var(--color-border)',
+  position: 'relative',
+  overflow: 'hidden',
+};
+
+const bannerContentStyles: React.CSSProperties = {
+  flex: 1,
+  zIndex: 2,
+};
+
+const bannerTitleStyles: React.CSSProperties = {
+  fontSize: '20px',
+  fontWeight: 'var(--font-bold)',
+  color: 'var(--color-text)',
+  margin: 0,
+};
+
+const bannerSubtitleStyles: React.CSSProperties = {
+  fontSize: 'var(--text-sm)',
+  color: 'var(--color-text-muted)',
+  marginTop: '8px',
+  marginRepeat: 0,
+};
+
+const bannerCtaStyles: React.CSSProperties = {
+  display: 'inline-block',
+  marginTop: '16px',
+  backgroundColor: 'var(--color-primary)',
+  color: '#ffffff',
+  padding: '8px 18px',
+  borderRadius: '6px',
+  textDecoration: 'none',
+  fontWeight: 'var(--font-bold)',
+  fontSize: 'var(--text-xs)',
+};
+
+const vendorsGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '16px',
+};
+
+const vendorCardStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '16px',
+  border: '1px solid var(--color-border)',
+  borderRadius: '12px',
+  textDecoration: 'none',
+  color: 'inherit',
+  backgroundColor: '#f9fafb',
+};
+
+const vendorAvatarStyles: React.CSSProperties = {
+  width: '48px',
+  height: '48px',
+  borderRadius: '50%',
+  backgroundColor: 'var(--color-primary)',
+  color: '#ffffff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '20px',
+  fontWeight: 'var(--font-bold)',
+};
+
+const vendorNameStyles: React.CSSProperties = {
+  fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-bold)',
+  textAlign: 'center',
+};
+
+const vendorRatingStyles: React.CSSProperties = {
+  fontSize: '10px',
+  color: 'var(--color-text-muted)',
+};
+
+const autoTeaserGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+  gap: '16px',
+};
+
+const autoTeaserCardStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  textDecoration: 'none',
+  color: 'inherit',
+  border: '1px solid var(--color-border)',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  backgroundColor: '#ffffff',
+};
+
+const autoTeaserImgWrapperStyles: React.CSSProperties = {
+  height: '110px',
+  backgroundColor: '#f3f4f6',
+  position: 'relative',
+};
+
+const autoTeaserImgStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+};
+
+const autoTeaserBadgeStyles: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '6px',
+  left: '6px',
+  backgroundColor: 'rgba(0,0,0,0.65)',
+  color: '#ffffff',
+  fontSize: '10px',
+  padding: '2px 6px',
+  borderRadius: '4px',
+  fontWeight: 'var(--font-bold)',
+};
+
+const autoTeaserBodyStyles: React.CSSProperties = {
+  padding: '8px',
+};
+
+const autoTeaserTitleStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-bold)',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
+const autoTeaserCategoryStyles: React.CSSProperties = {
+  fontSize: '10px',
+  color: 'var(--color-text-muted)',
+  marginTop: '4px',
 };
 
 const loaderStyles: React.CSSProperties = {
@@ -212,50 +662,4 @@ const emptyStyles: React.CSSProperties = {
   border: '1px dashed var(--color-border)',
   borderRadius: 'var(--radius-md)',
   color: 'var(--color-text-muted)',
-};
-
-const teaserCardStyles: React.CSSProperties = {
-  backgroundColor: 'var(--color-bg-subtle)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  overflow: 'hidden',
-};
-
-const teaserContentStyles: React.CSSProperties = {
-  padding: 'var(--space-6)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-2)',
-  borderLeft: '4px solid var(--color-primary)',
-};
-
-const teaserBadgeStyles: React.CSSProperties = {
-  display: 'inline-block',
-  alignSelf: 'flex-start',
-  fontSize: '10px',
-  fontWeight: 'var(--font-bold)',
-  backgroundColor: 'var(--color-primary)',
-  color: 'white',
-  padding: '2px 8px',
-  borderRadius: 'var(--radius-full)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-};
-
-const teaserTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-md)',
-  fontWeight: 'var(--font-bold)',
-};
-
-const teaserDescStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--color-text-muted)',
-};
-
-const teaserLinkStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-semibold)',
-  color: 'var(--color-primary)',
-  textDecoration: 'none',
-  marginTop: 'var(--space-2)',
 };

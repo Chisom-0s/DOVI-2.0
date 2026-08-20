@@ -87,6 +87,7 @@ export interface VendorSummary {
   rating: number;
   review_count: number;
   location: string | null;
+  slug?: string;
 }
 
 export interface Vendor extends VendorSummary {
@@ -169,6 +170,17 @@ export interface ProductSummary {
   review_count: number;
   stock_quantity: number;
   status: ProductStatus;
+
+  // Optional extension properties for dynamic homepage section filtration
+  original_price?: string | null;
+  discount_percentage?: number;
+  category?: CategorySummary;
+  is_flash_deal?: boolean;
+  is_trending?: boolean;
+  is_best_seller?: boolean;
+  created_at?: string;
+  image_url?: string;
+  in_stock?: boolean;
 }
 
 // ----------------------------------------------------------
@@ -575,11 +587,42 @@ export interface HomepageBanner {
 
 export interface HomepageSection {
   id: string;
-  key: string;
+  name: string;
+  key: string; // The section type (e.g. FLASH_DEALS, HERO_BANNER, CATEGORY_GRID, etc.)
   title: string;
-  visible: boolean;
-  display_order: number;
-  config: Record<string, unknown>;
+  subtitle?: string | null;
+  icon?: string | null;
+  description?: string | null;
+  is_active: boolean;
+  visible: boolean; // mapped from is_active for backward compatibility
+  sort_order: number;
+  display_order: number; // mapped from sort_order
+  starts_at?: string | null;
+  ends_at?: string | null;
+  display_limit: number;
+  configuration: {
+    layout: 'PRODUCT_GRID' | 'HORIZONTAL_CAROUSEL' | 'COMPACT_LIST' | 'LARGE_PRODUCT_CARDS' | 'CATEGORY_GRID' | 'CATEGORY_CIRCLES' | 'CATEGORY_PILLS' | 'BANNER' | 'BRAND_GRID' | 'VENDOR_GRID' | 'AUTO_LISTING_GRID';
+    source: 'MANUAL' | 'CATEGORY' | 'VENDOR' | 'QUERY' | 'AUTOMATIC' | 'ALGORITHM';
+    source_id?: string; // e.g. category ID, vendor ID
+    manual_product_ids?: string[]; // Selected product IDs
+    filters?: {
+      min_discount?: number;
+      min_rating?: number;
+      in_stock_only?: boolean;
+      price_min?: number;
+      price_max?: number;
+    };
+    sort_by?: string; // price_asc, newest, highest_discount, etc.
+    cta_text?: string;
+    cta_url?: string;
+    background_color?: string;
+  };
+  config: Record<string, unknown>; // mapped from configuration
+  products?: ProductSummary[]; // populated dynamically
+  categories?: any[];
+  vendors?: any[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface HomepageData {

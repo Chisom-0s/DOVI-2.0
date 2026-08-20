@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import BannerFormPage from './BannerFormPage';
-import SectionConfigEditor from './SectionConfigEditor';
+import SectionBuilderModal from './SectionBuilderModal';
 
 export default function HomepageManagerPage() {
   const [activeTab, setActiveTab] = useState<'banners' | 'sections'>('banners');
@@ -21,7 +21,7 @@ export default function HomepageManagerPage() {
   const [showBannerForm, setShowBannerForm] = useState(false);
   const [selectedBanner, setSelectedBanner] = useState<HomepageBanner | null>(null);
   
-  const [showSectionEditor, setShowSectionEditor] = useState(false);
+  const [showSectionBuilder, setShowSectionBuilder] = useState(false);
   const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null);
 
   // Fetch initial data
@@ -33,9 +33,8 @@ export default function HomepageManagerPage() {
         adminApi.listHomepageBanners(),
         adminApi.listHomepageSections(),
       ]);
-      // Sort lists by display_order to ensure visual alignment
       setBanners((loadedBanners || []).sort((a, b) => a.display_order - b.display_order));
-      setSections((loadedSections || []).sort((a, b) => a.display_order - b.display_order));
+      setSections((loadedSections || []).sort((a, b) => a.sort_order - b.sort_order));
     } catch (err: any) {
       setError(err);
       toast.error('Failed to load homepage CMS settings.');
@@ -52,11 +51,9 @@ export default function HomepageManagerPage() {
   const handleBannerSave = async (payload: any) => {
     try {
       if (selectedBanner) {
-        // Edit existing
         await adminApi.updateHomepageBanner(selectedBanner.id, payload);
         toast.success(`Banner "${payload.title}" updated successfully.`);
       } else {
-        // Create new
         await adminApi.createHomepageBanner(payload);
         toast.success(`Banner "${payload.title}" created successfully.`);
       }
@@ -101,13 +98,11 @@ export default function HomepageManagerPage() {
     const nextIndex = direction === 'up' ? index - 1 : index + 1;
     if (nextIndex < 0 || nextIndex >= banners.length) return;
 
-    // Swap elements in memory
     const updated = [...banners];
     const temp = updated[index];
     updated[index] = updated[nextIndex];
     updated[nextIndex] = temp;
     
-    // Optimistic UI state
     setBanners(updated);
 
     try {
@@ -116,43 +111,63 @@ export default function HomepageManagerPage() {
       toast.success('Banner order synchronized.');
     } catch {
       toast.error('Failed to update banner order.');
-      await fetchData(); // Rollback
+      await fetchData();
     }
   };
 
   // --- Section Actions ---
-  const handleSectionSave = async (config: Record<string, any>) => {
-    if (!selectedSection) return;
+  const handleSectionSave = async (payload: any) => {
     try {
-      await adminApi.updateHomepageSection(selectedSection.id, {
-        title: selectedSection.title,
-        config,
-      });
-      toast.success(`Section configuration saved.`);
-      setShowSectionEditor(false);
+      if (selectedSection) {
+        await adminApi.updateHomepageSection(selectedSection.id, payload);
+        toast.success(`Section layout configuration updated.`);
+      } else {
+        await adminApi.createHomepageSection(payload);
+        toast.success(`Homepage section "${payload.name}" created.`);
+      }
+      setShowSectionBuilder(false);
       setSelectedSection(null);
       await fetchData();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save section config.');
+      toast.error(err.message || 'Failed to save section parameters.');
       throw err;
     }
   };
 
-  const handleSectionToggleVisible = async (section: HomepageSection) => {
-    // Optimistic update
-    const updated = sections.map((s) =>
-      s.id === section.id ? { ...s, visible: !s.visible } : s
-    );
-    setSections(updated);
+  const handleSectionDuplicate = async (section: HomepageSection) => {
+    try {
+      await adminApi.duplicateHomepageSection(section.id);
+      toast.success(`Section duplicated successfully.`);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to duplicate section.');
+    }
+  };
+
+  const handleSectionDelete = async (section: HomepageSection) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete section "${section.name}"?`);
+    if (!confirmDelete) return;
 
     try {
+      await adminApi.deleteHomepageSection(section.id);
+      toast.success(`Section deleted.`);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete section.');
+    }
+  };
+
+  const handleSectionToggleActive = async (section: HomepageSection) => {
+    const nextStatus = !section.is_active;
+    try {
       await adminApi.updateHomepageSection(section.id, {
-        visible: !section.visible,
+        is_active: nextStatus,
+        visible: nextStatus,
       });
-      toast.success(`Section visibility updated.`);
-    } catch {
-      toast.error('Failed to toggle section visibility.');
-      await fetchData(); // Rollback
+      toast.success(`Section status updated.`);
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update section status.');
     }
   };
 
@@ -160,22 +175,20 @@ export default function HomepageManagerPage() {
     const nextIndex = direction === 'up' ? index - 1 : index + 1;
     if (nextIndex < 0 || nextIndex >= sections.length) return;
 
-    // Swap elements in memory
     const updated = [...sections];
     const temp = updated[index];
     updated[index] = updated[nextIndex];
     updated[nextIndex] = temp;
     
-    // Optimistic UI state
     setSections(updated);
 
     try {
       const ids = updated.map((s) => s.id);
       await adminApi.reorderHomepageSections(ids);
-      toast.success('Section ordering synchronized.');
+      toast.success('Section layout order synchronized.');
     } catch {
       toast.error('Failed to update section layout order.');
-      await fetchData(); // Rollback
+      await fetchData();
     }
   };
 
@@ -228,7 +241,6 @@ export default function HomepageManagerPage() {
 
       {/* TABS VIEWPORT */}
       {activeTab === 'banners' ? (
-        // Banners View
         <div style={cardStyles}>
           <div style={cardHeaderRowStyles}>
             <div style={infoAlertStyles}>
@@ -349,75 +361,162 @@ export default function HomepageManagerPage() {
           )}
         </div>
       ) : (
-        // Sections View
         <div style={cardStyles}>
-          <div style={infoAlertStyles}>
-            🧱 <strong>Homepage Sections:</strong> Drag sections into priority order. Sections marked as invisible will be completely hidden from the buyer frontend without requiring deployments.
+          <div style={cardHeaderRowStyles}>
+            <div style={infoAlertStyles}>
+              🧱 <strong>Homepage Layout Sections:</strong> Drag or sort layout priorities. Sections scheduled with start/end windows or toggled inactive are automatically synced.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSection(null);
+                setShowSectionBuilder(true);
+              }}
+              style={actionBtnStyles}
+            >
+              + Create Section
+            </button>
           </div>
 
           {sections.length === 0 ? (
             <EmptyState
               icon="🧱"
               title="No Layout Sections Found"
-              subtitle="The API returned zero sections settings."
+              subtitle="Get started by building your first dynamic homepage section block."
+              action={{
+                label: "Create Section",
+                onClick: () => {
+                  setSelectedSection(null);
+                  setShowSectionBuilder(true);
+                }
+              }}
             />
           ) : (
-            <div style={listContainerStyles}>
-              {sections.map((s, idx) => (
-                <div key={s.id} style={listItemStyles}>
-                  {/* Sorting handles */}
-                  <div style={sortingWrapperStyles}>
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={() => handleMoveSection(idx, 'up')}
-                      style={sortBtnStyles}
-                    >
-                      ▲
-                    </button>
-                    <span style={orderLabelStyles}>{idx + 1}</span>
-                    <button
-                      type="button"
-                      disabled={idx === sections.length - 1}
-                      onClick={() => handleMoveSection(idx, 'down')}
-                      style={sortBtnStyles}
-                    >
-                      ▼
-                    </button>
-                  </div>
+            <div style={tableWrapperStyles}>
+              <table style={tableStyles}>
+                <thead>
+                  <tr style={tableHeaderStyles}>
+                    <th style={thStyles}>Order</th>
+                    <th style={thStyles}>Name</th>
+                    <th style={thStyles}>Type</th>
+                    <th style={thStyles}>Layout</th>
+                    <th style={thStyles}>Source</th>
+                    <th style={thStyles}>Limit</th>
+                    <th style={thStyles}>Schedule</th>
+                    <th style={thStyles}>Status</th>
+                    <th style={thStyles}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sections.map((s, idx) => (
+                    <tr key={s.id} style={tableRowStyles}>
+                      {/* Order column */}
+                      <td style={tdStyles}>
+                        <div style={sortingWrapperHorizontalStyles}>
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveSection(idx, 'up')}
+                            style={sortBtnStyles}
+                          >
+                            ▲
+                          </button>
+                          <span style={orderLabelStyles}>{idx + 1}</span>
+                          <button
+                            type="button"
+                            disabled={idx === sections.length - 1}
+                            onClick={() => handleMoveSection(idx, 'down')}
+                            style={sortBtnStyles}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </td>
 
-                  {/* Info details */}
-                  <div style={{ flex: 1 }}>
-                    <strong style={bannerTitleStyles}>{s.title}</strong>
-                    <span style={bannerSubStyles}>System key: {s.key}</span>
-                  </div>
+                      {/* Name / title */}
+                      <td style={tdStyles}>
+                        <div style={{ fontWeight: 'bold', color: '#1f2937' }}>{s.name}</div>
+                        {s.title && <div style={{ fontSize: '11px', color: '#6b7280' }}>"{s.title}"</div>}
+                      </td>
 
-                  {/* Operations */}
-                  <div style={actionsGroupStyles}>
-                    <button
-                      type="button"
-                      onClick={() => handleSectionToggleVisible(s)}
-                      style={{
-                        ...toggleBtnStyles,
-                        backgroundColor: s.visible ? '#d1fae5' : '#fee2e2',
-                        color: s.visible ? '#065f46' : '#991b1b',
-                      }}
-                    >
-                      {s.visible ? 'Visible' : 'Hidden'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSection(s);
-                        setShowSectionEditor(true);
-                      }}
-                      style={editBtnStyles}
-                    >
-                      Configure Layout Config
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      {/* Type key */}
+                      <td style={tdStyles}>
+                        <span style={typeBadgeStyles}>{s.key}</span>
+                      </td>
+
+                      {/* Layout */}
+                      <td style={tdStyles}>
+                        <span style={layoutBadgeStyles}>{s.configuration?.layout || 'GRID'}</span>
+                      </td>
+
+                      {/* Sourcing */}
+                      <td style={tdStyles}>
+                        <span style={sourceBadgeStyles}>{s.configuration?.source || 'AUTOMATIC'}</span>
+                      </td>
+
+                      {/* Limit */}
+                      <td style={tdStyles}>{s.display_limit} items</td>
+
+                      {/* Schedule */}
+                      <td style={tdStyles}>
+                        {s.starts_at ? (
+                          <div style={{ fontSize: '11px' }}>
+                            <div>{new Date(s.starts_at).toLocaleDateString()}</div>
+                            {s.ends_at && <div style={{ color: '#ef4444' }}>to {new Date(s.ends_at).toLocaleDateString()}</div>}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontSize: '11px' }}>Always</span>
+                        )}
+                      </td>
+
+                      {/* Status toggle */}
+                      <td style={tdStyles}>
+                        <button
+                          type="button"
+                          onClick={() => handleSectionToggleActive(s)}
+                          style={{
+                            ...toggleBtnStyles,
+                            backgroundColor: s.is_active ? '#d1fae5' : '#fee2e2',
+                            color: s.is_active ? '#065f46' : '#991b1b',
+                          }}
+                        >
+                          {s.is_active ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+
+                      {/* Operations */}
+                      <td style={tdStyles}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSection(s);
+                              setShowSectionBuilder(true);
+                            }}
+                            style={editBtnStyles}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSectionDuplicate(s)}
+                            style={duplicateBtnStyles}
+                          >
+                            Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSectionDelete(s)}
+                            style={deleteBtnStyles}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -435,12 +534,12 @@ export default function HomepageManagerPage() {
         />
       )}
 
-      {/* JSON Section Config Editor Modal */}
-      {showSectionEditor && selectedSection && (
-        <SectionConfigEditor
+      {/* Advanced Section Builder Modal */}
+      {showSectionBuilder && (
+        <SectionBuilderModal
           section={selectedSection}
           onClose={() => {
-            setShowSectionEditor(false);
+            setShowSectionBuilder(false);
             setSelectedSection(null);
           }}
           onSave={handleSectionSave}
@@ -506,31 +605,29 @@ const cardHeaderRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  gap: '16px',
-  flexWrap: 'wrap',
+  gap: '24px',
 };
 
 const infoAlertStyles: React.CSSProperties = {
+  backgroundColor: '#eff6ff',
+  color: '#1e40af',
   padding: '12px 16px',
-  backgroundColor: '#f9fafb',
-  border: '1px solid #e5e7eb',
   borderRadius: '8px',
   fontSize: '12px',
-  color: '#4b5563',
-  lineHeight: 1.5,
+  lineHeight: '1.5',
   flex: 1,
 };
 
 const actionBtnStyles: React.CSSProperties = {
-  backgroundColor: '#ff7a00',
+  backgroundColor: 'var(--color-primary, #ff7a00)',
   color: '#ffffff',
   padding: '10px 20px',
-  borderRadius: '9999px',
-  fontSize: '13px',
+  borderRadius: '6px',
   fontWeight: 700,
-  cursor: 'pointer',
+  fontSize: '13px',
   border: 'none',
-  boxShadow: '0 2px 8px rgba(255,122,0,0.3)',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
 };
 
 const listContainerStyles: React.CSSProperties = {
@@ -542,123 +639,193 @@ const listContainerStyles: React.CSSProperties = {
 const listItemStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '20px',
+  gap: '16px',
   padding: '16px',
-  borderRadius: '10px',
   border: '1px solid #e5e7eb',
+  borderRadius: '8px',
   backgroundColor: '#ffffff',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.01)',
-  transition: 'all 150ms ease',
 };
 
 const sortingWrapperStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
+  gap: '2px',
+};
+
+const sortingWrapperHorizontalStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
   gap: '4px',
 };
 
 const sortBtnStyles: React.CSSProperties = {
-  fontSize: '11px',
-  color: '#4b5563',
-  backgroundColor: '#f3f4f6',
-  border: '1px solid #d1d5db',
-  width: '24px',
-  height: '24px',
-  borderRadius: '4px',
+  background: 'none',
+  border: 'none',
+  fontSize: '10px',
+  color: '#9ca3af',
   cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
+  padding: '2px 4px',
 };
 
 const orderLabelStyles: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 700,
-  color: '#9ca3af',
+  color: '#4b5563',
+  minWidth: '16px',
+  textAlign: 'center',
 };
 
 const bannerThumbnailStyles: React.CSSProperties = {
   width: '100px',
   height: '56px',
   objectFit: 'cover',
-  borderRadius: '6px',
+  borderRadius: '4px',
+  backgroundColor: '#f3f4f6',
   border: '1px solid #e5e7eb',
-  backgroundColor: '#f9fafb',
 };
 
 const bannerTitleStyles: React.CSSProperties = {
-  display: 'block',
   fontSize: '14px',
-  fontWeight: 700,
   color: '#1f2937',
 };
 
 const bannerSubStyles: React.CSSProperties = {
-  display: 'block',
-  fontSize: '12px',
+  fontSize: '11px',
   color: '#6b7280',
+  display: 'block',
   marginTop: '2px',
 };
 
 const metaRowStyles: React.CSSProperties = {
   display: 'flex',
   gap: '8px',
-  marginTop: '8px',
+  marginTop: '6px',
   flexWrap: 'wrap',
 };
 
 const badgeStyles: React.CSSProperties = {
-  fontSize: '9px',
-  fontWeight: 700,
   backgroundColor: '#f3f4f6',
-  color: '#6b7280',
-  padding: '2px 8px',
+  color: '#4b5563',
+  fontSize: '9px',
+  fontWeight: 600,
+  padding: '2px 6px',
   borderRadius: '4px',
 };
 
 const scheduleBadgeStyles: React.CSSProperties = {
+  backgroundColor: '#fef3c7',
+  color: '#92400e',
   fontSize: '9px',
-  fontWeight: 700,
-  backgroundColor: 'rgba(255,122,0,0.08)',
-  color: '#ff7a00',
-  padding: '2px 8px',
+  fontWeight: 600,
+  padding: '2px 6px',
   borderRadius: '4px',
 };
 
 const actionsGroupStyles: React.CSSProperties = {
   display: 'flex',
   gap: '8px',
-  alignItems: 'center',
 };
 
 const toggleBtnStyles: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 700,
   padding: '6px 12px',
   borderRadius: '9999px',
+  fontSize: '11px',
+  fontWeight: 700,
   border: 'none',
   cursor: 'pointer',
 };
 
 const editBtnStyles: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 700,
-  color: '#ff7a00',
-  border: '1px solid rgba(255,122,0,0.2)',
+  backgroundColor: '#ffffff',
+  color: '#4b5563',
+  border: '1px solid #d1d5db',
   padding: '6px 12px',
-  borderRadius: '9999px',
-  backgroundColor: 'transparent',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const duplicateBtnStyles: React.CSSProperties = {
+  backgroundColor: '#eff6ff',
+  color: '#1e40af',
+  border: 'none',
+  padding: '6px 12px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
   cursor: 'pointer',
 };
 
 const deleteBtnStyles: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 700,
-  color: '#ef4444',
-  border: '1px solid rgba(239,68,68,0.2)',
+  backgroundColor: '#fef2f2',
+  color: '#b91c1c',
+  border: 'none',
   padding: '6px 12px',
-  borderRadius: '9999px',
-  backgroundColor: 'transparent',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
   cursor: 'pointer',
+};
+
+const tableWrapperStyles: React.CSSProperties = {
+  width: '100%',
+  overflowX: 'auto',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+};
+
+const tableStyles: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  textAlign: 'left',
+  fontSize: '13px',
+};
+
+const tableHeaderStyles: React.CSSProperties = {
+  backgroundColor: '#f9fafb',
+  borderBottom: '1px solid #e5e7eb',
+};
+
+const thStyles: React.CSSProperties = {
+  padding: '12px 16px',
+  fontWeight: 600,
+  color: '#4b5563',
+};
+
+const tableRowStyles: React.CSSProperties = {
+  borderBottom: '1px solid #e5e7eb',
+};
+
+const tdStyles: React.CSSProperties = {
+  padding: '12px 16px',
+  verticalAlign: 'middle',
+};
+
+const typeBadgeStyles: React.CSSProperties = {
+  backgroundColor: '#f3f4f6',
+  color: '#1f2937',
+  fontSize: '10px',
+  fontWeight: 700,
+  padding: '2px 6px',
+  borderRadius: '4px',
+};
+
+const layoutBadgeStyles: React.CSSProperties = {
+  backgroundColor: 'rgba(255,122,0,0.08)',
+  color: '#ff7a00',
+  fontSize: '10px',
+  fontWeight: 700,
+  padding: '2px 6px',
+  borderRadius: '4px',
+};
+
+const sourceBadgeStyles: React.CSSProperties = {
+  backgroundColor: '#e0f2fe',
+  color: '#0369a1',
+  fontSize: '10px',
+  fontWeight: 700,
+  padding: '2px 6px',
+  borderRadius: '4px',
 };
