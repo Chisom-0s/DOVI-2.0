@@ -19,6 +19,7 @@ export default function DashboardLayout() {
     { label: 'Recently Viewed', path: '/dashboard/recently-viewed', icon: '👁️' },
     { label: 'My Reviews', path: '/dashboard/reviews', icon: '⭐' },
     { label: 'Refund Requests', path: '/dashboard/refunds', icon: '💵' },
+    { label: 'My Rentals', path: '/dashboard/rentals', icon: '🔑' },
     { label: 'Notifications', path: '/dashboard/notifications', icon: '🔔' },
     { label: 'Saved Payments', path: '/dashboard/payment-methods', icon: '💳' },
     { label: 'Account Settings', path: '/dashboard/settings', icon: '⚙️' },

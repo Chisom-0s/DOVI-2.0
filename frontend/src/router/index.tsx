@@ -46,7 +46,7 @@ import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 
-// Phase 10 & 11 — Dovi Auto
+// Phase 10, 11 & 12 — Dovi Auto & Rentals
 import AutoLandingPage from '@/pages/Auto/AutoLandingPage';
 import CarListingsPage from '@/pages/Auto/CarListingsPage';
 import CarDetailPage from '@/pages/Auto/CarDetailPage';
@@ -54,6 +54,10 @@ import PartListingsPage from '@/pages/Auto/PartListingsPage';
 import PartDetailPage from '@/pages/Auto/PartDetailPage';
 import AccessoryListingsPage from '@/pages/Auto/AccessoryListingsPage';
 import AccessoryDetailPage from '@/pages/Auto/AccessoryDetailPage';
+import RentalListingsPage from '@/pages/Auto/RentalListingsPage';
+import RentalDetailPage from '@/pages/Auto/RentalDetailPage';
+import RentalConfirmationPage from '@/pages/Auto/RentalConfirmationPage';
+import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 
 // ============================================================
 // Placeholder component — used for pages not yet built (Phase 6+)
@@ -169,6 +173,7 @@ const router = createBrowserRouter([
           { path: 'refunds', element: <RefundRequestPage /> },
           { path: 'refunds/:id', element: <RefundDetailPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
+          { path: 'rentals', element: <MyRentalsPage /> },
           { path: 'addresses', element: <AddressesPage /> },
           { path: 'payment-methods', element: <PaymentMethodsPage /> },
           { path: 'settings', element: <AccountSettingsPage /> },
@@ -202,13 +207,14 @@ const router = createBrowserRouter([
       { path: 'auto/parts/:id', element: <PartDetailPage /> },
       { path: 'auto/accessories', element: <AccessoryListingsPage /> },
       { path: 'auto/accessories/:id', element: <AccessoryDetailPage /> },
-      { path: 'auto/rentals', element: <Placeholder name="Rentals" /> },
-      { path: 'auto/rentals/:id', element: <Placeholder name="Rental Detail" /> },
+      { path: 'auto/rentals', element: <RentalListingsPage /> },
+      { path: 'auto/rentals/:id', element: <RentalDetailPage /> },
+      { path: 'auto/rentals/confirmation', element: <RentalConfirmationPage /> },
       {
         path: 'auto/rentals/bookings',
         element: (
           <RoleGuard role="BUYER">
-            <Placeholder name="My Rental Bookings" />
+            <MyRentalsPage />
           </RoleGuard>
         ),
       },
