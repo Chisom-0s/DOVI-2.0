@@ -178,6 +178,8 @@ export interface ProductSummary {
   is_flash_deal?: boolean;
   is_trending?: boolean;
   is_best_seller?: boolean;
+  is_hot_sale?: boolean;
+  is_new_arrival?: boolean;
   created_at?: string;
   image_url?: string;
   in_stock?: boolean;
