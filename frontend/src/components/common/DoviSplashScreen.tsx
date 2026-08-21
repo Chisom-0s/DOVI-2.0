@@ -35,10 +35,10 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
   const containerStyles: React.CSSProperties = {
     position: 'fixed',
     top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: '50%',
+    transform: 'translateX(-50%)',
     width: '100%',
+    maxWidth: '480px',
     height: '100vh',
     backgroundColor: 'var(--color-bg, #ffffff)',
     background: 'radial-gradient(circle, #ffffff 0%, #f9fafb 100%)',
