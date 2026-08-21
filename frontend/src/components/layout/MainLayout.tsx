@@ -8,7 +8,7 @@ export default function MainLayout() {
   const hideFooter = location.pathname === '/' || location.pathname === '/products';
 
   return (
-    <div style={layoutWrapperStyles} className="main-layout-wrapper">
+    <div style={layoutWrapperStyles}>
       {/* Universal Header */}
       <Header />
 
