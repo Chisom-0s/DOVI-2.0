@@ -1,6 +1,5 @@
-// Cart API — /api/v1/cart/*
-// Full implementation in Phase 4
 import apiClient, { normalizeApiError } from './client';
+import { productsApi } from './products';
 import type { Cart } from '@/types';
 
 export const cartApi = {
@@ -13,9 +12,23 @@ export const cartApi = {
     }
   },
 
-  addItem: async (payload: { product_id: string; variant_id?: string; quantity: number }): Promise<Cart> => {
+  addItem: async (payload: { product_id: string; variant_id?: string; variant?: string; quantity: number }): Promise<Cart> => {
     try {
-      const { data } = await apiClient.post('/api/v1/cart/items/', payload);
+      let variant = payload.variant || payload.variant_id;
+      if (!variant) {
+        try {
+          const product = await productsApi.getById(payload.product_id);
+          if (product.variants && product.variants.length > 0) {
+            variant = product.variants[0].id;
+          }
+        } catch (err) {
+          console.error('Failed to resolve variant for product:', payload.product_id, err);
+        }
+      }
+      const { data } = await apiClient.post('/api/v1/cart/items/', {
+        variant,
+        quantity: payload.quantity,
+      });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
