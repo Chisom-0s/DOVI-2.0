@@ -1,4 +1,6 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import CookieConsentBanner from '@/components/common/CookieConsentBanner';
+import PWAInstallPrompt from '@/components/common/PWAInstallPrompt';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
 
@@ -79,7 +81,16 @@ function Placeholder({ name }: { name: string }) {
 // phase by phase as the application is built.
 // ============================================================
 const router = createBrowserRouter([
-  // ---- Public routes ----
+  {
+    element: (
+      <>
+        <Outlet />
+        <CookieConsentBanner />
+        <PWAInstallPrompt />
+      </>
+    ),
+    children: [
+      // ---- Public routes ----
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
@@ -236,6 +247,8 @@ const router = createBrowserRouter([
       </div>
     ),
   },
+]
+}
 ]);
 
 export default function AppRouter() {

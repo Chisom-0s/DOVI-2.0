@@ -5,8 +5,6 @@ import { CartProvider } from '@/contexts/CartContext';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import AppRouter from '@/router';
 import DoviSplashScreen from '@/components/common/DoviSplashScreen';
-import CookieConsentBanner from '@/components/common/CookieConsentBanner';
-import PWAInstallPrompt from '@/components/common/PWAInstallPrompt';
 
 // ============================================================
 // App
@@ -26,8 +24,6 @@ export default function App() {
           ) : (
             <>
               <AppRouter />
-              <CookieConsentBanner />
-              <PWAInstallPrompt />
               <Toaster
                 position="top-right"
                 toastOptions={{
