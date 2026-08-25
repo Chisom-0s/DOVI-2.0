@@ -200,7 +200,7 @@ const logoWrapperStyles: React.CSSProperties = {
 };
 
 const logoImageStyles: React.CSSProperties = {
-  height: '42px',
+  height: '80px',
   width: 'auto',
   objectFit: 'contain',
 };

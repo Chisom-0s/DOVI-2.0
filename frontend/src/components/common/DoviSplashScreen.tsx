@@ -64,7 +64,7 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
   };
 
   const logoStyles: React.CSSProperties = {
-    height: '130px',
+    height: '240px',
     width: 'auto',
     objectFit: 'contain',
     transition: 'transform 1000ms cubic-bezier(0.16, 1, 0.3, 1), opacity 1000ms ease-out',

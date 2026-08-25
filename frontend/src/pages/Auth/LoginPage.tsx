@@ -39,7 +39,7 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-          <img src="/logo.jpg?v=2" alt="Dovi Logo" style={{ height: '90px', width: 'auto', objectFit: 'contain' }} />
+          <img src="/logo.jpg?v=2" alt="Dovi Logo" style={{ height: '160px', width: 'auto', objectFit: 'contain' }} />
         </div>
         <div className="auth-card__header">
           <h1 className="auth-card__title">Sign in to Dovi</h1>

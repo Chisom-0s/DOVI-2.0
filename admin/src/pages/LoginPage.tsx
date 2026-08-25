@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div style={cardStyles}>
         <div style={headerStyles}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-            <img src="/logo.jpg" alt="Dovi Logo" style={{ height: '90px', width: 'auto', objectFit: 'contain' }} />
+            <img src="/logo.jpg" alt="Dovi Logo" style={{ height: '160px', width: 'auto', objectFit: 'contain' }} />
           </div>
           <h1 style={titleStyles}>DOVI Admin</h1>
           <p style={subtitleStyles}>Administrative Control Panel</p>

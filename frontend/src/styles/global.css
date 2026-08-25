@@ -444,6 +444,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  margin: var(--space-6) auto;
 }
 
 .auth-card__header {
@@ -504,6 +505,56 @@ h1, h2, h3, h4, h5, h6 {
 .auth-card__link:hover {
   color: var(--color-primary-dark);
   text-decoration: underline;
+}
+
+/* Auth Google Button and Divider */
+.auth-card__divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.auth-card__divider::before,
+.auth-card__divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-card__divider:not(:empty)::before {
+  margin-right: var(--space-3);
+}
+
+.auth-card__divider:not(:empty)::after {
+  margin-left: var(--space-3);
+}
+
+.auth-card__google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.auth-card__google-btn:hover {
+  background-color: var(--color-bg-subtle);
+  border-color: #cbd5e1;
+}
+
+.auth-card__google-icon {
+  flex-shrink: 0;
 }
 
 /* ----------------------------------------------------------

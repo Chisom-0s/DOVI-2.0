@@ -410,7 +410,7 @@ const registerBtnStyles: React.CSSProperties = {
 };
 
 const logoImageStyles: React.CSSProperties = {
-  height: '48px',
+  height: '72px',
   width: 'auto',
   objectFit: 'contain',
   display: 'block',
