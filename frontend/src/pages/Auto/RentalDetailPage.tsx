@@ -139,7 +139,14 @@ export default function RentalDetailPage() {
                 {currentImage ? (
                   <img src={currentImage} alt={rental.make} style={mainImgStyles} />
                 ) : (
-                  <div style={placeholderImgStyles}>🚗</div>
+                  <div style={placeholderImgStyles}>
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+                      <circle cx="7" cy="17" r="2"></circle>
+                      <path d="M9 17h6"></path>
+                      <circle cx="17" cy="17" r="2"></circle>
+                    </svg>
+                  </div>
                 )}
               </div>
 
@@ -168,11 +175,23 @@ export default function RentalDetailPage() {
               <div style={specsGridStyles}>
                 <div style={specRowStyles}>
                   <span style={specLabelStyles}>Pickup Location</span>
-                  <span style={specValStyles}>📍 {rental.pickup_location}</span>
+                  <span style={specValStyles}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span style={{ verticalAlign: 'middle' }}>{rental.pickup_location}</span>
+                  </span>
                 </div>
                 <div style={specRowStyles}>
                   <span style={specLabelStyles}>Return Location</span>
-                  <span style={specValStyles}>📍 {rental.return_location}</span>
+                  <span style={specValStyles}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                      <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span style={{ verticalAlign: 'middle' }}>{rental.return_location}</span>
+                  </span>
                 </div>
                 <div style={specRowStyles}>
                   <span style={specLabelStyles}>Minimum Rent Duration</span>

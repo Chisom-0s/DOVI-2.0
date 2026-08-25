@@ -369,13 +369,21 @@ export default function Save2OwnGoalDetailPage() {
 
       {goal.status === 'PAYMENT_REVIEW' && (
         <div style={alertBannerStyles('var(--color-warning)')}>
-          <strong>⏳ Under Review:</strong> A recent contribution payment is currently under verification review by system admins. Active contributions are temporarily paused.
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <strong>Under Review:</strong> A recent contribution payment is currently under verification review by system admins. Active contributions are temporarily paused.
         </div>
       )}
 
       {goal.status === 'REFUND_PENDING' && (
         <div style={alertBannerStyles('var(--color-warning)')}>
-          <strong>💵 Refund Pending:</strong> Your cancellation request is approved and contributions are queued for refund.
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <strong>Refund Pending:</strong> Your cancellation request is approved and contributions are queued for refund.
           {refundStatus && (
             <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}>
               <span>Refund Status: <strong>{refundStatus.status}</strong></span>
@@ -462,7 +470,12 @@ export default function Save2OwnGoalDetailPage() {
 
               {goal.status === 'COMPLETED' && (
                 <button type="button" onClick={handleCheckout} disabled={isActionPending} style={checkoutActionBtnStyles}>
-                  🎯 Complete Checkout &amp; Order
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="6"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                  </svg>
+                  <span>Complete Checkout &amp; Order</span>
                 </button>
               )}
             </div>

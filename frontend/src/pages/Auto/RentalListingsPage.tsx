@@ -84,7 +84,17 @@ export default function RentalListingsPage() {
         {/* Mobile Filters Toggle */}
         <div style={mobileFiltersBarStyles}>
           <button style={toggleFilterBtnStyles} onClick={() => setShowMobileFilters(!showMobileFilters)}>
-            {showMobileFilters ? 'Hide Filters ✕' : 'Filter Vehicles ⚙️'}
+            {showMobileFilters ? (
+              <span>Hide Filters</span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>Filter Vehicles</span>
+              </span>
+            )}
           </button>
         </div>
 
@@ -225,15 +235,34 @@ export default function RentalListingsPage() {
                         {car.primary_image_url ? (
                           <img src={car.primary_image_url} alt={`${car.make} ${car.model}`} style={imgStyles} />
                         ) : (
-                          <div style={placeholderImgStyles}>🚗</div>
+                          <div style={placeholderImgStyles}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+                              <circle cx="7" cy="17" r="2"></circle>
+                              <path d="M9 17h6"></path>
+                              <circle cx="17" cy="17" r="2"></circle>
+                            </svg>
+                          </div>
                         )}
-                        <span style={locationBadgeStyles}>📍 {car.pickup_location}</span>
+                        <span style={locationBadgeStyles}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '3px', display: 'inline-block', verticalAlign: 'middle' }}>
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                          </svg>
+                          <span style={{ verticalAlign: 'middle' }}>{car.pickup_location}</span>
+                        </span>
                       </div>
                       <div style={rentalDetailsStyles}>
                         <h3 style={rentalTitleStyles}>
                           {car.make} {car.model} <span style={yearStyles}>{car.year}</span>
                         </h3>
-                        <p style={vendorNameStyles}>👤 Vendor: {car.vendor?.name || 'Trusted Dealer'}</p>
+                        <p style={vendorNameStyles}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                          </svg>
+                          <span style={{ verticalAlign: 'middle' }}>Vendor: {car.vendor?.name || 'Trusted Dealer'}</span>
+                        </p>
 
                         <div style={rentalFooterStyles}>
                           <div style={rateContainerStyles}>

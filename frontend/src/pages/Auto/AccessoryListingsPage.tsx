@@ -141,7 +141,13 @@ export default function AccessoryListingsPage() {
                     {acc.primary_image_url ? (
                       <img src={acc.primary_image_url} alt={acc.name} style={imgStyles} />
                     ) : (
-                      <div style={placeholderImgStyles}>🔌</div>
+                          <div style={placeholderImgStyles}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="5" y="2" width="14" height="12" rx="2" ry="2"></rect>
+                              <line x1="9" y1="22" x2="9" y2="14"></line>
+                              <line x1="15" y1="22" x2="15" y2="14"></line>
+                            </svg>
+                          </div>
                     )}
                     <span style={categoryBadgeStyles}>
                       {acc.sub_category.replace('_', ' ')}
@@ -149,7 +155,13 @@ export default function AccessoryListingsPage() {
                   </div>
                   <div style={detailsStyles}>
                     <h3 style={titleStyles}>{acc.name}</h3>
-                    <p style={sellerNameStyles}>👤 {acc.vendor?.name || 'Trusted Vendor'}</p>
+                    <p style={sellerNameStyles}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
+                      <span style={{ verticalAlign: 'middle' }}>{acc.vendor?.name || 'Trusted Vendor'}</span>
+                    </p>
 
                     <div style={footerStyles}>
                       <span style={priceStyles}>₦{parseFloat(acc.price).toLocaleString()}</span>
@@ -166,7 +178,16 @@ export default function AccessoryListingsPage() {
                           ? 'Out of Stock'
                           : addingMap[acc.id]
                             ? 'Adding...'
-                            : 'Add 🛒'}
+                            : (
+                              <>
+                                Add to Cart
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="9" cy="21" r="1"></circle>
+                                  <circle cx="20" cy="21" r="1"></circle>
+                                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                                </svg>
+                              </>
+                            )}
                       </button>
                     </div>
                   </div>
@@ -360,6 +381,9 @@ const priceStyles: React.CSSProperties = {
 };
 
 const cartBtnStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
   padding: '6px 14px',
   backgroundColor: 'var(--color-primary, #ff7a00)',
   color: '#ffffff',
