@@ -43,7 +43,10 @@ export default function RecentlyViewedPage() {
 
       {!isLoading && products.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2.5rem' }}>👁️</span>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
           <p style={emptyTextStyles}>No recently viewed products.</p>
           <Link to="/products" style={actionBtnStyles}>Browse Products</Link>
         </div>

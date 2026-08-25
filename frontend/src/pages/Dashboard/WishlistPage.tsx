@@ -52,7 +52,9 @@ export default function WishlistPage() {
 
       {!isLoading && items.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2.5rem' }}>❤️</span>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
           <h3 style={emptyTitleStyles}>Your wishlist is empty</h3>
           <p style={emptySubStyles}>Save items you want to check out later here.</p>
           <Link to="/products" style={actionBtnStyles}>Start Browsing</Link>
