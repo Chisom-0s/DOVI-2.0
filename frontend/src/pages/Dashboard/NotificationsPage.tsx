@@ -59,36 +59,88 @@ export default function NotificationsPage() {
     }
   };
 
-  const getNotifIcon = (type: string) => {
+  const getNotifIcon = (type: string): React.ReactNode => {
     switch (type) {
-      case 'ORDER_CREATED': return '📦';
-      case 'PAYMENT_SUCCESSFUL': return '💳';
-      case 'PAYMENT_FAILED': return '❌';
-      case 'ORDER_SHIPPED': return '🚚';
-      case 'ORDER_DELIVERED': return '✅';
-      case 'REFUND_REQUESTED': return '↩️';
-      case 'REFUND_APPROVED': return '💰';
-      case 'REFUND_REJECTED': return '⚠️';
-      case 'SAVE2OWN_CONTRIBUTION': return '🐷';
-      case 'SAVE2OWN_REMINDER': return '⏰';
-      case 'SAVE2OWN_TARGET_REACHED': return '🏆';
-      case 'PRICE_CHANGED': return '🏷️';
-      case 'PRODUCT_UNAVAILABLE': return '🚫';
-      case 'VENDOR_APPROVED': return '🏢';
-      case 'VENDOR_REJECTED': return '🏢';
-      case 'AUTO_BOOKING_CONFIRMED': return '🔑';
-      case 'AUTO_BOOKING_CANCELLED': return '❌';
-      default: return '🔔';
+      case 'ORDER_CREATED':
+      case 'ORDER_SHIPPED':
+      case 'ORDER_DELIVERED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        );
+      case 'PAYMENT_SUCCESSFUL':
+      case 'PAYMENT_FAILED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+            <line x1="1" y1="10" x2="23" y2="10"></line>
+          </svg>
+        );
+      case 'REFUND_REQUESTED':
+      case 'REFUND_APPROVED':
+      case 'REFUND_REJECTED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        );
+      case 'SAVE2OWN_CONTRIBUTION':
+      case 'SAVE2OWN_REMINDER':
+      case 'SAVE2OWN_TARGET_REACHED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="6"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+          </svg>
+        );
+      case 'PRICE_CHANGED':
+      case 'PRODUCT_UNAVAILABLE':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+          </svg>
+        );
+      case 'VENDOR_APPROVED':
+      case 'VENDOR_REJECTED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+        );
+      case 'AUTO_BOOKING_CONFIRMED':
+      case 'AUTO_BOOKING_CANCELLED':
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+            <circle cx="7" cy="17" r="2"></circle>
+            <path d="M9 17h6"></path>
+            <circle cx="17" cy="17" r="2"></circle>
+          </svg>
+        );
+      default:
+        return (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        );
     }
   };
 
   const getNotifButtonLabel = (type: string) => {
     switch (type) {
-      case 'PAYMENT_FAILED': return 'Retry Payment 💳';
-      case 'ORDER_DELIVERED': return 'Confirm Receipt ✅';
-      case 'SAVE2OWN_TARGET_REACHED': return 'Checkout Goal 🏆';
-      case 'REFUND_REJECTED': return 'Review Reason 🔍';
-      default: return 'View Details &rarr;';
+      case 'PAYMENT_FAILED': return 'Retry Payment';
+      case 'ORDER_DELIVERED': return 'Confirm Receipt';
+      case 'SAVE2OWN_TARGET_REACHED': return 'Checkout Goal';
+      case 'REFUND_REJECTED': return 'Review Reason';
+      default: return 'View Details';
     }
   };
 
@@ -126,7 +178,10 @@ export default function NotificationsPage() {
 
       {!isLoading && data && data.results.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2.5rem' }}>🔔</span>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
           <h3 style={{ margin: 0, fontSize: 'var(--text-md)', fontWeight: 'var(--font-bold)' }}>All caught up!</h3>
           <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
             You don't have any notifications right now.

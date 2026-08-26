@@ -49,7 +49,10 @@ export default function PaymentMethodsPage() {
 
       {!isLoading && methods.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2rem' }}>💳</span>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+            <line x1="1" y1="10" x2="23" y2="10"></line>
+          </svg>
           <p style={emptyTextStyles}>No saved payment methods found.</p>
           <p style={{ margin: 0, fontSize: '11px', color: 'var(--color-text-muted)' }}>
             Payment tokens are securely stored upon successful checkout authorization.

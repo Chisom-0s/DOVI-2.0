@@ -89,7 +89,14 @@ export default function Save2OwnCreateGoalPage() {
         {/* Hero Section */}
         <section style={heroSectionStyles}>
           <div style={heroTextWrapperStyles}>
-            <span style={pillBadgeStyles}>🎯 Interest-Free Purchase Option</span>
+            <span style={pillBadgeStyles}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+              <span>Interest-Free Purchase Option</span>
+            </span>
             <h1 style={heroTitleStyles}>Save2Own with Zero Stress</h1>
             <p style={heroSubStyles}>
               Don't let budget boundaries stop you. Lock down price security on your favorite items, save over time at your own pace, and own them once your goal is reached.

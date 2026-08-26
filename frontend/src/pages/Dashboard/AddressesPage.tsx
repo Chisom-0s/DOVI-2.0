@@ -285,7 +285,10 @@ export default function AddressesPage() {
       {/* Address List */}
       {!isLoading && !showForm && addresses.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2rem' }}>📍</span>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
           <p style={emptyTextStyles}>You don't have any saved addresses.</p>
         </div>
       )}

@@ -34,35 +34,64 @@ export default function AutoLandingPage() {
       title: 'Cars & Vehicles',
       desc: 'Explore brand new and certified pre-owned vehicles.',
       path: '/auto/cars',
-      icon: '🚗',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+          <circle cx="7" cy="17" r="2"></circle>
+          <path d="M9 17h6"></path>
+          <circle cx="17" cy="17" r="2"></circle>
+        </svg>
+      ),
       color: '#ff7a00',
     },
     {
       title: 'Car Parts',
       desc: 'Find OEM & aftermarket spare parts for your model.',
       path: '/auto/parts',
-      icon: '⚙️',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      ),
       color: '#00d2ff',
     },
     {
       title: 'Accessories',
       desc: 'Upgrade with car electronics, covers, mats, and more.',
       path: '/auto/accessories',
-      icon: '🔌',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="2" width="14" height="12" rx="2" ry="2"></rect>
+          <line x1="9" y1="22" x2="9" y2="14"></line>
+          <line x1="15" y1="22" x2="15" y2="14"></line>
+        </svg>
+      ),
       color: '#00ff87',
     },
     {
       title: 'Rentals & Bookings',
       desc: 'Daily or weekly car rentals from certified partners.',
       path: '/auto/rentals',
-      icon: '📅',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      ),
       color: '#ff007a',
     },
     {
       title: 'Auto Services',
       desc: 'Book diagnostics, detailing, and servicing.',
       path: '/auto/services',
-      icon: '🛠️',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+        </svg>
+      ),
       color: '#7a00ff',
     },
   ];
@@ -150,7 +179,14 @@ export default function AutoLandingPage() {
                   {car.primary_image_url ? (
                     <img src={car.primary_image_url} alt={`${car.make} ${car.model}`} style={imgStyles} />
                   ) : (
-                    <div style={placeholderImgStyles}>🚗</div>
+                  <div style={placeholderImgStyles}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+                      <circle cx="7" cy="17" r="2"></circle>
+                      <path d="M9 17h6"></path>
+                      <circle cx="17" cy="17" r="2"></circle>
+                    </svg>
+                  </div>
                   )}
                   <span style={conditionBadgeStyles}>{car.condition}</span>
                 </div>
@@ -168,7 +204,13 @@ export default function AutoLandingPage() {
                   </div>
                   <div style={listingFooterStyles}>
                     <span style={listingPriceStyles}>₦{parseFloat(car.price).toLocaleString()}</span>
-                    <span style={listingLocationStyles}>📍 {car.location}</span>
+                    <span style={listingLocationStyles}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '3px', display: 'inline-block', verticalAlign: 'middle' }}>
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                      <span style={{ verticalAlign: 'middle' }}>{car.location}</span>
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -181,17 +223,31 @@ export default function AutoLandingPage() {
       <section style={sectionStyles}>
         <div style={trustBannerStyles}>
           <div style={trustItemStyles}>
-            <span style={trustIconStyles}>🛡️</span>
+            <span style={trustIconStyles}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </span>
             <h4 style={trustTitleStyles}>Verified Listings</h4>
             <p style={trustDescStyles}>Every listing is vetted for specs authenticity and title status.</p>
           </div>
           <div style={trustItemStyles}>
-            <span style={trustIconStyles}>⚙️</span>
+            <span style={trustIconStyles}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </span>
             <h4 style={trustTitleStyles}>Compatibility Engine</h4>
             <p style={trustDescStyles}>Input your model specs to guarantee exact parts fitment matching.</p>
           </div>
           <div style={trustItemStyles}>
-            <span style={trustIconStyles}>💳</span>
+            <span style={trustIconStyles}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+            </span>
             <h4 style={trustTitleStyles}>Escrow Payments</h4>
             <p style={trustDescStyles}>Funds are held securely and released only on delivery sign-off.</p>
           </div>

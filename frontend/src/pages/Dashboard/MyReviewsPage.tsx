@@ -138,7 +138,9 @@ export default function MyReviewsPage() {
 
       {!isLoading && !editingId && reviews.length === 0 && (
         <div style={emptyStyles}>
-          <span style={{ fontSize: '2rem' }}>⭐</span>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
           <p style={emptyTextStyles}>You haven't written any reviews yet.</p>
         </div>
       )}

@@ -134,7 +134,13 @@ export default function Save2OwnGoalsPage() {
         </div>
         <div style={emptyWrapperStyles}>
           <EmptyState
-            icon="🎯"
+            icon={
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+            }
             title="No Save2Own Goals Yet"
             subtitle="Start saving up interest-free for items you love. Find an eligible product in the marketplace and choose Start Saving."
             action={{
