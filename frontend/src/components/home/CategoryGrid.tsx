@@ -3,17 +3,19 @@ import { Link } from 'react-router-dom';
 import type { Category } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
-// Map slugs to emoji icons matching screenshot
-const getCategoryIcon = (slug: string): string => {
+// Resolve slugs to high-quality realistic icons in the public folder, supporting API-returned icon_url
+const getCategoryIconUrl = (slug: string, iconUrl?: string | null): string => {
+  if (iconUrl) return iconUrl;
+  
   const s = slug.toLowerCase();
-  if (s.includes('electronics')) return '🔌';
-  if (s.includes('gadget')) return '⚡';
-  if (s.includes('phone') || s.includes('mobile')) return '📱';
-  if (s.includes('book') || s.includes('study')) return '📚';
-  if (s.includes('fashion') || s.includes('cloth')) return '👕';
-  if (s.includes('home') || s.includes('kitchen')) return '🍳';
-  if (s.includes('auto') || s.includes('car')) return '🚗';
-  return '📦'; // default
+  if (s.includes('electronics')) return '/images/categories/electronics.jpg';
+  if (s.includes('gadget')) return '/images/categories/gadgets.jpg';
+  if (s.includes('phone') || s.includes('mobile')) return '/images/categories/phones.jpg';
+  if (s.includes('book') || s.includes('study')) return '/images/categories/books.jpg';
+  if (s.includes('fashion') || s.includes('cloth')) return '/images/categories/fashion.jpg';
+  if (s.includes('home') || s.includes('kitchen')) return '/images/categories/kitchen.jpg';
+  if (s.includes('auto') || s.includes('car')) return '/images/categories/auto.jpg';
+  return '/images/categories/default.jpg';
 };
 
 export default function CategoryGrid() {
@@ -58,7 +60,13 @@ export default function CategoryGrid() {
         <div style={gridStyles}>
           {/* "All" active pill button */}
           <Link to="/products" style={activePillStyles}>
-            <span style={iconStyles}>🏪</span>
+            <div style={iconContainerStyles}>
+              <img
+                src="/images/categories/all.jpg"
+                alt="All"
+                style={iconImageStyles}
+              />
+            </div>
             <span>All</span>
           </Link>
 
@@ -68,7 +76,13 @@ export default function CategoryGrid() {
               to={`/categories/${category.slug}`}
               style={pillStyles}
             >
-              <span style={iconStyles}>{getCategoryIcon(category.slug)}</span>
+              <div style={iconContainerStyles}>
+                <img
+                  src={getCategoryIconUrl(category.slug, category.icon_url)}
+                  alt={category.name}
+                  style={iconImageStyles}
+                />
+              </div>
               <span>{category.name}</span>
             </Link>
           ))}
@@ -145,10 +159,23 @@ const activePillStyles: React.CSSProperties = {
   boxShadow: '0 4px 8px rgba(255, 122, 0, 0.25)',
 };
 
-const iconStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
-  display: 'inline-flex',
+const iconContainerStyles: React.CSSProperties = {
+  width: '24px',
+  height: '24px',
+  borderRadius: '50%',
+  overflow: 'hidden',
+  display: 'flex',
   alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#ffffff',
+  border: '1px solid var(--color-border)',
+  flexShrink: 0,
+};
+
+const iconImageStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
 };
 
 const skeletonContainerStyles: React.CSSProperties = {
