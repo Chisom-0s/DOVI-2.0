@@ -114,64 +114,140 @@ apiClient.interceptors.response.use(
 // Converts any Axios error into a consistent APIError shape
 // ============================================================
 export function normalizeApiError(error: unknown): APIError {
-  if (axios.isAxiosError(error) && error.response?.data) {
-    const data = error.response.data as Record<string, unknown>;
+  console.error('[normalizeApiError] Raw error:', error);
+  if (axios.isAxiosError(error)) {
+    console.error('[normalizeApiError] Axios error response data JSON:', JSON.stringify(error.response?.data, null, 2));
+  }
+  if (axios.isAxiosError(error)) {
+    if (error.response) {
+      let data = error.response.data as Record<string, unknown> | null;
+      if (data && typeof data === 'object') {
+        // Handle nested "error" wrapper object or string
+        if (data.error) {
+          if (typeof data.error === 'string') {
+            return {
+              error: true,
+              message: data.error,
+              code: (data.code as string) ?? 'API_ERROR',
+            };
+          }
+          if (typeof data.error === 'object' && data.error !== null) {
+            data = data.error as Record<string, unknown>;
+          }
+        }
 
-    // If the response already has our APIError shape, use it
-    if (typeof data.message === 'string' && data.error === true) {
-      return {
-        error: true,
-        message: data.message,
-        code: (data.code as string) ?? 'UNKNOWN_ERROR',
-        details: data.details as Record<string, string[]> | undefined,
-      };
-    }
+        // If the response already has our APIError shape, use it
+        if (typeof data.message === 'string' && data.error === true) {
+          return {
+            error: true,
+            message: data.message,
+            code: (data.code as string) ?? 'UNKNOWN_ERROR',
+            details: data.details as Record<string, string[]> | undefined,
+          };
+        }
 
-    // Django REST Framework returns flat objects like:
-    //   { "role": ["This field is required."], "email": ["Already exists."] }
-    //   { "non_field_errors": ["Unable to log in with provided credentials."] }
-    //   { "detail": "Authentication credentials were not provided." }
-    if (typeof data.detail === 'string') {
-      return {
-        error: true,
-        message: data.detail,
-        code: 'API_ERROR',
-      };
-    }
+        // Django REST Framework returns flat objects like detail string
+        if (typeof data.detail === 'string') {
+          return {
+            error: true,
+            message: data.detail,
+            code: 'API_ERROR',
+          };
+        }
 
-    // Collect all field errors from the flat DRF response
-    const details: Record<string, string[]> = {};
-    let firstMessage = '';
-    for (const [key, value] of Object.entries(data)) {
-      if (Array.isArray(value)) {
-        details[key] = value.map(String);
-        if (!firstMessage) {
-          firstMessage = key === 'non_field_errors'
-            ? value[0]
-            : `${key}: ${value[0]}`;
+        // Collect all field errors
+        const details: Record<string, string[]> = {};
+        let firstMessage = '';
+
+        if (data.details) {
+          if (Array.isArray(data.details)) {
+            for (const item of data.details) {
+              if (item && typeof item === 'object') {
+                for (const [key, value] of Object.entries(item)) {
+                  if (Array.isArray(value)) {
+                    details[key] = value.map(String);
+                    if (!firstMessage) firstMessage = `${key}: ${value[0]}`;
+                  } else if (typeof value === 'string') {
+                    details[key] = [value];
+                    if (!firstMessage) firstMessage = `${key}: ${value}`;
+                  }
+                }
+              }
+            }
+          } else if (typeof data.details === 'object' && data.details !== null) {
+            for (const [key, value] of Object.entries(data.details)) {
+              if (Array.isArray(value)) {
+                details[key] = value.map(String);
+                if (!firstMessage) firstMessage = `${key}: ${value[0]}`;
+              } else if (typeof value === 'string') {
+                details[key] = [value];
+                if (!firstMessage) firstMessage = `${key}: ${value}`;
+              }
+            }
+          }
+        }
+
+        if (Object.keys(details).length === 0) {
+          for (const [key, value] of Object.entries(data)) {
+            if (key === 'details' || key === 'error' || key === 'message' || key === 'code' || key === 'request_id') {
+              continue;
+            }
+            if (Array.isArray(value)) {
+              details[key] = value.map(String);
+              if (!firstMessage) firstMessage = key === 'non_field_errors' ? value[0] : `${key}: ${value[0]}`;
+            } else if (typeof value === 'string') {
+              details[key] = [value];
+              if (!firstMessage) firstMessage = `${key}: ${value}`;
+            }
+          }
+        }
+
+        if (Object.keys(details).length > 0) {
+          return {
+            error: true,
+            message: details.non_field_errors?.[0] ?? firstMessage ?? (typeof data.message === 'string' ? data.message : 'Validation error.'),
+            code: 'VALIDATION_ERROR',
+            details,
+          };
+        }
+
+        if (typeof data.message === 'string') {
+          return {
+            error: true,
+            message: data.message,
+            code: typeof data.code === 'string' ? data.code : 'UNKNOWN_ERROR',
+          };
         }
       }
-    }
 
-    if (Object.keys(details).length > 0) {
+      // If status code is 5xx or server had no parseable response body
+      const status = error.response.status;
+      if (status >= 500) {
+        return {
+          error: true,
+          message: 'Server error. Please try again later.',
+          code: 'SERVER_ERROR',
+        };
+      }
       return {
         error: true,
-        message: details.non_field_errors?.[0] ?? firstMessage ?? 'Validation error.',
-        code: 'VALIDATION_ERROR',
-        details,
+        message: `HTTP Error ${status}. Please try again.`,
+        code: 'HTTP_ERROR',
+      };
+    } else if (error.request) {
+      return {
+        error: true,
+        message: 'No response from server. Please check your network connection.',
+        code: 'NETWORK_ERROR',
       };
     }
-
-    return {
-      error: true,
-      message: 'An unexpected error occurred.',
-      code: 'UNKNOWN_ERROR',
-    };
   }
+
+  // General JS exception
   return {
     error: true,
-    message: 'A network error occurred. Please check your connection.',
-    code: 'NETWORK_ERROR',
+    message: error instanceof Error ? error.message : 'An unexpected error occurred.',
+    code: 'JS_ERROR',
   };
 }
 

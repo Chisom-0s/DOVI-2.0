@@ -60,6 +60,7 @@ export default function RegisterPage() {
       });
       setSuccess(true);
     } catch (err) {
+      console.error('[RegisterPage] Caught error:', err);
       setError(err as APIError);
     } finally {
       setIsSubmitting(false);
