@@ -753,6 +753,27 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
+/* Desktop header nav links – pill capsule style */
+.header-nav-link {
+  text-decoration: none !important;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text);
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  transition: all 200ms ease;
+  white-space: nowrap;
+  position: relative;
+}
+.header-nav-link:hover {
+  color: var(--color-primary);
+  background-color: rgba(255, 122, 0, 0.08);
+}
+.header-nav-link:active {
+  transform: scale(0.97);
+}
+
 /* Hide scrollbars for categories scroll row */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;

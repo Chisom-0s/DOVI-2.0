@@ -111,9 +111,9 @@ export default function Header() {
         <div style={actionsContainerStyles} className="site-header__actions hide-mobile">
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
-            <Link to="/products" style={navLinkStyles}>Marketplace</Link>
-            <Link to="/auto" style={navLinkStyles}>Dovi Auto</Link>
-            <Link to="/save2own" style={navLinkStyles}>Save2Own</Link>
+            <Link to="/products" className="header-nav-link">Marketplace</Link>
+            <Link to="/auto" className="header-nav-link">Dovi Auto</Link>
+            <Link to="/save2own" className="header-nav-link">Save2Own</Link>
           </nav>
 
           {/* Notification Bell Dropdown Wrapper */}
@@ -249,11 +249,11 @@ export default function Header() {
         >
           <SearchBar />
           <div style={categoryLinksStyles} className="no-scrollbar">
-            {/* Nav links for mobile & desktop views */}
-            <Link to="/products" className="header-category-link page-link">🛍️ Marketplace</Link>
-            <Link to="/auto" className="header-category-link page-link">🚗 Dovi Auto</Link>
-            <Link to="/save2own" className="header-category-link page-link">🎯 Save2Own</Link>
-            
+            {/* Page links – visible on mobile only (desktop has them in the top nav) */}
+            <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
+            <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
+            <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
+
             {/* Extensive categories in premium orange block capsules */}
             <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
             <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
@@ -306,22 +306,16 @@ const searchContainerStyles: React.CSSProperties = {
 const actionsContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-4)',
+  gap: 'var(--space-3)',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end',
 };
 
 const navLinksStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-4)',
-  marginRight: 'var(--space-2)',
-};
-
-const navLinkStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-medium)',
-  color: 'var(--color-text)',
-  textDecoration: 'none',
-  transition: 'color var(--transition-fast)',
+  gap: '2px',
+  marginRight: 'var(--space-1)',
 };
 
 const cartButtonStyles: React.CSSProperties = {

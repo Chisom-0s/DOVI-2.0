@@ -96,21 +96,6 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
     .dovi-dot:nth-child(1) { animation-delay: -0.32s; }
     .dovi-dot:nth-child(2) { animation-delay: -0.16s; background-color: var(--color-success, #27ae60); }
     .dovi-dot:nth-child(3) { animation-delay: 0s; }
-    .dovi-tagline {
-      font-size: var(--text-sm, 14px);
-      font-weight: var(--font-semibold, 600);
-      color: #374151; /* Dark charcoal for crisp legibility */
-      margin-top: 16px;
-      letter-spacing: 0.5px;
-      text-align: center;
-      opacity: 0;
-      transform: translateY(12px);
-      transition: opacity 1200ms ease-out 300ms, transform 1200ms cubic-bezier(0.16, 1, 0.3, 1) 300ms;
-    }
-    .dovi-tagline.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
   `;
 
   return (
@@ -124,11 +109,6 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
           alt="Dovi Logo"
           style={logoStyles}
         />
-
-        {/* Below Logo: Slogan Slogan */}
-        <div className={`dovi-tagline ${isAnimated ? 'show' : ''}`}>
-          Shop Smart. Feel Good.
-        </div>
 
         {/* Lower Area: Circular Dot Pulsing Loader */}
         <div className="dovi-dot-loader">
