@@ -115,12 +115,57 @@ apiClient.interceptors.response.use(
 // ============================================================
 export function normalizeApiError(error: unknown): APIError {
   if (axios.isAxiosError(error) && error.response?.data) {
-    const data = error.response.data as Partial<APIError>;
+    const data = error.response.data as Record<string, unknown>;
+
+    // If the response already has our APIError shape, use it
+    if (typeof data.message === 'string' && data.error === true) {
+      return {
+        error: true,
+        message: data.message,
+        code: (data.code as string) ?? 'UNKNOWN_ERROR',
+        details: data.details as Record<string, string[]> | undefined,
+      };
+    }
+
+    // Django REST Framework returns flat objects like:
+    //   { "role": ["This field is required."], "email": ["Already exists."] }
+    //   { "non_field_errors": ["Unable to log in with provided credentials."] }
+    //   { "detail": "Authentication credentials were not provided." }
+    if (typeof data.detail === 'string') {
+      return {
+        error: true,
+        message: data.detail,
+        code: 'API_ERROR',
+      };
+    }
+
+    // Collect all field errors from the flat DRF response
+    const details: Record<string, string[]> = {};
+    let firstMessage = '';
+    for (const [key, value] of Object.entries(data)) {
+      if (Array.isArray(value)) {
+        details[key] = value.map(String);
+        if (!firstMessage) {
+          firstMessage = key === 'non_field_errors'
+            ? value[0]
+            : `${key}: ${value[0]}`;
+        }
+      }
+    }
+
+    if (Object.keys(details).length > 0) {
+      return {
+        error: true,
+        message: details.non_field_errors?.[0] ?? firstMessage ?? 'Validation error.',
+        code: 'VALIDATION_ERROR',
+        details,
+      };
+    }
+
     return {
       error: true,
-      message: data.message ?? 'An unexpected error occurred.',
-      code: data.code ?? 'UNKNOWN_ERROR',
-      details: data.details,
+      message: 'An unexpected error occurred.',
+      code: 'UNKNOWN_ERROR',
     };
   }
   return {
