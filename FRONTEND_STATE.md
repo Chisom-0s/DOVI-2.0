@@ -148,15 +148,15 @@ frontend/
 | 9 | `/api/v1/users/me/addresses/` | `GET`, `POST`, `PATCH`, `DELETE` | `src/api/auth.ts` | **Real Backend Fetch** |
 | 10 | `/api/v1/users/me/change-password/` | `POST` | `src/api/auth.ts` | **Real Backend Fetch** |
 | 11 | `/api/v1/users/me/payment-methods/` | `GET`, `DELETE` | `src/api/payments.ts` | **Real Backend Fetch** |
-| 12 | `/api/v1/categories/` | `GET` | `src/components/home/CategoryGrid.tsx`, `src/pages/Products/ProductListingPage.tsx`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** via direct browser `fetch()` |
-| 13 | `/api/v1/categories/${slug}/` | `GET` | `src/pages/Products/CategoryPage.tsx` | **Real Backend Fetch** via direct browser `fetch()` |
-| 14 | `/api/v1/products/` | `GET`, `POST` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Supports filtering, pagination & vendor creation |
+| 12 | `/api/v1/categories/` | `GET` | `src/components/home/CategoryGrid.tsx`, `src/pages/Products/ProductListingPage.tsx`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** via `apiClient` |
+| 13 | `/api/v1/categories/${slug}/` | `GET` | `src/pages/Products/CategoryPage.tsx` | **Real Backend Fetch** via `apiClient` |
+| 14 | `/api/v1/products/` | `GET`, `POST` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Supports filtering, search, pagination & vendor creation |
 | 15 | `/api/v1/products/my-products/` | `GET` | `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Returns vendor's products |
 | 16 | `/api/v1/products/${id}/` | `GET`, `PATCH`, `DELETE` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** |
 | 17 | `/api/v1/products/${id}/variants/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** |
 | 18 | `/api/v1/products/${id}/reviews/` | `GET`, `POST` | `src/api/products.ts` | **Real Backend Fetch** |
-| 19 | `/api/v1/products/${id}/related/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** *(Endpoint returns 404 on backend; frontend warns & degrades)* |
-| 20 | `/api/v1/products/search/` | `GET` | `src/api/products.ts` | **Broken Integration** — Backend lacks `/search/` route; expects `GET /api/v1/products/?search=query` |
+| 19 | `/api/v1/products/${id}/related/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** *(Gracefully returns `[]` on 404; re-throws 500s/network errors)* |
+| 20 | `/api/v1/products/?search=...` | `GET` | `src/api/products.ts` | **Real Backend Fetch** — Search query filter verified against live database |
 | 21 | `/api/v1/products/featured/` | `GET` | `src/api/products.ts` | **Broken Integration** — Backend lacks specific named sub-route; evaluates `featured` as slug |
 | 22 | `/api/v1/products/trending/` | `GET` | `src/api/products.ts` | **Broken Integration** — Backend lacks specific named sub-route |
 | 23 | `/api/v1/products/new-arrivals/` | `GET` | `src/api/products.ts` | **Broken Integration** — Backend lacks specific named sub-route |
