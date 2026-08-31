@@ -116,30 +116,33 @@ export default function ReviewsPage() {
                 </tr>
               </thead>
               <tbody>
-                {reviews.map((r) => (
+                {reviews.map((r: any) => (
                   <tr key={r.id} style={tableRowStyles}>
                     <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                      <a href={`/products?q=${r.product_id}`} style={{ color: 'var(--color-primary)' }}>
-                        {r.product_id}
-                      </a>
+                      <span style={{ color: 'var(--color-primary)' }}>
+                        {r.product_name || r.product_id || r.product || 'Product'}
+                      </span>
+                      {r.buyer_email && (
+                        <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 400, marginTop: '2px' }}>
+                          By: {r.buyer_email}
+                        </div>
+                      )}
                     </td>
                     <td style={tableCellStyles}>
                       <div style={scoresListStyles}>
-                        <span style={scoreBadgeStyles}>Product: ★{r.product_rating}</span>
-                        <span style={scoreBadgeStyles}>Vendor: ★{r.vendor_rating}</span>
-                        <span style={scoreBadgeStyles}>Delivery: ★{r.delivery_rating}</span>
+                        <span style={scoreBadgeStyles}>Rating: ★{r.rating ?? r.product_rating ?? '5'}</span>
                       </div>
                     </td>
                     <td style={{ ...tableCellStyles, maxWidth: '300px', fontSize: '13px' }}>
                       {r.title && <strong style={{ display: 'block', marginBottom: '2px' }}>{r.title}</strong>}
-                      <p style={{ margin: 0, color: '#4b5563', lineHeight: 1.4 }}>{r.body}</p>
+                      <p style={{ margin: 0, color: '#4b5563', lineHeight: 1.4 }}>{r.comment || r.body || 'No comment provided.'}</p>
                     </td>
                     <td style={tableCellStyles}>
                       <span style={verifiedBadgeStyles(r.is_verified_purchase)}>
                         {r.is_verified_purchase ? 'Yes' : 'No'}
                       </span>
                     </td>
-                    <td style={tableCellStyles}>{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td style={tableCellStyles}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : 'N/A'}</td>
                     <td style={{ ...tableCellStyles, textAlign: 'center' }}>
                       <button
                         type="button"

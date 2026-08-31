@@ -165,26 +165,31 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
-                  <tr key={o.reference} style={tableRowStyles}>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>{o.reference}</td>
-                    <td style={tableCellStyles}>{new Date(o.created_at).toLocaleDateString()}</td>
-                    <td style={tableCellStyles}>{o.item_count} items</td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(o.total)}</td>
-                    <td style={tableCellStyles}>
-                      <span style={statusBadgeStyles(o.status)}>{o.status.replace('_', ' ')}</span>
-                    </td>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleInspectOrder(o)}
-                        style={viewBtnStyles}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {orders.map((o: any) => {
+                  const ref = o.reference_code || o.reference || o.id;
+                  const itemCount = o.item_count ?? o.items?.length ?? 0;
+                  const total = o.total_amount ?? o.total ?? '0';
+                  return (
+                    <tr key={o.id || ref} style={tableRowStyles}>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>{ref}</td>
+                      <td style={tableCellStyles}>{o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}</td>
+                      <td style={tableCellStyles}>{itemCount} item{itemCount !== 1 ? 's' : ''}</td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(total)}</td>
+                      <td style={tableCellStyles}>
+                        <span style={statusBadgeStyles(o.status)}>{(o.status || '').replace('_', ' ')}</span>
+                      </td>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleInspectOrder(o)}
+                          style={viewBtnStyles}
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -219,7 +224,7 @@ export default function OrdersPage() {
         <div style={modalBackdropStyles}>
           <div style={{ ...modalContentStyles, maxWidth: '640px' }}>
             <div style={modalHeaderStyles}>
-              <h3 style={modalTitleStyles}>Order Management Panel — {selectedOrder.reference}</h3>
+              <h3 style={modalTitleStyles}>Order Management Panel — {(selectedOrder as any).reference_code || selectedOrder.reference}</h3>
               <button type="button" onClick={() => setSelectedOrder(null)} style={closeBtnStyles}>&times;</button>
             </div>
 
@@ -231,16 +236,12 @@ export default function OrdersPage() {
                   <span style={detailValueStyles}>{new Date(selectedOrder.created_at).toLocaleString()}</span>
                 </div>
                 <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Payment Method</span>
-                  <span style={detailValueStyles}>{selectedOrder.payment_method || 'N/A'}</span>
+                  <span style={detailLabelStyles}>Customer</span>
+                  <span style={detailValueStyles}>{(selectedOrder as any).buyer_email || 'N/A'}</span>
                 </div>
                 <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Payment Status</span>
-                  <span style={detailValueStyles}>{selectedOrder.payment_status}</span>
-                </div>
-                <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Shipping Method</span>
-                  <span style={detailValueStyles}>{selectedOrder.delivery_method}</span>
+                  <span style={detailLabelStyles}>Order Status</span>
+                  <span style={detailValueStyles}>{selectedOrder.status}</span>
                 </div>
                 <div style={{ ...detailItemStyles, border: 'none' }}>
                   <span style={detailLabelStyles}>Order Subtotal</span>
@@ -253,7 +254,7 @@ export default function OrdersPage() {
                 <div style={{ ...detailItemStyles, border: 'none', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
                   <span style={{ ...detailLabelStyles, color: 'var(--color-primary)', fontWeight: 700 }}>Total Charge</span>
                   <span style={{ ...detailValueStyles, color: 'var(--color-primary)', fontSize: '15px' }}>
-                    {formatCurrency(selectedOrder.total)}
+                    {formatCurrency((selectedOrder as any).total_amount || selectedOrder.total)}
                   </span>
                 </div>
               </div>
@@ -264,11 +265,10 @@ export default function OrdersPage() {
                   Shipping Address
                 </div>
                 <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.4, color: '#1f2937' }}>
-                  <strong>{selectedOrder.delivery_address.full_name}</strong><br />
-                  {selectedOrder.delivery_address.address_line_1}<br />
-                  {selectedOrder.delivery_address.address_line_2 && <>{selectedOrder.delivery_address.address_line_2}<br /></>}
-                  {selectedOrder.delivery_address.city}, {selectedOrder.delivery_address.state}<br />
-                  {selectedOrder.delivery_address.country}
+                  {((selectedOrder as any).shipping_address_line_1 || (selectedOrder as any).delivery_address?.address_line_1 || 'No address line 1')}<br />
+                  {((selectedOrder as any).shipping_address_line_2 || (selectedOrder as any).delivery_address?.address_line_2) && <>{((selectedOrder as any).shipping_address_line_2 || (selectedOrder as any).delivery_address?.address_line_2)}<br /></>}
+                  {((selectedOrder as any).shipping_city || (selectedOrder as any).delivery_address?.city || 'Lagos')}, {((selectedOrder as any).shipping_state || (selectedOrder as any).delivery_address?.state || 'Lagos')}<br />
+                  {((selectedOrder as any).shipping_country || (selectedOrder as any).delivery_address?.country || 'Nigeria')}
                 </p>
 
                 {/* Status Transition Control */}
@@ -297,25 +297,31 @@ export default function OrdersPage() {
             {/* Items Log list */}
             <div style={borderCoolStyles}>
               <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
-                Items Purchased ({selectedOrder.items.length})
+                Items Purchased ({selectedOrder.items?.length || 0})
               </div>
               <div style={itemsListStyles}>
-                {selectedOrder.items.map((item) => (
-                  <div key={item.id} style={itemRowStyles}>
-                    <img
-                      src={item.product.primary_image_url || '/logo.jpg?v=2'}
-                      alt={item.product.name}
-                      style={itemImgStyles}
-                      onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <span style={itemNameStyles}>{item.product.name}</span>
-                      {item.variant && <span style={itemVariantStyles}>{item.variant.name}</span>}
-                      <span style={itemQtyStyles}>Quantity: {item.quantity}</span>
+                {selectedOrder.items?.map((item: any) => {
+                  const prodName = item.product_name || item.product?.name || 'Product';
+                  const variantName = item.variant_sku || item.variant?.name || (typeof item.variant === 'string' ? '' : '');
+                  const price = item.line_total || (parseFloat(item.unit_price || '0') * (item.quantity || 1)).toString();
+                  const img = item.product?.primary_image_url || '/logo.jpg?v=2';
+                  return (
+                    <div key={item.id} style={itemRowStyles}>
+                      <img
+                        src={img}
+                        alt={prodName}
+                        style={itemImgStyles}
+                        onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <span style={itemNameStyles}>{prodName}</span>
+                        {variantName && <span style={itemVariantStyles}>{variantName}</span>}
+                        <span style={itemQtyStyles}>Quantity: {item.quantity}</span>
+                      </div>
+                      <span style={itemPriceStyles}>{formatCurrency(price)}</span>
                     </div>
-                    <span style={itemPriceStyles}>{formatCurrency(item.line_total)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
