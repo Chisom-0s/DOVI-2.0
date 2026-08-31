@@ -163,9 +163,18 @@ export default function Save2OwnCreateGoalPage() {
   // ----------------------------------------------------------
   // Render Entry 3: Product Selected & Goal Creation Flow
   // ----------------------------------------------------------
-  const activePrice = selectedVariant ? selectedVariant.price : (product?.price || '0');
-  const totalPriceVal = parseFloat(activePrice) * quantity;
+  const rawActivePrice = selectedVariant
+    ? (selectedVariant.price_override || selectedVariant.price)
+    : (product?.base_price || product?.price || '0');
+  const activePrice = rawActivePrice || '0';
+  const totalPriceVal = (parseFloat(activePrice) || 0) * quantity;
   const formattedTotal = formatCurrency(totalPriceVal.toString());
+
+  const vendorName = product?.vendor
+    ? (typeof product.vendor === 'object' ? product.vendor.name : (product.vendor_name || 'Dovi Partner'))
+    : (product?.vendor_name || 'Dovi Partner');
+
+  const primaryImage = selectedVariant?.image_url || product?.images?.[0]?.url || '/logo.jpg?v=2';
 
   return (
     <div className="container" style={formPageWrapperStyles}>
@@ -184,7 +193,7 @@ export default function Save2OwnCreateGoalPage() {
           {/* Left Column: Product Info Card */}
           <div style={leftColCardStyles}>
             <img
-              src={selectedVariant?.image_url || product.images[0]?.url || '/logo.jpg?v=2'}
+              src={primaryImage}
               alt={product.name}
               style={previewImgStyles}
               onError={(e) => {
@@ -192,15 +201,19 @@ export default function Save2OwnCreateGoalPage() {
               }}
             />
             <div style={previewTextStyles}>
-              <span style={vendorTagStyles}>Vendor: {product.vendor.name}</span>
+              <span style={vendorTagStyles}>Vendor: {vendorName}</span>
               <h2 style={previewTitleStyles}>{product.name}</h2>
               {selectedVariant && (
                 <div style={activeVariantBadgeStyles}>
-                  {Object.entries(selectedVariant.attributes).map(([k, v]) => (
-                    <span key={k} style={{ textTransform: 'capitalize' }}>
-                      <strong>{k}:</strong> {v}
-                    </span>
-                  ))}
+                  {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' ? (
+                    Object.entries(selectedVariant.attributes).map(([k, v]) => (
+                      <span key={k} style={{ textTransform: 'capitalize' }}>
+                        <strong>{k}:</strong> {v}
+                      </span>
+                    ))
+                  ) : (
+                    <span>{selectedVariant.name}</span>
+                  )}
                 </div>
               )}
               <div style={priceContainerStyles}>

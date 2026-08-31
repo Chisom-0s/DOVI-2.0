@@ -229,7 +229,7 @@ export default function Save2OwnGoalDetailPage() {
       const fullProduct = await productsApi.getById(goal.product.id);
       setEditProduct(fullProduct);
       setEditQuantity(goal.quantity);
-      if (goal.variant) {
+      if (goal.variant && fullProduct.variants) {
         const matching = fullProduct.variants.find(v => v.id === goal.variant?.id);
         setEditVariant(matching || null);
       }
@@ -509,11 +509,15 @@ export default function Save2OwnGoalDetailPage() {
                 </Link>
                 {goal.variant && (
                   <div style={variantWrapperStyles}>
-                    {Object.entries(goal.variant.attributes).map(([k, v]) => (
-                      <span key={k} style={variantTagStyles}>
-                        {k}: {v}
-                      </span>
-                    ))}
+                    {goal.variant.attributes && typeof goal.variant.attributes === 'object' ? (
+                      Object.entries(goal.variant.attributes).map(([k, v]) => (
+                        <span key={k} style={variantTagStyles}>
+                          {k}: {v}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={variantTagStyles}>{goal.variant.name}</span>
+                    )}
                   </div>
                 )}
                 <span style={qtyDisplayStyles}>Quantity: <strong>{goal.quantity}</strong></span>

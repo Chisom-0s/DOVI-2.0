@@ -60,8 +60,9 @@ export default function VariantSelector({
 
     // Find if a variant matches this combination
     const matched = variants.find(v => {
-      if (!v.attributes) return false;
-      return Object.entries(nextSelections).every(([k, val]) => v.attributes[k] === val);
+      const attrs = v.attributes;
+      if (!attrs) return false;
+      return Object.entries(nextSelections).every(([k, val]) => attrs[k] === val);
     });
 
     onVariantChange(matched || null);
