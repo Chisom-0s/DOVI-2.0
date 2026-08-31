@@ -118,11 +118,38 @@ export default function ProductDetailPage() {
     );
   }
 
+  // Safe format helpers
+  const formatPrice = (val: string | number | undefined | null): string => {
+    if (val === undefined || val === null || val === '') return 'Price unavailable';
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    if (isNaN(num) || !isFinite(num)) return 'Price unavailable';
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+    }).format(num);
+  };
+
   // Display price and stock matching either the variant or the base product
-  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-  const displaySku = selectedVariant ? selectedVariant.sku : product.sku;
-  const displayStock = selectedVariant ? selectedVariant.stock_quantity : product.stock_quantity;
+  const rawPrice = selectedVariant
+    ? (selectedVariant.price_override ?? selectedVariant.price)
+    : (product.base_price ?? product.price);
+  const displayPrice = formatPrice(rawPrice);
+
+  const displaySku = selectedVariant?.sku || product.sku || product.reference_code || 'N/A';
+
+  const rawStock = selectedVariant
+    ? (selectedVariant.stock ?? selectedVariant.stock_quantity)
+    : (product.stock_quantity ?? (product as { stock?: number }).stock ?? 0);
+  const displayStock = typeof rawStock === 'number' ? rawStock : (parseInt(String(rawStock || '0'), 10) || 0);
   const isOutOfStock = displayStock <= 0;
+
+  const avgRating = typeof product.average_rating === 'number'
+    ? product.average_rating
+    : (parseFloat(String(product.average_rating || 0)) || 0);
+
+  const reviewCount = typeof product.review_count === 'number'
+    ? product.review_count
+    : (parseInt(String(product.review_count || 0), 10) || 0);
 
   return (
     <div className="container" style={pageWrapperStyles}>
@@ -139,7 +166,7 @@ export default function ProductDetailPage() {
       <div className="product-detail-grid">
         {/* Left Column: Image Gallery & Socials */}
         <div style={leftColStyles}>
-          <ProductImageGallery images={product.images} />
+          <ProductImageGallery images={product.images || []} />
           <ShareButtons productName={product.name} />
         </div>
 
@@ -150,10 +177,10 @@ export default function ProductDetailPage() {
           {/* Rating aggregate display banner */}
           <div style={ratingRowStyles}>
             <span style={{ color: '#f39c12', fontWeight: 'bold' }}>
-              ★ {product.average_rating.toFixed(1)}
+              ★ {avgRating.toFixed(1)}
             </span>
             <span style={countTextStyles}>
-              ({product.review_count} customer {product.review_count === 1 ? 'review' : 'reviews'})
+              ({reviewCount} customer {reviewCount === 1 ? 'review' : 'reviews'})
             </span>
             <span style={skuStyles}>SKU: {displaySku}</span>
           </div>
@@ -163,10 +190,7 @@ export default function ProductDetailPage() {
           {/* Pricing area */}
           <div style={priceContainerStyles}>
             <span style={priceStyles}>
-              {new Intl.NumberFormat('en-NG', {
-                style: 'currency',
-                currency: 'NGN',
-              }).format(parseFloat(displayPrice))}
+              {displayPrice}
             </span>
             <span style={isOutOfStock ? outOfStockBadgeStyles : inStockBadgeStyles}>
               {isOutOfStock ? 'Out of Stock' : 'In Stock'}
@@ -227,7 +251,7 @@ export default function ProductDetailPage() {
           </button>
 
           {/* Vendor profile header info */}
-          <VendorSection vendor={product.vendor} />
+          <VendorSection vendor={product.vendor} vendorName={(product as { vendor_name?: string }).vendor_name} />
         </div>
       </div>
 
@@ -262,7 +286,7 @@ export default function ProductDetailPage() {
               borderBottomColor: activeTab === 'reviews' ? 'var(--color-primary)' : 'transparent',
             }}
           >
-            Reviews ({product.review_count})
+            Reviews ({reviewCount})
           </button>
         </div>
 
@@ -277,8 +301,8 @@ export default function ProductDetailPage() {
           {activeTab === 'reviews' && (
             <CustomerReviews
               productId={product.id}
-              averageRating={product.average_rating}
-              reviewCount={product.review_count}
+              averageRating={avgRating}
+              reviewCount={reviewCount}
             />
           )}
         </div>

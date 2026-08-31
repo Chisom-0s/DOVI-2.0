@@ -2,11 +2,22 @@ import { Link } from 'react-router-dom';
 import type { VendorSummary } from '@/types';
 
 interface VendorSectionProps {
-  vendor: VendorSummary;
+  vendor?: VendorSummary | string | null;
+  vendorName?: string;
 }
 
-export default function VendorSection({ vendor }: VendorSectionProps) {
-  if (!vendor) return null;
+export default function VendorSection({ vendor, vendorName }: VendorSectionProps) {
+  if (!vendor && !vendorName) return null;
+
+  const vendorId = typeof vendor === 'object' && vendor !== null ? vendor.id : (typeof vendor === 'string' ? vendor : '');
+  const name = (typeof vendor === 'object' && vendor !== null && vendor.name) ? vendor.name : (vendorName || 'Authorized Vendor');
+  const logoUrl = (typeof vendor === 'object' && vendor !== null) ? vendor.logo_url : undefined;
+  
+  const rawRating = typeof vendor === 'object' && vendor !== null ? vendor.rating : 5.0;
+  const rating = typeof rawRating === 'number' ? rawRating : (parseFloat(String(rawRating || 5.0)) || 5.0);
+
+  const rawReviews = typeof vendor === 'object' && vendor !== null ? vendor.review_count : 0;
+  const reviewCount = typeof rawReviews === 'number' ? rawReviews : (parseInt(String(rawReviews || 0), 10) || 0);
 
   // Premium fallback logo if vendor has no custom logo
   const fallbackLogo = '/logo.jpg?v=2';
@@ -17,8 +28,8 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
         {/* Vendor Logo & Info */}
         <div style={profileStyles}>
           <img
-            src={vendor.logo_url || fallbackLogo}
-            alt={`${vendor.name} Logo`}
+            src={logoUrl || fallbackLogo}
+            alt={`${name} Logo`}
             style={logoStyles}
             onError={e => {
               (e.target as HTMLImageElement).src = fallbackLogo;
@@ -26,8 +37,8 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
           />
           <div style={infoStyles}>
             <div style={nameRowStyles}>
-              <Link to={`/vendors/${vendor.id}`} style={nameStyles}>
-                {vendor.name}
+              <Link to={`/vendors/${vendorId}`} style={nameStyles}>
+                {name}
               </Link>
               <span style={badgeStyles} title="Verified Vendor">
                 ✓ Verified
@@ -36,10 +47,10 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
             {/* Rating summary */}
             <div style={ratingStyles}>
               <span style={starsStyles}>
-                ★ {vendor.rating.toFixed(1)}
+                ★ {rating.toFixed(1)}
               </span>
               <span style={countStyles}>
-                ({vendor.review_count} {vendor.review_count === 1 ? 'review' : 'reviews'})
+                ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
               </span>
             </div>
           </div>
@@ -47,7 +58,7 @@ export default function VendorSection({ vendor }: VendorSectionProps) {
 
         {/* Action Buttons */}
         <div style={actionsStyles}>
-          <Link to={`/vendors/${vendor.id}`} style={visitBtnStyles}>
+          <Link to={`/vendors/${vendorId}`} style={visitBtnStyles}>
             🏪 Visit Store
           </Link>
         </div>

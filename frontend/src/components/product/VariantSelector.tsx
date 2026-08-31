@@ -20,38 +20,47 @@ export default function VariantSelector({
     if (!variants || variants.length === 0) return;
 
     const parsed: Record<string, Set<string>> = {};
+    let hasAttributes = false;
+
     variants.forEach(v => {
-      if (v.attributes) {
+      if (v.attributes && typeof v.attributes === 'object') {
         Object.entries(v.attributes).forEach(([key, val]) => {
           if (!parsed[key]) parsed[key] = new Set();
           parsed[key].add(val);
+          hasAttributes = true;
         });
       }
     });
 
-    const optionsMap: Record<string, string[]> = {};
-    Object.entries(parsed).forEach(([key, valSet]) => {
-      optionsMap[key] = Array.from(valSet);
-    });
+    if (hasAttributes) {
+      const optionsMap: Record<string, string[]> = {};
+      Object.entries(parsed).forEach(([key, valSet]) => {
+        optionsMap[key] = Array.from(valSet);
+      });
+      setOptions(optionsMap);
 
-    setOptions(optionsMap);
-
-    // Set initial selection from selectedVariant or first variant
-    if (selectedVariant) {
-      setSelections(selectedVariant.attributes);
-    } else if (variants[0]) {
-      setSelections(variants[0].attributes);
-      onVariantChange(variants[0]);
+      if (selectedVariant?.attributes) {
+        setSelections(selectedVariant.attributes);
+      } else if (variants[0]?.attributes) {
+        setSelections(variants[0].attributes);
+        onVariantChange(variants[0]);
+      }
+    } else {
+      setOptions({});
+      if (!selectedVariant && variants[0]) {
+        onVariantChange(variants[0]);
+      }
     }
   }, [variants]);
 
-  // Handle choice selection
+  // Handle choice selection for attribute-based variants
   const handleSelect = (key: string, value: string) => {
     const nextSelections = { ...selections, [key]: value };
     setSelections(nextSelections);
 
     // Find if a variant matches this combination
     const matched = variants.find(v => {
+      if (!v.attributes) return false;
       return Object.entries(nextSelections).every(([k, val]) => v.attributes[k] === val);
     });
 
@@ -62,34 +71,61 @@ export default function VariantSelector({
     return null;
   }
 
+  const hasAttributeOptions = Object.keys(options).length > 0;
+
   return (
     <div style={selectorContainerStyles}>
-      {Object.entries(options).map(([optionKey, optionValues]) => (
-        <div key={optionKey} style={optionGroupStyles}>
-          <div style={optionHeaderStyles}>
-            <span style={optionLabelStyles}>{optionKey}</span>
-            <span style={selectedValStyles}>{selections[optionKey] || 'Select...'}</span>
+      {hasAttributeOptions ? (
+        Object.entries(options).map(([optionKey, optionValues]) => (
+          <div key={optionKey} style={optionGroupStyles}>
+            <div style={optionHeaderStyles}>
+              <span style={optionLabelStyles}>{optionKey}</span>
+              <span style={selectedValStyles}>{selections[optionKey] || 'Select...'}</span>
+            </div>
+
+            <div style={valuesListStyles}>
+              {optionValues.map(val => {
+                const isSelected = selections[optionKey] === val;
+                const optionBtnStyles = getOptionButtonStyles(isSelected);
+
+                return (
+                  <button
+                    key={val}
+                    onClick={() => handleSelect(optionKey, val)}
+                    style={optionBtnStyles}
+                    aria-label={`Select ${optionKey} ${val}`}
+                  >
+                    {val}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-
+        ))
+      ) : variants.length > 1 ? (
+        <div style={optionGroupStyles}>
+          <div style={optionHeaderStyles}>
+            <span style={optionLabelStyles}>Option</span>
+            <span style={selectedValStyles}>{selectedVariant?.name || 'Select option'}</span>
+          </div>
           <div style={valuesListStyles}>
-            {optionValues.map(val => {
-              const isSelected = selections[optionKey] === val;
+            {variants.map(v => {
+              const isSelected = selectedVariant?.id === v.id;
               const optionBtnStyles = getOptionButtonStyles(isSelected);
-
               return (
                 <button
-                  key={val}
-                  onClick={() => handleSelect(optionKey, val)}
+                  key={v.id}
+                  onClick={() => onVariantChange(v)}
                   style={optionBtnStyles}
-                  aria-label={`Select ${optionKey} ${val}`}
+                  aria-label={`Select ${v.name}`}
                 >
-                  {val}
+                  {v.name}
                 </button>
               );
             })}
           </div>
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }

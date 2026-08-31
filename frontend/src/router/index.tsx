@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 import CookieConsentBanner from '@/components/common/CookieConsentBanner';
 import PWAInstallPrompt from '@/components/common/PWAInstallPrompt';
+import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
 
@@ -95,38 +96,40 @@ const router = createBrowserRouter([
         <PWAInstallPrompt />
       </>
     ),
+    errorElement: <RouteErrorBoundary />,
     children: [
       // ---- Public routes ----
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
-  { path: '/forgot-password', element: <ForgotPasswordPage /> },
-  { path: '/reset-password', element: <ResetPasswordPage /> },
-  { path: '/verify-email', element: <EmailVerificationPage /> },
+      { path: '/login', element: <LoginPage /> },
+      { path: '/register', element: <RegisterPage /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/verify-email', element: <EmailVerificationPage /> },
 
-  // ---- Public marketplace routes inside MainLayout (Phase 2 & 3) ----
-  {
-    path: '/',
-    element: <MainLayout />,
-    children: [
-      { path: '', element: <HomePage /> },
-      { path: 'products', element: <ProductListingPage /> },
-      { path: 'products/:id', element: <ProductDetailPage /> },
-      { path: 'categories/:slug', element: <CategoryPage /> },
-      { path: 'search', element: <SearchResultsPage /> },
-      { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
-      { path: 'faq', element: <Placeholder name="FAQ" /> },
-      { path: 'contact', element: <Placeholder name="Contact Support" /> },
-      { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },
-
-      // ---- Cart & Checkout (Phase 4 — LIVE) ----
+      // ---- Public marketplace routes inside MainLayout (Phase 2 & 3) ----
       {
-        path: 'cart',
-        element: (
-          <AuthGuard>
-            <CartPage />
-          </AuthGuard>
-        ),
-      },
+        path: '/',
+        element: <MainLayout />,
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          { path: '', element: <HomePage /> },
+          { path: 'products', element: <ProductListingPage /> },
+          { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'search', element: <SearchResultsPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
+          { path: 'faq', element: <Placeholder name="FAQ" /> },
+          { path: 'contact', element: <Placeholder name="Contact Support" /> },
+          { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },
+
+          // ---- Cart & Checkout (Phase 4 — LIVE) ----
+          {
+            path: 'cart',
+            element: (
+              <AuthGuard>
+                <CartPage />
+              </AuthGuard>
+            ),
+          },
       {
         path: 'checkout',
         element: (

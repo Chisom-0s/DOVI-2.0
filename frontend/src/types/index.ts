@@ -149,29 +149,37 @@ export interface ProductVariant {
   id: string;
   sku: string;
   name: string;
-  price: string;
-  stock_quantity: number;
-  attributes: Record<string, string>;
-  image_url: string | null;
+  price?: string;
+  price_override?: string | null;
+  stock?: number;
+  reserved?: number;
+  stock_quantity?: number;
+  attributes?: Record<string, string>;
+  image_url?: string | null;
 }
 
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
   description: string;
-  price: string;
-  sku: string;
-  stock_quantity: number;
-  status: ProductStatus;
-  vendor: VendorSummary;
-  category: CategorySummary;
-  images: ProductImage[];
-  variants: ProductVariant[];
-  average_rating: number;
-  review_count: number;
-  related_products: ProductSummary[];
-  created_at: string;
-  updated_at: string;
+  price?: string;
+  base_price?: string;
+  reference_code?: string;
+  sku?: string;
+  stock_quantity?: number;
+  status: ProductStatus | string;
+  vendor: VendorSummary | string;
+  vendor_name?: string;
+  category: CategorySummary | string;
+  category_name?: string;
+  images?: ProductImage[];
+  variants?: ProductVariant[];
+  average_rating?: number;
+  review_count?: number;
+  related_products?: ProductSummary[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProductSummary {

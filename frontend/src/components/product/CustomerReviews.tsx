@@ -6,17 +6,21 @@ import { Skeleton } from '@/components/common/Skeleton';
 
 interface CustomerReviewsProps {
   productId: string;
-  averageRating: number;
-  reviewCount: number;
+  averageRating?: number | string | null;
+  reviewCount?: number | string | null;
 }
 
 export default function CustomerReviews({
   productId,
-  averageRating,
-  reviewCount: initialReviewCount,
+  averageRating = 0,
+  reviewCount: initialReviewCount = 0,
 }: CustomerReviewsProps) {
+  const safeInitialCount = typeof initialReviewCount === 'number'
+    ? initialReviewCount
+    : (parseInt(String(initialReviewCount || 0), 10) || 0);
+
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewCount, setReviewCount] = useState(initialReviewCount);
+  const [reviewCount, setReviewCount] = useState(safeInitialCount);
   const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
   const [sortOption, setSortOption] = useState<string>('newest');
   const [page, setPage] = useState(1);
@@ -79,6 +83,9 @@ export default function CustomerReviews({
   };
 
   const breakdownPercentages = getRatingBreakdown();
+  const safeAvg = typeof averageRating === 'number'
+    ? averageRating
+    : (parseFloat(String(averageRating || 0)) || 0);
 
   return (
     <div style={containerStyles}>
@@ -86,14 +93,14 @@ export default function CustomerReviews({
       <div className="reviews-aggregates-grid">
         {/* Average Stars */}
         <div style={avgCardStyles}>
-          <span style={avgNumStyles}>{averageRating.toFixed(1)}</span>
+          <span style={avgNumStyles}>{safeAvg.toFixed(1)}</span>
           <div style={avgStarsRowStyles}>
             {Array.from({ length: 5 }).map((_, idx) => (
               <span
                 key={idx}
                 style={{
                   fontSize: '1.25rem',
-                  color: idx < Math.round(averageRating) ? '#f39c12' : 'var(--color-border)',
+                  color: idx < Math.round(safeAvg) ? '#f39c12' : 'var(--color-border)',
                 }}
               >
                 ★

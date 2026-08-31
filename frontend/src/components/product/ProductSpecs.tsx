@@ -7,13 +7,29 @@ interface ProductSpecsProps {
 export default function ProductSpecs({ product }: ProductSpecsProps) {
   if (!product) return null;
 
+  const avgRating = typeof product.average_rating === 'number'
+    ? product.average_rating
+    : (parseFloat(String(product.average_rating || 0)) || 0);
+
+  const stockQty = typeof product.stock_quantity === 'number'
+    ? product.stock_quantity
+    : (parseInt(String(product.stock_quantity || (product as { stock?: number }).stock || 0), 10) || 0);
+
+  const vendorName = (typeof product.vendor === 'object' && product.vendor !== null)
+    ? (product.vendor as { name?: string }).name
+    : ((product as { vendor_name?: string }).vendor_name || 'Dovi Partner');
+
+  const categoryName = (typeof product.category === 'object' && product.category !== null)
+    ? (product.category as { name?: string }).name
+    : ((product as { category_name?: string }).category_name || 'General');
+
   // Generate dynamic specifications list from product properties
   const specsList = [
-    { label: 'Stock Status', value: product.stock_quantity > 0 ? `In Stock (${product.stock_quantity} units)` : 'Out of Stock' },
-    { label: 'Category', value: product.category?.name || 'General' },
-    { label: 'Vendor Partner', value: product.vendor?.name || 'Dovi Partner' },
-    { label: 'Item SKU Reference', value: product.sku || 'N/A' },
-    { label: 'Aggregate Rating', value: product.average_rating > 0 ? `${product.average_rating.toFixed(1)} / 5.0 Stars` : 'No ratings yet' },
+    { label: 'Stock Status', value: stockQty > 0 ? `In Stock (${stockQty} units)` : 'Out of Stock' },
+    { label: 'Category', value: categoryName || 'General' },
+    { label: 'Vendor Partner', value: vendorName || 'Dovi Partner' },
+    { label: 'Item SKU Reference', value: product.sku || product.reference_code || 'N/A' },
+    { label: 'Aggregate Rating', value: avgRating > 0 ? `${avgRating.toFixed(1)} / 5.0 Stars` : 'No ratings yet' },
     { label: 'Listing ID', value: product.id },
   ];
 
