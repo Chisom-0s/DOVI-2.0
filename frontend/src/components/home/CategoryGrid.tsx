@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import apiClient from '@/api/client';
 import type { Category } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -25,11 +26,8 @@ export default function CategoryGrid() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/categories/`);
-        if (response.ok) {
-          const data = await response.json();
-          setCategories(Array.isArray(data) ? data.slice(0, 8) : []);
-        }
+        const { data } = await apiClient.get('/api/v1/categories/');
+        setCategories(Array.isArray(data) ? data.slice(0, 8) : (data?.results ? data.results.slice(0, 8) : []));
       } catch (err) {
         console.error('Failed to fetch categories:', err);
       } finally {

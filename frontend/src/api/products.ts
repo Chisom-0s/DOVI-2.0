@@ -36,7 +36,7 @@ export const productsApi = {
 
   search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/products/search/', { params: { q, ...filters } });
+      const { data } = await apiClient.get('/api/v1/products/', { params: { search: q, ...filters } });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -138,9 +138,10 @@ export const productsApi = {
   getRelated: async (id: string): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+      return Array.isArray(data) ? data : (data?.results ?? []);
+    } catch {
+      // Gracefully degrade when endpoint is not yet available on backend
+      return [];
     }
   },
 };

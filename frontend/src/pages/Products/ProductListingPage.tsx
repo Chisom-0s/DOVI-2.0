@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
 import type { ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
@@ -25,11 +26,8 @@ export default function ProductListingPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/categories/`);
-        if (response.ok) {
-          const data = await response.json();
-          setCategories(data);
-        }
+        const { data } = await apiClient.get('/api/v1/categories/');
+        setCategories(Array.isArray(data) ? data : (data?.results ?? []));
       } catch (err) {
         console.error('Failed to fetch categories:', err);
       }

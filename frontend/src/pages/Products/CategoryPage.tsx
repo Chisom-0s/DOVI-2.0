@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
 import type { ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
@@ -18,12 +19,11 @@ export default function CategoryPage() {
       setIsLoading(true);
       try {
         // Fetch specific category detail to get name
-        const catRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/categories/${slug}/`);
-        if (catRes.ok) {
-          const catData = await catRes.json();
+        try {
+          const { data: catData } = await apiClient.get(`/api/v1/categories/${slug}/`);
           setCategoryName(catData.name);
-        } else {
-          // Fallback name mapping
+        } catch {
+          // Fallback name mapping if detail by slug is unavailable
           setCategoryName(slug.charAt(0).toUpperCase() + slug.slice(1).replace('-', ' '));
         }
 

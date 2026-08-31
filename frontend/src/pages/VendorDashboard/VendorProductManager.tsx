@@ -49,11 +49,8 @@ export default function VendorProductManager() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/categories/`);
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(Array.isArray(data) ? data : (data.results || []));
-      }
+      const { data } = await apiClient.get('/api/v1/categories/');
+      setCategories(Array.isArray(data) ? data : (data?.results || []));
     } catch (err) {
       console.error('Failed to load categories:', err);
     }
