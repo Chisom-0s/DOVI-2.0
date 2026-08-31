@@ -54,6 +54,13 @@ export interface User {
   date_joined: string;
   last_login: string | null;
   profile?: UserProfile;
+  vendor_store?: {
+    id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    logo_url?: string | null;
+  } | null;
 }
 
 export interface AuthTokens {

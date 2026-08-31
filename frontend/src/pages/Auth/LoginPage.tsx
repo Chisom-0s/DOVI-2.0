@@ -26,8 +26,14 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const loggedUser = await login({ email, password });
+      if (from && from !== '/') {
+        navigate(from, { replace: true });
+      } else if (loggedUser?.role === 'VENDOR' || loggedUser?.profile?.vendor_status === 'APPROVED') {
+        navigate('/vendor/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (err) {
       setError(err as APIError);
     } finally {

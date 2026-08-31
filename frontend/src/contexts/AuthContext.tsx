@@ -17,7 +17,7 @@ interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -79,10 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ----------------------------------------------------------
   // login()
   // ----------------------------------------------------------
-  const login = useCallback(async (credentials: LoginRequest) => {
+  const login = useCallback(async (credentials: LoginRequest): Promise<User> => {
     const result = await authApi.login(credentials);
     tokenStore.set(result.tokens.access);
     setUser(result.user);
+    return result.user;
     // Note: Django sets the refresh token as an httpOnly cookie
   }, []);
 
