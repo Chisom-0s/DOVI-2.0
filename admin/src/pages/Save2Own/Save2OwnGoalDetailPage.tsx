@@ -88,6 +88,8 @@ export default function Save2OwnGoalDetailPage() {
         <ApiErrorMessage error={error} />
       </div>
     );
+  }
+
   const g: any = goal;
   const prodName = g.product?.name || g.product_name || g.variant_name || `Goal ${g.reference_code || g.id}`;
   const variantName = g.variant?.name || g.variant_sku || (typeof g.variant === 'string' ? '' : '');
