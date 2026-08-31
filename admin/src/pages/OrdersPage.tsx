@@ -54,7 +54,8 @@ export default function OrdersPage() {
   const handleInspectOrder = async (summary: OrderSummary) => {
     setIsDetailLoading(true);
     try {
-      const detail = await adminApi.getOrder(summary.reference);
+      const orderId = summary.id || summary.reference;
+      const detail = await adminApi.getOrder(orderId);
       setSelectedOrder(detail);
     } catch {
       toast.error('Failed to load order details.');
@@ -67,10 +68,11 @@ export default function OrdersPage() {
     if (!selectedOrder) return;
     setIsActionPending(true);
     try {
-      const updated = await adminApi.updateOrderStatus(selectedOrder.reference, newStatus);
-      toast.success(`Order ${selectedOrder.reference} status updated to ${newStatus}.`);
+      const orderId = selectedOrder.id || selectedOrder.reference;
+      const updated = await adminApi.updateOrderStatus(orderId, newStatus);
+      toast.success(`Order ${selectedOrder.reference || selectedOrder.id} status updated to ${newStatus}.`);
       setSelectedOrder(updated);
-      setOrders(prev => prev.map(o => o.reference === updated.reference ? { ...o, status: updated.status } : o));
+      setOrders(prev => prev.map(o => (o.id === updated.id || o.reference === updated.reference) ? { ...o, status: updated.status } : o));
     } catch (err: any) {
       toast.error(err.message || 'Failed to update order status.');
     } finally {

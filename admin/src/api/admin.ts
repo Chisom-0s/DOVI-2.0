@@ -306,9 +306,11 @@ export const adminApi = {
   },
 
   // --- Product Management ---
-  listProducts: async (params?: { page?: number; q?: string; vendor?: string; category?: string }): Promise<PaginatedResponse<ProductSummary>> => {
+  listProducts: async (params?: { page?: number; q?: string; search?: string; vendor?: string; category?: string }): Promise<PaginatedResponse<ProductSummary>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/products/', { params });
+      const queryParams: Record<string, any> = { page: params?.page, vendor: params?.vendor, category: params?.category };
+      if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
+      const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -317,7 +319,7 @@ export const adminApi = {
 
   archiveProduct: async (id: string): Promise<any> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/admin/products/${id}/archive/`);
+      const { data } = await apiClient.delete(`/api/v1/products/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -327,8 +329,8 @@ export const adminApi = {
   // --- Category Management ---
   listCategories: async (): Promise<Category[]> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/categories/');
-      return data;
+      const { data } = await apiClient.get('/api/v1/categories/');
+      return Array.isArray(data) ? data : (data?.results || []);
     } catch (err) {
       throw normalizeApiError(err);
     }
@@ -336,7 +338,7 @@ export const adminApi = {
 
   createCategory: async (payload: { name: string; slug: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
     try {
-      const { data } = await apiClient.post('/api/v1/admin/categories/', payload);
+      const { data } = await apiClient.post('/api/v1/categories/', payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -345,7 +347,7 @@ export const adminApi = {
 
   updateCategory: async (id: string, payload: { name?: string; slug?: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
     try {
-      const { data } = await apiClient.patch(`/api/v1/admin/categories/${id}/`, payload);
+      const { data } = await apiClient.put(`/api/v1/categories/${id}/`, payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -354,7 +356,7 @@ export const adminApi = {
 
   deleteCategory: async (id: string): Promise<any> => {
     try {
-      const { data } = await apiClient.delete(`/api/v1/admin/categories/${id}/`);
+      const { data } = await apiClient.delete(`/api/v1/categories/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -362,27 +364,29 @@ export const adminApi = {
   },
 
   // --- Order Management ---
-  listOrders: async (params?: { page?: number; status?: string; q?: string }): Promise<PaginatedResponse<OrderSummary>> => {
+  listOrders: async (params?: { page?: number; status?: string; q?: string; search?: string }): Promise<PaginatedResponse<OrderSummary>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/orders/', { params });
+      const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
+      if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
+      const { data } = await apiClient.get('/api/v1/orders/', { params: queryParams });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
     }
   },
 
-  getOrder: async (ref: string): Promise<Order> => {
+  getOrder: async (id: string): Promise<Order> => {
     try {
-      const { data } = await apiClient.get(`/api/v1/admin/orders/${ref}/`);
+      const { data } = await apiClient.get(`/api/v1/orders/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
     }
   },
 
-  updateOrderStatus: async (ref: string, status: string): Promise<Order> => {
+  updateOrderStatus: async (id: string, status: string): Promise<Order> => {
     try {
-      const { data } = await apiClient.patch(`/api/v1/admin/orders/${ref}/status/`, { status });
+      const { data } = await apiClient.post(`/api/v1/orders/${id}/transition/`, { status });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -411,7 +415,7 @@ export const adminApi = {
   // --- Refund Management ---
   listRefunds: async (params?: { page?: number; status?: string }): Promise<PaginatedResponse<Refund>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/refunds/', { params });
+      const { data } = await apiClient.get('/api/v1/refunds/', { params });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -420,16 +424,25 @@ export const adminApi = {
 
   getRefund: async (id: string): Promise<Refund> => {
     try {
-      const { data } = await apiClient.get(`/api/v1/admin/refunds/${id}/`);
+      const { data } = await apiClient.get(`/api/v1/refunds/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
     }
   },
 
-  approveRefund: async (id: string): Promise<Refund> => {
+  reviewRefund: async (id: string, payload: { action: 'approve' | 'reject'; notes?: string }): Promise<Refund> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/admin/refunds/${id}/approve/`);
+      const { data } = await apiClient.post(`/api/v1/refunds/${id}/review/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  approveRefund: async (id: string, notes = 'Approved by admin'): Promise<Refund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/refunds/${id}/review/`, { action: 'approve', notes });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -438,7 +451,7 @@ export const adminApi = {
 
   rejectRefund: async (id: string, reason: string): Promise<Refund> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/admin/refunds/${id}/reject/`, { admin_note: reason });
+      const { data } = await apiClient.post(`/api/v1/refunds/${id}/review/`, { action: 'reject', notes: reason });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -446,9 +459,11 @@ export const adminApi = {
   },
 
   // --- Review Moderation ---
-  listReviews: async (params?: { page?: number; rating?: number; q?: string }): Promise<PaginatedResponse<Review>> => {
+  listReviews: async (params?: { page?: number; rating?: number; q?: string; search?: string }): Promise<PaginatedResponse<Review>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/reviews/', { params });
+      const queryParams: Record<string, any> = { page: params?.page, rating: params?.rating };
+      if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
+      const { data } = await apiClient.get('/api/v1/reviews/', { params: queryParams });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -457,7 +472,7 @@ export const adminApi = {
 
   removeReview: async (id: string): Promise<any> => {
     try {
-      const { data } = await apiClient.delete(`/api/v1/admin/reviews/${id}/`);
+      const { data } = await apiClient.delete(`/api/v1/reviews/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -688,9 +703,11 @@ export const adminApi = {
   },
 
   // --- Save2Own Admin Management ---
-  listSave2OwnGoals: async (params?: { page?: number; status?: string; q?: string }): Promise<PaginatedResponse<Save2OwnGoal>> => {
+  listSave2OwnGoals: async (params?: { page?: number; status?: string; q?: string; search?: string }): Promise<PaginatedResponse<Save2OwnGoal>> => {
     try {
-      const { data } = await apiClient.get('/api/v1/admin/save2own/', { params });
+      const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
+      if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
+      const { data } = await apiClient.get('/api/v1/save2own/goals/', { params: queryParams });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -699,7 +716,7 @@ export const adminApi = {
 
   getSave2OwnGoal: async (id: string): Promise<Save2OwnGoal> => {
     try {
-      const { data } = await apiClient.get(`/api/v1/admin/save2own/${id}/`);
+      const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/`);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -708,7 +725,7 @@ export const adminApi = {
 
   suspendSave2OwnGoal: async (id: string, reason: string): Promise<Save2OwnGoal> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/admin/save2own/${id}/suspend/`, { reason });
+      const { data } = await apiClient.patch(`/api/v1/save2own/goals/${id}/`, { status: 'CANCELLED', notes: reason });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
