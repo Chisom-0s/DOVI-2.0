@@ -43,6 +43,12 @@ import NotificationsPage from '@/pages/Dashboard/NotificationsPage';
 import AccountSettingsPage from '@/pages/Dashboard/AccountSettingsPage';
 import SecuritySettingsPage from '@/pages/Dashboard/SecuritySettingsPage';
 
+// Vendor Dashboard (Merchant Hub)
+import VendorDashboardLayout from '@/pages/VendorDashboard/VendorDashboardLayout';
+import VendorDashboardOverview from '@/pages/VendorDashboard/VendorDashboardOverview';
+import VendorProductManager from '@/pages/VendorDashboard/VendorProductManager';
+import VendorOrderManager from '@/pages/VendorDashboard/VendorOrderManager';
+
 // Phase 6 — Save2Own
 import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
@@ -168,7 +174,7 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: (
-          <RoleGuard role="BUYER">
+          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
             <DashboardLayout />
           </RoleGuard>
         ),
@@ -192,11 +198,26 @@ const router = createBrowserRouter([
         ],
       },
 
+      // ---- Vendor Dashboard (Phase 7 — Merchant Hub) ----
+      {
+        path: 'vendor/dashboard',
+        element: (
+          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
+            <VendorDashboardLayout />
+          </RoleGuard>
+        ),
+        children: [
+          { path: '', element: <VendorDashboardOverview /> },
+          { path: 'products', element: <VendorProductManager /> },
+          { path: 'orders', element: <VendorOrderManager /> },
+        ],
+      },
+
       // ---- Save2Own (Phase 6) ----
       {
         path: 'save2own',
         element: (
-          <RoleGuard role="BUYER">
+          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
             <Save2OwnCreateGoalPage />
           </RoleGuard>
         ),
@@ -204,7 +225,7 @@ const router = createBrowserRouter([
       {
         path: 'save2own/goals/:id',
         element: (
-          <RoleGuard role="BUYER">
+          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
             <Save2OwnGoalDetailPage />
           </RoleGuard>
         ),
@@ -224,7 +245,7 @@ const router = createBrowserRouter([
       {
         path: 'auto/rentals/bookings',
         element: (
-          <RoleGuard role="BUYER">
+          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
             <MyRentalsPage />
           </RoleGuard>
         ),

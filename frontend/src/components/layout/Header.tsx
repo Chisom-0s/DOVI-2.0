@@ -219,6 +219,29 @@ export default function Header() {
           {/* User Account State (visible everywhere) */}
           {isAuthenticated ? (
             <div style={userMenuStyles}>
+              {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') && (
+                <Link
+                  to="/vendor/dashboard"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    borderRadius: '6px',
+                    backgroundColor: 'rgba(255, 122, 0, 0.12)',
+                    color: 'var(--color-primary, #ff7a00)',
+                    border: '1px solid var(--color-primary, #ff7a00)',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginRight: '6px',
+                  }}
+                  className="hide-mobile"
+                >
+                  <span>🏪</span>
+                  <span>Merchant Hub</span>
+                </Link>
+              )}
               <Link to="/dashboard" style={avatarLinkStyles}>
                 {user?.avatar_url ? (
                   <img src={user.avatar_url} alt="Profile" style={avatarStyles} />

@@ -1,4 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
   label: string;
@@ -8,6 +9,7 @@ interface NavItem {
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const { user } = useAuth();
 
   const navItems: NavItem[] = [
     {
@@ -184,6 +186,29 @@ export default function DashboardLayout() {
       <div style={gridContainerStyles} className="dashboard-grid-container">
         {/* Desktop Sidebar Navigation */}
         <aside style={sidebarStyles} className="hide-mobile">
+          {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') && (
+            <div style={{ marginBottom: '1.25rem' }}>
+              <Link
+                to="/vendor/dashboard"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  background: 'linear-gradient(135deg, #ff7a00 0%, #ff5500 100%)',
+                  color: '#ffffff',
+                  fontWeight: '700',
+                  fontSize: 'var(--text-sm, 14px)',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(255, 122, 0, 0.25)',
+                }}
+              >
+                <span>🏪</span>
+                <span>Merchant Hub</span>
+              </Link>
+            </div>
+          )}
           <div style={sidebarTitleStyles}>Buyer Account</div>
           <nav style={sidebarNavStyles}>
             {navItems.map((item) => (
