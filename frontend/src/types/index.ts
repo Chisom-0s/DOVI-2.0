@@ -29,6 +29,18 @@ export interface APIError {
 export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
+export interface UserProfile {
+  phone_number?: string | null;
+  avatar_url?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  vendor_status?: 'N/A' | VendorStatus;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -41,6 +53,7 @@ export interface User {
   is_email_verified: boolean;
   date_joined: string;
   last_login: string | null;
+  profile?: UserProfile;
 }
 
 export interface AuthTokens {

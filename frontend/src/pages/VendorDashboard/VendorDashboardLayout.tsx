@@ -18,7 +18,7 @@ export default function VendorDashboardLayout() {
   }
 
   // 1. If user has not created a vendor store profile yet
-  if (!user || user.profile.vendor_status === 'N/A') {
+  if (!user || !user.profile || user.profile.vendor_status === 'N/A') {
     return <VendorStoreSetup />;
   }
 
