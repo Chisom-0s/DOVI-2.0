@@ -137,61 +137,70 @@ export default function Save2OwnGoalsPage() {
                 </tr>
               </thead>
               <tbody>
-                {goals.map((g) => (
-                  <tr key={g.id} style={tableRowStyles}>
-                    <td style={tableCellStyles}>
-                      <div style={productRowStyles}>
-                        <img
-                          src={g.product.primary_image_url || '/logo.jpg?v=2'}
-                          alt={g.product.name}
-                          style={productImgStyles}
-                          onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
-                        />
-                        <div>
-                          <strong style={productNameStyles}>{g.product.name}</strong>
-                          {g.variant && <span style={productSKUStyles}>Variant: {g.variant.name}</span>}
-                          <span style={productQtyStyles}>Quantity: {g.quantity}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                      {formatCurrency(g.target_amount)}
-                    </td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700, color: '#10b981' }}>
-                      {formatCurrency(g.total_contributed)}
-                    </td>
-                    <td style={tableCellStyles}>
-                      <div style={progressWrapperStyles}>
-                        <div style={progressBarContainerStyles}>
-                          <div
-                            style={{
-                              ...progressBarFillStyles,
-                              width: `${Math.min(g.progress_percentage || 0, 100)}%`,
-                            }}
+                {goals.map((g: any) => {
+                  const prodName = g.product?.name || g.product_name || g.variant_name || `Goal ${g.reference_code || g.id}`;
+                  const variantName = g.variant?.name || g.variant_sku || (typeof g.variant === 'string' ? '' : '');
+                  const targetAmt = g.target_amount || '0';
+                  const savedAmt = g.saved_amount || g.total_contributed || '0';
+                  const progressPct = g.progress_percent ?? g.progress_percentage ?? (parseFloat(targetAmt) > 0 ? (parseFloat(savedAmt) / parseFloat(targetAmt) * 100) : 0);
+                  const img = g.product?.primary_image_url || '/logo.jpg?v=2';
+
+                  return (
+                    <tr key={g.id} style={tableRowStyles}>
+                      <td style={tableCellStyles}>
+                        <div style={productRowStyles}>
+                          <img
+                            src={img}
+                            alt={prodName}
+                            style={productImgStyles}
+                            onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
                           />
+                          <div>
+                            <strong style={productNameStyles}>{prodName}</strong>
+                            {variantName && <span style={productSKUStyles}>Variant: {variantName}</span>}
+                            <span style={productQtyStyles}>Quantity: {g.quantity || 1}</span>
+                          </div>
                         </div>
-                        <span style={progressLabelStyles}>
-                          {(g.progress_percentage || 0).toFixed(0)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td style={tableCellStyles}>
-                      {g.target_date ? new Date(g.target_date).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td style={tableCellStyles}>
-                      <span style={statusBadgeStyles(g.status)}>{g.status.replace('_', ' ')}</span>
-                    </td>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/save2own/${g.id}`)}
-                        style={inspectBtnStyles}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                        {formatCurrency(targetAmt)}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700, color: '#10b981' }}>
+                        {formatCurrency(savedAmt)}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <div style={progressWrapperStyles}>
+                          <div style={progressBarContainerStyles}>
+                            <div
+                              style={{
+                                ...progressBarFillStyles,
+                                width: `${Math.min(progressPct, 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <span style={progressLabelStyles}>
+                            {progressPct.toFixed(0)}%
+                          </span>
+                        </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        {g.target_date ? new Date(g.target_date).toLocaleDateString() : (g.created_at ? new Date(g.created_at).toLocaleDateString() : 'N/A')}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <span style={statusBadgeStyles(g.status)}>{(g.status || '').replace('_', ' ')}</span>
+                      </td>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/save2own/${g.id}`)}
+                          style={inspectBtnStyles}
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

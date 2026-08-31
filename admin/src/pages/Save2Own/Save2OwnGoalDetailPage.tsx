@@ -88,7 +88,15 @@ export default function Save2OwnGoalDetailPage() {
         <ApiErrorMessage error={error} />
       </div>
     );
-  }
+  const g: any = goal;
+  const prodName = g.product?.name || g.product_name || g.variant_name || `Goal ${g.reference_code || g.id}`;
+  const variantName = g.variant?.name || g.variant_sku || (typeof g.variant === 'string' ? '' : '');
+  const targetAmt = g.target_amount || '0';
+  const savedAmt = g.saved_amount || g.total_contributed || '0';
+  const remainingAmt = g.remaining_amount || (Math.max(0, parseFloat(targetAmt) - parseFloat(savedAmt))).toString();
+  const progressPct = g.progress_percent ?? g.progress_percentage ?? (parseFloat(targetAmt) > 0 ? (parseFloat(savedAmt) / parseFloat(targetAmt) * 100) : 0);
+  const img = g.product?.primary_image_url || '/logo.jpg?v=2';
+  const vendorName = g.product?.vendor?.name || g.vendor_name || 'Verified Vendor';
 
   return (
     <div style={containerStyles}>
@@ -99,14 +107,14 @@ export default function Save2OwnGoalDetailPage() {
             ← Back to Goals
           </button>
           <h2 style={goalTitleStyles}>
-            Save2Own Audit — {goal.product.name}
+            Save2Own Audit — {prodName}
           </h2>
-          <span style={goalIdStyles}>Internal ID: {goal.id}</span>
+          <span style={goalIdStyles}>Internal ID: {g.reference_code || g.id}</span>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <span style={statusBadgeStyles(goal.status)}>{goal.status.replace('_', ' ')}</span>
-          {goal.status !== 'SUSPENDED' && goal.status !== 'CANCELLED' && goal.status !== 'COMPLETED' && (
+          <span style={statusBadgeStyles(g.status)}>{(g.status || '').replace('_', ' ')}</span>
+          {g.status !== 'SUSPENDED' && g.status !== 'CANCELLED' && g.status !== 'COMPLETED' && (
             <button
               type="button"
               onClick={() => setShowSuspendModal(true)}
@@ -133,15 +141,15 @@ export default function Save2OwnGoalDetailPage() {
             <div style={financialWidgetsGridStyles}>
               <div style={widgetStyles}>
                 <span style={widgetLabelStyles}>Total Goal Target</span>
-                <span style={widgetValueStyles}>{formatCurrency(goal.target_amount)}</span>
+                <span style={widgetValueStyles}>{formatCurrency(targetAmt)}</span>
               </div>
               <div style={widgetStyles}>
                 <span style={widgetLabelStyles}>Total Contributed</span>
-                <span style={{ ...widgetValueStyles, color: '#10b981' }}>{formatCurrency(goal.total_contributed)}</span>
+                <span style={{ ...widgetValueStyles, color: '#10b981' }}>{formatCurrency(savedAmt)}</span>
               </div>
               <div style={widgetStyles}>
                 <span style={widgetLabelStyles}>Remaining Balance</span>
-                <span style={{ ...widgetValueStyles, color: '#ff7a00' }}>{formatCurrency(goal.remaining_amount)}</span>
+                <span style={{ ...widgetValueStyles, color: '#ff7a00' }}>{formatCurrency(remainingAmt)}</span>
               </div>
             </div>
 
@@ -149,13 +157,13 @@ export default function Save2OwnGoalDetailPage() {
             <div style={{ marginTop: '8px' }}>
               <div style={progressLabelRowStyles}>
                 <span style={progressTextStyles}>Target Goal Progress</span>
-                <span style={progressPercentStyles}>{(goal.progress_percentage || 0).toFixed(1)}%</span>
+                <span style={progressPercentStyles}>{progressPct.toFixed(1)}%</span>
               </div>
               <div style={progressBarContainerStyles}>
                 <div
                   style={{
                     ...progressBarFillStyles,
-                    width: `${Math.min(goal.progress_percentage || 0, 100)}%`,
+                    width: `${Math.min(progressPct, 100)}%`,
                   }}
                 />
               </div>
@@ -167,22 +175,22 @@ export default function Save2OwnGoalDetailPage() {
             <h3 style={cardTitleStyles}>Current Target Product Specifications</h3>
             <div style={productDetailRowStyles}>
               <img
-                src={goal.product.primary_image_url || '/logo.jpg?v=2'}
-                alt={goal.product.name}
+                src={img}
+                alt={prodName}
                 style={productImgStyles}
                 onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
               />
               <div style={{ flex: 1 }}>
-                <h4 style={productNameStyles}>{goal.product.name}</h4>
-                {goal.variant && <span style={productVariantStyles}>Variant: {goal.variant.name}</span>}
+                <h4 style={productNameStyles}>{prodName}</h4>
+                {variantName && <span style={productVariantStyles}>Variant: {variantName}</span>}
                 <div style={productSpecsGridStyles}>
                   <div style={specItemStyles}>
                     <span style={specLabelStyles}>Quantity:</span>
-                    <span style={specValueStyles}>{goal.quantity} items</span>
+                    <span style={specValueStyles}>{g.quantity || 1} item{g.quantity !== 1 ? 's' : ''}</span>
                   </div>
                   <div style={specItemStyles}>
                     <span style={specLabelStyles}>Vendor:</span>
-                    <span style={specValueStyles}>{goal.product.vendor.name}</span>
+                    <span style={specValueStyles}>{vendorName}</span>
                   </div>
                 </div>
               </div>
@@ -195,7 +203,7 @@ export default function Save2OwnGoalDetailPage() {
           {/* Timeline Table */}
           <div style={cardStyles}>
             <h3 style={cardTitleStyles}>Contribution Payment Timeline (Immutable)</h3>
-            {goal.contributions && goal.contributions.length > 0 ? (
+            {g.contributions && g.contributions.length > 0 ? (
               <div style={tableWrapperStyles}>
                 <table style={tableStyles}>
                   <thead>
@@ -208,14 +216,14 @@ export default function Save2OwnGoalDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {goal.contributions.map((c) => (
+                    {g.contributions.map((c: any) => (
                       <tr key={c.id} style={tableRowStyles}>
                         <td style={{ ...tableCellStyles, fontWeight: 700 }}>{c.id.substring(0, 8)}</td>
                         <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(c.amount)}</td>
-                        <td style={tableCellStyles}>{c.payment_reference || 'N/A'}</td>
+                        <td style={tableCellStyles}>{c.payment_reference || c.payment || 'N/A'}</td>
                         <td style={tableCellStyles}>{new Date(c.created_at).toLocaleDateString()}</td>
                         <td style={tableCellStyles}>
-                          <span style={paymentStatusBadgeStyles(c.payment_status)}>{c.payment_status}</span>
+                          <span style={paymentStatusBadgeStyles(c.status || c.payment_status || 'COMPLETED')}>{c.status || c.payment_status || 'COMPLETED'}</span>
                         </td>
                       </tr>
                     ))}
@@ -230,27 +238,22 @@ export default function Save2OwnGoalDetailPage() {
           {/* Product and Price Shift History Logs */}
           <div style={cardStyles}>
             <h3 style={cardTitleStyles}>Save2Own Update Event Logs</h3>
-            {goal.product_changes && goal.product_changes.length > 0 ? (
+            {g.history && g.history.length > 0 ? (
               <div style={historyWrapperStyles}>
-                {goal.product_changes.map((change) => (
-                  <div key={change.id} style={historyItemStyles}>
+                {g.history.map((h: any) => (
+                  <div key={h.id} style={historyItemStyles}>
                     <div style={historyDotStyles} />
                     <div style={{ flex: 1 }}>
                       <span style={historyDateStyles}>
-                        {new Date(change.changed_at).toLocaleString()}
+                        {new Date(h.created_at).toLocaleString()}
                       </span>
                       <div style={historyContentStyles}>
                         <div>
-                          <span style={historyLabelStyles}>Product Target updated:</span>
+                          <span style={historyLabelStyles}>Event: {h.event_type}</span>
                           <p style={historyTextStyles}>
-                            Old Product: <strong>{change.old_product.name}</strong> ➔ New Product: <strong>{change.new_product.name}</strong>
+                            Previous: <strong>{h.previous_value || 'None'}</strong> ➔ New: <strong>{h.new_value || 'None'}</strong>
                           </p>
-                        </div>
-                        <div style={{ marginTop: '4px' }}>
-                          <span style={historyLabelStyles}>Target Goal Value shifted:</span>
-                          <p style={historyTextStyles}>
-                            Old Target: <strong>{formatCurrency(change.old_target)}</strong> ➔ New Target: <strong>{formatCurrency(change.new_target)}</strong>
-                          </p>
+                          {h.reason && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>Reason: {h.reason}</p>}
                         </div>
                       </div>
                     </div>
@@ -258,7 +261,7 @@ export default function Save2OwnGoalDetailPage() {
                 ))}
               </div>
             ) : (
-              <p style={emptyLabelStyles}>No targets or targeted product updates logged.</p>
+              <p style={emptyLabelStyles}>No history events logged yet.</p>
             )}
           </div>
         </div>
