@@ -1,11 +1,14 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from './Header';
 import Footer from './Footer';
 
 export default function MainLayout() {
   const location = useLocation();
+  const { user } = useAuth();
   const hideFooter = location.pathname === '/' || location.pathname === '/products';
+
+  const isVendor = user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED';
 
   return (
     <div style={layoutWrapperStyles}>
@@ -27,16 +30,16 @@ export default function MainLayout() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
           <span>Market</span>
         </Link>
-        <button onClick={() => toast.success('Vendor Portal is coming soon!')} className="mobile-nav__item mobile-nav__item--sell">
+        <Link to="/vendor/dashboard" className={`mobile-nav__item mobile-nav__item--sell ${location.pathname.startsWith('/vendor') ? 'mobile-nav__item--active' : ''}`}>
           <span>Sell</span>
-        </button>
+        </Link>
         <Link to="/cart" className={`mobile-nav__item ${location.pathname === '/cart' ? 'mobile-nav__item--active' : ''}`}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           <span>Cart</span>
         </Link>
-        <Link to="/dashboard" className={`mobile-nav__item ${location.pathname.startsWith('/dashboard') ? 'mobile-nav__item--active' : ''}`}>
+        <Link to={isVendor ? '/vendor/dashboard' : '/dashboard'} className={`mobile-nav__item ${(isVendor ? location.pathname.startsWith('/vendor') : location.pathname.startsWith('/dashboard')) ? 'mobile-nav__item--active' : ''}`}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span>Profile</span>
+          <span>{isVendor ? 'Store' : 'Profile'}</span>
         </Link>
       </nav>
 

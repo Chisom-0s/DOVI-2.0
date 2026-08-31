@@ -115,7 +115,17 @@ export default function VendorDashboardLayout() {
       <div style={gridContainerStyles}>
         {/* Desktop Sidebar Navigation */}
         <aside style={sidebarStyles} className="hide-mobile">
-          <div style={sidebarTitleStyles}>Vendor Account</div>
+          <div style={{ padding: '0 4px 12px 4px', borderBottom: '1px solid var(--color-border)' }}>
+            <span style={pillStyles}>🏪 Merchant Hub</span>
+            <div style={{ fontWeight: '700', fontSize: 'var(--text-md, 16px)', color: 'var(--color-text)' }}>
+              {user?.vendor_store?.name || 'My Store'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              {user?.email}
+            </div>
+          </div>
+
+          <div style={sidebarTitleStyles}>Store Management</div>
           <nav style={sidebarNavStyles}>
             {navItems.map((item) => (
               <Link
@@ -134,6 +144,28 @@ export default function VendorDashboardLayout() {
               </Link>
             ))}
           </nav>
+
+          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
+            <Link
+              to="/dashboard"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--color-bg-subtle)',
+                color: 'var(--color-text)',
+                fontSize: 'var(--text-xs, 12px)',
+                fontWeight: '600',
+                textDecoration: 'none',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <span>🛒</span>
+              <span>Switch to Buyer Mode</span>
+            </Link>
+          </div>
         </aside>
 
         {/* Dynamic Sub-Route Page Content */}

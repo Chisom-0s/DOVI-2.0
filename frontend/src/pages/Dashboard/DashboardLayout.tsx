@@ -164,6 +164,24 @@ export default function DashboardLayout() {
 
   return (
     <div className="container" style={layoutWrapperStyles}>
+      {/* Vendor Account Notification Banner if vendor is in buyer mode */}
+      {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED') && (
+        <div style={vendorNoticeBannerStyles}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '1.25rem' }}>🏪</span>
+            <div>
+              <strong style={{ color: 'var(--color-primary)' }}>Merchant Account:</strong>
+              <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>
+                You are currently in Buyer Mode.
+              </span>
+            </div>
+          </div>
+          <Link to="/vendor/dashboard" style={switchVendorBtnStyles}>
+            Go to Merchant Hub &rarr;
+          </Link>
+        </div>
+      )}
+
       {/* Mobile Horizontal Sub-Navigation Scroll Bar */}
       <div style={mobileNavStyles} className="no-scrollbar hide-desktop">
         {navItems.map((item) => (
@@ -317,4 +335,27 @@ const sidebarIconStyles: React.CSSProperties = {
 const contentStyles: React.CSSProperties = {
   minHeight: '400px',
   width: '100%',
+};
+
+const vendorNoticeBannerStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '12px 16px',
+  backgroundColor: 'rgba(255, 122, 0, 0.08)',
+  border: '1px solid rgba(255, 122, 0, 0.25)',
+  borderRadius: 'var(--radius-md, 8px)',
+  marginBottom: 'var(--space-4)',
+  gap: '12px',
+};
+
+const switchVendorBtnStyles: React.CSSProperties = {
+  padding: '6px 14px',
+  backgroundColor: 'var(--color-primary, #ff7a00)',
+  color: '#ffffff',
+  fontWeight: '600',
+  fontSize: 'var(--text-xs, 12px)',
+  borderRadius: 'var(--radius-full, 9999px)',
+  textDecoration: 'none',
+  whiteSpace: 'nowrap',
 };
