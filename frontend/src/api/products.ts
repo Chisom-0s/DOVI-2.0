@@ -139,9 +139,13 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
       return Array.isArray(data) ? data : (data?.results ?? []);
-    } catch {
-      // Gracefully degrade when endpoint is not yet available on backend
-      return [];
+    } catch (err: unknown) {
+      // Degrade gracefully ONLY if the endpoint does not exist on backend (404 Not Found)
+      if ((err as { response?: { status?: number } })?.response?.status === 404) {
+        return [];
+      }
+      // Re-throw genuine server errors (500s), network failures, and auth errors
+      throw normalizeApiError(err);
     }
   },
 };
