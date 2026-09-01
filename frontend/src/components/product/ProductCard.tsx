@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { cartApi } from '@/api/cart';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
+import { getProductImageUrl } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 
 interface ProductCardProps {
@@ -76,14 +77,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   const formattedPrice = formatPrice(product);
-
-  const cardImage =
-    product.primary_image_url ||
-    (product as any).image_url ||
-    ((product as any).images && (product as any).images[0]?.thumbnail_url) ||
-    ((product as any).images && (product as any).images[0]?.image_url) ||
-    ((product as any).images && (product as any).images[0]?.url) ||
-    fallbackImage;
+  const cardImage = getProductImageUrl(product);
 
   return (
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">

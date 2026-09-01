@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
+import { getProductImageUrl } from '@/utils/image';
 
 interface ProductImageItem {
   id: string;
@@ -354,29 +355,21 @@ export default function VendorProductManager() {
             </thead>
             <tbody>
               {filtered.map(p => {
-                const thumbUrl =
-                  p.primary_image_url ||
-                  p.images?.[0]?.thumbnail_url ||
-                  p.images?.[0]?.image_url ||
-                  p.images?.[0]?.url;
+                const thumbUrl = getProductImageUrl(p);
 
                 return (
                   <tr key={p.id} style={tableRowStyles}>
                     <td style={tdRefStyles}>{p.reference_code || 'N/A'}</td>
                     <td style={tdNameStyles}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {thumbUrl ? (
-                          <img
-                            src={thumbUrl}
-                            alt={p.name}
-                            style={tableThumbStyles}
-                            onError={e => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div style={tableNoThumbStyles}>📦</div>
-                        )}
+                        <img
+                          src={thumbUrl}
+                          alt={p.name}
+                          style={tableThumbStyles}
+                          onError={e => {
+                            (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                          }}
+                        />
                         <span>{p.name}</span>
                       </div>
                     </td>
@@ -790,19 +783,6 @@ const tableThumbStyles: React.CSSProperties = {
   objectFit: 'cover',
   border: '1px solid var(--color-border)',
   backgroundColor: '#f8fafc',
-  flexShrink: 0,
-};
-
-const tableNoThumbStyles: React.CSSProperties = {
-  width: '36px',
-  height: '36px',
-  borderRadius: 'var(--radius-sm)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-bg-subtle)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '14px',
   flexShrink: 0,
 };
 

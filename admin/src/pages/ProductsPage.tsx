@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { getProductImageUrl } from '@/utils/image';
 import type { ProductSummary, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -132,7 +133,7 @@ export default function ProductsPage() {
                     <td style={tableCellStyles}>
                       <div style={productInfoRowStyles}>
                         <img
-                          src={p.primary_image_url || '/logo.jpg?v=2'}
+                          src={getProductImageUrl(p)}
                           alt={p.name}
                           style={productImgStyles}
                           onError={(e) => {

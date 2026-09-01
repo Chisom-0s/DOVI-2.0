@@ -4,6 +4,7 @@ import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
 import { homepageApi } from '@/api/homepage';
 import { formatPrice } from '@/utils/currency';
+import { getProductImageUrl } from '@/utils/image';
 import type { HomepageSection, ProductSummary } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
@@ -88,7 +89,14 @@ export default function HomePage() {
           <div style={listStyles}>
             {products.map(p => (
               <Link to={`/products/${p.id}`} key={p.id} style={listItemStyles}>
-                <img src={p.primary_image_url || ''} alt={p.name} style={listThumbStyles} />
+                <img
+                  src={getProductImageUrl(p)}
+                  alt={p.name}
+                  style={listThumbStyles}
+                  onError={e => {
+                    (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                  }}
+                />
                 <div style={{ flex: 1 }}>
                   <div style={listItemNameStyles}>{p.name}</div>
                   <div style={listItemPriceStyles}>
@@ -111,7 +119,14 @@ export default function HomePage() {
             {products.map(p => (
               <Link to={`/products/${p.id}`} key={p.id} style={largeCardStyles}>
                 <div style={largeCardImageWrapperStyles}>
-                  <img src={p.primary_image_url || ''} alt={p.name} style={largeCardImageStyles} />
+                  <img
+                    src={getProductImageUrl(p)}
+                    alt={p.name}
+                    style={largeCardImageStyles}
+                    onError={e => {
+                      (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                    }}
+                  />
                 </div>
                 <div style={largeCardBodyStyles}>
                   <div style={largeCardTitleStyles}>{p.name}</div>
@@ -196,7 +211,14 @@ export default function HomePage() {
             {products.map(p => (
               <Link to={`/products/${p.id}`} key={p.id} style={autoTeaserCardStyles}>
                 <div style={autoTeaserImgWrapperStyles}>
-                  <img src={p.primary_image_url || ''} alt={p.name} style={autoTeaserImgStyles} />
+                  <img
+                    src={getProductImageUrl(p)}
+                    alt={p.name}
+                    style={autoTeaserImgStyles}
+                    onError={e => {
+                      (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                    }}
+                  />
                   <span style={autoTeaserBadgeStyles}>
                     {formatPrice(p)}
                   </span>

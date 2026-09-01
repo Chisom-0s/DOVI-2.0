@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/utils/currency';
+import { getProductImageUrl } from '@/utils/image';
 import type { CartItem } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -113,7 +114,7 @@ export default function CartPage() {
             <div key={item.id} style={itemCardStyles}>
               {/* Product Image */}
               <img
-                src={item.product.primary_image_url || '/logo.jpg?v=2'}
+                src={getProductImageUrl(item.product)}
                 alt={item.product.name}
                 style={itemImageStyles}
                 onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}

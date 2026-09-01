@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { recentlyViewedApi } from '@/api/recently-viewed';
 import { formatPrice } from '@/utils/currency';
+import { getProductImageUrl } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -56,7 +57,7 @@ export default function RecentlyViewedPage() {
             <div key={product.id} style={cardStyles}>
               <div style={imgWrapperStyles}>
                 <img
-                  src={product.primary_image_url || '/logo.jpg?v=2'}
+                  src={getProductImageUrl(product)}
                   alt={product.name}
                   style={productImgStyles}
                   onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
