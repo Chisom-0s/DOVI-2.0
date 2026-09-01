@@ -153,7 +153,9 @@ frontend/
 | 14 | `/api/v1/products/` | `GET`, `POST` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Supports filtering, search, pagination & vendor creation |
 | 15 | `/api/v1/products/my-products/` | `GET` | `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Returns vendor's products |
 | 16 | `/api/v1/products/${id}/` | `GET`, `PATCH`, `DELETE` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** |
-| 17 | `/api/v1/products/${id}/variants/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** |
+| 17 | `/api/v1/products/${id}/images/` | `POST` | `src/api/products.ts`, `src/pages/VendorDashboard/VendorProductManager.tsx` | **Real Backend Fetch** — Multipart image upload to Cloudflare R2 |
+| 18 | `/api/v1/products/${id}/images/${imageId}/` | `DELETE` | `src/api/products.ts` | **Real Backend Fetch** — Deletes product image & R2 storage files |
+| 19 | `/api/v1/products/${id}/variants/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** |
 | 18 | `/api/v1/products/${id}/reviews/` | `GET`, `POST` | `src/api/products.ts` | **Real Backend Fetch** |
 | 19 | `/api/v1/products/${id}/related/` | `GET` | `src/api/products.ts` | **Real Backend Fetch** *(Gracefully returns `[]` on 404; re-throws 500s/network errors)* |
 | 20 | `/api/v1/products/?search=...` | `GET` | `src/api/products.ts` | **Real Backend Fetch** — Search query filter verified against live database |
