@@ -276,11 +276,14 @@ export default function VendorProductManager() {
         fetchProducts();
       }
     } catch (err: any) {
+      const apiErr = err?.response?.data;
       const details =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        err?.message ||
-        'Failed to save product';
+        apiErr?.error?.message ||
+        apiErr?.detail ||
+        apiErr?.message ||
+        (err?.response?.status === 403
+          ? 'Permission denied: Your vendor store profile must be approved by an administrator before listing products.'
+          : err?.message || 'Failed to save product');
       toast.error(details);
     } finally {
       setIsSubmitting(false);
