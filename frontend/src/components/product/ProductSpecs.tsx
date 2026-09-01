@@ -23,9 +23,59 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
     ? (product.category as { name?: string }).name
     : ((product as { category_name?: string }).category_name || 'General');
 
-  // Generate dynamic specifications list from product properties
-  const specsList = [
-    { label: 'Stock Status', value: stockQty > 0 ? `In Stock (${stockQty} units)` : 'Out of Stock' },
+  // 1. Extract Custom Specifications
+  const customSpecs: { label: string; value: string }[] = [];
+
+  if (product.specifications) {
+    if (Array.isArray(product.specifications)) {
+      product.specifications.forEach(item => {
+        if (item?.key && item?.value) {
+          customSpecs.push({ label: item.key, value: item.value });
+        }
+      });
+    } else if (typeof product.specifications === 'object') {
+      Object.entries(product.specifications).forEach(([k, v]) => {
+        if (k && v) {
+          customSpecs.push({ label: k, value: String(v) });
+        }
+      });
+    }
+  }
+
+  // Fallback: Parse embedded DOVI_SPECS metadata from description if present
+  if (customSpecs.length === 0 && product.description) {
+    const metaMatch = product.description.match(/<!-- DOVI_SPECS: ([\s\S]*?) -->/);
+    if (metaMatch && metaMatch[1]) {
+      try {
+        const parsed = JSON.parse(metaMatch[1]);
+        if (typeof parsed === 'object' && parsed !== null) {
+          Object.entries(parsed).forEach(([k, v]) => {
+            if (k && v) customSpecs.push({ label: k, value: String(v) });
+          });
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  // 2. Extract Available Colors & Variants
+  const colorsList: string[] = [];
+  if (product.variants && product.variants.length > 0) {
+    product.variants.forEach(v => {
+      const vStock = v.stock ?? v.stock_quantity;
+      const stockPart = vStock !== undefined && vStock !== null ? ` (${vStock} units)` : '';
+      if (v.name && v.name.toLowerCase() !== 'standard') {
+        colorsList.push(`${v.name}${stockPart}`);
+      }
+    });
+  }
+
+  // 3. Assemble complete specifications list
+  const baseSpecs = [
+    ...(colorsList.length > 0 ? [{ label: 'Available Colors', value: colorsList.join(', ') }] : []),
+    { label: 'Stock Units', value: stockQty > 0 ? `${stockQty} units available` : 'Out of Stock' },
+    ...customSpecs,
     { label: 'Category', value: categoryName || 'General' },
     { label: 'Vendor Partner', value: vendorName || 'Dovi Partner' },
     { label: 'Item SKU Reference', value: product.sku || product.reference_code || 'N/A' },
@@ -38,9 +88,9 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
       <h3 style={titleStyles}>Technical Specifications</h3>
       <table style={tableStyles}>
         <tbody>
-          {specsList.map((spec, index) => (
+          {baseSpecs.map((spec, index) => (
             <tr
-              key={spec.label}
+              key={`${spec.label}-${index}`}
               style={{
                 ...rowStyles,
                 backgroundColor: index % 2 === 0 ? 'var(--color-bg-subtle)' : '#ffffff',

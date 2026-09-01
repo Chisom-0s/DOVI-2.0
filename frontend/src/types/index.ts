@@ -167,6 +167,12 @@ export interface ProductVariant {
   stock_quantity?: number;
   attributes?: Record<string, string>;
   image_url?: string | null;
+  color_code?: string;
+}
+
+export interface ProductSpecificationItem {
+  key: string;
+  value: string;
 }
 
 export interface Product {
@@ -193,6 +199,7 @@ export interface Product {
   related_products?: ProductSummary[];
   created_at?: string;
   updated_at?: string;
+  specifications?: Record<string, string> | ProductSpecificationItem[];
 }
 
 export interface ProductSummary {

@@ -7,8 +7,15 @@ export default function ProductDescription({ description }: ProductDescriptionPr
     return <div style={emptyDescStyles}>No description available for this product.</div>;
   }
 
+  // Strip internal metadata comments if present
+  const cleanDescription = description.replace(/<!-- DOVI_SPECS: [\s\S]*? -->/g, '').trim();
+
+  if (!cleanDescription) {
+    return <div style={emptyDescStyles}>No description available for this product.</div>;
+  }
+
   // Parse newlines to paragraph tags safely to prevent basic layout breaks
-  const paragraphs = description.split('\n\n').filter(p => p.trim());
+  const paragraphs = cleanDescription.split('\n\n').filter(p => p.trim());
 
   return (
     <div style={descWrapperStyles}>
