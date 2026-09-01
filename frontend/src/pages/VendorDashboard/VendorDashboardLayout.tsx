@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import apiClient from '@/api/client';
 import VendorStoreSetup from './VendorStoreSetup';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
@@ -12,13 +14,39 @@ interface NavItem {
 export default function VendorDashboardLayout() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
+  const [hasCheckedStore, setHasCheckedStore] = useState(false);
+  const [storeExists, setStoreExists] = useState<boolean>(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!user) return;
+
+    // Check if a vendor store is already registered in the backend for this user
+    apiClient
+      .get('/api/v1/vendors/')
+      .then(res => {
+        const vendorList = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        const matched = vendorList.some(
+          (v: any) =>
+            v.email === user.email ||
+            v.user?.email === user.email ||
+            v.user === user.id
+        );
+        setStoreExists(matched);
+      })
+      .catch(() => {
+        setStoreExists(user?.profile?.vendor_status === 'APPROVED');
+      })
+      .finally(() => {
+        setHasCheckedStore(true);
+      });
+  }, [user]);
+
+  if (isLoading || !hasCheckedStore) {
     return <LoadingSpinner fullScreen />;
   }
 
   // 1. If user has not created a vendor store profile yet
-  if (!user || !user.profile || user.profile.vendor_status === 'N/A') {
+  if (!user || !user.profile || user.profile.vendor_status === 'N/A' || (!storeExists && user.profile.vendor_status !== 'APPROVED')) {
     return <VendorStoreSetup />;
   }
 

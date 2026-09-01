@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import type { User, APIError } from '@/types';
@@ -7,11 +8,13 @@ import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 
 export default function UsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [vendorStatusFilter, setVendorStatusFilter] = useState('');
 
   // Selected User Modal / Detail
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -31,7 +34,7 @@ export default function UsersPage() {
         role: roleFilter || undefined,
       });
       setUsers(res.results || []);
-      setTotalPages(Math.ceil(res.count / 20) || 1); // 20 per page typical
+      setTotalPages(Math.ceil(res.count / 20) || 1);
     } catch (err: any) {
       setError(err);
       toast.error('Failed to load user list.');
@@ -50,26 +53,141 @@ export default function UsersPage() {
     fetchUsers(true);
   };
 
-  const handleToggleStatus = async (userToUpdate: User) => {
+  const handleToggleLoginStatus = async (userToUpdate: User) => {
     setIsActionPending(true);
     const isSuspending = userToUpdate.status === 'ACTIVE';
     try {
       let updatedUser: User;
       if (isSuspending) {
         updatedUser = await adminApi.suspendUser(userToUpdate.id);
-        toast.success(`User ${userToUpdate.email} suspended successfully.`);
+        toast.success(`User login access for ${userToUpdate.email} suspended.`);
       } else {
         updatedUser = await adminApi.activateUser(userToUpdate.id);
-        toast.success(`User ${userToUpdate.email} activated successfully.`);
+        toast.success(`User login access for ${userToUpdate.email} activated.`);
       }
       setSelectedUser(updatedUser);
-      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
     } catch (err: any) {
       toast.error(err.message || `Failed to update status for ${userToUpdate.email}.`);
     } finally {
       setIsActionPending(false);
     }
   };
+
+  const handleApproveVendor = async (userToApprove: User) => {
+    setIsActionPending(true);
+    try {
+      // Find associated vendor store in directory if one exists
+      const vendorList = await adminApi.listVendors({ q: userToApprove.email });
+      const matchedVendor = vendorList.results.find(
+        (v: any) =>
+          v.email === userToApprove.email ||
+          v.user?.email === userToApprove.email ||
+          v.user === userToApprove.id
+      );
+
+      if (matchedVendor) {
+        await adminApi.approveVendor(matchedVendor.id);
+      }
+
+      const updatedUser: User = {
+        ...userToApprove,
+        vendor_status: 'APPROVED',
+        profile: {
+          ...userToApprove.profile,
+          vendor_status: 'APPROVED',
+        },
+      };
+
+      setSelectedUser(updatedUser);
+      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+      toast.success(`Vendor ${userToApprove.email} approved successfully!`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to approve vendor status.`);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleRejectVendor = async (userToReject: User) => {
+    const reason = window.prompt('Specify reason for rejection:');
+    if (reason === null) return; // cancelled
+
+    setIsActionPending(true);
+    try {
+      const vendorList = await adminApi.listVendors({ q: userToReject.email });
+      const matchedVendor = vendorList.results.find(
+        (v: any) =>
+          v.email === userToReject.email ||
+          v.user?.email === userToReject.email ||
+          v.user === userToReject.id
+      );
+
+      if (matchedVendor) {
+        await adminApi.rejectVendor(matchedVendor.id, reason || 'Compliance validation issue');
+      }
+
+      const updatedUser: User = {
+        ...userToReject,
+        vendor_status: 'REJECTED',
+        profile: {
+          ...userToReject.profile,
+          vendor_status: 'REJECTED',
+        },
+      };
+
+      setSelectedUser(updatedUser);
+      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+      toast.success(`Vendor ${userToReject.email} set to rejected.`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to reject vendor.`);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleSuspendVendor = async (userToSuspend: User) => {
+    if (!confirm(`Are you sure you want to suspend merchant privileges for ${userToSuspend.email}?`)) return;
+
+    setIsActionPending(true);
+    try {
+      const vendorList = await adminApi.listVendors({ q: userToSuspend.email });
+      const matchedVendor = vendorList.results.find(
+        (v: any) =>
+          v.email === userToSuspend.email ||
+          v.user?.email === userToSuspend.email ||
+          v.user === userToSuspend.id
+      );
+
+      if (matchedVendor) {
+        await adminApi.suspendVendor(matchedVendor.id);
+      }
+
+      const updatedUser: User = {
+        ...userToSuspend,
+        vendor_status: 'SUSPENDED',
+        profile: {
+          ...userToSuspend.profile,
+          vendor_status: 'SUSPENDED',
+        },
+      };
+
+      setSelectedUser(updatedUser);
+      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+      toast.success(`Vendor ${userToSuspend.email} merchant status suspended.`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to suspend vendor.`);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  // Client-side filtration for vendor status if selected
+  const filteredUsers = users.filter(u => {
+    if (!vendorStatusFilter) return true;
+    const vStatus = u.profile?.vendor_status || u.vendor_status || 'N/A';
+    return vStatus === vendorStatusFilter;
+  });
 
   if (isLoading) {
     return (
@@ -96,32 +214,52 @@ export default function UsersPage() {
             type="text"
             placeholder="Search by name or email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             style={searchInputStyles}
           />
-          <button type="submit" style={searchBtnStyles}>Search</button>
+          <button type="submit" style={searchBtnStyles}>
+            Search
+          </button>
         </form>
 
-        <div style={filterWrapperStyles}>
-          <label style={filterLabelStyles}>Role:</label>
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            style={selectStyles}
-          >
-            <option value="">All Roles</option>
-            <option value="BUYER">Buyer</option>
-            <option value="VENDOR">Vendor</option>
-            <option value="ADMIN">Admin</option>
-          </select>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={filterWrapperStyles}>
+            <label style={filterLabelStyles}>Role:</label>
+            <select
+              value={roleFilter}
+              onChange={e => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
+              style={selectStyles}
+            >
+              <option value="">All Roles</option>
+              <option value="BUYER">Buyer</option>
+              <option value="VENDOR">Vendor</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+
+          <div style={filterWrapperStyles}>
+            <label style={filterLabelStyles}>Merchant Status:</label>
+            <select
+              value={vendorStatusFilter}
+              onChange={e => setVendorStatusFilter(e.target.value)}
+              style={selectStyles}
+            >
+              <option value="">All Merchant Statuses</option>
+              <option value="PENDING">Pending Approval</option>
+              <option value="APPROVED">Approved / Active</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="N/A">Not Applicable</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Users Table */}
-      {users.length === 0 ? (
+      {filteredUsers.length === 0 ? (
         <EmptyState
           icon="👥"
           title="No Users Found"
@@ -136,36 +274,52 @@ export default function UsersPage() {
                   <th style={tableHeaderCellStyles}>Full Name</th>
                   <th style={tableHeaderCellStyles}>Email Address</th>
                   <th style={tableHeaderCellStyles}>Role</th>
-                  <th style={tableHeaderCellStyles}>Status</th>
+                  <th style={tableHeaderCellStyles}>Login Status</th>
+                  <th style={tableHeaderCellStyles}>Merchant Status</th>
                   <th style={tableHeaderCellStyles}>Joined Date</th>
                   <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={tableRowStyles}>
-                    <td style={{ ...tableCellStyles, fontWeight: 600 }}>
-                      {u.first_name} {u.last_name}
-                    </td>
-                    <td style={tableCellStyles}>{u.email}</td>
-                    <td style={tableCellStyles}>
-                      <span style={roleBadgeStyles(u.role)}>{u.role}</span>
-                    </td>
-                    <td style={tableCellStyles}>
-                      <span style={statusBadgeStyles(u.status)}>{u.status}</span>
-                    </td>
-                    <td style={tableCellStyles}>{new Date(u.date_joined).toLocaleDateString()}</td>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedUser(u)}
-                        style={viewBtnStyles}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredUsers.map(u => {
+                  const merchantStatus = u.profile?.vendor_status || u.vendor_status || (u.role === 'VENDOR' ? 'PENDING' : 'N/A');
+
+                  return (
+                    <tr key={u.id} style={tableRowStyles}>
+                      <td style={{ ...tableCellStyles, fontWeight: 600 }}>
+                        {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : '—'}
+                      </td>
+                      <td style={tableCellStyles}>{u.email}</td>
+                      <td style={tableCellStyles}>
+                        <span style={roleBadgeStyles(u.role)}>{u.role}</span>
+                      </td>
+                      <td style={tableCellStyles}>
+                        <span style={statusBadgeStyles(u.status)}>{u.status}</span>
+                      </td>
+                      <td style={tableCellStyles}>
+                        {u.role === 'VENDOR' ? (
+                          <span style={vendorStatusBadgeStyles(merchantStatus)}>
+                            {merchantStatus}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontSize: '11px' }}>—</span>
+                        )}
+                      </td>
+                      <td style={tableCellStyles}>
+                        {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUser(u)}
+                          style={viewBtnStyles}
+                        >
+                          Inspect
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -181,7 +335,9 @@ export default function UsersPage() {
               >
                 Previous
               </button>
-              <span style={pageLabelStyles}>Page {page} of {totalPages}</span>
+              <span style={pageLabelStyles}>
+                Page {page} of {totalPages}
+              </span>
               <button
                 type="button"
                 disabled={page >= totalPages}
@@ -200,14 +356,24 @@ export default function UsersPage() {
         <div style={modalBackdropStyles}>
           <div style={modalContentStyles}>
             <div style={modalHeaderStyles}>
-              <h3 style={modalTitleStyles}>User Account Details</h3>
-              <button type="button" onClick={() => setSelectedUser(null)} style={closeBtnStyles}>&times;</button>
+              <h3 style={modalTitleStyles}>User Account & Merchant Details</h3>
+              <button
+                type="button"
+                onClick={() => setSelectedUser(null)}
+                style={closeBtnStyles}
+              >
+                &times;
+              </button>
             </div>
 
             <div style={detailsGridStyles}>
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Full Name</span>
-                <span style={detailValueStyles}>{selectedUser.first_name} {selectedUser.last_name}</span>
+                <span style={detailValueStyles}>
+                  {selectedUser.first_name || selectedUser.last_name
+                    ? `${selectedUser.first_name} ${selectedUser.last_name}`
+                    : 'Not Specified'}
+                </span>
               </div>
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Email Address</span>
@@ -215,7 +381,7 @@ export default function UsersPage() {
               </div>
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Phone Number</span>
-                <span style={detailValueStyles}>{selectedUser.phone || 'N/A'}</span>
+                <span style={detailValueStyles}>{selectedUser.phone || selectedUser.profile?.phone_number || 'N/A'}</span>
               </div>
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Account Role</span>
@@ -224,14 +390,33 @@ export default function UsersPage() {
                 </span>
               </div>
               <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>System Status</span>
+                <span style={detailLabelStyles}>Login Access Status</span>
                 <span style={{ display: 'inline-block' }}>
                   <span style={statusBadgeStyles(selectedUser.status)}>{selectedUser.status}</span>
                 </span>
               </div>
+
+              {/* Merchant / Vendor Verification Status */}
+              {selectedUser.role === 'VENDOR' && (
+                <div style={detailItemStyles}>
+                  <span style={detailLabelStyles}>Merchant Store Status</span>
+                  <span style={{ display: 'inline-block' }}>
+                    <span
+                      style={vendorStatusBadgeStyles(
+                        selectedUser.profile?.vendor_status || selectedUser.vendor_status || 'PENDING'
+                      )}
+                    >
+                      {selectedUser.profile?.vendor_status || selectedUser.vendor_status || 'PENDING'}
+                    </span>
+                  </span>
+                </div>
+              )}
+
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Registration Date</span>
-                <span style={detailValueStyles}>{new Date(selectedUser.date_joined).toLocaleString()}</span>
+                <span style={detailValueStyles}>
+                  {selectedUser.date_joined ? new Date(selectedUser.date_joined).toLocaleString() : 'N/A'}
+                </span>
               </div>
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Last Login Date</span>
@@ -241,23 +426,91 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {selectedUser.role !== 'ADMIN' && (
-              <div style={modalActionsStyles}>
-                <button
-                  type="button"
-                  disabled={isActionPending}
-                  onClick={() => handleToggleStatus(selectedUser)}
-                  style={selectedUser.status === 'ACTIVE' ? suspendBtnStyles : activateBtnStyles}
-                >
-                  {isActionPending
-                    ? 'Updating...'
-                    : selectedUser.status === 'ACTIVE'
-                    ? 'Suspend User Account'
-                    : 'Activate User Account'
-                  }
-                </button>
-              </div>
-            )}
+            {/* Action Buttons Section */}
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Vendor Specific Verification Actions */}
+              {selectedUser.role === 'VENDOR' && (
+                <div style={vendorActionBoxStyles}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Merchant Moderation Actions
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {(selectedUser.profile?.vendor_status === 'PENDING' || selectedUser.vendor_status === 'PENDING' || !selectedUser.profile?.vendor_status) && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={() => handleApproveVendor(selectedUser)}
+                          style={approveBtnStyles}
+                        >
+                          {isActionPending ? 'Processing...' : '✓ Approve Vendor Store'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={() => handleRejectVendor(selectedUser)}
+                          style={rejectBtnStyles}
+                        >
+                          ✕ Reject Application
+                        </button>
+                      </>
+                    )}
+
+                    {(selectedUser.profile?.vendor_status === 'APPROVED' || selectedUser.vendor_status === 'APPROVED') && (
+                      <button
+                        type="button"
+                        disabled={isActionPending}
+                        onClick={() => handleSuspendVendor(selectedUser)}
+                        style={suspendMerchantBtnStyles}
+                      >
+                        {isActionPending ? 'Processing...' : 'Suspend Vendor Status'}
+                      </button>
+                    )}
+
+                    {(selectedUser.profile?.vendor_status === 'SUSPENDED' || selectedUser.vendor_status === 'SUSPENDED' || selectedUser.profile?.vendor_status === 'REJECTED') && (
+                      <button
+                        type="button"
+                        disabled={isActionPending}
+                        onClick={() => handleApproveVendor(selectedUser)}
+                        style={approveBtnStyles}
+                      >
+                        {isActionPending ? 'Processing...' : '✓ Re-activate Vendor'}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedUser(null);
+                        navigate('/vendors');
+                      }}
+                      style={viewDirectoryBtnStyles}
+                    >
+                      Open Vendors Directory →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Login Access Toggle (Separate from Merchant Moderation) */}
+              {selectedUser.role !== 'ADMIN' && (
+                <div style={modalActionsStyles}>
+                  <button
+                    type="button"
+                    disabled={isActionPending}
+                    onClick={() => handleToggleLoginStatus(selectedUser)}
+                    style={selectedUser.status === 'ACTIVE' ? suspendBtnStyles : activateBtnStyles}
+                  >
+                    {isActionPending
+                      ? 'Updating...'
+                      : selectedUser.status === 'ACTIVE'
+                      ? 'Suspend Login Access'
+                      : 'Activate Login Access'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -265,7 +518,9 @@ export default function UsersPage() {
   );
 }
 
-// Badge Helpers
+// ----------------------------------------------------------
+// Styling Tokens
+// ----------------------------------------------------------
 const roleBadgeStyles = (role: string): React.CSSProperties => {
   let backgroundColor = '#e0f2fe';
   let color = '#0369a1';
@@ -308,9 +563,31 @@ const statusBadgeStyles = (status: string): React.CSSProperties => {
   };
 };
 
-// ----------------------------------------------------------
-// Styling Tokens
-// ----------------------------------------------------------
+const vendorStatusBadgeStyles = (vStatus?: string): React.CSSProperties => {
+  const status = vStatus || 'PENDING';
+  let backgroundColor = '#fef3c7';
+  let color = '#d97706';
+  if (status === 'APPROVED') {
+    backgroundColor = '#d1fae5';
+    color = '#065f46';
+  } else if (status === 'REJECTED' || status === 'SUSPENDED') {
+    backgroundColor = '#fee2e2';
+    color = '#991b1b';
+  } else if (status === 'N/A') {
+    backgroundColor = '#f3f4f6';
+    color = '#6b7280';
+  }
+  return {
+    backgroundColor,
+    color,
+    padding: '2px 8px',
+    borderRadius: '4px',
+    fontSize: '10px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+  };
+};
+
 const containerStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -475,7 +752,7 @@ const modalContentStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
   borderRadius: '12px',
   padding: '24px',
-  maxWidth: '480px',
+  maxWidth: '520px',
   width: '100%',
   boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
 };
@@ -486,7 +763,7 @@ const modalHeaderStyles: React.CSSProperties = {
   alignItems: 'center',
   borderBottom: '1px solid #e5e7eb',
   paddingBottom: '12px',
-  marginBottom: '20px',
+  marginBottom: '16px',
 };
 
 const modalTitleStyles: React.CSSProperties = {
@@ -508,7 +785,7 @@ const closeBtnStyles: React.CSSProperties = {
 const detailsGridStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '14px',
+  gap: '12px',
 };
 
 const detailItemStyles: React.CSSProperties = {
@@ -516,7 +793,7 @@ const detailItemStyles: React.CSSProperties = {
   justifyContent: 'space-between',
   fontSize: '13px',
   borderBottom: '1px dotted #f3f4f6',
-  paddingBottom: '8px',
+  paddingBottom: '6px',
 };
 
 const detailLabelStyles: React.CSSProperties = {
@@ -528,30 +805,82 @@ const detailValueStyles: React.CSSProperties = {
   color: '#1f2937',
 };
 
+const vendorActionBoxStyles: React.CSSProperties = {
+  backgroundColor: '#f9fafb',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+  padding: '12px',
+};
+
+const approveBtnStyles: React.CSSProperties = {
+  backgroundColor: '#10b981',
+  color: '#ffffff',
+  border: 'none',
+  padding: '7px 14px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const rejectBtnStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  color: '#ef4444',
+  border: '1px solid #ef4444',
+  padding: '7px 14px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const suspendMerchantBtnStyles: React.CSSProperties = {
+  backgroundColor: '#d97706',
+  color: '#ffffff',
+  border: 'none',
+  padding: '7px 14px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const viewDirectoryBtnStyles: React.CSSProperties = {
+  backgroundColor: '#f3f4f6',
+  color: '#1f2937',
+  border: '1px solid #d1d5db',
+  padding: '7px 12px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
 const modalActionsStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
-  marginTop: '24px',
+  borderTop: '1px solid #f3f4f6',
+  paddingTop: '10px',
 };
 
 const suspendBtnStyles: React.CSSProperties = {
   backgroundColor: '#ef4444',
   color: '#ffffff',
   border: 'none',
-  padding: '8px 16px',
-  borderRadius: '9999px',
+  padding: '7px 14px',
+  borderRadius: '6px',
   fontSize: '12px',
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: 'pointer',
 };
 
 const activateBtnStyles: React.CSSProperties = {
-  backgroundColor: '#10b981',
+  backgroundColor: '#3b82f6',
   color: '#ffffff',
   border: 'none',
-  padding: '8px 16px',
-  borderRadius: '9999px',
+  padding: '7px 14px',
+  borderRadius: '6px',
   fontSize: '12px',
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: 'pointer',
 };
