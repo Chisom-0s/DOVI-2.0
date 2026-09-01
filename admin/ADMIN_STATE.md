@@ -22,6 +22,7 @@
 | **CSS & Styling** | Vanilla CSS + Inline Style Tokens | N/A | No Tailwind CSS; uses custom design tokens in `index.css` and scoped inline React styles. |
 
 ### Physical Location on Disk
+
 * **Absolute Path:** `/home/victor/Desktop/DOVI-2.0/admin`
 * **Architecture Relationship:** Standalone Single Page Application (SPA) living as a dedicated subdirectory inside the main `DOVI-2.0` multi-app monorepo alongside `/home/victor/Desktop/DOVI-2.0/frontend`. It maintains its own independent `package.json`, `node_modules`, `tsconfig.json`, and `vite.config.ts`.
 
@@ -58,7 +59,7 @@
 | **Refunds List** | `GET /api/v1/refunds/` | **LIVE (200)** | *RFD-TEST-001* (₦1,555,000) | Table & Claim verification modal |
 | **Refund Review** | `POST /api/v1/refunds/<id>/review/` | **LIVE (200)** | `{"action": "reject", "notes": "..."}` | Verified rejection with reviewer notes |
 | **Reviews List** | `GET /api/v1/reviews/` | **LIVE (200)** | 5-star verified review | Table renders comment & rating |
-| **Review Delete** | `DELETE /api/v1/reviews/<id>/` | **MISSING (404)**| `apps/reviews/urls.py` lacks detail route | Needs `DestroyAPIView` on backend |
+| **Review Delete** | `DELETE /api/v1/reviews/<id>/` | **LIVE (204)** | Review moderation & deletion | Deletion verified (204 No Content) |
 | **Save2Own List** | `GET /api/v1/save2own/goals/` | **LIVE (200)** | *S2O-TEST-001* (25.0% progress) | Table with progress bar & target amount |
 | **Save2Own Detail** | `GET /api/v1/save2own/goals/<id>/` | **LIVE (200)** | Target specs, timeline, history | Detail view `/save2own/<id>` |
 | **Users List** | `GET /api/v1/admin/users/` | **LIVE (200)** | Registered users & roles | Search, Filter, Suspend/Activate |
