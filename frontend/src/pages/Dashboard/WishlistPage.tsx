@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { wishlistApi } from '@/api/wishlist';
+import { formatPrice } from '@/utils/currency';
 import type { WishlistItem } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -34,9 +35,6 @@ export default function WishlistPage() {
       toast.error('Failed to remove item.');
     }
   };
-
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
 
   return (
     <div style={containerStyles}>
@@ -94,7 +92,7 @@ export default function WishlistPage() {
                   <span style={reviewCountStyles}>({item.product.review_count})</span>
                 </div>
                 <div style={priceRowStyles}>
-                  <strong style={priceStyles}>{formatCurrency(item.product.price)}</strong>
+                  <strong style={priceStyles}>{formatPrice(item.product)}</strong>
                   {item.product.stock_quantity <= 0 ? (
                     <span style={outOfStockStyles}>Out of Stock</span>
                   ) : (

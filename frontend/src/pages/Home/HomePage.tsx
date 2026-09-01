@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
 import { homepageApi } from '@/api/homepage';
+import { formatPrice } from '@/utils/currency';
 import type { HomepageSection, ProductSummary } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
@@ -91,10 +92,10 @@ export default function HomePage() {
                 <div style={{ flex: 1 }}>
                   <div style={listItemNameStyles}>{p.name}</div>
                   <div style={listItemPriceStyles}>
-                    ₦{parseFloat(p.price).toLocaleString()}
+                    {formatPrice(p)}
                     {p.original_price && (
                       <span style={listOriginalPriceStyles}>
-                        ₦{parseFloat(p.original_price).toLocaleString()}
+                        {formatPrice(p.original_price)}
                       </span>
                     )}
                   </div>
@@ -115,7 +116,7 @@ export default function HomePage() {
                 <div style={largeCardBodyStyles}>
                   <div style={largeCardTitleStyles}>{p.name}</div>
                   <div style={largeCardFooterStyles}>
-                    <span style={largeCardPriceStyles}>₦{parseFloat(p.price).toLocaleString()}</span>
+                    <span style={largeCardPriceStyles}>{formatPrice(p)}</span>
                     {p.discount_percentage !== undefined && p.discount_percentage > 0 && (
                       <span style={largeCardDiscountStyles}>-{p.discount_percentage}% OFF</span>
                     )}
@@ -197,7 +198,7 @@ export default function HomePage() {
                 <div style={autoTeaserImgWrapperStyles}>
                   <img src={p.primary_image_url || ''} alt={p.name} style={autoTeaserImgStyles} />
                   <span style={autoTeaserBadgeStyles}>
-                    ₦{parseFloat(p.price).toLocaleString()}
+                    {formatPrice(p)}
                   </span>
                 </div>
                 <div style={autoTeaserBodyStyles}>

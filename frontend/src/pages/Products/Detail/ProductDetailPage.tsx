@@ -13,6 +13,7 @@ import CustomerReviews from '@/components/product/CustomerReviews';
 import ShareButtons from '@/components/product/ShareButtons';
 import ProductRow from '@/components/product/ProductRow';
 import { Skeleton } from '@/components/common/Skeleton';
+import { formatPrice } from '@/utils/currency';
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -117,17 +118,6 @@ export default function ProductDetailPage() {
       </div>
     );
   }
-
-  // Safe format helpers
-  const formatPrice = (val: string | number | undefined | null): string => {
-    if (val === undefined || val === null || val === '') return 'Price unavailable';
-    const num = typeof val === 'number' ? val : parseFloat(String(val));
-    if (isNaN(num) || !isFinite(num)) return 'Price unavailable';
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(num);
-  };
 
   // Display price and stock matching either the variant or the base product
   const rawPrice = selectedVariant

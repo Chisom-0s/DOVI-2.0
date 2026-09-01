@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { productsApi } from '@/api/products';
+import { formatPrice } from '@/utils/currency';
 import type { ProductSummary } from '@/types';
 
 export default function SearchBar() {
@@ -114,10 +115,7 @@ export default function SearchBar() {
                   <div style={infoStyles}>
                     <span style={nameStyles}>{product.name}</span>
                     <span style={priceStyles}>
-                      {new Intl.NumberFormat('en-NG', {
-                        style: 'currency',
-                        currency: 'NGN',
-                      }).format(parseFloat(product.price))}
+                      {formatPrice(product)}
                     </span>
                   </div>
                 </li>

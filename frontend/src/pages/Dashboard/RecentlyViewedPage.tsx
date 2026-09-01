@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { recentlyViewedApi } from '@/api/recently-viewed';
+import { formatPrice } from '@/utils/currency';
 import type { ProductSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -24,9 +25,6 @@ export default function RecentlyViewedPage() {
   useEffect(() => {
     fetchRecentlyViewed();
   }, [fetchRecentlyViewed]);
-
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
 
   return (
     <div style={containerStyles}>
@@ -76,7 +74,7 @@ export default function RecentlyViewedPage() {
                   <span style={reviewCountStyles}>({product.review_count})</span>
                 </div>
                 <div style={priceRowStyles}>
-                  <strong style={priceStyles}>{formatCurrency(product.price)}</strong>
+                  <strong style={priceStyles}>{formatPrice(product)}</strong>
                   {product.stock_quantity <= 0 ? (
                     <span style={outOfStockStyles}>Out of Stock</span>
                   ) : (

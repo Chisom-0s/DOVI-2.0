@@ -198,9 +198,12 @@ export interface Product {
 export interface ProductSummary {
   id: string;
   name: string;
-  price: string;
-  primary_image_url: string | null;
+  price?: string;
+  base_price?: string;
+  variants?: ProductVariant[];
+  primary_image_url?: string | null;
   vendor: VendorSummary;
+  vendor_name?: string;
   average_rating: number;
   review_count: number;
   stock_quantity: number;
@@ -210,6 +213,7 @@ export interface ProductSummary {
   original_price?: string | null;
   discount_percentage?: number;
   category?: CategorySummary;
+  category_name?: string;
   is_flash_deal?: boolean;
   is_trending?: boolean;
   is_best_seller?: boolean;

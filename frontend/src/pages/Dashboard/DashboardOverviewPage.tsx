@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ordersApi } from '@/api/orders';
 import { notificationsApi } from '@/api/notifications';
+import { formatPrice } from '@/utils/currency';
 import type { OrderSummary, Notification } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -40,8 +41,7 @@ export default function DashboardOverviewPage() {
     loadNotifications();
   }, []);
 
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
+  const formatCurrency = (val: string) => formatPrice(val);
 
   return (
     <div style={pageStyles}>

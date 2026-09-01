@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
+import { formatPrice } from '@/utils/currency';
 import type { CartItem } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -137,9 +138,7 @@ export default function CartPage() {
 
                 {/* Unit Price from API */}
                 <span style={unitPriceStyles}>
-                  {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
-                    parseFloat(item.unit_price)
-                  )}
+                  {formatPrice(item.unit_price)}
                 </span>
               </div>
 
@@ -173,9 +172,7 @@ export default function CartPage() {
 
               {/* Line Total from API */}
               <div style={lineTotalStyles}>
-                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
-                  parseFloat(item.line_total)
-                )}
+                {formatPrice(item.line_total)}
               </div>
             </div>
           ))}
@@ -188,9 +185,7 @@ export default function CartPage() {
           <div style={summaryRowStyles}>
             <span>Subtotal</span>
             <span style={summaryValueStyles}>
-              {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
-                parseFloat(cart.subtotal)
-              )}
+              {formatPrice(cart.subtotal)}
             </span>
           </div>
 
@@ -198,9 +193,7 @@ export default function CartPage() {
             <div style={summaryRowStyles}>
               <span>Estimated Delivery</span>
               <span style={summaryValueStyles}>
-                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
-                  parseFloat(cart.delivery_estimate)
-                )}
+                {formatPrice(cart.delivery_estimate)}
               </span>
             </div>
           )}
@@ -210,9 +203,7 @@ export default function CartPage() {
           <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)' }}>
             <span>Total</span>
             <span style={{ ...summaryValueStyles, color: 'var(--color-primary)', fontSize: 'var(--text-lg)' }}>
-              {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
-                parseFloat(cart.total)
-              )}
+              {formatPrice(cart.total)}
             </span>
           </div>
 

@@ -1,5 +1,6 @@
 // Homepage API — /api/v1/homepage/*
 import apiClient from './client';
+import { parsePriceNumber } from '@/utils/currency';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -508,7 +509,7 @@ function populateProductsForSection(section: HomepageSection): ProductSummary[] 
   } else if (section.key === 'HOT_SALES') {
     list = list.filter(p => p.is_hot_sale);
   } else if (section.key === 'SAVE2OWN_FEATURED') {
-    list = list.filter(p => parseFloat(p.price) >= 100000);
+    list = list.filter(p => parsePriceNumber(p) >= 100000);
   } else if (section.key === 'DOVI_AUTO') {
     list = list.filter(p => p.category?.slug.startsWith('auto') || p.id.includes('camry') || p.id.includes('c300') || p.id.includes('rx350'));
   }
@@ -526,19 +527,19 @@ function populateProductsForSection(section: HomepageSection): ProductSummary[] 
       list = list.filter(p => p.stock_quantity > 0);
     }
     if (filters.price_min) {
-      list = list.filter(p => parseFloat(p.price) >= (filters.price_min ?? 0));
+      list = list.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
     }
     if (filters.price_max) {
-      list = list.filter(p => parseFloat(p.price) <= (filters.price_max ?? 99999999));
+      list = list.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
     }
   }
 
   // 4. Sorting rules
   const sortBy = section.configuration?.sort_by;
   if (sortBy === 'price_asc') {
-    list.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    list.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
   } else if (sortBy === 'price_desc') {
-    list.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+    list.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
   } else if (sortBy === 'newest') {
     list.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
   } else if (sortBy === 'highest_discount') {

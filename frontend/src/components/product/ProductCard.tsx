@@ -3,12 +3,16 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { cartApi } from '@/api/cart';
 import { wishlistApi } from '@/api/wishlist';
+import { formatPrice } from '@/utils/currency';
 import type { ProductSummary } from '@/types';
 
 interface ProductCardProps {
   key?: string;
   product: ProductSummary;
 }
+
+// Branded placeholder fallback if product has no image or URL fails
+const fallbackImage = '/logo.jpg?v=2';
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -17,7 +21,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   // Fallback image helper
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = 'https://placehold.co/400x400?text=Product+Image';
+    const target = e.currentTarget;
+    if (!target.src.endsWith(fallbackImage)) {
+      target.src = fallbackImage;
+    }
   };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
@@ -50,7 +57,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (product.stock_quantity <= 0) {
+    if (product.stock_quantity !== undefined && product.stock_quantity <= 0) {
       toast.error('Item is out of stock');
       return;
     }
@@ -68,17 +75,15 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
-  const formattedPrice = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-  }).format(parseFloat(product.price));
+  const formattedPrice = formatPrice(product);
 
   const cardImage =
     product.primary_image_url ||
     (product as any).image_url ||
-    (product as any).images?.[0]?.image_url ||
-    (product as any).images?.[0]?.url ||
-    '';
+    ((product as any).images && (product as any).images[0]?.thumbnail_url) ||
+    ((product as any).images && (product as any).images[0]?.image_url) ||
+    ((product as any).images && (product as any).images[0]?.url) ||
+    fallbackImage;
 
   return (
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
@@ -114,14 +119,18 @@ export default function ProductCard({ product }: ProductCardProps) {
         </button>
 
         {/* Stock Badge */}
-        {product.stock_quantity <= 0 && (
+        {product.stock_quantity !== undefined && product.stock_quantity <= 0 && (
           <div style={stockBadgeStyles}>Out of Stock</div>
         )}
       </div>
 
       {/* Product Details */}
       <div style={detailsStyles}>
-        <span style={vendorStyles}>{product.vendor?.name}</span>
+        <span style={vendorStyles}>
+          {typeof product.vendor === 'object' && product.vendor !== null
+            ? product.vendor.name
+            : product.vendor_name || (typeof product.vendor === 'string' ? product.vendor : '')}
+        </span>
         <h3 style={titleStyles}>{product.name}</h3>
 
         {/* Ratings */}
@@ -135,8 +144,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           <span style={priceStyles}>{formattedPrice}</span>
           <button
             onClick={handleAddToCart}
-            disabled={isCartLoading || product.stock_quantity <= 0}
-            style={product.stock_quantity <= 0 ? disabledCartBtnStyles : cartBtnStyles}
+            disabled={isCartLoading || (product.stock_quantity !== undefined && product.stock_quantity <= 0)}
+            style={product.stock_quantity !== undefined && product.stock_quantity <= 0 ? disabledCartBtnStyles : cartBtnStyles}
             aria-label="Add to cart"
           >
             <svg
