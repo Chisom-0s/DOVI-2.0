@@ -52,7 +52,7 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
         onMouseLeave={handleMouseLeave}
       >
         <img
-          src={activeImage.url}
+          src={activeImage.url || activeImage.image_url || fallbackImage}
           alt={activeImage.alt_text || 'Product Image'}
           style={{ ...mainImageStyles, ...zoomStyle }}
           onError={e => {
@@ -80,7 +80,7 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
               aria-label={`View product image ${idx + 1}`}
             >
               <img
-                src={img.url}
+                src={img.thumbnail_url || img.url || img.image_url || fallbackImage}
                 alt=""
                 style={thumbnailImgStyles}
                 onError={e => {

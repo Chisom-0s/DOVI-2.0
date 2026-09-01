@@ -146,10 +146,14 @@ export type ProductStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 
 export interface ProductImage {
   id: string;
-  url: string;
-  alt_text: string | null;
-  is_primary: boolean;
-  display_order: number;
+  url?: string;
+  image_url?: string;
+  thumbnail_url?: string;
+  storage_key?: string;
+  alt_text?: string | null;
+  is_primary?: boolean;
+  display_order?: number;
+  created_at?: string;
 }
 
 export interface ProductVariant {
@@ -181,6 +185,8 @@ export interface Product {
   category: CategorySummary | string;
   category_name?: string;
   images?: ProductImage[];
+  primary_image_url?: string | null;
+  image_url?: string | null;
   variants?: ProductVariant[];
   average_rating?: number;
   review_count?: number;

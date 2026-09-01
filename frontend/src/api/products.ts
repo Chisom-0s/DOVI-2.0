@@ -148,4 +148,45 @@ export const productsApi = {
       throw normalizeApiError(err);
     }
   },
+
+  uploadImage: async (
+    productId: string,
+    imageFile: File,
+    isPrimary: boolean = false
+  ): Promise<{
+    id: string;
+    product: string;
+    image_url: string;
+    thumbnail_url: string;
+    storage_key: string;
+    is_primary: boolean;
+    created_at: string;
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('is_primary', String(isPrimary));
+
+      const { data } = await apiClient.post(
+        `/api/v1/products/${productId}/images/`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteImage: async (productId: string, imageId: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/api/v1/products/${productId}/images/${imageId}/`);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
 };

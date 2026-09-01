@@ -73,12 +73,19 @@ export default function ProductCard({ product }: ProductCardProps) {
     currency: 'NGN',
   }).format(parseFloat(product.price));
 
+  const cardImage =
+    product.primary_image_url ||
+    (product as any).image_url ||
+    (product as any).images?.[0]?.image_url ||
+    (product as any).images?.[0]?.url ||
+    '';
+
   return (
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
         <img
-          src={product.primary_image_url || ''}
+          src={cardImage}
           alt={product.name}
           onError={handleImageError}
           style={imageStyles}
