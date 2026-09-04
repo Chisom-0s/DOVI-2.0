@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * ServerStatusIndicator
  * Displays a subtle, beautiful glassmorphism indicator in Admin when an API request
  * is waiting on a Render cold start (>2.8s response time).
  */
-export const ServerStatusIndicator: React.FC = () => {
+export function ServerStatusIndicator() {
   const [status, setStatus] = useState<'idle' | 'waking' | 'ready'>('idle');
 
   useEffect(() => {
