@@ -73,15 +73,13 @@ const PRESET_COLORS = [
 const PRESET_SPEC_KEYS = [
   'Brand',
   'Model / Series',
-  'Material',
-  'Dimensions',
-  'Weight',
   'Condition',
   'Warranty',
+  'RAM / Storage',
+  'Dimensions',
+  'Weight',
   'Battery Capacity',
   'Screen Size',
-  'RAM / Storage',
-  'Connectivity',
 ];
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -96,7 +94,6 @@ export default function VendorProductManager() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [activeFormTab, setActiveFormTab] = useState<'basic' | 'inventory' | 'specs' | 'media'>('basic');
 
   // Core Form Fields
   const [form, setForm] = useState({
@@ -110,6 +107,7 @@ export default function VendorProductManager() {
   // Stock Units & Color Variants State
   const [baseUnits, setBaseUnits] = useState<string>('10');
   const [colors, setColors] = useState<ColorVariantItem[]>([]);
+  const [showColorSection, setShowColorSection] = useState(false);
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('#2563EB');
   const [newColorUnits, setNewColorUnits] = useState('10');
@@ -118,13 +116,16 @@ export default function VendorProductManager() {
   const [specifications, setSpecifications] = useState<SpecificationItem[]>([
     { id: 'spec-1', key: 'Brand', value: '' },
     { id: 'spec-2', key: 'Condition', value: 'Brand New' },
-    { id: 'spec-3', key: 'Warranty', value: '1 Year Official Warranty' },
+    { id: 'spec-3', key: 'Warranty', value: '1 Year Warranty' },
   ]);
+  const [showSpecsSection, setShowSpecsSection] = useState(false);
 
-  // Image Upload State (Create Flow)
+  // Image Upload State
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  const [existingImages, setExistingImages] = useState<ProductImageItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatusText, setUploadStatusText] = useState('');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Compute total inventory stock units
@@ -164,12 +165,12 @@ export default function VendorProductManager() {
   const cleanupImagePreviews = () => {
     selectedImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
     setSelectedImages([]);
+    setExistingImages([]);
   };
 
   const handleOpenAdd = () => {
     cleanupImagePreviews();
     setEditingProduct(null);
-    setActiveFormTab('basic');
     setForm({
       name: '',
       category: categories[0]?.id || '',
@@ -179,14 +180,16 @@ export default function VendorProductManager() {
     });
     setBaseUnits('10');
     setColors([]);
+    setShowColorSection(false);
     setNewColorName('');
     setNewColorHex('#2563EB');
     setNewColorUnits('10');
     setSpecifications([
       { id: 'spec-1', key: 'Brand', value: '' },
       { id: 'spec-2', key: 'Condition', value: 'Brand New' },
-      { id: 'spec-3', key: 'Warranty', value: '1 Year Official Warranty' },
+      { id: 'spec-3', key: 'Warranty', value: '1 Year Warranty' },
     ]);
+    setShowSpecsSection(false);
     setUploadStatusText('');
     setModalOpen(true);
   };
@@ -194,7 +197,6 @@ export default function VendorProductManager() {
   const handleOpenEdit = (p: Product) => {
     cleanupImagePreviews();
     setEditingProduct(p);
-    setActiveFormTab('basic');
 
     // Extract raw description and embedded DOVI_SPECS metadata
     let cleanDesc = p.description || '';
@@ -229,6 +231,13 @@ export default function VendorProductManager() {
       status: p.status,
     });
 
+    // Populate existing images
+    if (p.images && p.images.length > 0) {
+      setExistingImages(p.images);
+    } else {
+      setExistingImages([]);
+    }
+
     // Populate existing variants/colors if available
     if (p.variants && p.variants.length > 0) {
       const mappedColors: ColorVariantItem[] = p.variants
@@ -242,20 +251,24 @@ export default function VendorProductManager() {
         }));
 
       setColors(mappedColors);
+      setShowColorSection(mappedColors.length > 0);
       const totalStock = p.variants.reduce((sum, v) => sum + (v.stock ?? v.stock_quantity ?? 0), 0);
       setBaseUnits(String(totalStock || p.stock_quantity || 10));
     } else {
       setColors([]);
+      setShowColorSection(false);
       setBaseUnits(String(p.stock_quantity || 10));
     }
 
     if (parsedSpecs.length > 0) {
       setSpecifications(parsedSpecs);
+      setShowSpecsSection(true);
     } else {
       setSpecifications([
         { id: 'spec-1', key: 'Brand', value: '' },
         { id: 'spec-2', key: 'Condition', value: 'Brand New' },
       ]);
+      setShowSpecsSection(false);
     }
 
     setUploadStatusText('');
@@ -279,10 +292,24 @@ export default function VendorProductManager() {
     }
   };
 
+  const handleDeleteExistingImage = async (imageId: string) => {
+    if (!editingProduct) return;
+    if (!confirm('Delete this product photo?')) return;
+    try {
+      await productsApi.deleteImage(editingProduct.id, imageId);
+      setExistingImages(prev => prev.filter(img => img.id !== imageId));
+      toast.success('Photo removed');
+      fetchProducts();
+    } catch {
+      toast.error('Failed to delete photo');
+    }
+  };
+
   // Color Variant Handlers
   const handleAddPresetColor = (preset: { name: string; hex: string }) => {
     if (colors.some(c => c.name.toLowerCase() === preset.name.toLowerCase())) {
-      toast('Color already added to variant list', { icon: 'ℹ️' });
+      // Toggle off if clicked again
+      setColors(prev => prev.filter(c => c.name.toLowerCase() !== preset.name.toLowerCase()));
       return;
     }
     const defaultUnits = parseInt(baseUnits, 10) > 0 ? Math.max(1, Math.floor(parseInt(baseUnits, 10) / (colors.length + 1))) : 10;
@@ -295,7 +322,6 @@ export default function VendorProductManager() {
         units: defaultUnits,
       },
     ]);
-    toast.success(`Added ${preset.name}`);
   };
 
   const handleAddCustomColor = (e: React.FormEvent) => {
@@ -305,7 +331,7 @@ export default function VendorProductManager() {
       return;
     }
     if (colors.some(c => c.name.toLowerCase() === newColorName.trim().toLowerCase())) {
-      toast.error('A color with this name is already in the list');
+      toast.error('A color with this name is already added');
       return;
     }
     const units = Math.max(1, parseInt(newColorUnits, 10) || 1);
@@ -320,7 +346,6 @@ export default function VendorProductManager() {
     ]);
     setNewColorName('');
     setNewColorUnits('10');
-    toast.success(`Added color variant "${newColorName.trim()}"`);
   };
 
   const handleRemoveColor = (id: string) => {
@@ -336,7 +361,6 @@ export default function VendorProductManager() {
   // Specification Handlers
   const handleAddPresetSpec = (keyName: string) => {
     if (specifications.some(s => s.key.toLowerCase() === keyName.toLowerCase())) {
-      toast(`"${keyName}" specification field already exists`, { icon: 'ℹ️' });
       return;
     }
     setSpecifications(prev => [
@@ -375,7 +399,7 @@ export default function VendorProductManager() {
     if (!files || files.length === 0) return;
 
     const newImages: SelectedImage[] = [];
-    const existingCount = selectedImages.length;
+    const existingCount = selectedImages.length + existingImages.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -404,7 +428,7 @@ export default function VendorProductManager() {
     if (newImages.length > 0) {
       setSelectedImages(prev => {
         const combined = [...prev, ...newImages];
-        const hasPrimary = combined.some(img => img.isPrimary);
+        const hasPrimary = combined.some(img => img.isPrimary) || existingImages.some(img => img.is_primary);
         if (!hasPrimary && combined.length > 0) {
           combined[0].isPrimary = true;
         }
@@ -417,7 +441,7 @@ export default function VendorProductManager() {
     }
   };
 
-  const handleRemoveImage = (id: string) => {
+  const handleRemoveSelectedImage = (id: string) => {
     setSelectedImages(prev => {
       const target = prev.find(img => img.id === id);
       if (target) {
@@ -431,7 +455,7 @@ export default function VendorProductManager() {
     });
   };
 
-  const handleSetPrimary = (id: string) => {
+  const handleSetPrimarySelected = (id: string) => {
     setSelectedImages(prev =>
       prev.map(img => ({
         ...img,
@@ -443,7 +467,7 @@ export default function VendorProductManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.category || !form.base_price) {
-      toast.error('Please fill in product name, category, and base price.');
+      toast.error('Please fill in product name, category, and price.');
       return;
     }
 
@@ -489,7 +513,7 @@ export default function VendorProductManager() {
 
       if (editingProduct) {
         // Edit Mode: Update product details
-        setUploadStatusText('Updating product details & specifications...');
+        setUploadStatusText('Saving product updates...');
         await apiClient.patch(`/api/v1/products/${editingProduct.id}/`, {
           name: form.name,
           category: form.category,
@@ -498,12 +522,25 @@ export default function VendorProductManager() {
           status: form.status,
         });
 
-        toast.success('Product updated successfully');
+        // Upload any newly selected images
+        if (selectedImages.length > 0) {
+          for (let i = 0; i < selectedImages.length; i++) {
+            const img = selectedImages[i];
+            setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
+            try {
+              await productsApi.uploadImage(editingProduct.id, img.file, img.isPrimary);
+            } catch (imgErr: any) {
+              console.error(`Image upload failed:`, imgErr);
+            }
+          }
+        }
+
+        toast.success('Product updated successfully!');
         handleCloseModal();
         fetchProducts();
       } else {
         // Create Mode: Step 1 -> Create Product with Variants & Initial Inventory
-        setUploadStatusText('Creating catalog listing with color variants & stock...');
+        setUploadStatusText('Creating product listing...');
         const { data: createdProduct } = await apiClient.post('/api/v1/products/', {
           name: form.name,
           category: form.category,
@@ -518,24 +555,24 @@ export default function VendorProductManager() {
           let uploadErrors = 0;
           for (let i = 0; i < selectedImages.length; i++) {
             const img = selectedImages[i];
-            setUploadStatusText(`Uploading image ${i + 1} of ${selectedImages.length}...`);
+            setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
             try {
               await productsApi.uploadImage(createdProduct.id, img.file, img.isPrimary);
             } catch (imgErr: any) {
-              console.error(`Image upload failed for image ${i + 1}:`, imgErr);
+              console.error(`Image upload failed for photo ${i + 1}:`, imgErr);
               uploadErrors++;
             }
           }
 
           if (uploadErrors === 0) {
-            toast.success('Product created with units, colors, and media!');
+            toast.success('Product uploaded successfully with photos!');
           } else {
             toast.error(
-              `Product was created, but ${uploadErrors} image(s) failed to upload.`
+              `Product was created, but ${uploadErrors} photo(s) failed to upload.`
             );
           }
         } else {
-          toast.success('Product listing created successfully');
+          toast.success('Product listing created successfully!');
         }
 
         handleCloseModal();
@@ -569,20 +606,20 @@ export default function VendorProductManager() {
         <div>
           <h2 style={titleStyles}>Catalog Inventory & Products</h2>
           <p style={subtitleStyles}>
-            Manage product listings, inventory stock units, color variants, and technical specifications.
+            Manage your store inventory, upload product photos, and configure prices.
           </p>
         </div>
         <button onClick={handleOpenAdd} style={addBtnStyles} id="vendor-add-product-btn">
           <svg
-            width="14"
-            height="14"
+            width="15"
+            height="15"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}
+            style={{ marginRight: '6px' }}
           >
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -605,9 +642,15 @@ export default function VendorProductManager() {
       {/* Product Table */}
       <div style={tableWrapperStyles}>
         {isLoading ? (
-          <div style={loadingStyles}>Retrieving database records...</div>
+          <div style={loadingStyles}>Retrieving products...</div>
         ) : filtered.length === 0 ? (
-          <div style={emptyStyles}>No products found in your catalog.</div>
+          <div style={emptyStyles}>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📦</div>
+            <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>No products in your catalog yet.</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+              Click "Add New Product" above to list your first item.
+            </div>
+          </div>
         ) : (
           <table style={tableStyles}>
             <thead>
@@ -624,8 +667,6 @@ export default function VendorProductManager() {
             <tbody>
               {filtered.map(p => {
                 const thumbUrl = getProductImageUrl(p);
-
-                // Compute stock & variants count
                 const variantCount = p.variants?.length || 0;
                 const totalStock =
                   p.variants && p.variants.length > 0
@@ -639,7 +680,7 @@ export default function VendorProductManager() {
                   <tr key={p.id} style={tableRowStyles}>
                     <td style={tdRefStyles}>{p.reference_code || 'N/A'}</td>
                     <td style={tdNameStyles}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <img
                           src={thumbUrl}
                           alt={p.name}
@@ -649,10 +690,10 @@ export default function VendorProductManager() {
                           }}
                         />
                         <div>
-                          <div>{p.name}</div>
+                          <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{p.name}</div>
                           {variantCount > 1 && (
                             <span style={variantSubtextStyles}>
-                              {variantCount} color variants available
+                              {variantCount} colors available
                             </span>
                           )}
                         </div>
@@ -720,18 +761,18 @@ export default function VendorProductManager() {
         )}
       </div>
 
-      {/* Pop-up Modal */}
+      {/* Single-Page Product Creation / Edit Modal */}
       {modalOpen && (
         <div style={modalBackdropStyles}>
           <div style={modalCardStyles}>
             {/* Modal Header */}
             <div style={modalHeaderStyles}>
               <div>
-                <h3 style={{ ...titleStyles, margin: 0 }}>
-                  {editingProduct ? 'Edit Catalog Listing' : 'Create Product Listing'}
+                <h3 style={{ ...titleStyles, fontSize: '1.25rem', margin: 0 }}>
+                  {editingProduct ? 'Edit Product' : 'Add New Product'}
                 </h3>
                 <p style={modalSubtitleStyles}>
-                  Specify units in stock, available colours, technical specifications, and media.
+                  Upload product photos, choose a category, and specify your price and inventory.
                 </p>
               </div>
               <button
@@ -744,104 +785,200 @@ export default function VendorProductManager() {
               </button>
             </div>
 
-            {/* Modal Navigation Tabs */}
-            <div style={tabNavWrapperStyles}>
-              <button
-                type="button"
-                onClick={() => setActiveFormTab('basic')}
-                style={{
-                  ...tabNavBtnStyles,
-                  borderBottomColor: activeFormTab === 'basic' ? 'var(--color-primary)' : 'transparent',
-                  color: activeFormTab === 'basic' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                }}
-              >
-                1. Basic Info
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFormTab('inventory')}
-                style={{
-                  ...tabNavBtnStyles,
-                  borderBottomColor: activeFormTab === 'inventory' ? 'var(--color-primary)' : 'transparent',
-                  color: activeFormTab === 'inventory' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                }}
-              >
-                2. Units & Colours {colors.length > 0 && `(${calculatedTotalUnits})`}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFormTab('specs')}
-                style={{
-                  ...tabNavBtnStyles,
-                  borderBottomColor: activeFormTab === 'specs' ? 'var(--color-primary)' : 'transparent',
-                  color: activeFormTab === 'specs' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                }}
-              >
-                3. Specifications ({specifications.filter(s => s.key && s.value).length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveFormTab('media')}
-                style={{
-                  ...tabNavBtnStyles,
-                  borderBottomColor: activeFormTab === 'media' ? 'var(--color-primary)' : 'transparent',
-                  color: activeFormTab === 'media' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                }}
-              >
-                4. Media & Description
-              </button>
-            </div>
-
             <form onSubmit={handleSubmit} style={formStyles}>
-              {/* TAB 1: BASIC INFO */}
-              {activeFormTab === 'basic' && (
-                <div style={tabSectionStyles}>
+              {/* SECTION 1: PRODUCT PHOTOS UPLOAD (TOP & PROMINENT) */}
+              <div style={formSectionCardStyles}>
+                <div style={sectionTitleRowStyles}>
+                  <span style={sectionNumberBadgeStyles}>1</span>
+                  <div>
+                    <h4 style={sectionHeadingStyles}>Product Photos</h4>
+                    <p style={sectionSubtextStyles}>Upload clear photos of your product. The first photo will be used as the main cover.</p>
+                  </div>
+                </div>
+
+                {/* Dropzone */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={e => handleFilesSelected(e.target.files)}
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: 'none' }}
+                  disabled={isSubmitting}
+                />
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => {
+                    e.preventDefault();
+                    setIsDraggingOver(true);
+                  }}
+                  onDragLeave={() => setIsDraggingOver(false)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setIsDraggingOver(false);
+                    handleFilesSelected(e.dataTransfer.files);
+                  }}
+                  style={{
+                    ...dropzoneStyles,
+                    borderColor: isDraggingOver ? 'var(--color-primary)' : 'var(--color-border)',
+                    backgroundColor: isDraggingOver ? 'rgba(255, 122, 0, 0.04)' : '#f9fafb',
+                  }}
+                >
+                  <div style={dropzoneIconWrapperStyles}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                  </div>
+                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>
+                    Click to browse photos or drag and drop here
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Supports JPG, PNG, or WEBP (up to 5MB each) • Select multiple photos at once
+                  </div>
+                </div>
+
+                {/* Image Previews Grid */}
+                {(existingImages.length > 0 || selectedImages.length > 0) && (
+                  <div style={imageGalleryGridStyles}>
+                    {/* Existing Images (Edit mode) */}
+                    {existingImages.map(img => {
+                      const url = img.thumbnail_url || img.image_url || img.url || '/logo.jpg?v=2';
+                      return (
+                        <div key={img.id} style={imagePreviewCardStyles}>
+                          <img src={url} alt="Product photo" style={imagePreviewImgStyles} />
+                          <div style={imagePreviewBadgeStyles}>Active Photo</div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExistingImage(img.id)}
+                            style={imageDeleteBtnStyles}
+                            title="Delete photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {/* Newly Selected Images */}
+                    {selectedImages.map(img => (
+                      <div key={img.id} style={imagePreviewCardStyles}>
+                        <img src={img.previewUrl} alt="Selected photo" style={imagePreviewImgStyles} />
+                        {img.isPrimary ? (
+                          <div style={{ ...imagePreviewBadgeStyles, background: 'var(--color-primary)', color: '#fff' }}>
+                            ⭐ Main Cover
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimarySelected(img.id)}
+                            style={setPrimaryBtnStyles}
+                          >
+                            Set Main
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSelectedImage(img.id)}
+                          style={imageDeleteBtnStyles}
+                          title="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Quick Add More Tile */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={addMoreImageTileStyles}
+                    >
+                      <span style={{ fontSize: '1.25rem' }}>+</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Add More</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 2: BASIC PRODUCT INFORMATION */}
+              <div style={formSectionCardStyles}>
+                <div style={sectionTitleRowStyles}>
+                  <span style={sectionNumberBadgeStyles}>2</span>
+                  <div>
+                    <h4 style={sectionHeadingStyles}>Basic Information</h4>
+                    <p style={sectionSubtextStyles}>Enter the title, category, price, and units for your product.</p>
+                  </div>
+                </div>
+
+                <div style={inputGroupStyles}>
+                  <label style={labelStyles}>PRODUCT NAME *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. iPhone 15 Pro Max 256GB, Nike Air Jordan, Samsung Galaxy S24"
+                    value={form.name}
+                    onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                    style={inputStyles}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                <div style={twoColGridStyles}>
                   <div style={inputGroupStyles}>
-                    <label style={labelStyles}>PRODUCT NAME *</label>
+                    <label style={labelStyles}>CATEGORY *</label>
+                    <select
+                      value={form.category}
+                      onChange={e => setForm(prev => ({ ...prev, category: e.target.value }))}
+                      style={selectStyles}
+                      disabled={isSubmitting}
+                      required
+                    >
+                      <option value="">Select Category...</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={inputGroupStyles}>
+                    <label style={labelStyles}>PRICE (₦) *</label>
                     <input
-                      type="text"
-                      placeholder="e.g. iPhone 15 Pro Max, MacBook Air M3, Nike Air Jordan"
-                      value={form.name}
-                      onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="e.g. 150000"
+                      value={form.base_price}
+                      onChange={e => setForm(prev => ({ ...prev, base_price: e.target.value }))}
                       style={inputStyles}
                       disabled={isSubmitting}
                       required
                     />
                   </div>
+                </div>
 
-                  <div style={doubleColGridStyles}>
-                    <div style={inputGroupStyles}>
-                      <label style={labelStyles}>CATEGORY *</label>
-                      <select
-                        value={form.category}
-                        onChange={e => setForm(prev => ({ ...prev, category: e.target.value }))}
-                        style={selectStyles}
-                        disabled={isSubmitting}
-                        required
-                      >
-                        <option value="">Select Category</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={inputGroupStyles}>
-                      <label style={labelStyles}>BASE PRICE (₦) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={form.base_price}
-                        onChange={e => setForm(prev => ({ ...prev, base_price: e.target.value }))}
-                        style={inputStyles}
-                        disabled={isSubmitting}
-                        required
-                      />
-                    </div>
+                <div style={twoColGridStyles}>
+                  <div style={inputGroupStyles}>
+                    <label style={labelStyles}>TOTAL UNITS IN STOCK *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 15"
+                      value={baseUnits}
+                      onChange={e => setBaseUnits(e.target.value)}
+                      style={inputStyles}
+                      disabled={isSubmitting || colors.length > 0}
+                      required
+                    />
+                    {colors.length > 0 && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                        Automatically calculated from color variants below ({calculatedTotalUnits} units)
+                      </span>
+                    )}
                   </div>
 
                   <div style={inputGroupStyles}>
@@ -852,71 +989,39 @@ export default function VendorProductManager() {
                       style={selectStyles}
                       disabled={isSubmitting}
                     >
-                      <option value="PUBLISHED">Published (Visible on Marketplace)</option>
-                      <option value="DRAFT">Draft (Save for later)</option>
-                      <option value="PAUSED">Paused (Hidden temporarily)</option>
+                      <option value="PUBLISHED">Published (Visible in Store)</option>
+                      <option value="DRAFT">Draft (Save privately)</option>
+                      <option value="PAUSED">Paused (Hidden)</option>
                     </select>
                   </div>
+                </div>
+              </div>
 
-                  <div style={tabPromptBannerStyles}>
-                    <span>Next: Set how many units you have and the available product colours.</span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveFormTab('inventory')}
-                      style={nextTabBtnStyles}
-                    >
-                      Continue to Units & Colours →
-                    </button>
+              {/* SECTION 3: AVAILABLE COLOURS (OPTIONAL & COLLAPSIBLE) */}
+              <div style={formSectionCardStyles}>
+                <div
+                  onClick={() => setShowColorSection(prev => !prev)}
+                  style={{ ...sectionTitleRowStyles, cursor: 'pointer', userSelect: 'none' }}
+                >
+                  <span style={sectionNumberBadgeStyles}>3</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h4 style={sectionHeadingStyles}>
+                        Available Colours {colors.length > 0 && `(${colors.length} selected)`}
+                      </h4>
+                      <span style={toggleExpandTextStyles}>
+                        {showColorSection ? '− Collapse' : '+ Click to add colours'}
+                      </span>
+                    </div>
+                    <p style={sectionSubtextStyles}>
+                      Select the colors you have in stock, or skip if your product does not have color choices.
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* TAB 2: UNITS & AVAILABLE COLOURS */}
-              {activeFormTab === 'inventory' && (
-                <div style={tabSectionStyles}>
-                  {/* Total Units Header Card */}
-                  <div style={inventorySummaryCardStyles}>
-                    <div>
-                      <div style={inventorySummaryLabelStyles}>TOTAL UNITS AVAILABLE</div>
-                      <div style={inventorySummaryValueStyles}>
-                        {calculatedTotalUnits} {calculatedTotalUnits === 1 ? 'Unit' : 'Units'}
-                      </div>
-                    </div>
-                    <div style={inventorySummarySubtextStyles}>
-                      {colors.length > 0
-                        ? `Allocated across ${colors.length} color ${colors.length === 1 ? 'variant' : 'variants'}`
-                        : 'Standard single-variant product stock'}
-                    </div>
-                  </div>
-
-                  {/* Stock Units Input (If no color variants are set) */}
-                  {colors.length === 0 && (
-                    <div style={inputGroupStyles}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <label style={labelStyles}>HOW MANY UNITS DO YOU HAVE IN STOCK? *</label>
-                        <span style={helperTextStyles}>Total inventory count</span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 25"
-                        value={baseUnits}
-                        onChange={e => setBaseUnits(e.target.value)}
-                        style={inputStyles}
-                        disabled={isSubmitting}
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {/* Available Colours Section */}
-                  <div style={colorsSectionWrapperStyles}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={labelStyles}>PRODUCT COLOURS & VARIANT UNITS</label>
-                      <span style={helperTextStyles}>Click presets or add custom colours</span>
-                    </div>
-
-                    {/* Quick Preset Colours */}
+                {showColorSection && (
+                  <div style={{ marginTop: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+                    {/* Preset Color Badges */}
                     <div style={presetColorsGridStyles}>
                       {PRESET_COLORS.map(preset => {
                         const isAdded = colors.some(
@@ -929,10 +1034,10 @@ export default function VendorProductManager() {
                             onClick={() => handleAddPresetColor(preset)}
                             style={{
                               ...presetColorChipStyles,
-                              borderColor: isAdded ? 'var(--color-primary)' : 'var(--color-border)',
+                              borderColor: isAdded ? 'var(--color-primary)' : '#e2e8f0',
                               backgroundColor: isAdded ? 'rgba(255, 122, 0, 0.08)' : '#ffffff',
+                              fontWeight: isAdded ? 600 : 500,
                             }}
-                            title={`Add ${preset.name}`}
                           >
                             <span
                               style={{
@@ -942,361 +1047,205 @@ export default function VendorProductManager() {
                               }}
                             />
                             <span>{preset.name}</span>
-                            {isAdded && <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>✓</span>}
+                            {isAdded ? (
+                              <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>✓</span>
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>+</span>
+                            )}
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Custom Color Input Form */}
-                    <div style={customColorFormStyles}>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <input
-                          type="color"
-                          value={newColorHex}
-                          onChange={e => setNewColorHex(e.target.value)}
-                          style={colorPickerInputStyles}
-                          title="Choose custom color hex"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Custom color name (e.g. Alpine Green)"
-                          value={newColorName}
-                          onChange={e => setNewColorName(e.target.value)}
-                          style={{ ...inputStyles, flex: '2', minWidth: '160px' }}
-                        />
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Units"
-                          value={newColorUnits}
-                          onChange={e => setNewColorUnits(e.target.value)}
-                          style={{ ...inputStyles, width: '90px' }}
-                          title="Units for this colour"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddCustomColor}
-                          style={addColorBtnStyles}
-                        >
-                          + Add Colour
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Selected Colours List with Per-Colour Stock Allocation */}
+                    {/* Selected Colors List */}
                     {colors.length > 0 && (
                       <div style={selectedColorsListStyles}>
-                        <div style={selectedColorsHeaderStyles}>
-                          <span>COLOUR VARIANT</span>
-                          <span>UNITS IN STOCK</span>
-                          <span>ACTION</span>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>
+                          SET UNITS FOR EACH COLOUR:
                         </div>
                         {colors.map(c => (
-                          <div key={c.id} style={colorRowItemStyles}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span
-                                style={{
-                                  ...presetColorCircleStyles,
-                                  backgroundColor: c.hex,
-                                  width: '16px',
-                                  height: '16px',
-                                  border: c.hex === '#FFFFFF' ? '1px solid #d1d5db' : 'none',
-                                }}
-                              />
-                              <span style={{ fontWeight: '600', fontSize: '0.825rem' }}>{c.name}</span>
+                          <div key={c.id} style={colorRowCardStyles}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ ...presetColorCircleStyles, backgroundColor: c.hex }} />
+                              <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>{c.name}</strong>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <input
-                                type="number"
-                                min="0"
-                                value={c.units}
-                                onChange={e =>
-                                  handleUpdateColorUnits(c.id, parseInt(e.target.value, 10) || 0)
-                                }
-                                style={unitQtyInputStyles}
-                              />
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>units</span>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Units in stock:</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={c.units}
+                                  onChange={e => handleUpdateColorUnits(c.id, parseInt(e.target.value, 10) || 0)}
+                                  style={colorUnitInputStyles}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveColor(c.id)}
+                                style={colorRemoveBtnStyles}
+                                title="Remove color"
+                              >
+                                ✕
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveColor(c.id)}
-                              style={removeColorBtnStyles}
-                              title="Remove color"
-                            >
-                              ✕
-                            </button>
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  <div style={tabPromptBannerStyles}>
-                    <span>Next: Add technical specifications, dimensions, and warranty details.</span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveFormTab('specs')}
-                      style={nextTabBtnStyles}
-                    >
-                      Continue to Specifications →
-                    </button>
+                    {/* Custom Color Input Form */}
+                    <div style={customColorRowStyles}>
+                      <input
+                        type="text"
+                        placeholder="Custom colour name (e.g. Matte Titanium)"
+                        value={newColorName}
+                        onChange={e => setNewColorName(e.target.value)}
+                        style={{ ...inputStyles, flex: 1 }}
+                      />
+                      <input
+                        type="color"
+                        value={newColorHex}
+                        onChange={e => setNewColorHex(e.target.value)}
+                        style={colorPickerBoxStyles}
+                        title="Pick color"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Units"
+                        value={newColorUnits}
+                        onChange={e => setNewColorUnits(e.target.value)}
+                        style={{ ...inputStyles, width: '80px' }}
+                      />
+                      <button type="button" onClick={handleAddCustomColor} style={addCustomColorBtnStyles}>
+                        + Add Colour
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 4: PRODUCT SPECIFICATIONS (OPTIONAL & COLLAPSIBLE) */}
+              <div style={formSectionCardStyles}>
+                <div
+                  onClick={() => setShowSpecsSection(prev => !prev)}
+                  style={{ ...sectionTitleRowStyles, cursor: 'pointer', userSelect: 'none' }}
+                >
+                  <span style={sectionNumberBadgeStyles}>4</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h4 style={sectionHeadingStyles}>
+                        Technical Specifications (Optional)
+                      </h4>
+                      <span style={toggleExpandTextStyles}>
+                        {showSpecsSection ? '− Collapse' : '+ Click to add specs'}
+                      </span>
+                    </div>
+                    <p style={sectionSubtextStyles}>
+                      Add details like Brand, Condition, Warranty, or Dimensions to help buyers find your item.
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* TAB 3: PRODUCT SPECIFICATIONS */}
-              {activeFormTab === 'specs' && (
-                <div style={tabSectionStyles}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={labelStyles}>PRODUCT SPECIFICATIONS</label>
-                    <span style={helperTextStyles}>Key technical details & features</span>
-                  </div>
-
-                  {/* Quick-add preset specification pills */}
-                  <div style={presetSpecsWrapperStyles}>
-                    <div style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                      Quick Add Common Attributes:
-                    </div>
-                    <div style={presetSpecsGridStyles}>
+                {showSpecsSection && (
+                  <div style={{ marginTop: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+                    {/* 1-Click Attribute Chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
                       {PRESET_SPEC_KEYS.map(keyName => {
-                        const exists = specifications.some(
-                          s => s.key.toLowerCase() === keyName.toLowerCase()
-                        );
+                        const isAdded = specifications.some(s => s.key.toLowerCase() === keyName.toLowerCase());
+                        if (isAdded) return null;
                         return (
                           <button
                             key={keyName}
                             type="button"
                             onClick={() => handleAddPresetSpec(keyName)}
-                            style={{
-                              ...presetSpecPillStyles,
-                              opacity: exists ? 0.5 : 1,
-                              cursor: exists ? 'default' : 'pointer',
-                            }}
-                            disabled={exists}
+                            style={specPresetChipStyles}
                           >
                             + {keyName}
                           </button>
                         );
                       })}
                     </div>
-                  </div>
 
-                  {/* Dynamic Specifications Table */}
-                  <div style={specsTableContainerStyles}>
-                    <div style={specsTableHeaderRowStyles}>
-                      <span style={{ flex: '1' }}>ATTRIBUTE / FEATURE</span>
-                      <span style={{ flex: '2' }}>SPECIFICATION VALUE</span>
-                      <span style={{ width: '32px', textAlign: 'center' }}></span>
+                    {/* Key-Value Inputs */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {specifications.map(s => (
+                        <div key={s.id} style={specRowStyles}>
+                          <input
+                            type="text"
+                            placeholder="Specification (e.g. Brand)"
+                            value={s.key}
+                            onChange={e => handleUpdateSpec(s.id, 'key', e.target.value)}
+                            style={{ ...inputStyles, width: '38%' }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Value (e.g. Apple, Brand New)"
+                            value={s.value}
+                            onChange={e => handleUpdateSpec(s.id, 'value', e.target.value)}
+                            style={{ ...inputStyles, flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSpec(s.id)}
+                            style={specDeleteBtnStyles}
+                            title="Delete specification"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
 
-                    {specifications.map(spec => (
-                      <div key={spec.id} style={specRowStyles}>
-                        <input
-                          type="text"
-                          placeholder="e.g. Brand, Weight, RAM"
-                          value={spec.key}
-                          onChange={e => handleUpdateSpec(spec.id, 'key', e.target.value)}
-                          style={{ ...inputStyles, flex: '1', fontSize: '0.8rem' }}
-                        />
-                        <input
-                          type="text"
-                          placeholder="e.g. Apple, 221g, 8GB / 256GB"
-                          value={spec.value}
-                          onChange={e => handleUpdateSpec(spec.id, 'value', e.target.value)}
-                          style={{ ...inputStyles, flex: '2', fontSize: '0.8rem' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSpec(spec.id)}
-                          style={removeSpecBtnStyles}
-                          title="Remove specification"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddCustomSpecRow}
-                    style={addSpecRowBtnStyles}
-                  >
-                    + Add Custom Specification Field
-                  </button>
-
-                  <div style={tabPromptBannerStyles}>
-                    <span>Next: Add description text and high-resolution product photos.</span>
                     <button
                       type="button"
-                      onClick={() => setActiveFormTab('media')}
-                      style={nextTabBtnStyles}
+                      onClick={handleAddCustomSpecRow}
+                      style={addSpecRowBtnStyles}
                     >
-                      Continue to Media & Photos →
+                      + Add Another Specification Row
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* TAB 4: MEDIA & DESCRIPTION */}
-              {activeFormTab === 'media' && (
-                <div style={tabSectionStyles}>
-                  {/* Product Images Section (Create Flow) */}
-                  {!editingProduct && (
-                    <div style={inputGroupStyles}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={labelStyles}>PRODUCT IMAGES (R2 CLOUD STORAGE)</label>
-                        <span style={imageHelpTextStyles}>Max 5MB each · JPG, PNG, WEBP</span>
-                      </div>
-
-                      {/* Drag & Drop / Click Upload Box */}
-                      <div
-                        onClick={() => !isSubmitting && fileInputRef.current?.click()}
-                        style={uploadDropzoneStyles}
-                      >
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={e => handleFilesSelected(e.target.files)}
-                          style={{ display: 'none' }}
-                          disabled={isSubmitting}
-                        />
-                        <svg
-                          width="28"
-                          height="28"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="var(--color-primary)"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{ marginBottom: '6px' }}
-                        >
-                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                          <circle cx="9" cy="9" r="2" />
-                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                        </svg>
-                        <div style={dropzoneMainTextStyles}>
-                          <span style={{ color: 'var(--color-primary)', fontWeight: '700' }}>
-                            Click to upload
-                          </span>{' '}
-                          or drag and drop images
-                        </div>
-                        <div style={dropzoneSubTextStyles}>
-                          Supports high-resolution product photography
-                        </div>
-                      </div>
-
-                      {/* Image Preview Grid */}
-                      {selectedImages.length > 0 && (
-                        <div style={previewGridStyles}>
-                          {selectedImages.map((img, idx) => (
-                            <div
-                              key={img.id}
-                              style={{
-                                ...previewCardStyles,
-                                borderColor: img.isPrimary ? 'var(--color-primary)' : 'var(--color-border)',
-                                boxShadow: img.isPrimary ? '0 0 0 2px rgba(255, 122, 0, 0.2)' : 'none',
-                              }}
-                            >
-                              <img src={img.previewUrl} alt={`Preview ${idx + 1}`} style={previewImgStyles} />
-
-                              {/* Primary Badge / Button */}
-                              {img.isPrimary ? (
-                                <div style={primaryBadgeStyles}>★ Primary</div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    handleSetPrimary(img.id);
-                                  }}
-                                  style={setPrimaryBtnStyles}
-                                  title="Make this the primary catalog image"
-                                >
-                                  Make Primary
-                                </button>
-                              )}
-
-                              {/* Delete / Remove Thumbnail Button */}
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  handleRemoveImage(img.id);
-                                }}
-                                style={removeImageBtnStyles}
-                                disabled={isSubmitting}
-                                title="Remove image"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Edit Mode Notice */}
-                  {editingProduct && (
-                    <div style={editNoticeStyles}>
-                      <span style={{ fontSize: '1.1rem' }}>ℹ️</span>
-                      <span>
-                        Updating general listing parameters, stock quantities, and specifications. Media uploads are handled via the dedicated image manager.
-                      </span>
-                    </div>
-                  )}
-
-                  <div style={inputGroupStyles}>
-                    <label style={labelStyles}>PRODUCT DESCRIPTION</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Provide detailed product highlights, features, warranty, and package contents..."
-                      value={form.description}
-                      onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                      style={textareaStyles}
-                      disabled={isSubmitting}
-                    />
+              {/* SECTION 5: DESCRIPTION */}
+              <div style={formSectionCardStyles}>
+                <div style={sectionTitleRowStyles}>
+                  <span style={sectionNumberBadgeStyles}>5</span>
+                  <div>
+                    <h4 style={sectionHeadingStyles}>Product Description</h4>
+                    <p style={sectionSubtextStyles}>Detailed overview of product features, warranty, and delivery notes.</p>
                   </div>
                 </div>
-              )}
 
-              {/* Upload Progress Status Indicator */}
-              {isSubmitting && (
-                <div style={progressBannerStyles}>
-                  <div style={spinnerStyles}></div>
-                  <span style={progressTextStyles}>{uploadStatusText || 'Processing request...'}</span>
+                <div style={inputGroupStyles}>
+                  <textarea
+                    rows={4}
+                    placeholder="Describe your product highlights, box contents, and guarantee details..."
+                    value={form.description}
+                    onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+                    style={{ ...inputStyles, resize: 'vertical' }}
+                    disabled={isSubmitting}
+                  />
                 </div>
-              )}
+              </div>
 
-              {/* Modal Footer */}
+              {/* Sticky Action Footer */}
               <div style={modalFooterStyles}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {activeFormTab !== 'basic' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeFormTab === 'media') setActiveFormTab('specs');
-                        else if (activeFormTab === 'specs') setActiveFormTab('inventory');
-                        else if (activeFormTab === 'inventory') setActiveFormTab('basic');
-                      }}
-                      style={prevTabBtnStyles}
-                    >
-                      ← Back
-                    </button>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
+                {uploadStatusText && (
+                  <div style={statusBannerStyles}>
+                    <span style={spinnerDotStyles}></span>
+                    <span>{uploadStatusText}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}>
                   <button
                     type="button"
                     onClick={handleCloseModal}
                     disabled={isSubmitting}
-                    style={cancelBtnStyles}
+                    style={modalCancelBtnStyles}
                   >
                     Cancel
                   </button>
@@ -1304,20 +1253,18 @@ export default function VendorProductManager() {
                     type="submit"
                     disabled={isSubmitting}
                     style={{
-                      ...saveBtnStyles,
-                      opacity: isSubmitting ? 0.7 : 1,
+                      ...modalSubmitBtnStyles,
+                      opacity: isSubmitting ? 0.75 : 1,
                       cursor: isSubmitting ? 'not-allowed' : 'pointer',
                     }}
                   >
                     {isSubmitting ? (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={miniSpinnerStyles}></span>
-                        <span>Saving Listing...</span>
-                      </span>
-                    ) : editingProduct ? (
-                      'Update Listing'
+                      <>
+                        <span style={btnSpinnerStyles}></span>
+                        <span>Saving Product...</span>
+                      </>
                     ) : (
-                      `Save & Publish (${calculatedTotalUnits} Units)`
+                      <span>{editingProduct ? 'Save Changes' : '🚀 Upload Product'}</span>
                     )}
                   </button>
                 </div>
@@ -1326,18 +1273,26 @@ export default function VendorProductManager() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes vendorSpin {
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
 // ----------------------------------------------------------
-// Styling Tokens
+// Styling Tokens (DOVI Standard UI Design System)
 // ----------------------------------------------------------
 const wrapperStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1.5rem',
-  paddingTop: '1rem',
+  padding: '1.5rem',
+  maxWidth: '1280px',
+  margin: '0 auto',
 };
 
 const headerRowStyles: React.CSSProperties = {
@@ -1349,53 +1304,56 @@ const headerRowStyles: React.CSSProperties = {
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: '1.25rem',
-  fontWeight: '700',
+  fontSize: '1.5rem',
+  fontWeight: '800',
   color: 'var(--color-text)',
-  margin: 0,
+  letterSpacing: '-0.5px',
 };
 
 const subtitleStyles: React.CSSProperties = {
-  fontSize: '0.775rem',
+  fontSize: '0.875rem',
   color: 'var(--color-text-muted)',
-  margin: '4px 0 0 0',
+  marginTop: '4px',
 };
 
 const addBtnStyles: React.CSSProperties = {
-  background: 'var(--color-primary)',
+  backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  padding: '10px 16px',
+  padding: '10px 20px',
+  borderRadius: 'var(--radius-full)',
   fontWeight: '700',
-  fontSize: '0.85rem',
+  fontSize: '0.875rem',
+  border: 'none',
   cursor: 'pointer',
-  transition: 'background-color 0.2s',
-  display: 'flex',
+  display: 'inline-flex',
   alignItems: 'center',
+  boxShadow: '0 2px 4px rgba(255, 122, 0, 0.2)',
+  transition: 'all 0.2s ease',
 };
 
 const searchRowStyles: React.CSSProperties = {
-  width: '100%',
+  display: 'flex',
+  gap: '1rem',
 };
 
 const searchInputStyles: React.CSSProperties = {
   width: '100%',
-  padding: '10px 14px',
-  background: '#ffffff',
-  border: '1px solid var(--color-border)',
+  maxWidth: '440px',
+  padding: '10px 16px',
   borderRadius: 'var(--radius-md)',
-  color: 'var(--color-text)',
+  border: '1px solid var(--color-border)',
+  background: '#ffffff',
   fontSize: '0.875rem',
+  color: 'var(--color-text)',
   outline: 'none',
 };
 
 const tableWrapperStyles: React.CSSProperties = {
   background: '#ffffff',
-  border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-lg)',
-  overflowX: 'auto',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+  border: '1px solid var(--color-border)',
+  overflow: 'hidden',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
 };
 
 const tableStyles: React.CSSProperties = {
@@ -1405,48 +1363,102 @@ const tableStyles: React.CSSProperties = {
 };
 
 const tableHeaderRowStyles: React.CSSProperties = {
+  background: '#f8fafc',
   borderBottom: '1px solid var(--color-border)',
-  background: 'var(--color-bg-subtle)',
 };
 
 const thStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
+  padding: '12px 16px',
   fontSize: '0.75rem',
   fontWeight: '700',
-  color: 'var(--color-text-muted)',
+  color: '#64748b',
   letterSpacing: '0.5px',
 };
 
 const tableRowStyles: React.CSSProperties = {
-  borderBottom: '1px solid var(--color-border)',
+  borderBottom: '1px solid #f1f5f9',
+  transition: 'background-color 0.15s',
 };
 
 const tdStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
-  fontSize: '0.85rem',
+  padding: '14px 16px',
+  fontSize: '0.875rem',
   color: 'var(--color-text)',
 };
 
 const tdRefStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
+  padding: '14px 16px',
   fontSize: '0.75rem',
-  fontFamily: 'var(--font-mono)',
-  color: 'var(--color-primary)',
   fontWeight: '700',
+  fontFamily: 'monospace',
+  color: '#64748b',
 };
 
 const tdNameStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
+  padding: '14px 16px',
+  fontSize: '0.875rem',
+  color: 'var(--color-text)',
+  maxWidth: '300px',
+};
+
+const tableThumbStyles: React.CSSProperties = {
+  width: '44px',
+  height: '44px',
+  borderRadius: '8px',
+  objectFit: 'cover',
+  backgroundColor: '#f1f5f9',
+  flexShrink: 0,
+  border: '1px solid #e2e8f0',
+};
+
+const tdPriceStyles: React.CSSProperties = {
+  padding: '14px 16px',
   fontSize: '0.875rem',
   fontWeight: '700',
-  color: 'var(--color-text)',
+  color: 'var(--color-primary)',
+};
+
+const tdActionsStyles: React.CSSProperties = {
+  padding: '14px 16px',
+  textAlign: 'right',
+  whiteSpace: 'nowrap',
+};
+
+const actionBtnEditStyles: React.CSSProperties = {
+  background: '#f1f5f9',
+  color: '#334155',
+  border: 'none',
+  padding: '6px 12px',
+  borderRadius: '6px',
+  fontSize: '0.75rem',
+  fontWeight: '600',
+  cursor: 'pointer',
+  marginRight: '6px',
+};
+
+const actionBtnDeleteStyles: React.CSSProperties = {
+  background: '#fee2e2',
+  color: '#ef4444',
+  border: 'none',
+  padding: '6px 12px',
+  borderRadius: '6px',
+  fontSize: '0.75rem',
+  fontWeight: '600',
+  cursor: 'pointer',
+};
+
+const statusBadgeStyles: React.CSSProperties = {
+  display: 'inline-block',
+  padding: '4px 8px',
+  borderRadius: 'var(--radius-full)',
+  fontSize: '0.7rem',
+  fontWeight: '700',
 };
 
 const variantSubtextStyles: React.CSSProperties = {
+  fontSize: '0.75rem',
+  color: '#64748b',
   display: 'block',
-  fontSize: '0.7rem',
-  fontWeight: '500',
-  color: 'var(--color-text-muted)',
   marginTop: '2px',
 };
 
@@ -1454,61 +1466,6 @@ const colorPillListStyles: React.CSSProperties = {
   fontSize: '0.7rem',
   color: 'var(--color-primary)',
   fontWeight: '600',
-};
-
-const tableThumbStyles: React.CSSProperties = {
-  width: '36px',
-  height: '36px',
-  borderRadius: 'var(--radius-sm)',
-  objectFit: 'cover',
-  border: '1px solid var(--color-border)',
-  backgroundColor: '#f8fafc',
-  flexShrink: 0,
-};
-
-const tdPriceStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
-  fontSize: '0.85rem',
-  fontWeight: '700',
-  color: 'var(--color-text)',
-};
-
-const statusBadgeStyles: React.CSSProperties = {
-  fontSize: '0.675rem',
-  fontWeight: '700',
-  padding: '2px 6px',
-  borderRadius: 'var(--radius-sm)',
-};
-
-const tdActionsStyles: React.CSSProperties = {
-  padding: '14px var(--space-4)',
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: '8px',
-};
-
-const actionBtnEditStyles: React.CSSProperties = {
-  background: 'var(--color-bg-subtle)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text)',
-  padding: '4px 10px',
-  borderRadius: 'var(--radius-sm)',
-  fontSize: '0.75rem',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-};
-
-const actionBtnDeleteStyles: React.CSSProperties = {
-  background: 'rgba(239, 68, 68, 0.05)',
-  border: '1px solid rgba(239, 68, 68, 0.2)',
-  color: 'var(--color-danger)',
-  padding: '4px 10px',
-  borderRadius: 'var(--radius-sm)',
-  fontSize: '0.75rem',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
 };
 
 const loadingStyles: React.CSSProperties = {
@@ -1519,37 +1476,35 @@ const loadingStyles: React.CSSProperties = {
 };
 
 const emptyStyles: React.CSSProperties = {
-  padding: '3rem',
+  padding: '3.5rem 1rem',
   textAlign: 'center',
-  color: 'var(--color-text-muted)',
-  fontSize: '0.875rem',
 };
 
-// Modal
+// Modal Styles
 const modalBackdropStyles: React.CSSProperties = {
   position: 'fixed',
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.55)',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 1000,
+  backgroundColor: 'rgba(15, 23, 42, 0.65)',
   backdropFilter: 'blur(4px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1000,
   padding: '1rem',
 };
 
 const modalCardStyles: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-xl)',
+  backgroundColor: '#ffffff',
+  borderRadius: '16px',
   width: '100%',
-  maxWidth: '680px',
-  maxHeight: '92vh',
+  maxWidth: '820px',
+  maxHeight: '90vh',
   overflowY: 'auto',
-  padding: '1.75rem',
+  display: 'flex',
+  flexDirection: 'column',
   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
 };
 
@@ -1557,307 +1512,342 @@ const modalHeaderStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'flex-start',
-  marginBottom: '1rem',
+  padding: '1.25rem 1.75rem',
+  borderBottom: '1px solid #e2e8f0',
+  position: 'sticky',
+  top: 0,
+  backgroundColor: '#ffffff',
+  zIndex: 10,
 };
 
 const modalSubtitleStyles: React.CSSProperties = {
-  fontSize: '0.775rem',
-  color: 'var(--color-text-muted)',
-  margin: '3px 0 0 0',
+  fontSize: '0.8rem',
+  color: '#64748b',
+  margin: '4px 0 0 0',
 };
 
 const closeBtnStyles: React.CSSProperties = {
-  background: 'transparent',
+  background: '#f1f5f9',
   border: 'none',
-  color: 'var(--color-text-muted)',
-  fontSize: '1.25rem',
-  cursor: 'pointer',
-  padding: '2px 6px',
-};
-
-const tabNavWrapperStyles: React.CSSProperties = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '50%',
   display: 'flex',
-  borderBottom: '1px solid var(--color-border)',
-  gap: '1rem',
-  marginBottom: '1.25rem',
-  overflowX: 'auto',
-};
-
-const tabNavBtnStyles: React.CSSProperties = {
-  background: 'none',
-  border: 'none',
-  borderBottom: '2px solid transparent',
-  padding: '8px 4px',
-  fontSize: '0.825rem',
-  fontWeight: '700',
+  alignItems: 'center',
+  justifyContent: 'center',
   cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  transition: 'all 0.15s ease-in-out',
-};
-
-const tabSectionStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '1.1rem',
+  color: '#475569',
+  fontSize: '0.85rem',
+  fontWeight: 'bold',
 };
 
 const formStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '1.1rem',
+  gap: '1.25rem',
+  padding: '1.5rem 1.75rem',
+};
+
+const formSectionCardStyles: React.CSSProperties = {
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
+  borderRadius: '12px',
+  padding: '1.25rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+};
+
+const sectionTitleRowStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '12px',
+};
+
+const sectionNumberBadgeStyles: React.CSSProperties = {
+  width: '24px',
+  height: '24px',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(255, 122, 0, 0.12)',
+  color: 'var(--color-primary)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '0.75rem',
+  fontWeight: '800',
+  flexShrink: 0,
+  marginTop: '2px',
+};
+
+const sectionHeadingStyles: React.CSSProperties = {
+  fontSize: '1rem',
+  fontWeight: '700',
+  color: '#0f172a',
+  margin: 0,
+};
+
+const sectionSubtextStyles: React.CSSProperties = {
+  fontSize: '0.75rem',
+  color: '#64748b',
+  margin: '2px 0 0 0',
+};
+
+const toggleExpandTextStyles: React.CSSProperties = {
+  fontSize: '0.75rem',
+  fontWeight: '700',
+  color: 'var(--color-primary)',
 };
 
 const inputGroupStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.4rem',
+  gap: '6px',
 };
 
 const labelStyles: React.CSSProperties = {
-  fontSize: '0.675rem',
+  fontSize: '0.75rem',
   fontWeight: '700',
-  color: 'var(--color-text-muted)',
-  letterSpacing: '0.5px',
-};
-
-const helperTextStyles: React.CSSProperties = {
-  fontSize: '0.675rem',
-  color: 'var(--color-text-muted)',
-};
-
-const imageHelpTextStyles: React.CSSProperties = {
-  fontSize: '0.675rem',
-  color: 'var(--color-text-muted)',
+  color: '#475569',
+  letterSpacing: '0.4px',
 };
 
 const inputStyles: React.CSSProperties = {
   width: '100%',
-  padding: '9px 12px',
-  background: '#ffffff',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--color-text)',
+  padding: '10px 14px',
+  borderRadius: '8px',
+  border: '1px solid #cbd5e1',
   fontSize: '0.875rem',
+  color: '#0f172a',
+  background: '#ffffff',
   outline: 'none',
   boxSizing: 'border-box',
 };
 
 const selectStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '9px 12px',
-  background: '#ffffff',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--color-text)',
-  fontSize: '0.875rem',
-  outline: 'none',
-  boxSizing: 'border-box',
+  ...inputStyles,
+  appearance: 'auto',
+  cursor: 'pointer',
 };
 
-const textareaStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '9px 12px',
-  background: '#ffffff',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--color-text)',
-  fontSize: '0.875rem',
-  outline: 'none',
-  resize: 'vertical',
-  boxSizing: 'border-box',
-};
-
-const doubleColGridStyles: React.CSSProperties = {
+const twoColGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
   gap: '1rem',
 };
 
-// Inventory & Colors Styles
-const inventorySummaryCardStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '12px 16px',
-  backgroundColor: 'rgba(255, 122, 0, 0.06)',
-  border: '1px solid rgba(255, 122, 0, 0.25)',
-  borderRadius: 'var(--radius-md)',
-};
-
-const inventorySummaryLabelStyles: React.CSSProperties = {
-  fontSize: '0.65rem',
-  fontWeight: '700',
-  color: 'var(--color-primary)',
-  letterSpacing: '0.5px',
-};
-
-const inventorySummaryValueStyles: React.CSSProperties = {
-  fontSize: '1.25rem',
-  fontWeight: '800',
-  color: 'var(--color-text)',
-};
-
-const inventorySummarySubtextStyles: React.CSSProperties = {
-  fontSize: '0.75rem',
-  color: 'var(--color-text-muted)',
-  textAlign: 'right',
-  maxWidth: '220px',
-};
-
-const colorsSectionWrapperStyles: React.CSSProperties = {
+// Dropzone & Image Gallery
+const dropzoneStyles: React.CSSProperties = {
+  border: '2px dashed #cbd5e1',
+  borderRadius: '12px',
+  padding: '24px 16px',
+  textAlign: 'center',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.75rem',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
+const dropzoneIconWrapperStyles: React.CSSProperties = {
+  width: '50px',
+  height: '50px',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(255, 122, 0, 0.08)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: '10px',
+};
+
+const imageGalleryGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+  gap: '12px',
+  marginTop: '10px',
+};
+
+const imagePreviewCardStyles: React.CSSProperties = {
+  position: 'relative',
+  aspectRatio: '1',
+  borderRadius: '10px',
+  overflow: 'hidden',
+  border: '1px solid #e2e8f0',
+  backgroundColor: '#f8fafc',
+};
+
+const imagePreviewImgStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+};
+
+const imagePreviewBadgeStyles: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '6px',
+  left: '6px',
+  fontSize: '0.65rem',
+  fontWeight: '700',
+  padding: '2px 6px',
+  borderRadius: '4px',
+  backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  color: '#ffffff',
+};
+
+const setPrimaryBtnStyles: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '6px',
+  left: '6px',
+  fontSize: '0.65rem',
+  fontWeight: '600',
+  padding: '2px 6px',
+  borderRadius: '4px',
+  backgroundColor: '#ffffff',
+  color: '#334155',
+  border: '1px solid #cbd5e1',
+  cursor: 'pointer',
+};
+
+const imageDeleteBtnStyles: React.CSSProperties = {
+  position: 'absolute',
+  top: '6px',
+  right: '6px',
+  width: '22px',
+  height: '22px',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  color: '#ffffff',
+  border: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '0.65rem',
+  cursor: 'pointer',
+};
+
+const addMoreImageTileStyles: React.CSSProperties = {
+  aspectRatio: '1',
+  borderRadius: '10px',
+  border: '2px dashed #cbd5e1',
+  backgroundColor: '#f8fafc',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  color: '#64748b',
+  cursor: 'pointer',
+};
+
+// Colors section styles
 const presetColorsGridStyles: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: '6px',
+  gap: '8px',
 };
 
 const presetColorChipStyles: React.CSSProperties = {
-  display: 'flex',
+  display: 'inline-flex',
   alignItems: 'center',
   gap: '6px',
-  padding: '5px 10px',
-  borderRadius: 'var(--radius-full)',
-  border: '1px solid var(--color-border)',
-  fontSize: '0.75rem',
-  fontWeight: '600',
+  padding: '6px 12px',
+  borderRadius: '9999px',
+  border: '1px solid #e2e8f0',
+  fontSize: '0.8rem',
+  color: '#1e293b',
   cursor: 'pointer',
-  transition: 'all 0.15s ease',
+  background: '#ffffff',
 };
 
 const presetColorCircleStyles: React.CSSProperties = {
   width: '12px',
   height: '12px',
   borderRadius: '50%',
-  display: 'inline-block',
-};
-
-const customColorFormStyles: React.CSSProperties = {
-  padding: '10px',
-  backgroundColor: 'var(--color-bg-subtle)',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-border)',
-};
-
-const colorPickerInputStyles: React.CSSProperties = {
-  width: '36px',
-  height: '36px',
-  padding: 0,
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  cursor: 'pointer',
-  backgroundColor: 'transparent',
-};
-
-const addColorBtnStyles: React.CSSProperties = {
-  background: 'var(--color-text)',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  padding: '9px 14px',
-  fontSize: '0.775rem',
-  fontWeight: '700',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 const selectedColorsListStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '6px',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '8px',
-  backgroundColor: '#ffffff',
-};
-
-const selectedColorsHeaderStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 120px 40px',
-  padding: '4px 8px',
-  fontSize: '0.65rem',
-  fontWeight: '700',
-  color: 'var(--color-text-muted)',
-  letterSpacing: '0.5px',
-  borderBottom: '1px solid var(--color-border)',
-};
-
-const colorRowItemStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 120px 40px',
-  alignItems: 'center',
-  padding: '6px 8px',
-  backgroundColor: 'var(--color-bg-subtle)',
-  borderRadius: 'var(--radius-sm)',
-};
-
-const unitQtyInputStyles: React.CSSProperties = {
-  width: '60px',
-  padding: '4px 6px',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
-  fontSize: '0.8rem',
-  fontWeight: '700',
-  textAlign: 'center',
-};
-
-const removeColorBtnStyles: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--color-danger)',
-  cursor: 'pointer',
-  fontWeight: '700',
-  fontSize: '0.875rem',
-  textAlign: 'center',
-};
-
-// Specifications Styles
-const presetSpecsWrapperStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-};
-
-const presetSpecsGridStyles: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '6px',
-};
-
-const presetSpecPillStyles: React.CSSProperties = {
-  background: 'var(--color-bg-subtle)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '4px 8px',
-  fontSize: '0.725rem',
-  fontWeight: '600',
-  color: 'var(--color-text)',
-  transition: 'all 0.15s ease',
-};
-
-const specsTableContainerStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6px',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '8px',
-  backgroundColor: '#ffffff',
-};
-
-const specsTableHeaderRowStyles: React.CSSProperties = {
-  display: 'flex',
   gap: '8px',
-  padding: '4px 6px',
-  fontSize: '0.65rem',
-  fontWeight: '700',
-  color: 'var(--color-text-muted)',
-  letterSpacing: '0.5px',
-  borderBottom: '1px solid var(--color-border)',
+  marginTop: '12px',
+  backgroundColor: '#f8fafc',
+  padding: '12px',
+  borderRadius: '8px',
+};
+
+const colorRowCardStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '8px 12px',
+  background: '#ffffff',
+  borderRadius: '6px',
+  border: '1px solid #e2e8f0',
+};
+
+const colorUnitInputStyles: React.CSSProperties = {
+  width: '70px',
+  padding: '4px 8px',
+  borderRadius: '4px',
+  border: '1px solid #cbd5e1',
+  fontSize: '0.85rem',
+  fontWeight: '600',
+  textAlign: 'center',
+};
+
+const colorRemoveBtnStyles: React.CSSProperties = {
+  background: '#fee2e2',
+  color: '#ef4444',
+  border: 'none',
+  width: '24px',
+  height: '24px',
+  borderRadius: '50%',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '0.7rem',
+};
+
+const customColorRowStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginTop: '12px',
+};
+
+const colorPickerBoxStyles: React.CSSProperties = {
+  width: '40px',
+  height: '40px',
+  padding: 0,
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  cursor: 'pointer',
+};
+
+const addCustomColorBtnStyles: React.CSSProperties = {
+  backgroundColor: '#f1f5f9',
+  color: '#334155',
+  border: '1px solid #cbd5e1',
+  padding: '10px 14px',
+  borderRadius: '8px',
+  fontSize: '0.8rem',
+  fontWeight: '600',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+// Specifications styles
+const specPresetChipStyles: React.CSSProperties = {
+  fontSize: '0.75rem',
+  fontWeight: '600',
+  color: '#475569',
+  backgroundColor: '#f1f5f9',
+  border: '1px solid #e2e8f0',
+  borderRadius: '6px',
+  padding: '4px 8px',
+  cursor: 'pointer',
 };
 
 const specRowStyles: React.CSSProperties = {
@@ -1866,246 +1856,97 @@ const specRowStyles: React.CSSProperties = {
   alignItems: 'center',
 };
 
-const removeSpecBtnStyles: React.CSSProperties = {
-  width: '28px',
-  height: '28px',
+const specDeleteBtnStyles: React.CSSProperties = {
+  background: '#fee2e2',
+  color: '#ef4444',
+  border: 'none',
+  width: '32px',
+  height: '32px',
+  borderRadius: '6px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(239, 68, 68, 0.08)',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  color: 'var(--color-danger)',
   cursor: 'pointer',
-  fontSize: '0.75rem',
-  fontWeight: '700',
+  fontSize: '0.8rem',
   flexShrink: 0,
 };
 
 const addSpecRowBtnStyles: React.CSSProperties = {
-  background: 'var(--color-bg-subtle)',
-  border: '1px dashed var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '8px',
+  background: 'none',
+  border: '1px dashed #cbd5e1',
   color: 'var(--color-primary)',
-  fontWeight: '700',
-  fontSize: '0.775rem',
-  cursor: 'pointer',
-  textAlign: 'center',
-};
-
-const tabPromptBannerStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '10px 14px',
-  backgroundColor: 'var(--color-bg-subtle)',
-  borderRadius: 'var(--radius-md)',
-  fontSize: '0.75rem',
-  color: 'var(--color-text-muted)',
-  marginTop: '0.5rem',
-  border: '1px solid var(--color-border)',
-};
-
-const nextTabBtnStyles: React.CSSProperties = {
-  background: 'var(--color-text)',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: 'var(--radius-sm)',
-  padding: '6px 12px',
-  fontSize: '0.75rem',
-  fontWeight: '700',
-  cursor: 'pointer',
-};
-
-const prevTabBtnStyles: React.CSSProperties = {
-  background: 'var(--color-bg-subtle)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '9px 14px',
-  fontSize: '0.825rem',
+  padding: '8px',
+  borderRadius: '6px',
+  fontSize: '0.8rem',
   fontWeight: '600',
-  color: 'var(--color-text)',
   cursor: 'pointer',
-};
-
-// Upload Dropzone & Previews
-const uploadDropzoneStyles: React.CSSProperties = {
-  border: '2px dashed var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '1.25rem',
-  textAlign: 'center',
-  backgroundColor: 'var(--color-bg-subtle)',
-  cursor: 'pointer',
-  transition: 'border-color 0.2s, background-color 0.2s',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-const dropzoneMainTextStyles: React.CSSProperties = {
-  fontSize: '0.825rem',
-  color: 'var(--color-text)',
-  marginBottom: '2px',
-};
-
-const dropzoneSubTextStyles: React.CSSProperties = {
-  fontSize: '0.725rem',
-  color: 'var(--color-text-muted)',
-};
-
-const previewGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-  gap: '10px',
+  width: '100%',
   marginTop: '8px',
 };
 
-const previewCardStyles: React.CSSProperties = {
-  position: 'relative',
-  aspectRatio: '1',
-  borderRadius: 'var(--radius-md)',
-  border: '2px solid var(--color-border)',
-  overflow: 'hidden',
-  backgroundColor: '#f8fafc',
+// Modal Footer
+const modalFooterStyles: React.CSSProperties = {
+  position: 'sticky',
+  bottom: 0,
+  backgroundColor: '#ffffff',
+  borderTop: '1px solid #e2e8f0',
+  padding: '1rem 1.75rem',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+  zIndex: 10,
+  boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.05)',
 };
 
-const previewImgStyles: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
+const statusBannerStyles: React.CSSProperties = {
+  fontSize: '0.8rem',
+  color: 'var(--color-primary)',
+  fontWeight: '600',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
 };
 
-const primaryBadgeStyles: React.CSSProperties = {
-  position: 'absolute',
-  top: '4px',
-  left: '4px',
+const spinnerDotStyles: React.CSSProperties = {
+  width: '8px',
+  height: '8px',
+  borderRadius: '50%',
+  backgroundColor: 'var(--color-primary)',
+  animation: 'vendorSpin 1s linear infinite',
+};
+
+const modalCancelBtnStyles: React.CSSProperties = {
+  padding: '10px 18px',
+  borderRadius: '8px',
+  border: '1px solid #cbd5e1',
+  backgroundColor: '#ffffff',
+  color: '#475569',
+  fontSize: '0.875rem',
+  fontWeight: '600',
+  cursor: 'pointer',
+};
+
+const modalSubmitBtnStyles: React.CSSProperties = {
+  padding: '10px 24px',
+  borderRadius: '8px',
+  border: 'none',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
-  fontSize: '9px',
-  fontWeight: '800',
-  padding: '2px 5px',
-  borderRadius: '3px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-};
-
-const setPrimaryBtnStyles: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '4px',
-  left: '4px',
-  right: '4px',
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '3px',
-  fontSize: '9px',
-  fontWeight: '600',
-  padding: '2px 0',
-  cursor: 'pointer',
-  textAlign: 'center',
-};
-
-const removeImageBtnStyles: React.CSSProperties = {
-  position: 'absolute',
-  top: '4px',
-  right: '4px',
-  width: '18px',
-  height: '18px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(239, 68, 68, 0.9)',
-  color: '#ffffff',
-  border: 'none',
-  fontSize: '10px',
+  fontSize: '0.875rem',
   fontWeight: '700',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
-  padding: 0,
-  lineHeight: 1,
-};
-
-const editNoticeStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
   gap: '8px',
-  padding: '10px 12px',
-  backgroundColor: 'rgba(59, 130, 246, 0.08)',
-  border: '1px solid rgba(59, 130, 246, 0.2)',
-  borderRadius: 'var(--radius-md)',
-  color: '#1e40af',
-  fontSize: '0.75rem',
-  lineHeight: 1.4,
+  boxShadow: '0 2px 4px rgba(255, 122, 0, 0.25)',
 };
 
-const progressBannerStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  padding: '10px 14px',
-  backgroundColor: 'rgba(255, 122, 0, 0.08)',
-  border: '1px solid rgba(255, 122, 0, 0.25)',
-  borderRadius: 'var(--radius-md)',
-};
-
-const progressTextStyles: React.CSSProperties = {
-  fontSize: '0.8rem',
-  fontWeight: '600',
-  color: 'var(--color-primary)',
-};
-
-const spinnerStyles: React.CSSProperties = {
+const btnSpinnerStyles: React.CSSProperties = {
   width: '14px',
   height: '14px',
-  border: '2px solid rgba(255, 122, 0, 0.3)',
-  borderTopColor: 'var(--color-primary)',
   borderRadius: '50%',
-  animation: 'spin 0.8s linear infinite',
-};
-
-const miniSpinnerStyles: React.CSSProperties = {
-  width: '12px',
-  height: '12px',
-  border: '2px solid rgba(255, 255, 255, 0.4)',
+  border: '2px solid rgba(255, 255, 255, 0.3)',
   borderTopColor: '#ffffff',
-  borderRadius: '50%',
-  animation: 'spin 0.8s linear infinite',
-  display: 'inline-block',
-};
-
-const modalFooterStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '10px',
-  marginTop: '0.75rem',
-  borderTop: '1px solid var(--color-border)',
-  paddingTop: '1rem',
-};
-
-const cancelBtnStyles: React.CSSProperties = {
-  background: 'var(--color-bg-subtle)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-muted)',
-  borderRadius: 'var(--radius-md)',
-  padding: '9px 16px',
-  fontWeight: '600',
-  fontSize: '0.825rem',
-  cursor: 'pointer',
-};
-
-const saveBtnStyles: React.CSSProperties = {
-  background: 'var(--color-primary)',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  padding: '9px 18px',
-  fontWeight: '700',
-  fontSize: '0.825rem',
-  cursor: 'pointer',
-  transition: 'background-color 0.2s',
+  animation: 'vendorSpin 0.8s linear infinite',
 };
