@@ -12,7 +12,7 @@ interface NavItem {
 }
 
 export default function VendorDashboardLayout() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshUser } = useAuth();
   const location = useLocation();
   const [hasCheckedStore, setHasCheckedStore] = useState(false);
   const [storeExists, setStoreExists] = useState<boolean>(false);
@@ -20,26 +20,38 @@ export default function VendorDashboardLayout() {
   useEffect(() => {
     if (!user) return;
 
-    // Check if a vendor store is already registered in the backend for this user
-    apiClient
-      .get('/api/v1/vendors/')
-      .then(res => {
-        const vendorList = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-        const matched = vendorList.some(
+    let isMounted = true;
+
+    // Refresh latest user status and check registered store
+    Promise.allSettled([
+      refreshUser(),
+      apiClient.get('/api/v1/vendors/'),
+    ]).then(([_, vendorRes]) => {
+      if (!isMounted) return;
+
+      let matched = false;
+      if (vendorRes.status === 'fulfilled') {
+        const vendorList = Array.isArray(vendorRes.value.data)
+          ? vendorRes.value.data
+          : (vendorRes.value.data?.results || []);
+        matched = vendorList.some(
           (v: any) =>
             v.email === user.email ||
             v.user?.email === user.email ||
             v.user === user.id
         );
-        setStoreExists(matched);
-      })
-      .catch(() => {
-        setStoreExists(user?.profile?.vendor_status === 'APPROVED');
-      })
-      .finally(() => {
-        setHasCheckedStore(true);
-      });
-  }, [user]);
+      } else {
+        matched = user?.profile?.vendor_status === 'APPROVED';
+      }
+
+      setStoreExists(matched);
+      setHasCheckedStore(true);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
   if (isLoading || !hasCheckedStore) {
     return <LoadingSpinner fullScreen />;
