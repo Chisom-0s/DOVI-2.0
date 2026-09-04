@@ -20,6 +20,54 @@ export const tokenStore = {
 };
 
 // ============================================================
+// Cold start & server wake tracking
+// ============================================================
+let activeRequestsCount = 0;
+let slowTimer: ReturnType<typeof setTimeout> | null = null;
+let isSlowNotified = false;
+
+function notifyRequestStart() {
+  activeRequestsCount++;
+  if (!slowTimer && !isSlowNotified) {
+    slowTimer = setTimeout(() => {
+      if (activeRequestsCount > 0) {
+        isSlowNotified = true;
+        window.dispatchEvent(new CustomEvent('api:cold_start', { detail: { isWakingUp: true } }));
+      }
+    }, 2800);
+  }
+}
+
+function notifyRequestEnd() {
+  activeRequestsCount = Math.max(0, activeRequestsCount - 1);
+  if (activeRequestsCount === 0) {
+    if (slowTimer) {
+      clearTimeout(slowTimer);
+      slowTimer = null;
+    }
+    if (isSlowNotified) {
+      isSlowNotified = false;
+      window.dispatchEvent(new CustomEvent('api:cold_start', { detail: { isWakingUp: false } }));
+    }
+  }
+}
+
+/**
+ * Sends a background health ping to warm up Render's free tier container
+ */
+export function warmupBackend() {
+  const base = import.meta.env.VITE_API_BASE_URL || '';
+  if (!base) return;
+  fetch(`${base.replace(/\/+$/, '')}/health/`, {
+    method: 'GET',
+    mode: 'cors',
+    cache: 'no-cache',
+  }).catch(() => {
+    // Ignore warmup errors
+  });
+}
+
+// ============================================================
 // Axios instance
 // ============================================================
 const apiClient: AxiosInstance = axios.create({
@@ -32,9 +80,10 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 // ============================================================
-// Request interceptor — inject access token
+// Request interceptor — inject access token & track requests
 // ============================================================
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  notifyRequestStart();
   const token = tokenStore.get();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -58,8 +107,12 @@ function onRefreshed(token: string) {
 }
 
 apiClient.interceptors.response.use(
-  response => response,
+  response => {
+    notifyRequestEnd();
+    return response;
+  },
   async (error: AxiosError) => {
+    notifyRequestEnd();
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // 401 — attempt token refresh
