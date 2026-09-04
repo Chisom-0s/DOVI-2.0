@@ -59,16 +59,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // On mount: attempt to load user profile (survival on browser refresh using refresh token cookie)
+  // On mount: attempt to load user profile (survival on browser refresh)
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Fetch access token via Django httpOnly refresh token endpoint first
-        // If the access token refresh endpoint succeeds, client tokenStore is automatically updated
-        // and we fetch the user profile
-        await refreshUser();
+        const existingToken = tokenStore.get();
+        if (existingToken) {
+          await refreshUser();
+        }
       } catch {
-        // Standard non-logged-in session
+        // Clear invalid token
+        tokenStore.clear();
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setIsInitialized(true);
       }

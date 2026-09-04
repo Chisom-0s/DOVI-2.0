@@ -3,19 +3,38 @@ import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import type { APIError, AuthTokens } from '@/types';
 
 // ============================================================
-// Token storage
-// Access token: in memory only (never localStorage)
-// Refresh token: httpOnly cookie set by Django (not accessible from JS)
+// Token storage (persisted in localStorage for Admin SPA)
 // ============================================================
+const ADMIN_TOKEN_KEY = 'dovi_admin_token';
 let accessToken: string | null = null;
 
 export const tokenStore = {
-  get: () => accessToken,
+  get: () => {
+    if (accessToken) return accessToken;
+    try {
+      const stored = localStorage.getItem(ADMIN_TOKEN_KEY);
+      if (stored) {
+        accessToken = stored;
+        return stored;
+      }
+    } catch {}
+    return null;
+  },
   set: (token: string | null) => {
     accessToken = token;
+    try {
+      if (token) {
+        localStorage.setItem(ADMIN_TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+      }
+    } catch {}
   },
   clear: () => {
     accessToken = null;
+    try {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+    } catch {}
   },
 };
 
