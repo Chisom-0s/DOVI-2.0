@@ -6,6 +6,30 @@ import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 
+// Loading spinner icon component
+const LoadingSpinnerIcon = ({ size = 15, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg
+    style={{
+      animation: 'vendorActionSpin 0.8s linear infinite',
+      width: `${size}px`,
+      height: `${size}px`,
+      flexShrink: 0,
+    }}
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="10"
+      stroke={color}
+      strokeWidth="3.5"
+      strokeDasharray="32 60"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,6 +40,7 @@ export default function VendorsPage() {
   // Selected Vendor Detail Modal
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [actionType, setActionType] = useState<'APPROVE' | 'REJECT' | 'SUSPEND' | null>(null);
 
   // Reject Reason Modal / State
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -55,7 +80,9 @@ export default function VendorsPage() {
   };
 
   const handleApprove = async (vendor: Vendor) => {
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('APPROVE');
     try {
       const updated = await adminApi.approveVendor(vendor.id);
       toast.success(`Vendor ${vendor.name} has been approved.`);
@@ -65,13 +92,15 @@ export default function VendorsPage() {
       toast.error(err.message || 'Failed to approve vendor.');
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
   const handleRejectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVendor || !rejectReason) return;
+    if (!selectedVendor || !rejectReason || isActionPending) return;
     setIsActionPending(true);
+    setActionType('REJECT');
     try {
       const updated = await adminApi.rejectVendor(selectedVendor.id, rejectReason);
       toast.success(`Vendor ${selectedVendor.name} has been rejected.`);
@@ -83,11 +112,14 @@ export default function VendorsPage() {
       toast.error(err.message || 'Failed to reject vendor.');
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
   const handleSuspend = async (vendor: Vendor) => {
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('SUSPEND');
     try {
       const updated = await adminApi.suspendVendor(vendor.id);
       toast.success(`Vendor ${vendor.name} has been suspended.`);
@@ -97,6 +129,7 @@ export default function VendorsPage() {
       toast.error(err.message || 'Failed to suspend vendor.');
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
@@ -273,17 +306,39 @@ export default function VendorsPage() {
                     type="button"
                     disabled={isActionPending}
                     onClick={() => handleApprove(selectedVendor)}
-                    style={approveBtnStyles}
+                    style={{
+                      ...approveBtnStyles,
+                      opacity: isActionPending ? 0.75 : 1,
+                      cursor: isActionPending ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      minWidth: '140px',
+                    }}
                   >
-                    Approve
+                    {isActionPending && actionType === 'APPROVE' ? (
+                      <>
+                        <LoadingSpinnerIcon color="#ffffff" />
+                        <span>Approving Store...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✓ Approve Store</span>
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
                     disabled={isActionPending}
                     onClick={() => setShowRejectModal(true)}
-                    style={rejectBtnStyles}
+                    style={{
+                      ...rejectBtnStyles,
+                      opacity: isActionPending ? 0.6 : 1,
+                      cursor: isActionPending ? 'not-allowed' : 'pointer',
+                    }}
                   >
-                    Reject
+                    ✕ Reject
                   </button>
                 </div>
               )}
@@ -293,9 +348,25 @@ export default function VendorsPage() {
                   type="button"
                   disabled={isActionPending}
                   onClick={() => handleSuspend(selectedVendor)}
-                  style={suspendBtnStyles}
+                  style={{
+                    ...suspendBtnStyles,
+                    opacity: isActionPending ? 0.75 : 1,
+                    cursor: isActionPending ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    minWidth: '150px',
+                  }}
                 >
-                  Suspend Vendor
+                  {isActionPending && actionType === 'SUSPEND' ? (
+                    <>
+                      <LoadingSpinnerIcon color="#ffffff" />
+                      <span>Suspending...</span>
+                    </>
+                  ) : (
+                    <span>Suspend Vendor</span>
+                  )}
                 </button>
               )}
 
@@ -304,9 +375,27 @@ export default function VendorsPage() {
                   type="button"
                   disabled={isActionPending}
                   onClick={() => handleApprove(selectedVendor)}
-                  style={approveBtnStyles}
+                  style={{
+                    ...approveBtnStyles,
+                    opacity: isActionPending ? 0.75 : 1,
+                    cursor: isActionPending ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    minWidth: '150px',
+                  }}
                 >
-                  Activate Vendor
+                  {isActionPending && actionType === 'APPROVE' ? (
+                    <>
+                      <LoadingSpinnerIcon color="#ffffff" />
+                      <span>Activating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✓ Activate Vendor</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -332,17 +421,49 @@ export default function VendorsPage() {
                 />
               </div>
               <div style={modalActionsStyles}>
-                <button type="button" onClick={() => setShowRejectModal(false)} style={modalCancelBtnStyles}>
+                <button
+                  type="button"
+                  disabled={isActionPending}
+                  onClick={() => setShowRejectModal(false)}
+                  style={modalCancelBtnStyles}
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={isActionPending} style={modalDangerSubmitBtnStyles}>
-                  {isActionPending ? 'Sending...' : 'Confirm Reject'}
+                <button
+                  type="submit"
+                  disabled={isActionPending}
+                  style={{
+                    ...modalDangerSubmitBtnStyles,
+                    opacity: isActionPending ? 0.75 : 1,
+                    cursor: isActionPending ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {isActionPending && actionType === 'REJECT' ? (
+                    <>
+                      <LoadingSpinnerIcon color="#ffffff" />
+                      <span>Rejecting...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Reject</span>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes vendorActionSpin {
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   );
 }

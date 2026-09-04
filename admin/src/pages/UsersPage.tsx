@@ -32,6 +32,30 @@ const getInitials = (first?: string, last?: string, email?: string): string => {
   return 'U';
 };
 
+// Helper spinner component
+const LoadingSpinnerIcon = ({ size = 15, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg
+    style={{
+      animation: 'userActionSpin 0.8s linear infinite',
+      width: `${size}px`,
+      height: `${size}px`,
+      flexShrink: 0,
+    }}
+    viewBox="0 0 24 24"
+    fill="none"
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="10"
+      stroke={color}
+      strokeWidth="3.5"
+      strokeDasharray="32 60"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 export default function UsersPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
@@ -44,6 +68,7 @@ export default function UsersPage() {
   // Selected User Modal / Detail
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [actionType, setActionType] = useState<'APPROVE_VENDOR' | 'REJECT_VENDOR' | 'SUSPEND_VENDOR' | 'LOGIN_STATUS' | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -111,7 +136,9 @@ export default function UsersPage() {
   }, [users, activeTab, loginStatusFilter]);
 
   const handleToggleLoginStatus = async (userToUpdate: User) => {
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('LOGIN_STATUS');
     const isSuspending = userToUpdate.status === 'ACTIVE';
     try {
       let updatedUser: User;
@@ -128,11 +155,14 @@ export default function UsersPage() {
       toast.error(err.message || `Failed to update status for ${userToUpdate.email}.`);
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
   const handleApproveVendor = async (userToApprove: User) => {
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('APPROVE_VENDOR');
     try {
       // Attempt to find associated store in directory
       const vendorList = await adminApi.listVendors({ q: userToApprove.email });
@@ -166,6 +196,7 @@ export default function UsersPage() {
       toast.error(err.message || `Failed to approve vendor status.`);
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
@@ -173,7 +204,9 @@ export default function UsersPage() {
     const reason = window.prompt('Specify reason for rejection:');
     if (reason === null) return;
 
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('REJECT_VENDOR');
     try {
       const vendorList = await adminApi.listVendors({ q: userToReject.email });
       const matchedVendor = vendorList.results.find(
@@ -206,13 +239,16 @@ export default function UsersPage() {
       toast.error(err.message || `Failed to reject vendor.`);
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
   const handleSuspendVendor = async (userToSuspend: User) => {
     if (!confirm(`Are you sure you want to suspend merchant privileges for ${userToSuspend.email}?`)) return;
 
+    if (isActionPending) return;
     setIsActionPending(true);
+    setActionType('SUSPEND_VENDOR');
     try {
       const vendorList = await adminApi.listVendors({ q: userToSuspend.email });
       const matchedVendor = vendorList.results.find(
@@ -242,6 +278,7 @@ export default function UsersPage() {
       toast.error(err.message || `Failed to suspend vendor.`);
     } finally {
       setIsActionPending(false);
+      setActionType(null);
     }
   };
 
@@ -711,17 +748,48 @@ export default function UsersPage() {
                             type="button"
                             disabled={isActionPending}
                             onClick={() => handleApproveVendor(selectedUser)}
-                            style={approveMerchantActionBtnStyles}
+                            style={{
+                              ...approveMerchantActionBtnStyles,
+                              opacity: isActionPending ? 0.75 : 1,
+                              cursor: isActionPending ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              minWidth: '180px',
+                            }}
                           >
-                            {isActionPending ? 'Processing...' : '✓ Approve Merchant Store'}
+                            {isActionPending && actionType === 'APPROVE_VENDOR' ? (
+                              <>
+                                <LoadingSpinnerIcon color="#ffffff" />
+                                <span>Approving Store...</span>
+                              </>
+                            ) : (
+                              <span>✓ Approve Merchant Store</span>
+                            )}
                           </button>
                           <button
                             type="button"
                             disabled={isActionPending}
                             onClick={() => handleRejectVendor(selectedUser)}
-                            style={rejectMerchantActionBtnStyles}
+                            style={{
+                              ...rejectMerchantActionBtnStyles,
+                              opacity: isActionPending ? 0.75 : 1,
+                              cursor: isActionPending ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                            }}
                           >
-                            ✕ Reject Application
+                            {isActionPending && actionType === 'REJECT_VENDOR' ? (
+                              <>
+                                <LoadingSpinnerIcon color="#991b1b" />
+                                <span>Rejecting...</span>
+                              </>
+                            ) : (
+                              <span>✕ Reject Application</span>
+                            )}
                           </button>
                         </>
                       )}
@@ -731,9 +799,25 @@ export default function UsersPage() {
                           type="button"
                           disabled={isActionPending}
                           onClick={() => handleSuspendVendor(selectedUser)}
-                          style={suspendMerchantActionBtnStyles}
+                          style={{
+                            ...suspendMerchantActionBtnStyles,
+                            opacity: isActionPending ? 0.75 : 1,
+                            cursor: isActionPending ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            minWidth: '180px',
+                          }}
                         >
-                          {isActionPending ? 'Processing...' : 'Suspend Merchant Store'}
+                          {isActionPending && actionType === 'SUSPEND_VENDOR' ? (
+                            <>
+                              <LoadingSpinnerIcon color="#ffffff" />
+                              <span>Suspending...</span>
+                            </>
+                          ) : (
+                            <span>Suspend Merchant Store</span>
+                          )}
                         </button>
                       )}
 
@@ -744,9 +828,25 @@ export default function UsersPage() {
                           type="button"
                           disabled={isActionPending}
                           onClick={() => handleApproveVendor(selectedUser)}
-                          style={approveMerchantActionBtnStyles}
+                          style={{
+                            ...approveMerchantActionBtnStyles,
+                            opacity: isActionPending ? 0.75 : 1,
+                            cursor: isActionPending ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            minWidth: '180px',
+                          }}
                         >
-                          {isActionPending ? 'Processing...' : '✓ Re-activate Merchant Store'}
+                          {isActionPending && actionType === 'APPROVE_VENDOR' ? (
+                            <>
+                              <LoadingSpinnerIcon color="#ffffff" />
+                              <span>Activating Store...</span>
+                            </>
+                          ) : (
+                            <span>✓ Re-activate Merchant Store</span>
+                          )}
                         </button>
                       )}
 
@@ -783,13 +883,27 @@ export default function UsersPage() {
                     type="button"
                     disabled={isActionPending}
                     onClick={() => handleToggleLoginStatus(selectedUser)}
-                    style={selectedUser.status === 'ACTIVE' ? suspendLoginBtnStyles : activateLoginBtnStyles}
+                    style={{
+                      ...(selectedUser.status === 'ACTIVE' ? suspendLoginBtnStyles : activateLoginBtnStyles),
+                      opacity: isActionPending ? 0.75 : 1,
+                      cursor: isActionPending ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      minWidth: '160px',
+                    }}
                   >
-                    {isActionPending
-                      ? 'Updating...'
-                      : selectedUser.status === 'ACTIVE'
-                      ? 'Suspend Login Access'
-                      : 'Restore Login Access'}
+                    {isActionPending && actionType === 'LOGIN_STATUS' ? (
+                      <>
+                        <LoadingSpinnerIcon color="#ffffff" />
+                        <span>Updating Access...</span>
+                      </>
+                    ) : selectedUser.status === 'ACTIVE' ? (
+                      'Suspend Login Access'
+                    ) : (
+                      'Restore Login Access'
+                    )}
                   </button>
                 </div>
               )}
@@ -797,6 +911,14 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes userActionSpin {
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   );
 }
