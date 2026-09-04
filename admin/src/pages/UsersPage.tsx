@@ -145,20 +145,23 @@ export default function UsersPage() {
 
       if (matchedVendor) {
         await adminApi.approveVendor(matchedVendor.id);
-      }
-
-      const updatedUser: User = {
-        ...userToApprove,
-        vendor_status: 'APPROVED',
-        profile: {
-          ...userToApprove.profile,
+        const updatedUser: User = {
+          ...userToApprove,
           vendor_status: 'APPROVED',
-        },
-      };
+          profile: {
+            ...userToApprove.profile,
+            vendor_status: 'APPROVED',
+          },
+        };
 
-      setSelectedUser(updatedUser);
-      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
-      toast.success(`Merchant status for ${userToApprove.email} approved successfully!`);
+        setSelectedUser(updatedUser);
+        setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+        toast.success(`Merchant store "${matchedVendor.name}" approved successfully!`);
+      } else {
+        toast.error(
+          `No store profile found for ${userToApprove.email}. The user has a vendor account, but has not completed store setup in the Vendors Directory.`
+        );
+      }
     } catch (err: any) {
       toast.error(err.message || `Failed to approve vendor status.`);
     } finally {
@@ -182,20 +185,23 @@ export default function UsersPage() {
 
       if (matchedVendor) {
         await adminApi.rejectVendor(matchedVendor.id, reason || 'Compliance discrepancy');
-      }
-
-      const updatedUser: User = {
-        ...userToReject,
-        vendor_status: 'REJECTED',
-        profile: {
-          ...userToReject.profile,
+        const updatedUser: User = {
+          ...userToReject,
           vendor_status: 'REJECTED',
-        },
-      };
+          profile: {
+            ...userToReject.profile,
+            vendor_status: 'REJECTED',
+          },
+        };
 
-      setSelectedUser(updatedUser);
-      setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
-      toast.success(`Vendor application for ${userToReject.email} rejected.`);
+        setSelectedUser(updatedUser);
+        setUsers(prev => prev.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+        toast.success(`Vendor store for ${userToReject.email} rejected.`);
+      } else {
+        toast.error(
+          `No store profile found for ${userToReject.email} in Vendors Directory to reject.`
+        );
+      }
     } catch (err: any) {
       toast.error(err.message || `Failed to reject vendor.`);
     } finally {

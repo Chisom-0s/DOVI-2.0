@@ -5,7 +5,6 @@ import { CartProvider } from '@/contexts/CartContext';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import AppRouter from '@/router';
 import DoviSplashScreen from '@/components/common/DoviSplashScreen';
-import ServerStatusIndicator from '@/components/common/ServerStatusIndicator';
 
 // ============================================================
 // App
@@ -25,7 +24,6 @@ export default function App() {
           ) : (
             <>
               <AppRouter />
-              <ServerStatusIndicator />
               <Toaster
                 position="top-right"
                 toastOptions={{
