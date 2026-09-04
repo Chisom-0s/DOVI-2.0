@@ -126,9 +126,7 @@ export const productsApi = {
 
   submitReview: async (id: string, payload: FormData): Promise<Review> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/products/${id}/reviews/`, payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await apiClient.post(`/api/v1/products/${id}/reviews/`, payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -164,17 +162,13 @@ export const productsApi = {
   }> => {
     try {
       const formData = new FormData();
-      formData.append('image', imageFile);
-      formData.append('is_primary', String(isPrimary));
+      formData.append('image', imageFile, imageFile.name);
+      formData.append('file', imageFile, imageFile.name); // Compatibility alias
+      formData.append('is_primary', isPrimary ? 'true' : 'false');
 
       const { data } = await apiClient.post(
         `/api/v1/products/${productId}/images/`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        formData
       );
       return data;
     } catch (err) {

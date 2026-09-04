@@ -524,11 +524,13 @@ export default function VendorProductManager() {
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
+          const hasPrimary = selectedImages.some(img => img.isPrimary);
           for (let i = 0; i < selectedImages.length; i++) {
             const img = selectedImages[i];
+            const isPrimary = img.isPrimary || (!hasPrimary && i === 0);
             setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
             try {
-              await productsApi.uploadImage(editingProduct.id, img.file, img.isPrimary);
+              await productsApi.uploadImage(editingProduct.id, img.file, isPrimary);
             } catch (imgErr: any) {
               console.error(`Image upload failed:`, imgErr);
             }
@@ -537,7 +539,7 @@ export default function VendorProductManager() {
 
         toast.success('Product updated successfully!');
         handleCloseModal();
-        fetchProducts();
+        await fetchProducts();
       } else {
         // Create Mode: Step 1 -> Create Product with Variants & Initial Inventory
         setUploadStatusText('Creating product listing...');
@@ -550,16 +552,32 @@ export default function VendorProductManager() {
           variants: variantsPayload,
         });
 
+        const targetProductId =
+          createdProduct?.id ||
+          createdProduct?.uuid ||
+          createdProduct?.data?.id ||
+          createdProduct?.data?.uuid ||
+          createdProduct?.product?.id;
+
         // Step 2 -> Upload Images (if any selected)
-        if (selectedImages.length > 0 && createdProduct?.id) {
+        if (selectedImages.length > 0 && targetProductId) {
           let uploadErrors = 0;
+          let lastErrorMessage = '';
+          const hasPrimary = selectedImages.some(img => img.isPrimary);
+
           for (let i = 0; i < selectedImages.length; i++) {
             const img = selectedImages[i];
+            const isPrimary = img.isPrimary || (!hasPrimary && i === 0);
             setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
             try {
-              await productsApi.uploadImage(createdProduct.id, img.file, img.isPrimary);
+              await productsApi.uploadImage(targetProductId, img.file, isPrimary);
             } catch (imgErr: any) {
               console.error(`Image upload failed for photo ${i + 1}:`, imgErr);
+              lastErrorMessage =
+                imgErr?.message ||
+                imgErr?.details?.image?.[0] ||
+                imgErr?.detail ||
+                'File upload error';
               uploadErrors++;
             }
           }
@@ -568,7 +586,7 @@ export default function VendorProductManager() {
             toast.success('Product uploaded successfully with photos!');
           } else {
             toast.error(
-              `Product was created, but ${uploadErrors} photo(s) failed to upload.`
+              `Product created, but ${uploadErrors} photo(s) failed to upload: ${lastErrorMessage}`
             );
           }
         } else {
@@ -576,7 +594,7 @@ export default function VendorProductManager() {
         }
 
         handleCloseModal();
-        fetchProducts();
+        await fetchProducts();
       }
     } catch (err: any) {
       const apiErr = err?.response?.data;

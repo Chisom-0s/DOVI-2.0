@@ -53,6 +53,11 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // If request data is FormData, remove Content-Type so Axios/browser automatically generates
+  // 'multipart/form-data; boundary=----WebKitFormBoundary...'
+  if (config.data instanceof FormData && config.headers) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
