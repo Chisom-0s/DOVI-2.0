@@ -1,12 +1,51 @@
 /**
  * Universal defensive product image resolver for DOVI 2.0.
- * Safely extracts primary thumbnail or full image across all API serializer variations
- * and resolves relative backend media URLs.
+ * Safely extracts primary thumbnail or full image across all API serializer variations,
+ * resolves relative backend media URLs, and maintains local session previews.
  */
+
+// In-memory cache for immediately uploaded product photos
+const localPreviewCache = new Map<string, string>();
+
+export function cacheLocalProductImage(productId: string, previewUrl: string): void {
+  if (!productId || !previewUrl) return;
+  localPreviewCache.set(productId, previewUrl);
+  try {
+    sessionStorage.setItem(`dovi_thumb_${productId}`, previewUrl);
+  } catch {}
+}
+
+export function getCachedLocalProductImage(productId: string): string | null {
+  if (!productId) return null;
+  if (localPreviewCache.has(productId)) {
+    return localPreviewCache.get(productId)!;
+  }
+  try {
+    const saved = sessionStorage.getItem(`dovi_thumb_${productId}`);
+    if (saved) {
+      localPreviewCache.set(productId, saved);
+      return saved;
+    }
+  } catch {}
+  return null;
+}
+
 function normalizeUrl(url?: unknown): string | null {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+
+  // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints
+  const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN;
+  if (r2PublicDomain && trimmed.includes('.r2.cloudflarestorage.com/')) {
+    const parts = trimmed.split('.r2.cloudflarestorage.com/');
+    if (parts[1]) {
+      // Remove bucket prefix if present
+      const afterBucket = parts[1].replace(/^[^/]+\//, '');
+      const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+      return `https://${cleanHost}/${afterBucket}`;
+    }
+  }
 
   // If already absolute or data / blob URL
   if (/^(https?:|\/\/|data:|blob:)/i.test(trimmed)) {
@@ -29,6 +68,13 @@ function normalizeUrl(url?: unknown): string | null {
 
 export function getProductImageUrl(product?: any): string {
   if (!product) return '/logo.jpg?v=2';
+
+  // 0. Check for locally cached upload preview (instant vendor feedback)
+  const productId = product.id || product.uuid || product.reference_code;
+  if (productId) {
+    const cached = getCachedLocalProductImage(productId);
+    if (cached) return cached;
+  }
 
   // 1. Direct primary_image_url field
   const primaryUrl = normalizeUrl(product.primary_image_url);
@@ -102,4 +148,5 @@ export function getProductImageUrl(product?: any): string {
 
   return '/logo.jpg?v=2';
 }
+
 

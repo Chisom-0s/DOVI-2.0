@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, cacheLocalProductImage } from '@/utils/image';
 import type { ProductVariant } from '@/types';
 
 interface ProductImageItem {
@@ -524,6 +524,11 @@ export default function VendorProductManager() {
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
+          const primaryImg = selectedImages.find(img => img.isPrimary) || selectedImages[0];
+          if (primaryImg?.previewUrl) {
+            cacheLocalProductImage(editingProduct.id, primaryImg.previewUrl);
+          }
+
           const hasPrimary = selectedImages.some(img => img.isPrimary);
           for (let i = 0; i < selectedImages.length; i++) {
             const img = selectedImages[i];
@@ -561,6 +566,11 @@ export default function VendorProductManager() {
 
         // Step 2 -> Upload Images (if any selected)
         if (selectedImages.length > 0 && targetProductId) {
+          const primaryImg = selectedImages.find(img => img.isPrimary) || selectedImages[0];
+          if (primaryImg?.previewUrl) {
+            cacheLocalProductImage(targetProductId, primaryImg.previewUrl);
+          }
+
           let uploadErrors = 0;
           let lastErrorMessage = '';
           const hasPrimary = selectedImages.some(img => img.isPrimary);
