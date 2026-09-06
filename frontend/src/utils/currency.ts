@@ -17,11 +17,15 @@ export function formatPrice(val: unknown, fallback: string = 'Price unavailable'
   if (typeof val === 'object' && val !== null) {
     const obj = val as Record<string, any>;
     const extracted =
-      obj.price_override ??
-      obj.base_price ??
-      obj.price ??
-      (obj.variants && obj.variants[0]?.price_override) ??
-      (obj.variants && obj.variants[0]?.price);
+      (obj.price_override && String(obj.price_override).trim() !== '' ? obj.price_override : null) ??
+      (obj.base_price && String(obj.base_price).trim() !== '' ? obj.base_price : null) ??
+      (obj.price && String(obj.price).trim() !== '' ? obj.price : null) ??
+      (Array.isArray(obj.variants) && obj.variants[0]
+        ? (obj.variants[0].price_override || obj.variants[0].price || obj.base_price)
+        : null);
+    if (extracted === null || extracted === undefined) {
+      return fallback;
+    }
     return formatPrice(extracted, fallback);
   }
 
@@ -54,11 +58,12 @@ export function parsePriceNumber(val: unknown): number {
   if (typeof val === 'object' && val !== null) {
     const obj = val as Record<string, any>;
     const extracted =
-      obj.price_override ??
-      obj.base_price ??
-      obj.price ??
-      (obj.variants && obj.variants[0]?.price_override) ??
-      (obj.variants && obj.variants[0]?.price);
+      (obj.price_override && String(obj.price_override).trim() !== '' ? obj.price_override : null) ??
+      (obj.base_price && String(obj.base_price).trim() !== '' ? obj.base_price : null) ??
+      (obj.price && String(obj.price).trim() !== '' ? obj.price : null) ??
+      (Array.isArray(obj.variants) && obj.variants[0]
+        ? (obj.variants[0].price_override || obj.variants[0].price || obj.base_price)
+        : null);
     return parsePriceNumber(extracted);
   }
   const cleaned = String(val).replace(/[^0-9.-]+/g, '');

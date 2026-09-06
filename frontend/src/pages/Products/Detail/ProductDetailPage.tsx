@@ -119,10 +119,11 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Display price and stock matching either the variant or the base product
-  const rawPrice = selectedVariant
-    ? (selectedVariant.price_override ?? selectedVariant.price)
-    : (product.base_price ?? product.price);
+  // Display price and stock matching either the variant (if overridden) or the base product
+  const variantPrice = selectedVariant
+    ? (selectedVariant.price_override || selectedVariant.price)
+    : null;
+  const rawPrice = variantPrice || product.base_price || product.price;
   const displayPrice = formatPrice(rawPrice);
 
   const displaySku = selectedVariant?.sku || product.sku || product.reference_code || 'N/A';
