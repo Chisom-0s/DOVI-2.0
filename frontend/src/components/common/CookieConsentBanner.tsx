@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { useCookieConsent } from '@/hooks/useCookieConsent';
+import { usePromptEngine } from '@/contexts/PromptEngineContext';
 
 export default function CookieConsentBanner() {
-  const { cookieState, acceptCookies, declineCookies } = useCookieConsent();
+  const { activePrompt, acceptPrompt, dismissPrompt, registerEligibility } = usePromptEngine();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (cookieState === 'UNKNOWN') {
-      // Small delay to make it feel polished
+    // Cookie consent is always eligible unless resolved by the engine
+    registerEligibility('cookie', true);
+  }, [registerEligibility]);
+
+  useEffect(() => {
+    if (activePrompt === 'cookie') {
       const timer = setTimeout(() => setIsVisible(true), 1500);
       return () => clearTimeout(timer);
     } else {
       setIsVisible(false);
     }
-  }, [cookieState]);
+  }, [activePrompt]);
 
   if (!isVisible) return null;
 
@@ -30,7 +34,7 @@ export default function CookieConsentBanner() {
         <div style={actionWrapperStyles}>
           <button 
             type="button" 
-            onClick={declineCookies} 
+            onClick={() => dismissPrompt('cookie')} 
             style={declineBtnStyles}
             className="cookie-btn-decline"
           >
@@ -38,7 +42,7 @@ export default function CookieConsentBanner() {
           </button>
           <button 
             type="button" 
-            onClick={acceptCookies} 
+            onClick={() => acceptPrompt('cookie')} 
             style={acceptBtnStyles}
             className="cookie-btn-accept"
           >
