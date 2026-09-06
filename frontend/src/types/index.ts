@@ -228,6 +228,7 @@ export interface ProductSummary {
   is_new_arrival?: boolean;
   created_at?: string;
   image_url?: string;
+  images?: ProductImage[];
   in_stock?: boolean;
 }
 

@@ -1,6 +1,7 @@
 // Homepage API — /api/v1/homepage/*
 import apiClient from './client';
 import { parsePriceNumber } from '@/utils/currency';
+import { normalizeUrl } from '@/utils/image';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -484,6 +485,7 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     const prim = p.images.find((img: any) => img.is_primary);
     primaryImg = prim?.thumbnail_url || prim?.image_url || p.images[0]?.thumbnail_url || p.images[0]?.image_url || null;
   }
+  const resolvedPrimary = normalizeUrl(primaryImg) || primaryImg;
 
   const vendorName = p.vendor_name || (typeof p.vendor === 'object' ? p.vendor?.name : 'Verified Vendor');
   const vendorObj = typeof p.vendor === 'object' && p.vendor !== null
@@ -514,8 +516,9 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     price: priceStr,
     base_price: priceStr,
     original_price: p.original_price ?? null,
-    primary_image_url: primaryImg,
-    image_url: primaryImg || undefined,
+    primary_image_url: resolvedPrimary,
+    image_url: resolvedPrimary || undefined,
+    images: Array.isArray(p.images) ? p.images : [],
     variants: p.variants || [],
     category: categoryObj,
     category_name: categoryName,

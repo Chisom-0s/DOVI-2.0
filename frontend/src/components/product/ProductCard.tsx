@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage, clearLocalProductImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 
 interface ProductCardProps {
@@ -21,6 +21,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Fallback image helper
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     setIsImgLoaded(true);
+    if (product?.id) {
+      clearLocalProductImage(product.id);
+    }
     const target = e.currentTarget;
     const fallback = getProductFallbackImage(product);
     if (target.src !== fallback) {

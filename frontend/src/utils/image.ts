@@ -8,24 +8,48 @@
 // In-memory cache for immediately uploaded product photos
 const localPreviewCache = new Map<string, string>();
 
+export function clearLocalProductImage(productId: string): void {
+  if (!productId) return;
+  localPreviewCache.delete(productId);
+  try {
+    sessionStorage.removeItem(`dovi_thumb_${productId}`);
+  } catch {}
+}
+
 export function cacheLocalProductImage(productId: string, previewUrl: string): void {
   if (!productId || !previewUrl) return;
-  localPreviewCache.set(productId, previewUrl);
+  // NEVER cache ephemeral blob URLs in session storage:
+  // Blob URLs are revoked on modal close and invalid across sessions.
+  if (previewUrl.startsWith('blob:') || previewUrl.startsWith('data:')) {
+    return;
+  }
+  const normalized = normalizeUrl(previewUrl) || previewUrl;
+  localPreviewCache.set(productId, normalized);
   try {
-    sessionStorage.setItem(`dovi_thumb_${productId}`, previewUrl);
+    sessionStorage.setItem(`dovi_thumb_${productId}`, normalized);
   } catch {}
 }
 
 export function getCachedLocalProductImage(productId: string): string | null {
   if (!productId) return null;
-  if (localPreviewCache.has(productId)) {
-    return localPreviewCache.get(productId)!;
+  const inMem = localPreviewCache.get(productId);
+  if (inMem) {
+    if (inMem.startsWith('blob:') || inMem.startsWith('data:')) {
+      localPreviewCache.delete(productId);
+    } else {
+      return inMem;
+    }
   }
   try {
     const saved = sessionStorage.getItem(`dovi_thumb_${productId}`);
     if (saved) {
-      localPreviewCache.set(productId, saved);
-      return saved;
+      if (saved.startsWith('blob:') || saved.startsWith('data:')) {
+        // Clean up any stale or corrupt blob URL
+        sessionStorage.removeItem(`dovi_thumb_${productId}`);
+      } else {
+        localPreviewCache.set(productId, saved);
+        return saved;
+      }
     }
   } catch {}
   return null;
@@ -85,8 +109,9 @@ export function normalizeUrl(url?: unknown): string | null {
   const trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
 
-  // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints
-  const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN;
+  // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints.
+  // Defaults defensively to known public bucket domain to prevent failed private S3 requests.
+  const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN || 'pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev';
   if (trimmed.includes('.r2.cloudflarestorage.com/')) {
     if (r2PublicDomain) {
       const parts = trimmed.split('.r2.cloudflarestorage.com/');
@@ -96,11 +121,6 @@ export function normalizeUrl(url?: unknown): string | null {
         const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
         return `https://${cleanHost}/${afterBucket}`;
       }
-    } else {
-      // Cloudflare's private S3 endpoint requires AWS SigV4 authorization.
-      // Without VITE_R2_PUBLIC_DOMAIN configured, direct browser requests will fail with 400 Bad Request.
-      // Return null so the caller can fall back to contextual product imagery instead of a broken request.
-      return null;
     }
   }
 
@@ -126,18 +146,11 @@ export function normalizeUrl(url?: unknown): string | null {
 export function getProductImageUrl(product?: any): string {
   if (!product) return CATEGORY_FALLBACKS.default;
 
-  // 0. Check for locally cached upload preview (instant vendor feedback)
-  const productId = product.id || product.uuid || product.reference_code;
-  if (productId) {
-    const cached = getCachedLocalProductImage(productId);
-    if (cached) return cached;
-  }
-
-  // 1. Direct primary_image_url field
+  // 1. Direct primary_image_url field from backend (top priority)
   const primaryUrl = normalizeUrl(product.primary_image_url);
   if (primaryUrl) return primaryUrl;
 
-  // 2. Direct primary_image object
+  // 2. Direct primary_image object from backend
   if (product.primary_image && typeof product.primary_image === 'object') {
     const fromObj =
       normalizeUrl(product.primary_image.thumbnail_url) ||
@@ -148,7 +161,7 @@ export function getProductImageUrl(product?: any): string {
     if (fromObj) return fromObj;
   }
 
-  // 3. Nested images array (with is_primary check or first available)
+  // 3. Nested images array from backend (with is_primary check or first available)
   const imageList = Array.isArray(product.images)
     ? product.images
     : Array.isArray(product.product_images)
@@ -179,7 +192,14 @@ export function getProductImageUrl(product?: any): string {
     }
   }
 
-  // 4. Variant level image
+  // 4. Check for locally cached uploaded image (only if backend has not provided one yet)
+  const productId = product.id || product.uuid || product.reference_code;
+  if (productId) {
+    const cached = getCachedLocalProductImage(productId);
+    if (cached) return cached;
+  }
+
+  // 5. Variant level image
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     for (const v of product.variants) {
       if (!v) continue;
@@ -192,7 +212,7 @@ export function getProductImageUrl(product?: any): string {
     }
   }
 
-  // 5. Legacy / flat image, image_url, thumbnail, or cover_image properties
+  // 6. Legacy / flat image, image_url, thumbnail, or cover_image properties
   const flatUrl =
     normalizeUrl(product.image_url) ||
     normalizeUrl(product.image) ||
@@ -203,6 +223,6 @@ export function getProductImageUrl(product?: any): string {
 
   if (flatUrl) return flatUrl;
 
-  // 6. Graceful category-based fallback
+  // 7. Graceful category-based fallback
   return getProductFallbackImage(product);
 }

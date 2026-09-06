@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
-import { getProductImageUrl, cacheLocalProductImage, normalizeUrl, getProductFallbackImage } from '@/utils/image';
+import { getProductImageUrl, cacheLocalProductImage, clearLocalProductImage, normalizeUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductVariant } from '@/types';
 
 interface ProductImageItem {
@@ -285,6 +285,10 @@ export default function VendorProductManager() {
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
       await apiClient.delete(`/api/v1/products/${id}/`);
+      clearLocalProductImage(id);
+      try {
+        sessionStorage.removeItem('dovi_real_products_cache');
+      } catch {}
       toast.success('Product deleted successfully');
       fetchProducts();
     } catch {
@@ -524,24 +528,28 @@ export default function VendorProductManager() {
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
-          const primaryImg = selectedImages.find(img => img.isPrimary) || selectedImages[0];
-          if (primaryImg?.previewUrl) {
-            cacheLocalProductImage(editingProduct.id, primaryImg.previewUrl);
-          }
-
           const hasPrimary = selectedImages.some(img => img.isPrimary);
           for (let i = 0; i < selectedImages.length; i++) {
             const img = selectedImages[i];
             const isPrimary = img.isPrimary || (!hasPrimary && i === 0);
             setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
             try {
-              await productsApi.uploadImage(editingProduct.id, img.file, isPrimary);
+              const res = await productsApi.uploadImage(editingProduct.id, img.file, isPrimary);
+              if (isPrimary && res) {
+                const permanentUrl = res.thumbnail_url || res.image_url;
+                if (permanentUrl) {
+                  cacheLocalProductImage(editingProduct.id, permanentUrl);
+                }
+              }
             } catch (imgErr: any) {
               console.error(`Image upload failed:`, imgErr);
             }
           }
         }
 
+        try {
+          sessionStorage.removeItem('dovi_real_products_cache');
+        } catch {}
         toast.success('Product updated successfully!');
         handleCloseModal();
         await fetchProducts();
@@ -566,11 +574,6 @@ export default function VendorProductManager() {
 
         // Step 2 -> Upload Images (if any selected)
         if (selectedImages.length > 0 && targetProductId) {
-          const primaryImg = selectedImages.find(img => img.isPrimary) || selectedImages[0];
-          if (primaryImg?.previewUrl) {
-            cacheLocalProductImage(targetProductId, primaryImg.previewUrl);
-          }
-
           let uploadErrors = 0;
           let lastErrorMessage = '';
           const hasPrimary = selectedImages.some(img => img.isPrimary);
@@ -580,7 +583,13 @@ export default function VendorProductManager() {
             const isPrimary = img.isPrimary || (!hasPrimary && i === 0);
             setUploadStatusText(`Uploading photo ${i + 1} of ${selectedImages.length}...`);
             try {
-              await productsApi.uploadImage(targetProductId, img.file, isPrimary);
+              const res = await productsApi.uploadImage(targetProductId, img.file, isPrimary);
+              if (isPrimary && res) {
+                const permanentUrl = res.thumbnail_url || res.image_url;
+                if (permanentUrl) {
+                  cacheLocalProductImage(targetProductId, permanentUrl);
+                }
+              }
             } catch (imgErr: any) {
               console.error(`Image upload failed for photo ${i + 1}:`, imgErr);
               lastErrorMessage =
@@ -603,6 +612,9 @@ export default function VendorProductManager() {
           toast.success('Product listing created successfully!');
         }
 
+        try {
+          sessionStorage.removeItem('dovi_real_products_cache');
+        } catch {}
         handleCloseModal();
         await fetchProducts();
       }
@@ -714,7 +726,14 @@ export default function VendorProductManager() {
                           alt={p.name}
                           style={tableThumbStyles}
                           onError={e => {
-                            (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                            if (p?.id) {
+                              clearLocalProductImage(p.id);
+                            }
+                            const target = e.currentTarget;
+                            const fallback = getProductFallbackImage(p);
+                            if (target.src !== fallback) {
+                              target.src = fallback;
+                            }
                           }}
                         />
                         <div>
