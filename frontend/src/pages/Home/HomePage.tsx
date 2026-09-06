@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
-import { homepageApi } from '@/api/homepage';
+import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { HomepageSection, ProductSummary } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
+import {
+  ProductCardSkeleton,
+  SectionSkeleton,
+} from '@/components/common/Skeleton';
 
 const DEFAULT_CATEGORIES = [
   { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', icon: '📱' },
@@ -24,36 +27,44 @@ const DEFAULT_VENDORS = [
 ];
 
 export default function HomePage() {
-  const [sections, setSections] = useState<HomepageSection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 1. Mount immediately with synchronous cached/seed sections (0ms perceived load time)
+  const [sections, setSections] = useState<HomepageSection[]>(() => getCachedHomepageSections());
+  const [isLoading, setIsLoading] = useState<boolean>(() => sections.length === 0);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadHomeData = async () => {
       try {
-        setIsLoading(true);
+        if (sections.length === 0) {
+          setIsLoading(true);
+        }
         const data = await homepageApi.getData();
         const now = new Date();
         const active = (data.sections || []).filter(section => {
-          // 1. Verify general activation status
           if (!section.is_active) return false;
-
-          // 2. Schedule bounds validations
           if (section.starts_at && new Date(section.starts_at) > now) return false;
           if (section.ends_at && new Date(section.ends_at) < now) return false;
-
           return true;
         });
 
-        // Ensure sorted by sort_order
-        setSections(active.sort((a, b) => a.sort_order - b.sort_order));
+        if (isMounted) {
+          setSections(active.sort((a, b) => a.sort_order - b.sort_order));
+        }
       } catch (err) {
-        console.error('Failed to load homepage sections:', err);
+        console.error('Failed to revalidate homepage sections:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadHomeData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Registry parser mapping configuration layout rules dynamically to HTML blocks
@@ -62,6 +73,28 @@ export default function HomePage() {
     const products: ProductSummary[] = section.products || [];
     const categories = section.categories || DEFAULT_CATEGORIES;
     const vendors = section.vendors || DEFAULT_VENDORS;
+
+    // If section products are still loading, show individual skeletons matching layout
+    if (products.length === 0 && layout !== 'BANNER' && layout !== 'CATEGORY_PILLS' && layout !== 'CATEGORY_GRID' && layout !== 'CATEGORY_CIRCLES' && layout !== 'VENDOR_GRID' && layout !== 'BRAND_GRID') {
+      if (layout === 'HORIZONTAL_CAROUSEL') {
+        return (
+          <div style={carouselScrollStyles} className="hide-scrollbar">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div key={idx} style={{ minWidth: '180px', flexShrink: 0 }}>
+                <ProductCardSkeleton />
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <div style={gridStyles}>
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <ProductCardSkeleton key={idx} />
+          ))}
+        </div>
+      );
+    }
 
     switch (layout) {
       case 'PRODUCT_GRID':
@@ -246,10 +279,13 @@ export default function HomePage() {
 
       {/* Dynamic Sections Grid */}
       <div className="container" style={sectionsListStyles}>
-        {isLoading ? (
-          <div style={loaderStyles}>
-            <LoadingSpinner size="lg" />
-            <p style={loaderTextStyles}>Loading marketplace sections...</p>
+        {isLoading && sections.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <SectionSkeleton layout="CATEGORY_PILLS" title="Categories" />
+            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Flash Deals" count={5} />
+            <SectionSkeleton layout="PRODUCT_GRID" title="New Arrivals" count={4} />
+            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Trending Now" count={5} />
+            <SectionSkeleton layout="PRODUCT_GRID" title="Best Sellers" count={4} />
           </div>
         ) : sections.length > 0 ? (
           sections.map(section => (
@@ -663,20 +699,6 @@ const autoTeaserCategoryStyles: React.CSSProperties = {
   fontSize: '10px',
   color: 'var(--color-text-muted)',
   marginTop: '4px',
-};
-
-const loaderStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 'var(--space-16) 0',
-  gap: 'var(--space-4)',
-};
-
-const loaderTextStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--color-text-muted)',
 };
 
 const emptyStyles: React.CSSProperties = {

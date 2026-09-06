@@ -16,9 +16,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
+  const [isImgLoaded, setIsImgLoaded] = useState(false);
 
   // Fallback image helper
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setIsImgLoaded(true);
     const target = e.currentTarget;
     const fallback = getProductFallbackImage(product);
     if (target.src !== fallback) {
@@ -82,11 +84,26 @@ export default function ProductCard({ product }: ProductCardProps) {
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
+        {!isImgLoaded && (
+          <div
+            className="skeleton-shimmer"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1,
+            }}
+          />
+        )}
         <img
           src={cardImage}
           alt={product.name}
+          onLoad={() => setIsImgLoaded(true)}
           onError={handleImageError}
-          style={imageStyles}
+          style={{
+            ...imageStyles,
+            opacity: isImgLoaded ? 1 : 0,
+            transition: 'opacity 0.25s ease-in-out',
+          }}
           loading="lazy"
         />
 

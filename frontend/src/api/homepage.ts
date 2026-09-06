@@ -734,8 +734,13 @@ export const homepageApi = {
         };
       });
 
+    // Cache computed sections locally for instant 0ms rendering on subsequent visits
+    try {
+      localStorage.setItem('dovi_cached_homepage_sections', JSON.stringify(sections));
+    } catch {}
+
     return {
-      banners: [],
+      banners: DEFAULT_HERO_BANNERS,
       sections,
     };
   },
@@ -743,10 +748,11 @@ export const homepageApi = {
   getBanners: async (): Promise<HomepageBanner[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/homepage/banners/');
-      return data;
-    } catch (err) {
-      return [];
-    }
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch {}
+    return DEFAULT_HERO_BANNERS;
   },
 
   getSections: async (): Promise<HomepageSection[]> => {
@@ -762,3 +768,80 @@ export const homepageApi = {
     }
   },
 };
+
+export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
+  {
+    id: 'ban-hero-save2own',
+    title: 'Smart Savings for the Things You Love',
+    subtitle: 'Save in flexible micro-payments towards phones, laptops, and gadgets with zero debt.',
+    cta_text: 'Explore Save2Own',
+    cta_url: '/save2own',
+    desktop_image_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80',
+    mobile_image_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+    is_active: true,
+    display_order: 1,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+  {
+    id: 'ban-hero-deals',
+    title: 'Mega Tech Deals & Verified Sellers',
+    subtitle: 'Shop the latest smartphones, computers, and accessories with doorstep warranty.',
+    cta_text: 'Shop Tech Deals',
+    cta_url: '/products',
+    desktop_image_url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1600&q=80',
+    mobile_image_url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80',
+    is_active: true,
+    display_order: 2,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+  {
+    id: 'ban-hero-auto',
+    title: 'Dovi Auto Hub — Cars, Parts & Care',
+    subtitle: 'Verified foreign used and brand new vehicles with nationwide inspection.',
+    cta_text: 'Explore Dovi Auto',
+    cta_url: '/auto',
+    desktop_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80',
+    mobile_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
+    is_active: true,
+    display_order: 3,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+];
+
+/**
+ * Returns immediate synchronous sections (frame 0) so the homepage mounts instantly
+ * with zero waiting, before live background revalidation finishes.
+ */
+export function getCachedHomepageSections(): HomepageSection[] {
+  // 1. Try previously cached sections from localStorage (stale-while-revalidate)
+  try {
+    const cached = localStorage.getItem('dovi_cached_homepage_sections');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+
+  // 2. Immediate synchronous seed with cached real products if available, plus seed mocks
+  try {
+    const cachedReal = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
+    const rawSections = getMockSections();
+    return rawSections
+      .filter(s => s.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(s => ({
+        ...s,
+        products: populateProductsForSection(s, cachedReal),
+      }));
+  } catch {
+    return [];
+  }
+}
