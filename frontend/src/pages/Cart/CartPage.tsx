@@ -117,7 +117,7 @@ export default function CartPage() {
           {cart.items.map((item: CartItem) => {
             const prod: any = item.product || {};
             const displayName = item.product_name || prod.name || 'Product';
-            const displayImg = item.image_url || getProductImageUrl(prod);
+            const displayImg = item.image_url || prod.primary_image_url || prod.image_url || getProductImageUrl(prod);
             const rawUnit = item.unit_price ?? item.price ?? prod.base_price ?? prod.price ?? '0';
             const numUnit = parseFloat(String(rawUnit)) || 0;
             const lineTotal = item.line_total ?? (numUnit * item.quantity).toFixed(2);
@@ -125,23 +125,27 @@ export default function CartPage() {
               item.variant_name ||
               (typeof item.variant === 'object' && item.variant !== null ? (item.variant as any).name : null) ||
               item.variant_sku;
+            const targetProductId = (prod.id && prod.id !== item.id) ? prod.id : (item.product_id && item.product_id !== item.id ? item.product_id : '');
+            const productHref = targetProductId ? `/products/${targetProductId}` : '/products';
 
             return (
               <div key={item.id} style={itemCardStyles}>
                 {/* Product Image */}
-                <img
-                  src={displayImg}
-                  alt={displayName}
-                  style={itemImageStyles}
-                  onError={e => {
-                    (e.target as HTMLImageElement).src = getProductFallbackImage(prod);
-                  }}
-                />
+                <Link to={productHref} style={{ display: 'block', textDecoration: 'none', flexShrink: 0 }}>
+                  <img
+                    src={displayImg}
+                    alt={displayName}
+                    style={itemImageStyles}
+                    onError={e => {
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(prod);
+                    }}
+                  />
+                </Link>
 
                 {/* Item Details */}
                 <div style={itemDetailsStyles}>
                   <Link
-                    to={prod.id ? `/products/${prod.id}` : '/products'}
+                    to={productHref}
                     style={itemNameStyles}
                   >
                     {displayName}

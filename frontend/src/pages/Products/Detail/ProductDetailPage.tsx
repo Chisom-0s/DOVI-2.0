@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
 import type { Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -57,6 +57,12 @@ export default function ProductDetailPage() {
         }
       } catch (err) {
         console.error('Failed to load product detail:', err);
+        const fallback = findKnownProduct(id, undefined, id) || getCartItemMeta(id);
+        const resolvedId = fallback?.productId || (fallback?.id !== id ? fallback?.id : undefined);
+        if (resolvedId && resolvedId !== id) {
+          navigate(`/products/${resolvedId}`, { replace: true });
+          return;
+        }
         setProduct(null);
         setSelectedVariant(null);
         toast.error('Product not found or offline.');

@@ -237,6 +237,7 @@ export interface ProductSummary {
 export interface CartItem {
   id: string;
   product?: ProductSummary;
+  product_id?: string;
   product_name?: string;
   name?: string;
   variant?: ProductVariant | string | null;

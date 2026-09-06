@@ -2,10 +2,104 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
+import { MOCK_PRODUCTS } from '@/api/homepage';
 import { useAuth } from './AuthContext';
 
-// Local storage key for guest users
+// Local storage key for guest users & cart metadata registry
 const GUEST_CART_KEY = 'dovi_guest_cart';
+const CART_META_REGISTRY_KEY = 'dovi_cart_product_registry';
+
+export interface CartProductMeta {
+  productId: string;
+  name?: string;
+  imageUrl?: string;
+  slug?: string;
+  variantId?: string;
+}
+
+export function saveCartItemMeta(meta: CartProductMeta): void {
+  if (!meta.productId && !meta.variantId) return;
+  try {
+    const existing = JSON.parse(localStorage.getItem(CART_META_REGISTRY_KEY) || '{}');
+    if (meta.variantId) {
+      existing[`var_${meta.variantId}`] = meta;
+    }
+    if (meta.productId) {
+      existing[`prod_${meta.productId}`] = meta;
+    }
+    if (meta.name) {
+      existing[`name_${meta.name.toLowerCase().trim()}`] = meta;
+    }
+    localStorage.setItem(CART_META_REGISTRY_KEY, JSON.stringify(existing));
+  } catch {}
+}
+
+export function getCartItemMeta(variantId?: string, productName?: string, productId?: string): CartProductMeta | null {
+  try {
+    const registry = JSON.parse(localStorage.getItem(CART_META_REGISTRY_KEY) || '{}');
+    if (variantId && registry[`var_${variantId}`]) {
+      return registry[`var_${variantId}`];
+    }
+    if (productId && registry[`prod_${productId}`]) {
+      return registry[`prod_${productId}`];
+    }
+    if (productName && registry[`name_${productName.toLowerCase().trim()}`]) {
+      return registry[`name_${productName.toLowerCase().trim()}`];
+    }
+  } catch {}
+  return null;
+}
+
+export function findKnownProduct(variantId?: string, productName?: string, productId?: string): any | null {
+  // 1. Check local cart product registry
+  const meta = getCartItemMeta(variantId, productName, productId);
+  if (meta && meta.productId) {
+    return {
+      id: meta.productId,
+      name: meta.name,
+      primary_image_url: meta.imageUrl,
+      image_url: meta.imageUrl,
+      slug: meta.slug,
+    };
+  }
+
+  // 2. Check cached real backend products from sessionStorage
+  try {
+    const cachedReal = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
+    if (Array.isArray(cachedReal)) {
+      if (variantId) {
+        const byVar = cachedReal.find((p: any) => Array.isArray(p.variants) && p.variants.some((v: any) => v.id === variantId));
+        if (byVar) return byVar;
+      }
+      if (productName) {
+        const norm = productName.toLowerCase().trim();
+        const byName = cachedReal.find((p: any) => p.name?.toLowerCase().trim() === norm);
+        if (byName) return byName;
+      }
+      if (productId) {
+        const byId = cachedReal.find((p: any) => p.id === productId);
+        if (byId) return byId;
+      }
+    }
+  } catch {}
+
+  // 3. Check mock products
+  if (variantId) {
+    const byVar = MOCK_PRODUCTS.find(p => Array.isArray(p.variants) && p.variants.some(v => v.id === variantId));
+    if (byVar) return byVar;
+  }
+  if (productName) {
+    const norm = productName.toLowerCase().trim();
+    const byName = MOCK_PRODUCTS.find(p => p.name?.toLowerCase().trim() === norm);
+    if (byName) return byName;
+  }
+  if (productId) {
+    const byId = MOCK_PRODUCTS.find(p => p.id === productId);
+    if (byId) return byId;
+  }
+
+  return null;
+}
 
 export function normalizeCart(raw: any): Cart {
   if (!raw) {
@@ -23,9 +117,28 @@ export function normalizeCart(raw: any): Cart {
 
   const rawItems = Array.isArray(raw.items) ? raw.items : [];
   const items: CartItem[] = rawItems.map((item: any) => {
+    const varId = typeof item.variant === 'object' && item.variant !== null ? item.variant.id : item.variant;
+    const prodName = item.product_name || (typeof item.product === 'object' ? item.product?.name : item.name);
+    const givenProdId = (item.product && typeof item.product === 'object' && item.product.id !== item.id) 
+      ? item.product.id 
+      : (item.product_id && item.product_id !== item.id ? item.product_id : undefined);
+
+    const matchedProduct = findKnownProduct(varId, prodName, givenProdId);
+
+    const effectiveProdId = matchedProduct?.id || givenProdId || '';
+    const effectiveImg = 
+      item.image_url || 
+      matchedProduct?.primary_image_url || 
+      matchedProduct?.image_url || 
+      (typeof item.product === 'object' ? (item.product?.primary_image_url || item.product?.image_url) : null) || 
+      null;
+    const effectiveDisplayName = prodName || matchedProduct?.name || 'Product';
+
     const unitPrice =
       item.price ??
       item.unit_price ??
+      matchedProduct?.price ??
+      matchedProduct?.base_price ??
       item.product?.price ??
       item.product?.base_price ??
       '0';
@@ -35,31 +148,42 @@ export function normalizeCart(raw: any): Cart {
     const stock =
       item.available_stock ??
       item.stock ??
+      matchedProduct?.stock_quantity ??
       item.product?.stock_quantity ??
       10;
     const inStock = item.is_in_stock !== undefined ? item.is_in_stock : stock > 0;
 
-    // Resolve product object or reconstruct
+    // Resolve product object or reconstruct — ensuring product.id is the REAL product UUID (never cart item id!)
     const productObj: ProductSummary =
-      typeof item.product === 'object' && item.product !== null
-        ? item.product
+      typeof item.product === 'object' && item.product !== null && item.product.id !== item.id
+        ? {
+            ...item.product,
+            id: effectiveProdId || item.product.id,
+            primary_image_url: effectiveImg || item.product.primary_image_url,
+            image_url: effectiveImg || item.product.image_url,
+          }
         : {
-            id: item.product_id || item.product || item.id,
-            name: item.product_name || item.name || 'Product',
-            slug: item.product_slug || '',
-            base_price: unitPrice,
-            price: unitPrice,
-            primary_image_url: item.image_url || item.primary_image_url || item.image,
-            images: item.images || (item.image_url ? [{ image_url: item.image_url }] : []),
+            id: effectiveProdId,
+            name: effectiveDisplayName,
+            slug: matchedProduct?.slug || item.product_slug || '',
+            base_price: String(unitPrice),
+            price: String(unitPrice),
+            primary_image_url: effectiveImg,
+            image_url: effectiveImg || undefined,
+            images: effectiveImg ? [{ image_url: effectiveImg }] : [],
             stock_quantity: stock,
-            vendor_name: item.vendor_name || 'Verified Vendor',
-            vendor: item.vendor || item.vendor_name || '',
+            vendor_name: item.vendor_name || matchedProduct?.vendor_name || 'Verified Vendor',
+            vendor: item.vendor || matchedProduct?.vendor || item.vendor_name || '',
+            average_rating: matchedProduct?.average_rating || 4.9,
+            review_count: matchedProduct?.review_count || 10,
+            status: 'PUBLISHED' as any,
           };
 
     return {
       id: String(item.id || `item_${Math.random().toString(36).substring(2, 9)}`),
       product: productObj,
-      product_name: item.product_name || productObj.name,
+      product_id: effectiveProdId,
+      product_name: effectiveDisplayName,
       variant:
         typeof item.variant === 'object' && item.variant !== null
           ? item.variant
@@ -74,7 +198,7 @@ export function normalizeCart(raw: any): Cart {
       line_total: lineTotal,
       available_stock: stock,
       is_in_stock: inStock,
-      image_url: item.image_url || productObj.primary_image_url,
+      image_url: effectiveImg || undefined,
     };
   });
 
@@ -238,6 +362,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (opt.product) {
           productObj = opt.product;
         }
+      }
+
+      // Persist metadata mapping immediately so any future cart sync resolves product & image
+      const effImg = imageUrl || productObj?.primary_image_url || productObj?.image_url;
+      const effName = customName || productObj?.name;
+      if (productId || variantId) {
+        saveCartItemMeta({
+          productId,
+          variantId,
+          name: effName,
+          imageUrl: effImg,
+          slug: productObj?.slug,
+        });
       }
 
       // If user is authenticated, call backend API
