@@ -5,12 +5,16 @@ import type { Payment, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
+import { exportTransactionsToPdf, exportTransactionsToDocx } from '@/utils/exportUtils';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Row Selection State for Exporting
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
 
   // Selected Payment (Inspect Only - Read-only details)
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -49,6 +53,62 @@ export default function PaymentsPage() {
     }).format(parseFloat(val || '0'));
   };
 
+  const handleToggleSelectAll = () => {
+    if (selectedPaymentIds.size === payments.length && payments.length > 0) {
+      setSelectedPaymentIds(new Set());
+    } else {
+      setSelectedPaymentIds(new Set(payments.map((p) => p.id)));
+    }
+  };
+
+  const handleToggleSelectPayment = (id: string) => {
+    const next = new Set(selectedPaymentIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedPaymentIds(next);
+  };
+
+  const handleExportSelectedDocx = () => {
+    const targets = payments.filter((p) => selectedPaymentIds.has(p.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one transaction to export.');
+      return;
+    }
+    exportTransactionsToDocx(targets, `dovi-selected-transactions-${targets.length}.docx`);
+    toast.success(`Exported ${targets.length} selected transactions to DOCX`);
+  };
+
+  const handleExportSelectedPdf = () => {
+    const targets = payments.filter((p) => selectedPaymentIds.has(p.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one transaction to export.');
+      return;
+    }
+    exportTransactionsToPdf(targets, `dovi-selected-transactions-${targets.length}.pdf`);
+    toast.success(`Exported ${targets.length} selected transactions to PDF`);
+  };
+
+  const handleExportAllDocx = () => {
+    if (payments.length === 0) {
+      toast.error('No transactions available to export.');
+      return;
+    }
+    exportTransactionsToDocx(payments, `dovi-all-transactions-${payments.length}.docx`);
+    toast.success(`Exported ${payments.length} transactions to DOCX`);
+  };
+
+  const handleExportAllPdf = () => {
+    if (payments.length === 0) {
+      toast.error('No transactions available to export.');
+      return;
+    }
+    exportTransactionsToPdf(payments, `dovi-all-transactions-${payments.length}.pdf`);
+    toast.success(`Exported ${payments.length} transactions to PDF`);
+  };
+
   if (isLoading) {
     return (
       <div style={containerStyles}>
@@ -63,9 +123,47 @@ export default function PaymentsPage() {
 
   return (
     <div style={containerStyles}>
-      <div style={titleHeaderStyles}>
-        <h2 style={titleStyles}>Payment Monitoring</h2>
-        <span style={viewOnlyBadgeStyles}>Read-Only logs</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={titleHeaderStyles}>
+          <h2 style={titleStyles}>Payment Monitoring</h2>
+          <span style={viewOnlyBadgeStyles}>Read-Only logs</span>
+        </div>
+
+        {/* Action Export Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {selectedPaymentIds.size > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={handleExportSelectedDocx}
+                style={exportBtnStyles}
+              >
+                📄 Export Selected ({selectedPaymentIds.size}) DOCX
+              </button>
+              <button
+                type="button"
+                onClick={handleExportSelectedPdf}
+                style={exportBtnStyles}
+              >
+                📕 Export Selected ({selectedPaymentIds.size}) PDF
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleExportAllDocx}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Transactions DOCX
+          </button>
+          <button
+            type="button"
+            onClick={handleExportAllPdf}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Transactions PDF
+          </button>
+        </div>
       </div>
 
       <ApiErrorMessage error={error} />
@@ -109,6 +207,14 @@ export default function PaymentsPage() {
             <table style={tableStyles}>
               <thead>
                 <tr style={tableHeaderRowStyles}>
+                  <th style={{ ...tableHeaderCellStyles, width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={payments.length > 0 && selectedPaymentIds.size === payments.length}
+                      onChange={handleToggleSelectAll}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
                   <th style={tableHeaderCellStyles}>Payment Ref</th>
                   <th style={tableHeaderCellStyles}>Order Ref</th>
                   <th style={tableHeaderCellStyles}>Gateway Provider</th>
@@ -121,6 +227,14 @@ export default function PaymentsPage() {
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id} style={tableRowStyles}>
+                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedPaymentIds.has(p.id)}
+                        onChange={() => handleToggleSelectPayment(p.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
                     <td style={{ ...tableCellStyles, fontWeight: 700 }}>{p.reference}</td>
                     <td style={tableCellStyles}>
                       <a href={`/orders?ref=${p.order_reference}`} style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
@@ -502,4 +616,28 @@ const modalCloseBtnStyles: React.CSSProperties = {
   fontWeight: 700,
   cursor: 'pointer',
   border: 'none',
+};
+
+const exportBtnStyles: React.CSSProperties = {
+  backgroundColor: 'var(--color-primary, #ff7a00)',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(255, 122, 0, 0.2)',
+};
+
+const secondaryExportBtnStyles: React.CSSProperties = {
+  backgroundColor: '#1f2937',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
 };

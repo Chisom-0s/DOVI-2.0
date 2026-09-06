@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
-import type { Vendor, APIError } from '@/types';
+import type { Vendor, APIError, VendorPayoutAccount } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -131,6 +131,23 @@ export default function VendorsPage() {
       setIsActionPending(false);
       setActionType(null);
     }
+  };
+
+  const getVendorPayoutAccount = (vendor: Vendor): VendorPayoutAccount | null => {
+    if (vendor.payout_account) return vendor.payout_account;
+    const globalKey = `dovi_all_vendor_payouts`;
+    const allPayouts = JSON.parse(localStorage.getItem(globalKey) || '{}');
+    if (allPayouts[vendor.id]) return allPayouts[vendor.id];
+    const directKey = `dovi_vendor_payout_${vendor.id}`;
+    const saved = localStorage.getItem(directKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   };
 
   if (isLoading) {
@@ -296,6 +313,45 @@ export default function VendorsPage() {
                   {selectedVendor.description || 'No business details provided.'}
                 </p>
               </div>
+            </div>
+
+            {/* Escrow Settlement Payout Bank Account Details (Read-Only for Admin) */}
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: '#1f2937' }}>
+                  🏦 Escrow Settlement Bank Details
+                </h4>
+                <span style={{ fontSize: '10px', fontWeight: 700, backgroundColor: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: '4px' }}>
+                  Read-Only for Admin
+                </span>
+              </div>
+
+              {(() => {
+                const payoutAcc = getVendorPayoutAccount(selectedVendor);
+                if (!payoutAcc) {
+                  return (
+                    <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af', fontStyle: 'italic' }}>
+                      No payout bank account registered by vendor yet.
+                    </p>
+                  );
+                }
+                return (
+                  <div style={{ backgroundColor: '#fafafa', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6b7280' }}>Bank Name:</span>
+                      <strong style={{ color: '#1f2937' }}>{payoutAcc.bank_name} (Code: {payoutAcc.bank_code})</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6b7280' }}>Account Name:</span>
+                      <strong style={{ color: '#1f2937' }}>{payoutAcc.account_name}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      <span style={{ color: '#6b7280' }}>NUBAN Account Number:</span>
+                      <strong style={{ color: '#ff7a00', fontFamily: 'monospace', fontSize: '13px' }}>{payoutAcc.account_number}</strong>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Verification actions */}

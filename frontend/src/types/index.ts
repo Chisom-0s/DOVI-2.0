@@ -111,12 +111,24 @@ export interface VendorSummary {
   slug?: string;
 }
 
+export interface VendorPayoutAccount {
+  id?: string;
+  account_name: string;
+  account_number: string;
+  bank_name: string;
+  bank_code: string;
+  is_primary: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Vendor extends VendorSummary {
   description: string | null;
   status: VendorStatus;
   product_count: number;
   joined_date: string;
   response_rate: number | null;
+  payout_account?: VendorPayoutAccount | null;
 }
 
 // ----------------------------------------------------------

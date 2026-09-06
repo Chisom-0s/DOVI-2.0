@@ -104,12 +104,24 @@ export interface VendorSummary {
   slug?: string;
 }
 
+export interface VendorPayoutAccount {
+  id?: string;
+  account_name: string;
+  account_number: string;
+  bank_name: string;
+  bank_code: string;
+  is_primary: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Vendor extends VendorSummary {
   description: string | null;
   status: VendorStatus;
   product_count: number;
   joined_date: string;
   response_rate: number | null;
+  payout_account?: VendorPayoutAccount | null;
 }
 
 // ----------------------------------------------------------
@@ -695,4 +707,52 @@ export interface AuditLog {
   ip_address: string | null;
   result: string;
   created_at: string;
+}
+
+// ----------------------------------------------------------
+// ESCROW PAYOUTS & VENDOR SETTLEMENTS
+// ----------------------------------------------------------
+export type EscrowPayoutStatus = 'READY_FOR_PAYOUT' | 'PAYOUT_GENERATED' | 'PAID';
+
+export interface EscrowPayoutOrder {
+  id: string;
+  order_reference: string;
+  flw_transaction_ref: string;
+  vendor_id: string;
+  vendor_name: string;
+  order_status: OrderStatus;
+  gross_amount: string;
+  commission_fee: string;
+  net_payout_amount: string;
+  created_at: string;
+  delivered_at: string | null;
+  payout_status: EscrowPayoutStatus;
+  payout_batch_id?: string | null;
+}
+
+export interface VendorSettlementSummary {
+  vendor_id: string;
+  vendor_name: string;
+  vendor_slug?: string;
+  logo_url?: string | null;
+  payout_account: VendorPayoutAccount | null;
+  order_count: number;
+  total_gross_amount: string;
+  total_commission_fee: string;
+  total_net_payout_amount: string;
+  orders: EscrowPayoutOrder[];
+  has_valid_payout_account: boolean;
+}
+
+export interface PayoutBatch {
+  id: string;
+  batch_reference: string;
+  filename: string;
+  created_at: string;
+  vendor_count: number;
+  order_count: number;
+  total_amount: string;
+  status: 'GENERATED' | 'PROCESSED' | 'PAID';
+  vendor_summaries: VendorSettlementSummary[];
+  order_references: string[];
 }

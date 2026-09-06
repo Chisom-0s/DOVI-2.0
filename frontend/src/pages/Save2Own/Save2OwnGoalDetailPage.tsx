@@ -6,8 +6,8 @@ import { paymentsApi } from '@/api/payments';
 import { productsApi } from '@/api/products';
 import type { Save2OwnGoal, PaymentMethod, Product, ProductVariant, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import VariantSelector from '@/components/product/VariantSelector';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 export default function Save2OwnGoalDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -326,10 +326,26 @@ export default function Save2OwnGoalDetailPage() {
   }
 
   if (error || !goal) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div className="container" style={pageWrapperStyles}>
+          <NoInternetBanner onRetry={() => fetchGoalDetails(true)} />
+        </div>
+      );
+    }
     return (
       <div className="container" style={pageWrapperStyles}>
         <Link to="/dashboard/save2own" style={backLinkStyles}>&larr; Back to Goals</Link>
-        <ApiErrorMessage error={error} />
+        <div style={{ textAlign: 'center', padding: 'var(--space-12) 0' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
+          <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 'bold' }}>Couldn't fetch item</h3>
+          <p style={{ color: 'var(--color-text-muted)', margin: 'var(--space-2) 0 var(--space-4) 0' }}>
+            We couldn't retrieve this goal item from the database.
+          </p>
+          <button onClick={() => fetchGoalDetails(true)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+            🔄 Retry
+          </button>
+        </div>
       </div>
     );
   }

@@ -6,27 +6,20 @@ import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl } from '@/utils/image';
 import type { ProductSummary } from '@/types';
+import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 
 interface ProductCardProps {
   key?: string;
   product: ProductSummary;
 }
 
-// Branded placeholder fallback if product has no image or URL fails
-const fallbackImage = '/logo.jpg?v=2';
+
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
 
-  // Fallback image helper
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.currentTarget;
-    if (!target.src.endsWith(fallbackImage)) {
-      target.src = fallbackImage;
-    }
-  };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -83,12 +76,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
-        <img
+        <ItemImageLoader
           src={cardImage}
           alt={product.name}
-          onError={handleImageError}
-          style={imageStyles}
-          loading="lazy"
+          objectFit="cover"
         />
 
         {/* Wishlist Button */}
@@ -183,13 +174,6 @@ const imgContainerStyles: React.CSSProperties = {
   aspectRatio: '1/1',
   backgroundColor: 'var(--color-bg-subtle)',
   overflow: 'hidden',
-};
-
-const imageStyles: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  transition: 'transform var(--transition-slow)',
 };
 
 const wishlistBtnStyles: React.CSSProperties = {

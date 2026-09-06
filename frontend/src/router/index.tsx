@@ -49,6 +49,7 @@ import VendorDashboardLayout from '@/pages/VendorDashboard/VendorDashboardLayout
 import VendorDashboardOverview from '@/pages/VendorDashboard/VendorDashboardOverview';
 import VendorProductManager from '@/pages/VendorDashboard/VendorProductManager';
 import VendorOrderManager from '@/pages/VendorDashboard/VendorOrderManager';
+import VendorPayoutSettings from '@/pages/VendorDashboard/VendorPayoutSettings';
 
 // Phase 6 — Save2Own
 import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
@@ -213,6 +214,7 @@ const router = createBrowserRouter([
           { path: '', element: <VendorDashboardOverview /> },
           { path: 'products', element: <VendorProductManager /> },
           { path: 'orders', element: <VendorOrderManager /> },
+          { path: 'payout-settings', element: <VendorPayoutSettings /> },
         ],
       },
 

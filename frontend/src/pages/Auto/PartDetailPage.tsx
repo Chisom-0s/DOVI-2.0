@@ -4,8 +4,8 @@ import AutoSubNav from '@/components/auto/AutoSubNav';
 import { autoApi } from '@/api/auto';
 import { cartApi } from '@/api/cart';
 import type { AutoPart } from '@/types';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 import toast from 'react-hot-toast';
 
 export default function PartDetailPage() {
@@ -110,11 +110,23 @@ export default function PartDetailPage() {
   }
 
   if (error || !part) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={containerStyles}>
         <AutoSubNav />
         <div style={errorWrapperStyles}>
-          <ApiErrorMessage error={error || new Error('Part not found')} />
+          <div style={{ fontSize: '3rem' }}>⚠️</div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Couldn't fetch item</h3>
+          <p style={{ color: '#6b7280' }}>This auto part details could not be retrieved from the database.</p>
           <button style={backBtnStyles} onClick={() => navigate('/auto/parts')}>
             &larr; Back to Parts
           </button>

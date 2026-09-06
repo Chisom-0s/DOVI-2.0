@@ -141,6 +141,30 @@ export function normalizeApiError(error: unknown): APIError {
   if (axios.isAxiosError(error)) {
     if (error.response) {
       let data = error.response.data as Record<string, unknown> | null;
+      const status = error.response.status;
+      const requestUrl = error.config?.url || '';
+      const isAuthEndpoint = requestUrl.includes('/auth/login/') || requestUrl.includes('/auth/token/');
+
+      // Wrong credentials check: 400/401 on login endpoints or explicit invalid credential messages
+      const isCredentialError =
+        (isAuthEndpoint && (status === 400 || status === 401 || status === 403)) ||
+        (data &&
+          typeof data === 'object' &&
+          Boolean(
+            JSON.stringify(data)
+              .toLowerCase()
+              .match(/(credentials|password|username|no active account|unable to log in|invalid email or password)/i)
+          ));
+
+      if (isCredentialError) {
+        return {
+          error: true,
+          message: 'Wrong credentials',
+          code: 'INVALID_CREDENTIALS',
+          details: data?.details as Record<string, string[]> | undefined,
+        };
+      }
+
       if (data && typeof data === 'object') {
         // Handle nested "error" wrapper object or string
         if (data.error) {
@@ -241,7 +265,6 @@ export function normalizeApiError(error: unknown): APIError {
       }
 
       // If status code is 5xx or server had no parseable response body
-      const status = error.response.status;
       if (status >= 500) {
         return {
           error: true,
@@ -254,10 +277,10 @@ export function normalizeApiError(error: unknown): APIError {
         message: `HTTP Error ${status}. Please try again.`,
         code: 'HTTP_ERROR',
       };
-    } else if (error.request) {
+    } else if (error.request || !navigator.onLine) {
       return {
         error: true,
-        message: 'No response from server. Please check your network connection.',
+        message: 'No internet signal',
         code: 'NETWORK_ERROR',
       };
     }
@@ -266,8 +289,8 @@ export function normalizeApiError(error: unknown): APIError {
   // General JS exception
   return {
     error: true,
-    message: error instanceof Error ? error.message : 'An unexpected error occurred.',
-    code: 'JS_ERROR',
+    message: error instanceof Error ? error.message : 'No internet signal',
+    code: 'NETWORK_ERROR',
   };
 }
 

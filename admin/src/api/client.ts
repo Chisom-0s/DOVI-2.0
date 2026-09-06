@@ -192,18 +192,55 @@ apiClient.interceptors.response.use(
 // Converts any Axios error into a consistent APIError shape
 // ============================================================
 export function normalizeApiError(error: unknown): APIError {
-  if (axios.isAxiosError(error) && error.response?.data) {
-    const data = error.response.data as Partial<APIError>;
-    return {
-      error: true,
-      message: data.message ?? 'An unexpected error occurred.',
-      code: data.code ?? 'UNKNOWN_ERROR',
-      details: data.details,
-    };
+  if (axios.isAxiosError(error)) {
+    if (error.response) {
+      const data = error.response.data as Record<string, unknown> | null;
+      const status = error.response.status;
+      const requestUrl = error.config?.url || '';
+      const isAuthEndpoint = requestUrl.includes('/auth/login/') || requestUrl.includes('/auth/token/');
+
+      const isCredentialError =
+        (isAuthEndpoint && (status === 400 || status === 401 || status === 403)) ||
+        (data &&
+          typeof data === 'object' &&
+          Boolean(
+            JSON.stringify(data)
+              .toLowerCase()
+              .match(/(credentials|password|username|no active account|unable to log in|invalid email or password)/i)
+          ));
+
+      if (isCredentialError) {
+        return {
+          error: true,
+          message: 'Wrong credentials',
+          code: 'INVALID_CREDENTIALS',
+          details: data?.details as Record<string, string[]> | undefined,
+        };
+      }
+
+      if (data && typeof data === 'object') {
+        const msg = (data.message || data.detail || (data.error && typeof data.error === 'string' ? data.error : null)) as string | null;
+        if (msg) {
+          return {
+            error: true,
+            message: msg,
+            code: (data.code as string) ?? 'API_ERROR',
+            details: data.details as Record<string, string[]> | undefined,
+          };
+        }
+      }
+
+      return {
+        error: true,
+        message: `HTTP Error ${status}. Please try again.`,
+        code: 'HTTP_ERROR',
+      };
+    }
   }
+
   return {
     error: true,
-    message: 'A network error occurred. Please check your connection.',
+    message: 'No internet signal',
     code: 'NETWORK_ERROR',
   };
 }

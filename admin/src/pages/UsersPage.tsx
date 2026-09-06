@@ -6,6 +6,7 @@ import type { User, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
+import { exportUsersToPdf, exportUsersToDocx } from '@/utils/exportUtils';
 
 // Helper to generate consistent avatar background colors from name
 const getAvatarGradient = (name: string): string => {
@@ -64,6 +65,9 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'BUYER' | 'VENDOR' | 'ADMIN' | 'PENDING_VENDOR'>('ALL');
   const [loginStatusFilter, setLoginStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
+
+  // Row Selection State for Exporting
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   // Selected User Modal / Detail
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -282,6 +286,62 @@ export default function UsersPage() {
     }
   };
 
+  const handleToggleSelectAll = () => {
+    if (selectedUserIds.size === users.length && users.length > 0) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(users.map((u) => u.id)));
+    }
+  };
+
+  const handleToggleSelectUser = (id: string) => {
+    const next = new Set(selectedUserIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedUserIds(next);
+  };
+
+  const handleExportSelectedDocx = () => {
+    const targets = users.filter((u) => selectedUserIds.has(u.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one user to export.');
+      return;
+    }
+    exportUsersToDocx(targets, `dovi-selected-users-${targets.length}.docx`);
+    toast.success(`Exported ${targets.length} selected users to DOCX`);
+  };
+
+  const handleExportSelectedPdf = () => {
+    const targets = users.filter((u) => selectedUserIds.has(u.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one user to export.');
+      return;
+    }
+    exportUsersToPdf(targets, `dovi-selected-users-${targets.length}.pdf`);
+    toast.success(`Exported ${targets.length} selected users to PDF`);
+  };
+
+  const handleExportAllDocx = () => {
+    if (users.length === 0) {
+      toast.error('No users available to export.');
+      return;
+    }
+    exportUsersToDocx(users, `dovi-all-users-${users.length}.docx`);
+    toast.success(`Exported ${users.length} users to DOCX`);
+  };
+
+  const handleExportAllPdf = () => {
+    if (users.length === 0) {
+      toast.error('No users available to export.');
+      return;
+    }
+    exportUsersToPdf(users, `dovi-all-users-${users.length}.pdf`);
+    toast.success(`Exported ${users.length} users to PDF`);
+  };
+
   if (isLoading) {
     return (
       <div style={pageContainerStyles}>
@@ -313,6 +373,42 @@ export default function UsersPage() {
           <p style={pageSubtitleStyles}>
             Manage buyer accounts, platform administrators, and vendor merchant verifications.
           </p>
+        </div>
+
+        {/* Action Export Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {selectedUserIds.size > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={handleExportSelectedDocx}
+                style={exportBtnStyles}
+              >
+                📄 Export Selected ({selectedUserIds.size}) DOCX
+              </button>
+              <button
+                type="button"
+                onClick={handleExportSelectedPdf}
+                style={exportBtnStyles}
+              >
+                📕 Export Selected ({selectedUserIds.size}) PDF
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleExportAllDocx}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Users DOCX
+          </button>
+          <button
+            type="button"
+            onClick={handleExportAllPdf}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Users PDF
+          </button>
         </div>
       </div>
 
@@ -518,6 +614,14 @@ export default function UsersPage() {
             <table style={spaciousTableStyles}>
               <thead>
                 <tr style={tableHeadRowStyles}>
+                  <th style={{ ...tableHeadCellStyles, width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length}
+                      onChange={handleToggleSelectAll}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
                   <th style={tableHeadCellStyles}>User Profile</th>
                   <th style={tableHeadCellStyles}>Role</th>
                   <th style={tableHeadCellStyles}>Login Access</th>
@@ -541,6 +645,15 @@ export default function UsersPage() {
 
                   return (
                     <tr key={u.id} style={tableDataRowStyles}>
+                      <td style={{ ...tableDataCellStyles, textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.has(u.id)}
+                          onChange={() => handleToggleSelectUser(u.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </td>
+
                       {/* User Profile Cell (Avatar + 2-line name & email) */}
                       <td style={tableDataCellStyles}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -1478,4 +1591,28 @@ const activateLoginBtnStyles: React.CSSProperties = {
   fontSize: '12.5px',
   fontWeight: 700,
   cursor: 'pointer',
+};
+
+const exportBtnStyles: React.CSSProperties = {
+  backgroundColor: 'var(--color-primary, #ff7a00)',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(255, 122, 0, 0.2)',
+};
+
+const secondaryExportBtnStyles: React.CSSProperties = {
+  backgroundColor: '#1f2937',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
 };

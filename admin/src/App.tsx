@@ -14,6 +14,7 @@ import ProductsPage from '@/pages/ProductsPage';
 import CategoriesPage from '@/pages/CategoriesPage';
 import OrdersPage from '@/pages/OrdersPage';
 import PaymentsPage from '@/pages/PaymentsPage';
+import EscrowPayoutsPage from '@/pages/EscrowPayoutsPage';
 import RefundsPage from '@/pages/RefundsPage';
 import ReviewsPage from '@/pages/ReviewsPage';
 import AuditLogsPage from '@/pages/AuditLogsPage';
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="payments" element={<PaymentsPage />} />
+            <Route path="escrow-payouts" element={<EscrowPayoutsPage />} />
             <Route path="refunds" element={<RefundsPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />

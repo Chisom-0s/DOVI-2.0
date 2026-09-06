@@ -1,17 +1,29 @@
 import type { APIError } from '@/types';
+import { NoInternetBanner } from './NoInternetBanner';
 
 // ============================================================
 // ApiErrorMessage
-// Displays both general errors and field-level validation errors
-// exactly as returned from the API. Never modifies error messages.
+// Displays general errors, field-level validation errors, and
+// renders NoInternetBanner when network/connection errors occur.
 // ============================================================
 interface ApiErrorMessageProps {
   error: APIError | null;
   className?: string;
+  onRetry?: () => void;
 }
 
-export function ApiErrorMessage({ error, className }: ApiErrorMessageProps) {
+export function ApiErrorMessage({ error, className, onRetry }: ApiErrorMessageProps) {
   if (!error) return null;
+
+  // Render No Internet Signal banner when a network error is detected
+  if (
+    error.code === 'NETWORK_ERROR' ||
+    error.message.toLowerCase().includes('internet signal') ||
+    error.message.toLowerCase().includes('check your connection') ||
+    error.message.toLowerCase().includes('network error')
+  ) {
+    return <NoInternetBanner onRetry={onRetry} className={className} />;
+  }
 
   return (
     <div className={`api-error ${className ?? ''}`} role="alert" aria-live="assertive">
