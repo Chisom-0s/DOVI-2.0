@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -137,7 +137,7 @@ export default function ProductsPage() {
                           alt={p.name}
                           style={productImgStyles}
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                            (e.target as HTMLImageElement).src = getProductFallbackImage(p);
                           }}
                         />
                         <div>

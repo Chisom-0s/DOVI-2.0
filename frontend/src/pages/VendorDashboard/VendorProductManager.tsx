@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
-import { getProductImageUrl, cacheLocalProductImage } from '@/utils/image';
+import { getProductImageUrl, cacheLocalProductImage, normalizeUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductVariant } from '@/types';
 
 interface ProductImageItem {
@@ -873,10 +873,18 @@ export default function VendorProductManager() {
                   <div style={imageGalleryGridStyles}>
                     {/* Existing Images (Edit mode) */}
                     {existingImages.map(img => {
-                      const url = img.thumbnail_url || img.image_url || img.url || '/logo.jpg?v=2';
+                      const fallback = getProductFallbackImage(editingProduct);
+                      const url = normalizeUrl(img.thumbnail_url || img.image_url || img.url) || fallback;
                       return (
                         <div key={img.id} style={imagePreviewCardStyles}>
-                          <img src={url} alt="Product photo" style={imagePreviewImgStyles} />
+                          <img
+                            src={url}
+                            alt="Product photo"
+                            style={imagePreviewImgStyles}
+                            onError={e => {
+                              (e.target as HTMLImageElement).src = fallback;
+                            }}
+                          />
                           <div style={imagePreviewBadgeStyles}>Active Photo</div>
                           <button
                             type="button"

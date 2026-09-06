@@ -174,24 +174,3 @@ const thumbnailImgStyles: React.CSSProperties = {
   objectFit: 'contain',
   borderRadius: 'calc(var(--radius-md) - 2px)',
 };
-
-const noImageContainerStyles: React.CSSProperties = {
-  aspectRatio: '1',
-  borderRadius: 'var(--radius-lg)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-bg-subtle)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-};
-
-const noImageTextStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 'var(--space-2)',
-  color: 'var(--color-text-muted)',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-medium)',
-};

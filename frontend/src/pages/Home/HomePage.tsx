@@ -4,7 +4,7 @@ import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
 import { homepageApi } from '@/api/homepage';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { HomepageSection, ProductSummary } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 
@@ -94,7 +94,7 @@ export default function HomePage() {
                   alt={p.name}
                   style={listThumbStyles}
                   onError={e => {
-                    (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                    (e.target as HTMLImageElement).src = getProductFallbackImage(p);
                   }}
                 />
                 <div style={{ flex: 1 }}>
@@ -124,7 +124,7 @@ export default function HomePage() {
                     alt={p.name}
                     style={largeCardImageStyles}
                     onError={e => {
-                      (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(p);
                     }}
                   />
                 </div>
@@ -216,7 +216,7 @@ export default function HomePage() {
                     alt={p.name}
                     style={autoTeaserImgStyles}
                     onError={e => {
-                      (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(p);
                     }}
                   />
                   <span style={autoTeaserBadgeStyles}>

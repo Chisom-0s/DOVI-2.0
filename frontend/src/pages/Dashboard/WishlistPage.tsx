@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { WishlistItem } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -70,7 +70,7 @@ export default function WishlistPage() {
                   src={getProductImageUrl(item.product)}
                   alt={item.product.name}
                   style={productImgStyles}
-                  onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                  onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
                 />
                 <button
                   onClick={() => handleRemove(item.id)}
