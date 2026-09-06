@@ -1,29 +1,35 @@
 import { useState } from 'react';
 import type { ProductImage } from '@/types';
+import { normalizeUrl, getProductFallbackImage } from '@/utils/image';
 
 interface ProductImageGalleryProps {
   images: ProductImage[];
+  product?: any;
 }
 
-export default function ProductImageGallery({ images }: ProductImageGalleryProps) {
+export default function ProductImageGallery({ images, product }: ProductImageGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({ transform: 'scale(1)', transformOrigin: 'center' });
 
-  // Use brand logo as the premium image fallback if S3 fails
-  const fallbackImage = '/logo.jpg?v=2';
+  // Use contextual product fallback image
+  const fallbackImage = getProductFallbackImage(product);
 
   if (!images || images.length === 0) {
     return (
-      <div style={noImageContainerStyles}>
-        <div style={noImageTextStyles}>
-          <span style={{ fontSize: '2rem' }}>📦</span>
-          <span>No Image Available</span>
+      <div style={galleryWrapperStyles}>
+        <div style={mainImageContainerStyles}>
+          <img
+            src={fallbackImage}
+            alt={product?.name || 'Product Image'}
+            style={mainImageStyles}
+          />
         </div>
       </div>
     );
   }
 
   const activeImage = images[activeIndex];
+  const activeSrc = normalizeUrl(activeImage?.url || activeImage?.image_url) || fallbackImage;
 
   // Mouse move handler for premium zoom on hover (desktop)
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -52,8 +58,8 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
         onMouseLeave={handleMouseLeave}
       >
         <img
-          src={activeImage.url || activeImage.image_url || fallbackImage}
-          alt={activeImage.alt_text || 'Product Image'}
+          src={activeSrc}
+          alt={activeImage?.alt_text || product?.name || 'Product Image'}
           style={{ ...mainImageStyles, ...zoomStyle }}
           onError={e => {
             (e.target as HTMLImageElement).src = fallbackImage;
@@ -68,27 +74,30 @@ export default function ProductImageGallery({ images }: ProductImageGalleryProps
       {/* Thumbnail Strip */}
       {images.length > 1 && (
         <div style={thumbnailStripStyles} className="hide-scrollbar">
-          {images.map((img, idx) => (
-            <button
-              key={img.id || idx}
-              onClick={() => setActiveIndex(idx)}
-              style={{
-                ...thumbnailBtnStyles,
-                borderColor: activeIndex === idx ? 'var(--color-primary)' : 'var(--color-border)',
-                boxShadow: activeIndex === idx ? '0 0 0 2px rgba(255, 122, 0, 0.15)' : 'none',
-              }}
-              aria-label={`View product image ${idx + 1}`}
-            >
-              <img
-                src={img.thumbnail_url || img.url || img.image_url || fallbackImage}
-                alt=""
-                style={thumbnailImgStyles}
-                onError={e => {
-                  (e.target as HTMLImageElement).src = fallbackImage;
+          {images.map((img, idx) => {
+            const thumbSrc = normalizeUrl(img.thumbnail_url || img.url || img.image_url) || fallbackImage;
+            return (
+              <button
+                key={img.id || idx}
+                onClick={() => setActiveIndex(idx)}
+                style={{
+                  ...thumbnailBtnStyles,
+                  borderColor: activeIndex === idx ? 'var(--color-primary)' : 'var(--color-border)',
+                  boxShadow: activeIndex === idx ? '0 0 0 2px rgba(255, 122, 0, 0.15)' : 'none',
                 }}
-              />
-            </button>
-          ))}
+                aria-label={`View product image ${idx + 1}`}
+              >
+                <img
+                  src={thumbSrc}
+                  alt=""
+                  style={thumbnailImgStyles}
+                  onError={e => {
+                    (e.target as HTMLImageElement).src = fallbackImage;
+                  }}
+                />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

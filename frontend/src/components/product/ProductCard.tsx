@@ -4,16 +4,13 @@ import toast from 'react-hot-toast';
 import { cartApi } from '@/api/cart';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 
 interface ProductCardProps {
   key?: string;
   product: ProductSummary;
 }
-
-// Branded placeholder fallback if product has no image or URL fails
-const fallbackImage = '/logo.jpg?v=2';
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -23,8 +20,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Fallback image helper
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.currentTarget;
-    if (!target.src.endsWith(fallbackImage)) {
-      target.src = fallbackImage;
+    const fallback = getProductFallbackImage(product);
+    if (target.src !== fallback) {
+      target.src = fallback;
     }
   };
 

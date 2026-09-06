@@ -1,7 +1,8 @@
 /**
  * Universal defensive product image resolver for DOVI 2.0 Admin.
  * Safely extracts primary thumbnail or full image across all API serializer variations,
- * resolves relative backend media URLs, and maintains local session previews.
+ * resolves relative backend media URLs, handles Cloudflare R2 public URL rewriting,
+ * and provides high-fidelity category fallback imagery when storage is offline or unauthenticated.
  */
 
 // In-memory cache for immediately uploaded product photos
@@ -30,19 +31,76 @@ export function getCachedLocalProductImage(productId: string): string | null {
   return null;
 }
 
-function normalizeUrl(url?: unknown): string | null {
+/**
+ * Curated high-resolution contextual fallback images.
+ * Prevents the repetitive company logo display when external image storage is unavailable or misconfigured.
+ */
+const CATEGORY_FALLBACKS: Record<string, string> = {
+  phone: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=800&q=80',
+  smartphone: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=800&q=80',
+  headphone: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+  audio: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+  laptop: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+  computer: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+  tablet: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=800&q=80',
+  ipad: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=800&q=80',
+  watch: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+  camera: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80',
+  fashion: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=800&q=80',
+  default: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80',
+};
+
+export function getProductFallbackImage(product?: any): string {
+  if (!product) return CATEGORY_FALLBACKS.default;
+
+  const targetStr = `${product.name || ''} ${product.category_name || ''} ${typeof product.category === 'string' ? product.category : product.category?.name || ''} ${product.description || ''}`.toLowerCase();
+
+  if (targetStr.includes('headphone') || targetStr.includes('sony') || targetStr.includes('audio') || targetStr.includes('earbud') || targetStr.includes('airpod')) {
+    return CATEGORY_FALLBACKS.headphone;
+  }
+  if (targetStr.includes('ipad') || targetStr.includes('tablet')) {
+    return CATEGORY_FALLBACKS.tablet;
+  }
+  if (targetStr.includes('macbook') || targetStr.includes('laptop') || targetStr.includes('computer') || targetStr.includes('pc')) {
+    return CATEGORY_FALLBACKS.laptop;
+  }
+  if (targetStr.includes('watch') || targetStr.includes('wearable')) {
+    return CATEGORY_FALLBACKS.watch;
+  }
+  if (targetStr.includes('camera') || targetStr.includes('photo')) {
+    return CATEGORY_FALLBACKS.camera;
+  }
+  if (targetStr.includes('phone') || targetStr.includes('iphone') || targetStr.includes('smartphone') || targetStr.includes('screenshot') || targetStr.includes('samsung')) {
+    return CATEGORY_FALLBACKS.smartphone;
+  }
+  if (targetStr.includes('shirt') || targetStr.includes('cloth') || targetStr.includes('shoe') || targetStr.includes('fashion')) {
+    return CATEGORY_FALLBACKS.fashion;
+  }
+
+  return CATEGORY_FALLBACKS.default;
+}
+
+export function normalizeUrl(url?: unknown): string | null {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
 
   // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints
   const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN;
-  if (r2PublicDomain && trimmed.includes('.r2.cloudflarestorage.com/')) {
-    const parts = trimmed.split('.r2.cloudflarestorage.com/');
-    if (parts[1]) {
-      const afterBucket = parts[1].replace(/^[^/]+\//, '');
-      const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      return `https://${cleanHost}/${afterBucket}`;
+  if (trimmed.includes('.r2.cloudflarestorage.com/')) {
+    if (r2PublicDomain) {
+      const parts = trimmed.split('.r2.cloudflarestorage.com/');
+      if (parts[1]) {
+        // Remove bucket prefix if present
+        const afterBucket = parts[1].replace(/^[^/]+\//, '');
+        const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        return `https://${cleanHost}/${afterBucket}`;
+      }
+    } else {
+      // Cloudflare's private S3 endpoint requires AWS SigV4 authorization.
+      // Without VITE_R2_PUBLIC_DOMAIN configured, direct browser requests will fail with 400 Bad Request.
+      // Return null so the caller can fall back to contextual product imagery instead of a broken request.
+      return null;
     }
   }
 
@@ -66,7 +124,7 @@ function normalizeUrl(url?: unknown): string | null {
 }
 
 export function getProductImageUrl(product?: any): string {
-  if (!product) return '/logo.jpg?v=2';
+  if (!product) return CATEGORY_FALLBACKS.default;
 
   // 0. Check for locally cached upload preview (instant feedback)
   const productId = product.id || product.uuid || product.reference_code;
@@ -145,7 +203,6 @@ export function getProductImageUrl(product?: any): string {
 
   if (flatUrl) return flatUrl;
 
-  return '/logo.jpg?v=2';
+  // 6. Graceful category-based fallback
+  return getProductFallbackImage(product);
 }
-
-

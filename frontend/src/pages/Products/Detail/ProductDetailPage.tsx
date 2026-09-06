@@ -156,7 +156,7 @@ export default function ProductDetailPage() {
       <div className="product-detail-grid">
         {/* Left Column: Image Gallery & Socials */}
         <div style={leftColStyles}>
-          <ProductImageGallery images={product.images || []} />
+          <ProductImageGallery images={product.images || []} product={product} />
           <ShareButtons productName={product.name} />
         </div>
 
