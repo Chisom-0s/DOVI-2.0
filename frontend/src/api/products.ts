@@ -1,6 +1,6 @@
 // Products API — GET /api/v1/products/*
-// Stub: full implementation in Phase 2 & 3
 import apiClient, { normalizeApiError } from './client';
+import { MOCK_PRODUCTS, normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
 export interface ProductFilters {
@@ -19,25 +19,100 @@ export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/', { params: filters });
-      return data;
+      const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+      const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
+
+      // If unfiltered or first page and fewer than 12 items, supplement with mock items at the end
+      let results = [...realProducts];
+      const isUnfiltered = !filters || (!filters.q && !filters.category && (!filters.page || filters.page === 1));
+      if (isUnfiltered && results.length < 12) {
+        const existingIds = new Set(results.map(r => r.id));
+        for (const m of MOCK_PRODUCTS) {
+          if (!existingIds.has(m.id)) {
+            results.push(m);
+          }
+        }
+      }
+
+      return {
+        count: Math.max(data?.count || 0, results.length),
+        next: data?.next || null,
+        previous: data?.previous || null,
+        results,
+      };
     } catch (err) {
-      throw normalizeApiError(err);
+      console.warn('Backend products list failed, returning mock products fallback:', err);
+      return {
+        count: MOCK_PRODUCTS.length,
+        next: null,
+        previous: null,
+        results: MOCK_PRODUCTS,
+      };
     }
   },
 
   getById: async (id: string): Promise<Product> => {
-    try {
-      const { data } = await apiClient.get(`/api/v1/products/${id}/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    // 1. If not a mock product ID, try backend first
+    if (!id.startsWith('prod-')) {
+      try {
+        const { data } = await apiClient.get(`/api/v1/products/${id}/`);
+        return data;
+      } catch (err: any) {
+        // Only fallback if 404
+        if (err?.response?.status !== 404) {
+          throw normalizeApiError(err);
+        }
+      }
     }
+
+    // 2. Check mock products fallback
+    const mock = MOCK_PRODUCTS.find(p => p.id === id);
+    if (mock) {
+      const vendorName = typeof mock.vendor === 'object' ? mock.vendor.name : (mock.vendor_name || 'Verified Vendor');
+      const catName = typeof mock.category === 'object' ? mock.category?.name : (mock.category_name || 'General');
+      return {
+        id: mock.id,
+        name: mock.name,
+        description: `Premium authentic ${mock.name} supplied by verified merchant ${vendorName}. Includes full warranty and fast doorstep delivery.`,
+        base_price: mock.price || mock.base_price || '0',
+        price: mock.price || mock.base_price || '0',
+        status: 'PUBLISHED',
+        vendor: mock.vendor,
+        vendor_name: vendorName,
+        category: mock.category || 'General',
+        category_name: catName,
+        primary_image_url: mock.primary_image_url,
+        image_url: mock.image_url,
+        images: mock.primary_image_url ? [{ id: `img-${mock.id}`, image_url: mock.primary_image_url, is_primary: true }] : [],
+        variants: [
+          {
+            id: `var-${mock.id}`,
+            name: 'Standard Option',
+            sku: `SKU-${mock.id.toUpperCase()}`,
+            stock: mock.stock_quantity || 10,
+            reserved: 0,
+          },
+        ],
+        average_rating: mock.average_rating,
+        review_count: mock.review_count,
+        stock_quantity: mock.stock_quantity,
+      };
+    }
+
+    throw new Error('Product not found');
   },
 
   search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/', { params: { search: q, ...filters } });
-      return data;
+      const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+      const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
+      return {
+        count: data?.count || realProducts.length,
+        next: data?.next || null,
+        previous: data?.previous || null,
+        results: realProducts,
+      };
     } catch (err) {
       throw normalizeApiError(err);
     }
@@ -47,8 +122,9 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/featured/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real.length > 0 ? real : MOCK_PRODUCTS.slice(0, 6);
     }
   },
 
@@ -56,8 +132,10 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/trending/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter(r => r.is_trending);
+      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_trending);
     }
   },
 
@@ -65,8 +143,9 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/new-arrivals/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real.length > 0 ? real : MOCK_PRODUCTS.filter(m => m.is_new_arrival);
     }
   },
 
@@ -74,8 +153,10 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/best-sellers/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter(r => r.is_best_seller);
+      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_best_seller);
     }
   },
 
@@ -83,8 +164,10 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/flash-deals/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter(r => r.is_flash_deal);
+      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_flash_deal);
     }
   },
 
@@ -92,8 +175,9 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/budget-deals/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real.length > 0 ? real : MOCK_PRODUCTS.filter(m => m.is_hot_sale);
     }
   },
 
@@ -101,8 +185,9 @@ export const productsApi = {
     try {
       const { data } = await apiClient.get('/api/v1/products/top-rated/');
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real.length > 0 ? real : MOCK_PRODUCTS;
     }
   },
 

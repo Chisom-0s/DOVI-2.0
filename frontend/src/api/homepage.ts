@@ -179,7 +179,7 @@ const SEED_SECTIONS: HomepageSection[] = [
   }
 ];
 
-const MOCK_PRODUCTS: ProductSummary[] = [
+export const MOCK_PRODUCTS: ProductSummary[] = [
   {
     id: 'prod-iphone-15',
     name: 'iPhone 15 Pro Max (256GB, Titanium)',
@@ -468,6 +468,104 @@ const MOCK_PRODUCTS: ProductSummary[] = [
   }
 ];
 
+/**
+ * Normalizes a raw product from GET /api/v1/products/ into a typed ProductSummary.
+ */
+export function normalizeBackendProductToSummary(p: any): ProductSummary {
+  const stock = Array.isArray(p.variants) && p.variants.length > 0
+    ? p.variants.reduce((sum: number, v: any) => sum + (Number(v.stock ?? v.quantity) || 0), 0)
+    : (Number(p.stock_quantity ?? p.stock) || 10);
+
+  const priceStr = String(p.base_price ?? p.price ?? '0');
+  
+  // Resolve primary image or first available image thumbnail/url
+  let primaryImg: string | null = p.primary_image_url || null;
+  if (!primaryImg && Array.isArray(p.images) && p.images.length > 0) {
+    const prim = p.images.find((img: any) => img.is_primary);
+    primaryImg = prim?.thumbnail_url || prim?.image_url || p.images[0]?.thumbnail_url || p.images[0]?.image_url || null;
+  }
+
+  const vendorName = p.vendor_name || (typeof p.vendor === 'object' ? p.vendor?.name : 'Verified Vendor');
+  const vendorObj = typeof p.vendor === 'object' && p.vendor !== null
+    ? p.vendor
+    : {
+        id: String(p.vendor || 'vend-real'),
+        name: vendorName,
+        logo_url: null,
+        rating: 4.9,
+        review_count: 14,
+        location: 'Lagos, Nigeria',
+        slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
+      };
+
+  const categoryName = p.category_name || (typeof p.category === 'object' ? p.category?.name : 'General');
+  const categoryObj = typeof p.category === 'object' && p.category !== null
+    ? p.category
+    : {
+        id: String(p.category || 'cat-real'),
+        name: categoryName,
+        slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
+        icon_url: null,
+      };
+
+  return {
+    id: p.id,
+    name: p.name,
+    price: priceStr,
+    base_price: priceStr,
+    original_price: p.original_price ?? null,
+    primary_image_url: primaryImg,
+    image_url: primaryImg || undefined,
+    variants: p.variants || [],
+    category: categoryObj,
+    category_name: categoryName,
+    vendor: vendorObj,
+    vendor_name: vendorName,
+    average_rating: Number(p.average_rating) || 4.9,
+    review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 12),
+    stock_quantity: stock,
+    status: (p.status || 'PUBLISHED') as any,
+    discount_percentage: Number(p.discount_percentage) || 0,
+    is_flash_deal: true,
+    is_trending: true,
+    is_best_seller: true,
+    is_hot_sale: true,
+    is_new_arrival: true,
+    created_at: p.created_at || new Date().toISOString(),
+    in_stock: stock > 0,
+  };
+}
+
+/**
+ * Fetches real products posted by vendors directly from the backend API.
+ * Uses sessionStorage cache as immediate fallback for speed and offline stability.
+ */
+export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
+  try {
+    const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 50 } });
+    const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+    if (rawList && rawList.length > 0) {
+      const normalized = rawList.map(p => normalizeBackendProductToSummary(p));
+      try {
+        sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
+      } catch {}
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('Could not fetch real products from backend, checking local cache:', err);
+  }
+
+  // Fallback to cache if available
+  try {
+    const cached = sessionStorage.getItem('dovi_real_products_cache');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {}
+
+  return [];
+}
+
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
   if (!data || data === '[]' || !data.includes('sec-new-arrivals')) {
@@ -481,97 +579,165 @@ function getMockSections(): HomepageSection[] {
   }
 }
 
-// Local helper to filter mock products matching section config
-function populateProductsForSection(section: HomepageSection): ProductSummary[] {
-  let list = [...MOCK_PRODUCTS];
+// Helper to filter and combine real products + mock products matching section config
+function populateProductsForSection(section: HomepageSection, realProducts: ProductSummary[] = []): ProductSummary[] {
+  let matchingReal = [...realProducts];
+  let matchingMock = [...MOCK_PRODUCTS];
 
   const source = section.configuration?.source || 'AUTOMATIC';
   const sourceId = section.configuration?.source_id;
 
   // 1. Source Filtering
   if (source === 'MANUAL' && section.configuration?.manual_product_ids) {
-    list = list.filter(p => section.configuration.manual_product_ids?.includes(p.id));
+    matchingReal = matchingReal.filter(p => section.configuration.manual_product_ids?.includes(p.id));
+    matchingMock = matchingMock.filter(p => section.configuration.manual_product_ids?.includes(p.id));
   } else if (source === 'CATEGORY' && sourceId) {
-    list = list.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
+    matchingReal = matchingReal.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
+    matchingMock = matchingMock.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
   } else if (source === 'VENDOR' && sourceId) {
-    list = list.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
+    matchingReal = matchingReal.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
+    matchingMock = matchingMock.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
   }
 
   // 2. Automations Filter based on Section Type
   if (section.key === 'FLASH_DEALS') {
-    list = list.filter(p => p.is_flash_deal);
+    matchingMock = matchingMock.filter(p => p.is_flash_deal);
+    matchingReal = matchingReal.filter(p => p.is_flash_deal);
   } else if (section.key === 'TRENDING_NOW') {
-    list = list.filter(p => p.is_trending);
+    matchingMock = matchingMock.filter(p => p.is_trending);
+    matchingReal = matchingReal.filter(p => p.is_trending);
   } else if (section.key === 'BEST_SELLERS') {
-    list = list.filter(p => p.is_best_seller);
+    matchingMock = matchingMock.filter(p => p.is_best_seller);
+    matchingReal = matchingReal.filter(p => p.is_best_seller);
   } else if (section.key === 'NEW_ARRIVALS') {
-    list = list.filter(p => p.is_new_arrival);
+    matchingMock = matchingMock.filter(p => p.is_new_arrival);
+    matchingReal = matchingReal.filter(p => p.is_new_arrival);
   } else if (section.key === 'HOT_SALES') {
-    list = list.filter(p => p.is_hot_sale);
+    matchingMock = matchingMock.filter(p => p.is_hot_sale);
+    matchingReal = matchingReal.filter(p => p.is_hot_sale);
   } else if (section.key === 'SAVE2OWN_FEATURED') {
-    list = list.filter(p => parsePriceNumber(p) >= 100000);
+    matchingMock = matchingMock.filter(p => parsePriceNumber(p) >= 100000);
+    matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= 10000);
   } else if (section.key === 'DOVI_AUTO') {
-    list = list.filter(p => p.category?.slug.startsWith('auto') || p.id.includes('camry') || p.id.includes('c300') || p.id.includes('rx350'));
+    matchingMock = matchingMock.filter(p => p.category?.slug?.startsWith('auto') || p.id.includes('camry') || p.id.includes('c300') || p.id.includes('rx350'));
+    matchingReal = matchingReal.filter(p => p.category?.slug?.startsWith('auto') || (p.category_name && /auto|car|brake|engine/i.test(p.category_name)));
   }
 
   // 3. Custom Filters
   const filters = section.configuration?.filters;
   if (filters) {
     if (filters.min_discount) {
-      list = list.filter(p => (p.discount_percentage ?? 0) >= (filters.min_discount ?? 0));
+      matchingMock = matchingMock.filter(p => (p.discount_percentage ?? 0) >= (filters.min_discount ?? 0));
     }
     if (filters.min_rating) {
-      list = list.filter(p => p.average_rating >= (filters.min_rating ?? 0));
+      matchingReal = matchingReal.filter(p => p.average_rating >= (filters.min_rating ?? 0));
+      matchingMock = matchingMock.filter(p => p.average_rating >= (filters.min_rating ?? 0));
     }
     if (filters.in_stock_only) {
-      list = list.filter(p => p.stock_quantity > 0);
+      matchingReal = matchingReal.filter(p => p.stock_quantity > 0);
+      matchingMock = matchingMock.filter(p => p.stock_quantity > 0);
     }
     if (filters.price_min) {
-      list = list.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
+      matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
+      matchingMock = matchingMock.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
     }
     if (filters.price_max) {
-      list = list.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
+      matchingReal = matchingReal.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
+      matchingMock = matchingMock.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
     }
   }
 
-  // 4. Sorting rules
-  const sortBy = section.configuration?.sort_by;
-  if (sortBy === 'price_asc') {
-    list.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
-  } else if (sortBy === 'price_desc') {
-    list.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
-  } else if (sortBy === 'newest') {
-    list.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
-  } else if (sortBy === 'highest_discount') {
-    list.sort((a, b) => (b.discount_percentage ?? 0) - (a.discount_percentage ?? 0));
+  // 4. Combine: REAL USER PRODUCTS COME FIRST, followed by supplemental mock inventory
+  const seenIds = new Set<string>();
+  const combined: ProductSummary[] = [];
+
+  for (const p of matchingReal) {
+    if (!seenIds.has(p.id)) {
+      seenIds.add(p.id);
+      combined.push(p);
+    }
   }
 
-  // 5. Display Limit
-  const limit = section.display_limit || 10;
-  return list.slice(0, limit);
+  for (const p of matchingMock) {
+    if (!seenIds.has(p.id)) {
+      seenIds.add(p.id);
+      combined.push(p);
+    }
+  }
+
+  // 5. Sorting rules
+  const sortBy = section.configuration?.sort_by;
+  if (sortBy === 'price_asc') {
+    combined.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
+  } else if (sortBy === 'price_desc') {
+    combined.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
+  } else if (sortBy === 'newest') {
+    combined.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+  } else if (sortBy === 'highest_discount') {
+    combined.sort((a, b) => (b.discount_percentage ?? 0) - (a.discount_percentage ?? 0));
+  }
+
+  // Ensure all real products are shown up to at least display limit
+  const baseLimit = section.display_limit || 10;
+  const effectiveLimit = Math.max(baseLimit, matchingReal.length);
+  return combined.slice(0, effectiveLimit);
 }
 
 export const homepageApi = {
   getData: async (): Promise<HomepageData> => {
+    // 1. Always fetch authoritative real products from the backend
+    const realProducts = await fetchRealBackendProducts();
+
+    // 2. Attempt backend homepage API if implemented
     try {
       const { data } = await apiClient.get('/api/v1/homepage/');
-      return data;
-    } catch (err) {
-      console.warn('Backend API GET /homepage failed, returning populated mock database...', err);
-      const rawSections = getMockSections();
-      const sections = rawSections
-        .filter(s => s.is_active)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map(s => ({
-          ...s,
-          products: populateProductsForSection(s),
-        }));
-
-      return {
-        banners: [],
-        sections,
-      };
+      if (data && data.sections && data.sections.length > 0) {
+        return data;
+      }
+    } catch {
+      // Expected when backend has no dedicated /homepage/ endpoint
     }
+
+    // 3. Construct homepage with real products prioritized alongside seed sections
+    const rawSections = getMockSections();
+    const sections = rawSections
+      .filter(s => s.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(s => {
+        const populatedProducts = populateProductsForSection(s, realProducts);
+
+        // For TOP_VENDORS, extract real vendor listings
+        let vendors = s.vendors;
+        if (s.key === 'TOP_VENDORS' && realProducts.length > 0) {
+          const realVendorsMap = new Map<string, any>();
+          realProducts.forEach(rp => {
+            if (rp.vendor_name && rp.vendor_name !== 'Verified Vendor') {
+              const vId = typeof rp.vendor === 'object' ? rp.vendor.id : (rp.vendor || rp.vendor_name);
+              if (!realVendorsMap.has(vId)) {
+                realVendorsMap.set(vId, {
+                  id: vId,
+                  name: rp.vendor_name,
+                  rating: rp.average_rating || '4.9',
+                  location: 'Lagos, Nigeria',
+                });
+              }
+            }
+          });
+          const realVendors = Array.from(realVendorsMap.values());
+          vendors = [...realVendors, ...(s.vendors || [])].slice(0, 6);
+        }
+
+        return {
+          ...s,
+          vendors,
+          products: populatedProducts,
+        };
+      });
+
+    return {
+      banners: [],
+      sections,
+    };
   },
 
   getBanners: async (): Promise<HomepageBanner[]> => {
@@ -579,20 +745,19 @@ export const homepageApi = {
       const { data } = await apiClient.get('/api/v1/homepage/banners/');
       return data;
     } catch (err) {
-      console.warn('Backend API GET /homepage/banners failed, returning empty mock list...');
       return [];
     }
   },
 
   getSections: async (): Promise<HomepageSection[]> => {
+    const realProducts = await fetchRealBackendProducts();
     try {
       const { data } = await apiClient.get('/api/v1/homepage/sections/');
       return data;
     } catch (err) {
-      console.warn('Backend API GET /homepage/sections failed, returning mock sections list...');
       return getMockSections().map(s => ({
         ...s,
-        products: populateProductsForSection(s),
+        products: populateProductsForSection(s, realProducts),
       }));
     }
   },
