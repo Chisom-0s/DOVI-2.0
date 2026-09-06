@@ -3,7 +3,6 @@ import { Toaster } from 'react-hot-toast';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { AdminAuthGuard } from '@/components/guards/AdminAuthGuard';
 import AdminLayout from '@/components/layout/AdminLayout';
-import ServerStatusIndicator from '@/components/common/ServerStatusIndicator';
 
 // Pages
 import LoginPage from '@/pages/LoginPage';
@@ -56,7 +55,6 @@ export default function App() {
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>
         </Routes>
-        <ServerStatusIndicator />
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       </AdminAuthProvider>
     </BrowserRouter>
