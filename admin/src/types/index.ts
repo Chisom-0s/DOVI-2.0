@@ -57,6 +57,24 @@ export interface User {
   vendor_status?: string;
 }
 
+export interface AdminCreateUserPayload {
+  email: string;
+  password?: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface AdminUpdateUserPayload {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  role?: UserRole;
+  status?: AccountStatus;
+  is_active?: boolean;
+  is_email_verified?: boolean;
+}
+
 export interface AuthTokens {
   access: string;
   refresh: string;

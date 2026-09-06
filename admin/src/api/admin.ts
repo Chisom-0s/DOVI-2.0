@@ -2,6 +2,8 @@ import apiClient, { normalizeApiError } from './client';
 import type {
   PaginatedResponse,
   User,
+  AdminCreateUserPayload,
+  AdminUpdateUserPayload,
   Vendor,
   ProductSummary,
   Category,
@@ -254,6 +256,50 @@ export const adminApi = {
     try {
       const { data } = await apiClient.patch(`/api/v1/admin/users/${id}/activate/`);
       return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createAdmin: async (payload: AdminCreateUserPayload): Promise<User> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/users/create-admin/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateUser: async (id: string, payload: AdminUpdateUserPayload): Promise<User> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/admin/users/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  promoteToAdmin: async (id: string): Promise<User> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/users/${id}/promote/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  demoteAdmin: async (id: string, role: 'BUYER' | 'VENDOR' = 'BUYER'): Promise<User> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/users/${id}/demote/`, { role });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteUser: async (id: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/api/v1/admin/users/${id}/`);
     } catch (err) {
       throw normalizeApiError(err);
     }

@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
-import type { User, APIError } from '@/types';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import type { User, APIError, UserRole, AccountStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -58,6 +59,7 @@ const LoadingSpinnerIcon = ({ size = 15, color = 'currentColor' }: { size?: numb
 
 export default function UsersPage() {
   const navigate = useNavigate();
+  const { user: currentAdmin } = useAdminAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
@@ -69,6 +71,42 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
   const [actionType, setActionType] = useState<'APPROVE_VENDOR' | 'REJECT_VENDOR' | 'SUSPEND_VENDOR' | 'LOGIN_STATUS' | null>(null);
+
+  // Modals for User & Admin Management
+  const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
+  const [createAdminForm, setCreateAdminForm] = useState({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+  });
+  const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    role: 'BUYER' as UserRole,
+    status: 'ACTIVE' as AccountStatus,
+    is_email_verified: false,
+  });
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [userToPromote, setUserToPromote] = useState<User | null>(null);
+  const [isSubmittingPromote, setIsSubmittingPromote] = useState(false);
+
+  const [showDemoteModal, setShowDemoteModal] = useState(false);
+  const [userToDemote, setUserToDemote] = useState<User | null>(null);
+  const [demoteRole, setDemoteRole] = useState<'BUYER' | 'VENDOR'>('BUYER');
+  const [isSubmittingDemote, setIsSubmittingDemote] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -282,6 +320,158 @@ export default function UsersPage() {
     }
   };
 
+  // --- Admin User Lifecycle Actions ---
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createAdminForm.email || !createAdminForm.password || !createAdminForm.first_name) {
+      toast.error('Please fill in all required fields.');
+      return;
+    }
+    if (createAdminForm.password.length < 8) {
+      toast.error('Password must be at least 8 characters.');
+      return;
+    }
+
+    setIsSubmittingAdmin(true);
+    try {
+      const created = await adminApi.createAdmin(createAdminForm);
+      toast.success(`Administrator account created for ${created.email}!`);
+      setUsers(prev => [created, ...prev]);
+      setShowCreateAdminModal(false);
+      setCreateAdminForm({ email: '', password: '', first_name: '', last_name: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create administrator account.');
+    } finally {
+      setIsSubmittingAdmin(false);
+    }
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setEditingUser(user);
+    setEditForm({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      phone: user.phone || user.profile?.phone_number || '',
+      role: user.role,
+      status: user.status,
+      is_email_verified: Boolean(user.is_email_verified),
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setIsSubmittingEdit(true);
+    try {
+      const updated = await adminApi.updateUser(editingUser.id, {
+        first_name: editForm.first_name,
+        last_name: editForm.last_name,
+        email: editForm.email,
+        phone: editForm.phone,
+        role: editForm.role,
+        status: editForm.status,
+        is_email_verified: editForm.is_email_verified,
+      });
+
+      toast.success(`Account details for ${updated.email} updated successfully!`);
+      setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
+      if (selectedUser && selectedUser.id === updated.id) {
+        setSelectedUser(updated);
+      }
+      setShowEditModal(false);
+      setEditingUser(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update user details.');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const handlePromote = (user: User) => {
+    setUserToPromote(user);
+    setShowPromoteModal(true);
+  };
+
+  const handleConfirmPromote = async () => {
+    if (!userToPromote) return;
+    setIsSubmittingPromote(true);
+    try {
+      const updated = await adminApi.promoteToAdmin(userToPromote.id);
+      toast.success(`${updated.first_name || updated.email} has been promoted to Administrator!`);
+      setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
+      if (selectedUser && selectedUser.id === updated.id) {
+        setSelectedUser(updated);
+      }
+      setShowPromoteModal(false);
+      setUserToPromote(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to promote user to administrator.');
+    } finally {
+      setIsSubmittingPromote(false);
+    }
+  };
+
+  const handleDemote = (user: User) => {
+    if (user.id === currentAdmin?.id) {
+      toast.error('You cannot demote your own active administrator account.');
+      return;
+    }
+    setUserToDemote(user);
+    setDemoteRole('BUYER');
+    setShowDemoteModal(true);
+  };
+
+  const handleConfirmDemote = async () => {
+    if (!userToDemote) return;
+    setIsSubmittingDemote(true);
+    try {
+      const updated = await adminApi.demoteAdmin(userToDemote.id, demoteRole);
+      toast.success(`Admin privileges removed. Account updated to ${demoteRole}.`);
+      setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
+      if (selectedUser && selectedUser.id === updated.id) {
+        setSelectedUser(updated);
+      }
+      setShowDemoteModal(false);
+      setUserToDemote(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to demote administrator.');
+    } finally {
+      setIsSubmittingDemote(false);
+    }
+  };
+
+  const handleDelete = (user: User) => {
+    if (user.id === currentAdmin?.id) {
+      toast.error('You cannot delete your own active administrator account.');
+      return;
+    }
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsSubmittingDelete(true);
+    try {
+      await adminApi.deleteUser(userToDelete.id);
+      toast.success(`User account for ${userToDelete.email} has been deleted.`);
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      if (selectedUser && selectedUser.id === userToDelete.id) {
+        setSelectedUser(null);
+      }
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete user account.');
+    } finally {
+      setIsSubmittingDelete(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div style={pageContainerStyles}>
@@ -314,6 +504,17 @@ export default function UsersPage() {
             Manage buyer accounts, platform administrators, and vendor merchant verifications.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateAdminModal(true)}
+          style={primaryCreateAdminBtnStyles}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          + Create Admin
+        </button>
       </div>
 
       <ApiErrorMessage error={error} />
@@ -592,13 +793,33 @@ export default function UsersPage() {
 
                       {/* Actions */}
                       <td style={{ ...tableDataCellStyles, textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedUser(u)}
-                          style={inspectBtnStyles}
-                        >
-                          Inspect Account
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                          {u.role !== 'ADMIN' && (
+                            <button
+                              type="button"
+                              onClick={() => handlePromote(u)}
+                              title="Promote to Administrator"
+                              style={quickPromoteBtnStyles}
+                            >
+                              🛡️ Promote
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(u)}
+                            title="Edit User Details"
+                            style={quickEditBtnStyles}
+                          >
+                            ✎ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedUser(u)}
+                            style={inspectBtnStyles}
+                          >
+                            Inspect
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -674,7 +895,16 @@ export default function UsersPage() {
             <div style={modalBodyContentStyles}>
               {/* Section 1: Account & Profile Details */}
               <div style={infoSectionCardStyles}>
-                <div style={infoSectionHeaderStyles}>Account & Contact Details</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={infoSectionHeaderStyles}>Account & Contact Details</div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(selectedUser)}
+                    style={editDetailsBtnStyles}
+                  >
+                    ✎ Edit Details
+                  </button>
+                </div>
                 <div style={infoGridTwoColStyles}>
                   <div style={infoFieldBlockStyles}>
                     <span style={infoFieldLabelStyles}>Account Role</span>
@@ -865,20 +1095,64 @@ export default function UsersPage() {
                 </div>
               )}
 
-              {/* Section 3: Security & Login Controls */}
-              {selectedUser.role !== 'ADMIN' && (
-                <div style={securitySectionStyles}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
-                      Login Access Control
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                      {selectedUser.status === 'ACTIVE'
-                        ? 'Prevent this user from logging into the platform.'
-                        : 'Restore user login access to the platform.'}
-                    </div>
+              {/* Section 3: Platform Role & Administrative Control */}
+              <div style={roleControlSectionStyles}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                    Platform Role & Administrative Status
                   </div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    {selectedUser.role === 'ADMIN'
+                      ? 'This account has full platform administrative access and permissions.'
+                      : 'Grant administrative access or modify platform permissions for this user.'}
+                  </div>
+                </div>
 
+                <div>
+                  {selectedUser.role !== 'ADMIN' ? (
+                    <button
+                      type="button"
+                      disabled={isActionPending}
+                      onClick={() => handlePromote(selectedUser)}
+                      style={promoteActionBtnStyles}
+                    >
+                      🛡️ Promote to Admin
+                    </button>
+                  ) : selectedUser.id === currentAdmin?.id ? (
+                    <div style={selfProtectionNoticeStyles}>
+                      🛡️ Active Admin Session (Cannot Demote Self)
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isActionPending}
+                      onClick={() => handleDemote(selectedUser)}
+                      style={demoteActionBtnStyles}
+                    >
+                      Demote to User
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Security & Login Controls */}
+              <div style={securitySectionStyles}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>
+                    Login Access Control
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                    {selectedUser.id === currentAdmin?.id
+                      ? 'You cannot suspend your own active administrator login access.'
+                      : selectedUser.status === 'ACTIVE'
+                      ? 'Prevent this user from logging into the platform.'
+                      : 'Restore user login access to the platform.'}
+                  </div>
+                </div>
+
+                {selectedUser.id === currentAdmin?.id ? (
+                  <span style={selfProtectionNoticeStyles}>Cannot Suspend Self</span>
+                ) : (
                   <button
                     type="button"
                     disabled={isActionPending}
@@ -905,8 +1179,496 @@ export default function UsersPage() {
                       'Restore Login Access'
                     )}
                   </button>
+                )}
+              </div>
+
+              {/* Section 5: Danger Zone (Account Deletion) */}
+              <div style={dangerZoneSectionStyles}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#991b1b' }}>
+                    Danger Zone: Permanent Deletion
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                    {selectedUser.id === currentAdmin?.id
+                      ? 'You cannot delete your own active administrator account.'
+                      : 'Permanently remove this user account and its associated records.'}
+                  </div>
                 </div>
-              )}
+
+                {selectedUser.id === currentAdmin?.id ? (
+                  <span style={selfProtectionNoticeStyles}>Cannot Delete Self</span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isActionPending}
+                    onClick={() => handleDelete(selectedUser)}
+                    style={deleteUserBtnStyles}
+                  >
+                    🗑 Delete Account
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 1: Create Admin Modal */}
+      {showCreateAdminModal && (
+        <div style={modalBackdropStyles}>
+          <div style={dialogCardStyles}>
+            <div style={dialogHeaderStyles}>
+              <div style={dialogTitleStyles}>
+                <span style={{ fontSize: '20px' }}>🛡️</span>
+                <span>Create Platform Administrator</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateAdminModal(false)}
+                style={dialogCloseBtnStyles}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAdmin}>
+              <div style={dialogBodyStyles}>
+                <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+                  Create a new platform administrator account with full dashboard access and administrative rights.
+                </div>
+
+                <div style={formRowTwoColStyles}>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>First Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createAdminForm.first_name}
+                      onChange={(e) => setCreateAdminForm({ ...createAdminForm, first_name: e.target.value })}
+                      placeholder="e.g. Victor"
+                      style={formInputStyles}
+                    />
+                  </div>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Last Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createAdminForm.last_name}
+                      onChange={(e) => setCreateAdminForm({ ...createAdminForm, last_name: e.target.value })}
+                      placeholder="e.g. Administrator"
+                      style={formInputStyles}
+                    />
+                  </div>
+                </div>
+
+                <div style={formGroupStyles}>
+                  <label style={formLabelStyles}>Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    value={createAdminForm.email}
+                    onChange={(e) => setCreateAdminForm({ ...createAdminForm, email: e.target.value })}
+                    placeholder="admin@dovi.com"
+                    style={formInputStyles}
+                  />
+                </div>
+
+                <div style={formGroupStyles}>
+                  <label style={formLabelStyles}>Password * (Min 8 characters)</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={createAdminForm.password}
+                    onChange={(e) => setCreateAdminForm({ ...createAdminForm, password: e.target.value })}
+                    placeholder="••••••••••••"
+                    style={formInputStyles}
+                  />
+                </div>
+              </div>
+
+              <div style={dialogFooterStyles}>
+                <button
+                  type="button"
+                  disabled={isSubmittingAdmin}
+                  onClick={() => setShowCreateAdminModal(false)}
+                  style={cancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdmin}
+                  style={submitPrimaryBtnStyles}
+                >
+                  {isSubmittingAdmin ? (
+                    <>
+                      <LoadingSpinnerIcon color="#ffffff" />
+                      <span>Creating Admin...</span>
+                    </>
+                  ) : (
+                    <span>Create Administrator</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Edit User Details Modal */}
+      {showEditModal && editingUser && (
+        <div style={modalBackdropStyles}>
+          <div style={dialogCardStyles}>
+            <div style={dialogHeaderStyles}>
+              <div style={dialogTitleStyles}>
+                <span style={{ fontSize: '20px' }}>✎</span>
+                <div>
+                  <div>Edit Account Details</div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>
+                    {editingUser.email}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                }}
+                style={dialogCloseBtnStyles}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit}>
+              <div style={dialogBodyStyles}>
+                <div style={formRowTwoColStyles}>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>First Name</label>
+                    <input
+                      type="text"
+                      value={editForm.first_name}
+                      onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+                      placeholder="First name"
+                      style={formInputStyles}
+                    />
+                  </div>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Last Name</label>
+                    <input
+                      type="text"
+                      value={editForm.last_name}
+                      onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                      placeholder="Last name"
+                      style={formInputStyles}
+                    />
+                  </div>
+                </div>
+
+                <div style={formRowTwoColStyles}>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      style={formInputStyles}
+                    />
+                  </div>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Phone Number</label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      placeholder="e.g. +234 800 000 0000"
+                      style={formInputStyles}
+                    />
+                  </div>
+                </div>
+
+                <div style={formRowTwoColStyles}>
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Account Role</label>
+                    <select
+                      value={editForm.role}
+                      disabled={editingUser.id === currentAdmin?.id && editForm.role === 'ADMIN'}
+                      onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
+                      style={formSelectStyles}
+                    >
+                      <option value="BUYER">BUYER</option>
+                      <option value="VENDOR">VENDOR</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                    {editingUser.id === currentAdmin?.id && (
+                      <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        Self-demotion is restricted while signed in.
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={formGroupStyles}>
+                    <label style={formLabelStyles}>Login Status</label>
+                    <select
+                      value={editForm.status}
+                      disabled={editingUser.id === currentAdmin?.id}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as AccountStatus })}
+                      style={formSelectStyles}
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="SUSPENDED">SUSPENDED</option>
+                    </select>
+                    {editingUser.id === currentAdmin?.id && (
+                      <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        Self-suspension is restricted.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.is_email_verified}
+                      onChange={(e) => setEditForm({ ...editForm, is_email_verified: e.target.checked })}
+                      style={{ width: '16px', height: '16px', accentColor: '#10b981' }}
+                    />
+                    <span>Mark Email as Verified</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={dialogFooterStyles}>
+                <button
+                  type="button"
+                  disabled={isSubmittingEdit}
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                  }}
+                  style={cancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  style={submitPrimaryBtnStyles}
+                >
+                  {isSubmittingEdit ? (
+                    <>
+                      <LoadingSpinnerIcon color="#ffffff" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Promote to Admin Modal */}
+      {showPromoteModal && userToPromote && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...dialogCardStyles, maxWidth: '440px' }}>
+            <div style={dialogHeaderStyles}>
+              <div style={dialogTitleStyles}>
+                <span style={{ fontSize: '20px' }}>🛡️</span>
+                <span>Promote to Platform Admin</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPromoteModal(false);
+                  setUserToPromote(null);
+                }}
+                style={dialogCloseBtnStyles}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div style={dialogBodyStyles}>
+              <p style={{ fontSize: '13.5px', color: '#334155', lineHeight: 1.5, margin: 0 }}>
+                Are you sure you want to promote <strong>{userToPromote.email}</strong> to a <strong>Platform Administrator</strong>?
+              </p>
+              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px', marginTop: '14px', fontSize: '12.5px', color: '#166534', lineHeight: 1.4 }}>
+                ✓ This user will gain full staff access to the Admin Dashboard, user management, vendor approvals, and platform financials.
+              </div>
+            </div>
+
+            <div style={dialogFooterStyles}>
+              <button
+                type="button"
+                disabled={isSubmittingPromote}
+                onClick={() => {
+                  setShowPromoteModal(false);
+                  setUserToPromote(null);
+                }}
+                style={cancelBtnStyles}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingPromote}
+                onClick={handleConfirmPromote}
+                style={{ ...submitPrimaryBtnStyles, backgroundColor: '#10b981' }}
+              >
+                {isSubmittingPromote ? (
+                  <>
+                    <LoadingSpinnerIcon color="#ffffff" />
+                    <span>Promoting...</span>
+                  </>
+                ) : (
+                  <span>Confirm Promotion</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 4: Demote Admin Modal */}
+      {showDemoteModal && userToDemote && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...dialogCardStyles, maxWidth: '440px' }}>
+            <div style={dialogHeaderStyles}>
+              <div style={dialogTitleStyles}>
+                <span style={{ fontSize: '20px' }}>⚠️</span>
+                <span>Demote Administrator</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDemoteModal(false);
+                  setUserToDemote(null);
+                }}
+                style={dialogCloseBtnStyles}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div style={dialogBodyStyles}>
+              <p style={{ fontSize: '13.5px', color: '#334155', lineHeight: 1.5, margin: 0 }}>
+                Revoke administrative privileges for <strong>{userToDemote.email}</strong>?
+              </p>
+
+              <div style={{ marginTop: '16px' }}>
+                <label style={formLabelStyles}>Assign New Account Role:</label>
+                <select
+                  value={demoteRole}
+                  onChange={(e) => setDemoteRole(e.target.value as 'BUYER' | 'VENDOR')}
+                  style={formSelectStyles}
+                >
+                  <option value="BUYER">BUYER (Regular Shopper)</option>
+                  <option value="VENDOR">VENDOR (Store Merchant)</option>
+                </select>
+              </div>
+
+              <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '8px', padding: '12px', marginTop: '14px', fontSize: '12px', color: '#92400e', lineHeight: 1.4 }}>
+                This user will lose access to all admin tools, management controls, and staff permissions immediately.
+              </div>
+            </div>
+
+            <div style={dialogFooterStyles}>
+              <button
+                type="button"
+                disabled={isSubmittingDemote}
+                onClick={() => {
+                  setShowDemoteModal(false);
+                  setUserToDemote(null);
+                }}
+                style={cancelBtnStyles}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDemote}
+                onClick={handleConfirmDemote}
+                style={{ ...submitDangerBtnStyles }}
+              >
+                {isSubmittingDemote ? (
+                  <>
+                    <LoadingSpinnerIcon color="#ffffff" />
+                    <span>Demoting...</span>
+                  </>
+                ) : (
+                  <span>Confirm Demotion</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 5: Delete User Modal */}
+      {showDeleteModal && userToDelete && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...dialogCardStyles, maxWidth: '440px' }}>
+            <div style={dialogHeaderStyles}>
+              <div style={dialogTitleStyles}>
+                <span style={{ fontSize: '20px' }}>🗑️</span>
+                <span style={{ color: '#dc2626' }}>Permanently Delete User</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+                style={dialogCloseBtnStyles}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div style={dialogBodyStyles}>
+              <p style={{ fontSize: '13.5px', color: '#334155', lineHeight: 1.5, margin: 0 }}>
+                Are you sure you want to permanently delete the user account for <strong>{userToDelete.email}</strong>?
+              </p>
+              <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '14px', fontSize: '12.5px', color: '#991b1b', lineHeight: 1.4 }}>
+                ⚠️ <strong>Warning:</strong> This action cannot be reversed. All user profile records, settings, and permissions will be permanently removed.
+              </div>
+            </div>
+
+            <div style={dialogFooterStyles}>
+              <button
+                type="button"
+                disabled={isSubmittingDelete}
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+                style={cancelBtnStyles}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDelete}
+                onClick={handleConfirmDelete}
+                style={submitDangerBtnStyles}
+              >
+                {isSubmittingDelete ? (
+                  <>
+                    <LoadingSpinnerIcon color="#ffffff" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete Permanently</span>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1478,4 +2240,284 @@ const activateLoginBtnStyles: React.CSSProperties = {
   fontSize: '12.5px',
   fontWeight: 700,
   cursor: 'pointer',
+};
+
+export const primaryCreateAdminBtnStyles: React.CSSProperties = {
+  backgroundColor: '#0f172a',
+  color: '#ffffff',
+  border: 'none',
+  padding: '10px 18px',
+  borderRadius: '10px',
+  fontSize: '13px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+  boxShadow: '0 4px 6px -1px rgba(15, 23, 42, 0.1)',
+  transition: 'all 0.15s ease',
+};
+
+export const quickPromoteBtnStyles: React.CSSProperties = {
+  backgroundColor: '#ecfdf5',
+  color: '#065f46',
+  border: '1px solid #a7f3d0',
+  padding: '5px 10px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+};
+
+export const quickEditBtnStyles: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  color: '#334155',
+  border: '1px solid #cbd5e1',
+  padding: '5px 10px',
+  borderRadius: '6px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+};
+
+const editDetailsBtnStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  border: '1px solid #cbd5e1',
+  padding: '6px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+};
+
+const roleControlSectionStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '16px',
+  backgroundColor: '#f8fafc',
+  border: '1px solid #e2e8f0',
+  borderRadius: '12px',
+};
+
+const promoteActionBtnStyles: React.CSSProperties = {
+  backgroundColor: '#10b981',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 16px',
+  borderRadius: '8px',
+  fontSize: '12.5px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+};
+
+const demoteActionBtnStyles: React.CSSProperties = {
+  backgroundColor: '#fef3c7',
+  color: '#92400e',
+  border: '1px solid #fde68a',
+  padding: '8px 16px',
+  borderRadius: '8px',
+  fontSize: '12.5px',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const dangerZoneSectionStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '16px',
+  backgroundColor: '#fef2f2',
+  border: '1px solid #fecaca',
+  borderRadius: '12px',
+};
+
+const deleteUserBtnStyles: React.CSSProperties = {
+  backgroundColor: '#dc2626',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 16px',
+  borderRadius: '8px',
+  fontSize: '12.5px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+};
+
+const selfProtectionNoticeStyles: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#64748b',
+  backgroundColor: '#f1f5f9',
+  border: '1px solid #e2e8f0',
+  padding: '6px 12px',
+  borderRadius: '6px',
+  display: 'inline-block',
+};
+
+const modalBackdropStyles: React.CSSProperties = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(15, 23, 42, 0.65)',
+  backdropFilter: 'blur(4px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1100,
+  padding: '16px',
+};
+
+const dialogCardStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  borderRadius: '16px',
+  maxWidth: '520px',
+  width: '100%',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  border: '1px solid #e2e8f0',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const dialogHeaderStyles: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '20px 24px',
+  borderBottom: '1px solid #f1f5f9',
+};
+
+const dialogTitleStyles: React.CSSProperties = {
+  fontSize: '16.5px',
+  fontWeight: 700,
+  color: '#0f172a',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+};
+
+const dialogCloseBtnStyles: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  fontSize: '24px',
+  color: '#94a3b8',
+  cursor: 'pointer',
+  lineHeight: 1,
+  padding: '0 4px',
+};
+
+const dialogBodyStyles: React.CSSProperties = {
+  padding: '24px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '16px',
+};
+
+const dialogFooterStyles: React.CSSProperties = {
+  padding: '16px 24px',
+  backgroundColor: '#f8fafc',
+  borderTop: '1px solid #e2e8f0',
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: '12px',
+};
+
+const cancelBtnStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  padding: '9px 18px',
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#475569',
+  cursor: 'pointer',
+};
+
+const submitPrimaryBtnStyles: React.CSSProperties = {
+  backgroundColor: '#0f172a',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '8px',
+  padding: '9px 20px',
+  fontSize: '13px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+};
+
+const submitDangerBtnStyles: React.CSSProperties = {
+  backgroundColor: '#dc2626',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '8px',
+  padding: '9px 20px',
+  fontSize: '13px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '8px',
+};
+
+const formGroupStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  flex: 1,
+};
+
+const formLabelStyles: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#475569',
+};
+
+const formInputStyles: React.CSSProperties = {
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  padding: '9px 12px',
+  fontSize: '13.5px',
+  color: '#0f172a',
+  backgroundColor: '#ffffff',
+  outline: 'none',
+  boxSizing: 'border-box',
+  width: '100%',
+};
+
+const formSelectStyles: React.CSSProperties = {
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  padding: '9px 12px',
+  fontSize: '13.5px',
+  color: '#0f172a',
+  backgroundColor: '#ffffff',
+  outline: 'none',
+  boxSizing: 'border-box',
+  width: '100%',
+};
+
+const formRowTwoColStyles: React.CSSProperties = {
+  display: 'flex',
+  gap: '14px',
+  width: '100%',
 };
