@@ -23,6 +23,16 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    const isExtensionError =
+      error?.message?.toLowerCase().includes('promptengine') ||
+      error?.message?.toLowerCase().includes('chrome-extension') ||
+      error?.message?.toLowerCase().includes('moz-extension');
+
+    if (isExtensionError) {
+      console.warn('[ErrorBoundary] Ignored third-party browser extension error:', error?.message);
+      return { hasError: false, error: null };
+    }
+
     return { hasError: true, error };
   }
 
@@ -56,8 +66,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         <div style={errorContainerStyles}>
           <div style={errorCardStyles}>
             <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
-            <h2 style={errorTitleStyles}>Couldn't fetch item</h2>
-            <p style={errorDescStyles}>An unexpected error occurred while loading this component.</p>
+            <h2 style={errorTitleStyles}>Page Loading Error</h2>
+            <p style={errorDescStyles}>{this.state.error?.message || 'An unexpected error occurred while loading this component.'}</p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button onClick={this.handleReset} style={retryBtnStyles}>
                 Try Again
@@ -81,6 +91,16 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 // ============================================================
 export function RouteErrorBoundary() {
   const error = useRouteError();
+
+  const isExtensionError =
+    error instanceof Error &&
+    (error.message.toLowerCase().includes('promptengine') ||
+      error.message.toLowerCase().includes('chrome-extension') ||
+      error.message.toLowerCase().includes('moz-extension'));
+
+  if (isExtensionError) {
+    console.warn('[RouteErrorBoundary] Bypassing third-party browser extension error:', (error as Error).message);
+  }
 
   const isNetwork =
     !navigator.onLine ||
