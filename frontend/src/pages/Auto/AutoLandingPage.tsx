@@ -34,64 +34,35 @@ export default function AutoLandingPage() {
       title: 'Cars & Vehicles',
       desc: 'Explore brand new and certified pre-owned vehicles.',
       path: '/auto/cars',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
-          <circle cx="7" cy="17" r="2"></circle>
-          <path d="M9 17h6"></path>
-          <circle cx="17" cy="17" r="2"></circle>
-        </svg>
-      ),
+      image: '/images/auto/cars.jpg',
       color: '#ff7a00',
     },
     {
       title: 'Car Parts',
       desc: 'Find OEM & aftermarket spare parts for your model.',
       path: '/auto/parts',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      ),
+      image: '/images/auto/parts.jpg',
       color: '#00d2ff',
     },
     {
       title: 'Accessories',
       desc: 'Upgrade with car electronics, covers, mats, and more.',
       path: '/auto/accessories',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="5" y="2" width="14" height="12" rx="2" ry="2"></rect>
-          <line x1="9" y1="22" x2="9" y2="14"></line>
-          <line x1="15" y1="22" x2="15" y2="14"></line>
-        </svg>
-      ),
+      image: '/images/auto/accessories.jpg',
       color: '#00ff87',
     },
     {
       title: 'Rentals & Bookings',
       desc: 'Daily or weekly car rentals from certified partners.',
       path: '/auto/rentals',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-      ),
+      image: '/images/auto/rentals.jpg',
       color: '#ff007a',
     },
     {
       title: 'Auto Services',
       desc: 'Book diagnostics, detailing, and servicing.',
       path: '/auto/services',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-        </svg>
-      ),
+      image: '/images/auto/services.jpg',
       color: '#7a00ff',
     },
   ];
@@ -129,14 +100,16 @@ export default function AutoLandingPage() {
         <div style={gridStyles}>
           {categories.map((cat) => (
             <Link key={cat.path} to={cat.path} style={cardStyles}>
-              <div style={{ ...iconWrapperStyles, backgroundColor: `${cat.color}15`, color: cat.color }}>
-                {cat.icon}
+              <div style={cardImgWrapperStyles}>
+                <img src={cat.image} alt={cat.title} style={cardImgStyles} />
               </div>
-              <h3 style={cardTitleStyles}>{cat.title}</h3>
-              <p style={cardDescStyles}>{cat.desc}</p>
-              <span style={{ ...cardLinkStyles, color: cat.color }}>
-                Explore Category &rarr;
-              </span>
+              <div style={cardBodyStyles}>
+                <h3 style={cardTitleStyles}>{cat.title}</h3>
+                <p style={cardDescStyles}>{cat.desc}</p>
+                <span style={{ ...cardLinkStyles, color: cat.color }}>
+                  Explore Category &rarr;
+                </span>
+              </div>
             </Link>
           ))}
         </div>
@@ -268,11 +241,16 @@ const containerStyles: React.CSSProperties = {
 
 const heroStyles: React.CSSProperties = {
   position: 'relative',
-  backgroundImage: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-  padding: '80px 24px',
+  backgroundImage: "linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.85) 100%), url('/images/auto/hero.jpg')",
+  backgroundSize: 'cover',
+  backgroundPosition: 'center center',
+  backgroundRepeat: 'no-repeat',
+  padding: '100px 24px 90px 24px',
   color: '#ffffff',
   textAlign: 'center',
   overflow: 'hidden',
+  borderRadius: '0 0 24px 24px',
+  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.25)',
 };
 
 const heroOverlayStyles: React.CSSProperties = {
@@ -281,7 +259,7 @@ const heroOverlayStyles: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: 'rgba(255, 122, 0, 0.05)',
+  backgroundColor: 'rgba(255, 122, 0, 0.04)',
   pointerEvents: 'none',
 };
 
@@ -366,32 +344,43 @@ const sectionSubtitleStyles: React.CSSProperties = {
 
 const gridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
   gap: '24px',
 };
 
 const cardStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
   border: '1px solid var(--color-border, #e5e7eb)',
-  borderRadius: 'var(--radius-lg, 12px)',
-  padding: '24px',
+  borderRadius: 'var(--radius-lg, 16px)',
+  overflow: 'hidden',
   textDecoration: 'none',
   color: 'inherit',
   display: 'flex',
   flexDirection: 'column',
   transition: 'transform 200ms ease, box-shadow 200ms ease',
-  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
 };
 
-const iconWrapperStyles: React.CSSProperties = {
-  width: '48px',
-  height: '48px',
-  borderRadius: 'var(--radius-md, 8px)',
+const cardImgWrapperStyles: React.CSSProperties = {
+  position: 'relative',
+  height: '160px',
+  width: '100%',
+  overflow: 'hidden',
+  backgroundColor: '#f3f4f6',
+};
+
+const cardImgStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  transition: 'transform 300ms ease',
+};
+
+const cardBodyStyles: React.CSSProperties = {
+  padding: '20px',
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '24px',
-  marginBottom: '16px',
+  flexDirection: 'column',
+  flex: 1,
 };
 
 const cardTitleStyles: React.CSSProperties = {
