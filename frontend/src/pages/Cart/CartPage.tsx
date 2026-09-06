@@ -48,7 +48,7 @@ export default function CartPage() {
     setValidating(true);
     try {
       const validated = await validateCart();
-      if (validated && validated.is_valid) {
+      if (validated && validated.is_valid !== false) {
         navigate('/checkout');
       } else {
         toast.error('Some items in your cart are no longer available. Please review.');
@@ -61,7 +61,7 @@ export default function CartPage() {
   };
 
   // Loading state
-  if (isLoading && !cart) {
+  if (isLoading && (!cart || !cart.items || cart.items.length === 0)) {
     return (
       <div className="container" style={pageStyles}>
         <h1 style={titleStyles}>Shopping Cart</h1>
@@ -75,24 +75,28 @@ export default function CartPage() {
   }
 
   // Empty state
-  if (!cart || cart.items.length === 0) {
+  if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
     return (
       <div className="container" style={pageStyles}>
         <h1 style={titleStyles}>Shopping Cart</h1>
         <div style={emptyStateStyles}>
           <span style={{ fontSize: '3rem' }}>🛒</span>
           <h3 style={emptyTitleStyles}>Your cart is empty</h3>
-          <p style={emptyTextStyles}>Browse our marketplace to find amazing products.</p>
-          <Link to="/products" style={continueBtnStyles}>Continue Shopping</Link>
+          <p style={emptyTextStyles}>Browse our marketplace to find high quality items from verified vendors.</p>
+          <Link to="/products" style={continueBtnStyles}>Browse Marketplace</Link>
         </div>
       </div>
     );
   }
 
+  const totalItemsCount = cart.item_count ?? cart.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+
   return (
     <div className="container" style={pageStyles}>
       <div style={headerRowStyles}>
-        <h1 style={titleStyles}>Shopping Cart ({cart.item_count} {cart.item_count === 1 ? 'item' : 'items'})</h1>
+        <h1 style={titleStyles}>
+          Shopping Cart ({totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'})
+        </h1>
         <button onClick={handleClearCart} style={clearBtnStyles} disabled={isLoading}>
           Clear Cart
         </button>
@@ -110,76 +114,100 @@ export default function CartPage() {
       <div className="cart-layout-grid">
         {/* Cart Items List */}
         <div style={itemsColStyles}>
-          {cart.items.map((item: CartItem) => (
-            <div key={item.id} style={itemCardStyles}>
-              {/* Product Image */}
-              <img
-                src={getProductImageUrl(item.product)}
-                alt={item.product.name}
-                style={itemImageStyles}
-                onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
-              />
+          {cart.items.map((item: CartItem) => {
+            const prod: any = item.product || {};
+            const displayName = item.product_name || prod.name || 'Product';
+            const displayImg = item.image_url || prod.primary_image_url || prod.image_url || getProductImageUrl(prod);
+            const rawUnit = item.unit_price ?? item.price ?? prod.base_price ?? prod.price ?? '0';
+            const numUnit = parseFloat(String(rawUnit)) || 0;
+            const lineTotal = item.line_total ?? (numUnit * item.quantity).toFixed(2);
+            const variantText =
+              item.variant_name ||
+              (typeof item.variant === 'object' && item.variant !== null ? (item.variant as any).name : null) ||
+              item.variant_sku;
+            const targetProductId = (prod.id && prod.id !== item.id) ? prod.id : (item.product_id && item.product_id !== item.id ? item.product_id : '');
+            const productHref = targetProductId ? `/products/${targetProductId}` : '/products';
 
-              {/* Item Details */}
-              <div style={itemDetailsStyles}>
-                <Link to={`/products/${item.product.id}`} style={itemNameStyles}>
-                  {item.product.name}
+            return (
+              <div key={item.id} style={itemCardStyles}>
+                {/* Product Image */}
+                <Link to={productHref} style={{ display: 'block', textDecoration: 'none', flexShrink: 0 }}>
+                  <img
+                    src={displayImg}
+                    alt={displayName}
+                    style={itemImageStyles}
+                    onError={e => {
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(prod);
+                    }}
+                  />
                 </Link>
 
-                {item.variant && (
-                  <span style={variantLabelStyles}>
-                    {item.variant.name}
-                  </span>
-                )}
-
-                {/* Out of Stock Badge */}
-                {!item.is_in_stock && (
-                  <span style={outOfStockBadgeStyles}>Out of Stock</span>
-                )}
-
-                {/* Unit Price from API */}
-                <span style={unitPriceStyles}>
-                  {formatPrice(item.unit_price)}
-                </span>
-              </div>
-
-              {/* Quantity Stepper */}
-              <div style={qtyColStyles}>
-                <div style={qtyWrapperStyles}>
-                  <button
-                    onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
-                    style={qtyBtnStyles}
-                    disabled={item.quantity <= 1 || isLoading}
+                {/* Item Details */}
+                <div style={itemDetailsStyles}>
+                  <Link
+                    to={productHref}
+                    style={itemNameStyles}
                   >
-                    −
-                  </button>
-                  <span style={qtyValueStyles}>{item.quantity}</span>
+                    {displayName}
+                  </Link>
+
+                  {variantText && (
+                    <span style={variantLabelStyles}>
+                      Option: {variantText}
+                    </span>
+                  )}
+
+                  {/* Out of Stock Badge */}
+                  {item.is_in_stock === false && (
+                    <span style={outOfStockBadgeStyles}>Out of Stock</span>
+                  )}
+
+                  {/* Unit Price */}
+                  <span style={unitPriceStyles}>
+                    {formatPrice(rawUnit)}
+                  </span>
+                </div>
+
+                {/* Quantity Stepper */}
+                <div style={qtyColStyles}>
+                  <div style={qtyWrapperStyles}>
+                    <button
+                      onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
+                      style={qtyBtnStyles}
+                      disabled={item.quantity <= 1 || isLoading}
+                      aria-label="Decrease quantity"
+                    >
+                      −
+                    </button>
+                    <span style={qtyValueStyles}>{item.quantity}</span>
+                    <button
+                      onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
+                      style={qtyBtnStyles}
+                      disabled={isLoading}
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
                   <button
-                    onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
-                    style={qtyBtnStyles}
+                    onClick={() => handleRemoveItem(item.id)}
+                    style={removeBtnStyles}
                     disabled={isLoading}
                   >
-                    +
+                    Remove
                   </button>
                 </div>
-                <button
-                  onClick={() => handleRemoveItem(item.id)}
-                  style={removeBtnStyles}
-                  disabled={isLoading}
-                >
-                  Remove
-                </button>
-              </div>
 
-              {/* Line Total from API */}
-              <div style={lineTotalStyles}>
-                {formatPrice(item.line_total)}
+                {/* Line Total */}
+                <div style={lineTotalStyles}>
+                  {formatPrice(lineTotal)}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Cart Summary Sidebar — ALL values from API */}
+        {/* Cart Summary Sidebar */}
         <div style={summaryCardStyles}>
           <h3 style={summaryTitleStyles}>Order Summary</h3>
 
@@ -210,11 +238,11 @@ export default function CartPage() {
 
           <button
             onClick={handleProceedToCheckout}
-            disabled={!cart.is_valid || isLoading || validating}
+            disabled={cart.is_valid === false || isLoading || validating}
             style={{
               ...checkoutBtnStyles,
-              opacity: (!cart.is_valid || isLoading || validating) ? 0.6 : 1,
-              cursor: (!cart.is_valid || isLoading || validating) ? 'not-allowed' : 'pointer',
+              opacity: (cart.is_valid === false || isLoading || validating) ? 0.6 : 1,
+              cursor: (cart.is_valid === false || isLoading || validating) ? 'not-allowed' : 'pointer',
             }}
           >
             {validating ? 'Validating...' : 'Proceed to Checkout'}
@@ -243,35 +271,34 @@ const pageStyles: React.CSSProperties = {
 const titleStyles: React.CSSProperties = {
   fontSize: 'var(--text-2xl)',
   fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
+  margin: 0,
 };
 
 const headerRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: 'var(--space-2)',
+  borderBottom: '1px solid var(--color-border)',
+  paddingBottom: 'var(--space-4)',
 };
 
 const clearBtnStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  background: 'none',
+  border: 'none',
   color: 'var(--color-danger)',
-  fontWeight: 'var(--font-semibold)',
-  backgroundColor: 'transparent',
-  border: '1px solid var(--color-danger)',
-  borderRadius: 'var(--radius-md)',
-  padding: '6px 14px',
+  fontSize: 'var(--text-sm)',
   cursor: 'pointer',
+  padding: 'var(--space-1) var(--space-2)',
+  borderRadius: 'var(--radius-sm)',
 };
 
 const validationBannerStyles: React.CSSProperties = {
-  backgroundColor: 'rgba(231, 76, 60, 0.08)',
+  backgroundColor: 'rgba(239, 68, 68, 0.1)',
   border: '1px solid var(--color-danger)',
-  borderRadius: 'var(--radius-md)',
-  padding: 'var(--space-3) var(--space-4)',
-  fontSize: 'var(--text-sm)',
   color: 'var(--color-danger)',
+  padding: 'var(--space-3) var(--space-4)',
+  borderRadius: 'var(--radius-md)',
+  fontSize: 'var(--text-sm)',
 };
 
 const itemsColStyles: React.CSSProperties = {
@@ -281,59 +308,51 @@ const itemsColStyles: React.CSSProperties = {
 };
 
 const itemCardStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
+  display: 'grid',
+  gridTemplateColumns: '80px 1fr auto auto',
   gap: 'var(--space-4)',
-  padding: 'var(--space-4)',
+  alignItems: 'center',
+  backgroundColor: 'var(--color-bg)',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-md)',
-  backgroundColor: '#ffffff',
-  flexWrap: 'wrap',
+  padding: 'var(--space-4)',
 };
 
 const itemImageStyles: React.CSSProperties = {
   width: '80px',
   height: '80px',
-  borderRadius: 'var(--radius-md)',
   objectFit: 'cover',
-  border: '1px solid var(--color-border)',
-  flexShrink: 0,
+  borderRadius: 'var(--radius-sm)',
+  backgroundColor: 'var(--color-bg-subtle)',
 };
 
 const itemDetailsStyles: React.CSSProperties = {
-  flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  gap: '4px',
-  minWidth: '120px',
+  gap: 'var(--space-1)',
 };
 
 const itemNameStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-semibold)',
+  fontSize: 'var(--text-base)',
+  fontWeight: 'var(--font-medium)',
   color: 'var(--color-text)',
   textDecoration: 'none',
 };
 
 const variantLabelStyles: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: 'var(--text-xs)',
   color: 'var(--color-text-muted)',
-  fontWeight: 'var(--font-medium)',
 };
 
 const outOfStockBadgeStyles: React.CSSProperties = {
-  fontSize: '10px',
-  fontWeight: 'var(--font-bold)',
-  color: '#ffffff',
-  backgroundColor: 'var(--color-danger)',
-  padding: '2px 8px',
-  borderRadius: 'var(--radius-full)',
-  width: 'fit-content',
-  textTransform: 'uppercase',
+  display: 'inline-block',
+  fontSize: 'var(--text-xs)',
+  color: 'var(--color-danger)',
+  fontWeight: 'var(--font-semibold)',
 };
 
 const unitPriceStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
 };
 
@@ -347,43 +366,41 @@ const qtyColStyles: React.CSSProperties = {
 const qtyWrapperStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  border: '2px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-sm)',
   overflow: 'hidden',
-  height: '36px',
 };
 
 const qtyBtnStyles: React.CSSProperties = {
-  width: '32px',
-  height: '100%',
-  backgroundColor: 'var(--color-bg-subtle)',
-  color: 'var(--color-text)',
-  fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-base)',
+  width: '28px',
+  height: '28px',
+  background: 'var(--color-bg-subtle)',
   border: 'none',
   cursor: 'pointer',
+  fontSize: 'var(--text-sm)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const qtyValueStyles: React.CSSProperties = {
-  padding: '0 10px',
+  padding: '0 var(--space-3)',
   fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-  minWidth: '28px',
+  fontWeight: 'var(--font-medium)',
+  minWidth: '24px',
   textAlign: 'center',
 };
 
 const removeBtnStyles: React.CSSProperties = {
-  fontSize: '11px',
-  color: 'var(--color-danger)',
-  fontWeight: 'var(--font-medium)',
-  backgroundColor: 'transparent',
+  background: 'none',
   border: 'none',
+  color: 'var(--color-text-muted)',
+  fontSize: 'var(--text-xs)',
   cursor: 'pointer',
-  textDecoration: 'underline',
 };
 
 const lineTotalStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
   minWidth: '90px',
@@ -391,77 +408,75 @@ const lineTotalStyles: React.CSSProperties = {
 };
 
 const summaryCardStyles: React.CSSProperties = {
-  padding: 'var(--space-6)',
+  backgroundColor: 'var(--color-bg)',
   border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-lg)',
-  backgroundColor: 'var(--color-bg-subtle)',
+  borderRadius: 'var(--radius-md)',
+  padding: 'var(--space-6)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-4)',
   height: 'fit-content',
-  position: 'sticky',
-  top: 'var(--space-4)',
 };
 
 const summaryTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-lg)',
   fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
   margin: 0,
 };
 
 const summaryRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center',
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
 };
 
 const summaryValueStyles: React.CSSProperties = {
-  fontWeight: 'var(--font-semibold)',
   color: 'var(--color-text)',
+  fontWeight: 'var(--font-medium)',
 };
 
 const dividerStyles: React.CSSProperties = {
   border: 'none',
   borderTop: '1px solid var(--color-border)',
-  margin: 0,
+  margin: 'var(--space-2) 0',
 };
 
 const checkoutBtnStyles: React.CSSProperties = {
   width: '100%',
-  height: '44px',
-  borderRadius: 'var(--radius-md)',
+  padding: 'var(--space-3)',
   backgroundColor: 'var(--color-primary)',
-  color: '#ffffff',
+  color: 'white',
   border: 'none',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-  transition: 'background-color var(--transition-fast)',
+  borderRadius: 'var(--radius-md)',
+  fontSize: 'var(--text-base)',
+  fontWeight: 'var(--font-semibold)',
+  transition: 'opacity var(--transition-fast)',
 };
 
 const continueShoppingStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  color: 'var(--color-text-muted)',
-  textDecoration: 'none',
   textAlign: 'center',
-  fontWeight: 'var(--font-medium)',
+  fontSize: 'var(--text-sm)',
+  color: 'var(--color-primary)',
+  textDecoration: 'none',
 };
 
 const emptyStateStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: 'var(--space-3)',
-  padding: 'var(--space-16) var(--space-4)',
+  justifyContent: 'center',
+  padding: 'var(--space-12) var(--space-4)',
   textAlign: 'center',
+  gap: 'var(--space-3)',
+  backgroundColor: 'var(--color-bg)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
 };
 
 const emptyTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-lg)',
+  fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
   margin: 0,
 };
 
@@ -472,11 +487,12 @@ const emptyTextStyles: React.CSSProperties = {
 };
 
 const continueBtnStyles: React.CSSProperties = {
-  padding: '10px 24px',
+  marginTop: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-6)',
   backgroundColor: 'var(--color-primary)',
-  color: '#ffffff',
+  color: 'white',
   borderRadius: 'var(--radius-md)',
   textDecoration: 'none',
-  fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-semibold)',
 };

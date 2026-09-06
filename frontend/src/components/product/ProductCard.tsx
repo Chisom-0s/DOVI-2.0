@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { cartApi } from '@/api/cart';
+import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
@@ -16,9 +16,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
+  const [isImgLoaded, setIsImgLoaded] = useState(false);
 
   // Fallback image helper
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setIsImgLoaded(true);
     const target = e.currentTarget;
     const fallback = getProductFallbackImage(product);
     if (target.src !== fallback) {
@@ -52,6 +54,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -63,12 +67,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     setIsCartLoading(true);
     try {
-      await cartApi.addItem({ product_id: product.id, quantity: 1 });
-      toast.success('Added to cart');
+      await addToCart(product, 1);
+      toast.success(`Added ${product.name} to cart!`);
     } catch (err) {
       console.error('Add to cart failed:', err);
-      // Fallback success visual for offline demo
-      toast.success('Added to cart');
+      toast.error('Could not add to cart. Please try again.');
     } finally {
       setIsCartLoading(false);
     }
@@ -81,11 +84,26 @@ export default function ProductCard({ product }: ProductCardProps) {
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
+        {!isImgLoaded && (
+          <div
+            className="skeleton-shimmer"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1,
+            }}
+          />
+        )}
         <img
           src={cardImage}
           alt={product.name}
+          onLoad={() => setIsImgLoaded(true)}
           onError={handleImageError}
-          style={imageStyles}
+          style={{
+            ...imageStyles,
+            opacity: isImgLoaded ? 1 : 0,
+            transition: 'opacity 0.25s ease-in-out',
+          }}
           loading="lazy"
         />
 

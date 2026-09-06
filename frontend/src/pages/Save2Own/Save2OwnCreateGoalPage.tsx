@@ -163,9 +163,10 @@ export default function Save2OwnCreateGoalPage() {
   // ----------------------------------------------------------
   // Render Entry 3: Product Selected & Goal Creation Flow
   // ----------------------------------------------------------
-  const rawActivePrice = selectedVariant
+  const variantPrice = selectedVariant
     ? (selectedVariant.price_override || selectedVariant.price)
-    : (product?.base_price || product?.price || '0');
+    : null;
+  const rawActivePrice = variantPrice || product?.base_price || product?.price || '0';
   const activePrice = rawActivePrice || '0';
   const totalPriceVal = (parseFloat(activePrice) || 0) * quantity;
   const formattedTotal = formatCurrency(totalPriceVal.toString());

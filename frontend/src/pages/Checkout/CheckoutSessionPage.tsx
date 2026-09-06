@@ -134,24 +134,31 @@ export default function CheckoutSessionPage() {
 
             {/* Items snapshot */}
             <div style={itemsContainerStyles}>
-              {session.cart_snapshot.items.map((item) => (
-                <div key={item.id} style={itemRowStyles}>
-                  <img
-                    src={item.product.primary_image_url || '/logo.jpg?v=2'}
-                    alt={item.product.name}
-                    style={itemImgStyles}
-                    onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <p style={itemNameStyles}>{item.product.name}</p>
-                    {item.variant && (
-                      <p style={itemSubStyles}>{item.variant.name}</p>
-                    )}
-                    <p style={itemSubStyles}>Qty: {item.quantity}</p>
+              {session.cart_snapshot.items.map((item: any) => {
+                const prodName = item.product_name || item.product?.name || 'Product';
+                const prodImg = item.image_url || item.product?.primary_image_url || '/logo.jpg?v=2';
+                const varName = item.variant_name || (typeof item.variant === 'object' ? item.variant?.name : item.variant);
+                const itemTotal = item.line_total ?? String((parseFloat(String(item.unit_price || item.price || 0)) * (Number(item.quantity) || 1)));
+
+                return (
+                  <div key={item.id} style={itemRowStyles}>
+                    <img
+                      src={prodImg}
+                      alt={prodName}
+                      style={itemImgStyles}
+                      onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <p style={itemNameStyles}>{prodName}</p>
+                      {varName && (
+                        <p style={itemSubStyles}>{varName}</p>
+                      )}
+                      <p style={itemSubStyles}>Qty: {item.quantity}</p>
+                    </div>
+                    <span style={itemPriceStyles}>{formatCurrency(itemTotal)}</span>
                   </div>
-                  <span style={itemPriceStyles}>{formatCurrency(item.line_total)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 

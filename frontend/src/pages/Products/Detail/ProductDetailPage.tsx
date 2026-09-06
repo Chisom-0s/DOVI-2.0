@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
-import { cartApi } from '@/api/cart';
+import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
 import type { Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -57,6 +57,12 @@ export default function ProductDetailPage() {
         }
       } catch (err) {
         console.error('Failed to load product detail:', err);
+        const fallback = findKnownProduct(id, undefined, id) || getCartItemMeta(id);
+        const resolvedId = fallback?.productId || (fallback?.id !== id ? fallback?.id : undefined);
+        if (resolvedId && resolvedId !== id) {
+          navigate(`/products/${resolvedId}`, { replace: true });
+          return;
+        }
         setProduct(null);
         setSelectedVariant(null);
         toast.error('Product not found or offline.');
@@ -69,15 +75,18 @@ export default function ProductDetailPage() {
     fetchDetailData();
   }, [id]);
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = async () => {
     if (!product) return;
     setIsAddingToCart(true);
 
     try {
-      await cartApi.addItem({
-        product_id: product.id,
-        variant_id: selectedVariant ? selectedVariant.id : undefined,
-        quantity,
+      await addToCart(product, quantity, {
+        variantId: selectedVariant ? selectedVariant.id : undefined,
+        variantName: selectedVariant?.name,
+        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
+        imageUrl: product.primary_image_url || product.image_url || undefined,
       });
       toast.success(`Added ${product.name} to cart!`);
     } catch (err) {
@@ -119,10 +128,11 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Display price and stock matching either the variant or the base product
-  const rawPrice = selectedVariant
-    ? (selectedVariant.price_override ?? selectedVariant.price)
-    : (product.base_price ?? product.price);
+  // Display price and stock matching either the variant (if overridden) or the base product
+  const variantPrice = selectedVariant
+    ? (selectedVariant.price_override || selectedVariant.price)
+    : null;
+  const rawPrice = variantPrice || product.base_price || product.price;
   const displayPrice = formatPrice(rawPrice);
 
   const displaySku = selectedVariant?.sku || product.sku || product.reference_code || 'N/A';

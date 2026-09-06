@@ -6,13 +6,18 @@ import type { ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
 import { SkeletonCard } from '@/components/common/Skeleton';
 
+const DEFAULT_LISTING_CATEGORIES = [
+  { name: 'Phones & Tablets', slug: 'phones-tablets' },
+  { name: 'Computers', slug: 'computers' },
+  { name: 'Audio & Music', slug: 'audio-video' },
+  { name: 'Gaming', slug: 'gaming' },
+  { name: 'Auto Parts', slug: 'auto-parts' },
+  { name: 'Auto Accessories', slug: 'auto-accessories' },
+  { name: 'Dovi Auto (Cars)', slug: 'auto-cars' },
+];
+
 export default function ProductListingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [products, setProducts] = useState<ProductSummary[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState<Array<{ name: string; slug: string }>>([]);
 
   // Extract query filters from URL search params
   const categoryParam = searchParams.get('category') ?? '';
@@ -22,12 +27,32 @@ export default function ProductListingPage() {
   const inStockParam = searchParams.get('in_stock') === 'true';
   const pageParam = parseInt(searchParams.get('page') ?? '1', 10);
 
+  // Synchronous cache seed for instant 0ms mount
+  const [products, setProducts] = useState<ProductSummary[]>(() => {
+    if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && pageParam === 1) {
+      try {
+        const cached = sessionStorage.getItem('dovi_real_products_cache');
+        if (cached) {
+          const list = JSON.parse(cached);
+          if (Array.isArray(list) && list.length > 0) return list;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [totalCount, setTotalCount] = useState<number>(() => products.length);
+  const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
+  const [categories, setCategories] = useState<Array<{ name: string; slug: string }>>(DEFAULT_LISTING_CATEGORIES);
+
   // Fetch categories list for filters
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const { data } = await apiClient.get('/api/v1/categories/');
-        setCategories(Array.isArray(data) ? data : (data?.results ?? []));
+        const list = Array.isArray(data) ? data : (data?.results ?? []);
+        if (list.length > 0) {
+          setCategories(list);
+        }
       } catch (err) {
         console.error('Failed to fetch categories:', err);
       }
@@ -37,8 +62,12 @@ export default function ProductListingPage() {
 
   // Fetch products list on filter change
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProducts = async () => {
-      setIsLoading(true);
+      if (products.length === 0) {
+        setIsLoading(true);
+      }
       try {
         const response = await productsApi.list({
           page: pageParam,
@@ -49,18 +78,28 @@ export default function ProductListingPage() {
           max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
           in_stock: inStockParam ? true : undefined,
         });
-        setProducts(response.results);
-        setTotalCount(response.count);
+        if (isMounted) {
+          setProducts(response.results);
+          setTotalCount(response.count);
+        }
       } catch (err) {
         console.error('Failed to load products list:', err);
-        setProducts([]);
-        setTotalCount(0);
+        if (isMounted && products.length === 0) {
+          setProducts([]);
+          setTotalCount(0);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, [categoryParam, sortParam, minPriceParam, maxPriceParam, inStockParam, pageParam]);
 
   const updateFilters = (newParams: Record<string, string | null>) => {

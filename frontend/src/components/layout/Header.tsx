@@ -29,7 +29,7 @@ export default function Header() {
   const fetchUnread = useCallback(async () => {
     try {
       const data = await notificationsApi.getUnreadCount();
-      setUnreadCount(data.count);
+      setUnreadCount(data.count ?? data.unread_count ?? 0);
     } catch (err) {
       console.error('Failed to fetch unread count:', err);
     }
