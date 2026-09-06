@@ -1,14 +1,9 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { Outlet } from 'react-router-dom';
+import type { CSSProperties } from 'react';
 import Header from './Header';
 import BottomNav from './BottomNav';
 
 export default function MainLayout() {
-  const location = useLocation();
-  const { user } = useAuth();
-
-  const isVendor = user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED';
-
   return (
     <div style={layoutWrapperStyles}>
       {/* Universal Header */}
@@ -28,13 +23,13 @@ export default function MainLayout() {
 // ----------------------------------------------------------
 // Styling Tokens
 // ----------------------------------------------------------
-const layoutWrapperStyles: React.CSSProperties = {
+const layoutWrapperStyles: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   minHeight: '100vh',
 };
 
-const mainContentStyles: React.CSSProperties = {
+const mainContentStyles: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   flex: 1,

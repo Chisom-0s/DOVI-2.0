@@ -8,8 +8,8 @@ import { paymentsApi } from '@/api/payments';
 // ----------------------------------------------------------
 export default function PaymentFailedPage() {
   const [searchParams] = useSearchParams();
-  const paymentRef = searchParams.get('payment_ref') || '';
-  const orderRef = searchParams.get('ref') || '';
+  const paymentRef = searchParams.get('payment_ref') || searchParams.get('tx_ref') || searchParams.get('ref') || '';
+  const orderRef = searchParams.get('ref') || searchParams.get('order_reference') || '';
   const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {

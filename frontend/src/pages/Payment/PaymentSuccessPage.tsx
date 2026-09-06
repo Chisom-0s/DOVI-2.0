@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/common/Skeleton';
 // ----------------------------------------------------------
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
-  const orderRef = searchParams.get('ref') || '';
-  const paymentRef = searchParams.get('payment_ref') || '';
+  const orderRef = searchParams.get('ref') || searchParams.get('order_reference') || '';
+  const paymentRef = searchParams.get('payment_ref') || searchParams.get('tx_ref') || searchParams.get('transaction_id') || '';
 
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);

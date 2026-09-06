@@ -9,6 +9,8 @@ declare namespace React {
   type SyntheticEvent<T = any, E = any> = any;
   type MouseEvent<T = any> = any;
   type ChangeEvent<T = any> = any;
+  type KeyboardEvent<T = any> = any;
+  type TouchEvent<T = any> = any;
   type HTMLAttributes<T> = any;
   type RefObject<T> = any;
   type ComponentType<T = any> = any;
