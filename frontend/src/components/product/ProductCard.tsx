@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { cartApi } from '@/api/cart';
+import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
@@ -52,6 +52,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -63,12 +65,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     setIsCartLoading(true);
     try {
-      await cartApi.addItem({ product_id: product.id, quantity: 1 });
-      toast.success('Added to cart');
+      await addToCart(product, 1);
+      toast.success(`Added ${product.name} to cart!`);
     } catch (err) {
       console.error('Add to cart failed:', err);
-      // Fallback success visual for offline demo
-      toast.success('Added to cart');
+      toast.error('Could not add to cart. Please try again.');
     } finally {
       setIsCartLoading(false);
     }

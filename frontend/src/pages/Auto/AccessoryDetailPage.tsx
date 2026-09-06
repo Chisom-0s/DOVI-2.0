@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
 import { autoApi } from '@/api/auto';
-import { cartApi } from '@/api/cart';
+import { useCart } from '@/contexts/CartContext';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 export default function AccessoryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
 
   const [accessory, setAccessory] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -44,12 +45,12 @@ export default function AccessoryDetailPage() {
 
     try {
       setIsAddingToCart(true);
-      await cartApi.addItem({
-        product_id: accessory.id,
-        quantity,
+      await addToCart(accessory.id, quantity, undefined, {
+        name: accessory.name,
+        price: accessory.price,
+        image_url: accessory.primary_image_url || accessory.images?.[0]?.url,
       });
       toast.success(`${accessory.name} added to cart!`);
-      window.dispatchEvent(new CustomEvent('cart:updated'));
     } catch (err) {
       console.error('Failed to add accessory to cart:', err);
       toast.error('Unable to add item to cart. Please try again.');

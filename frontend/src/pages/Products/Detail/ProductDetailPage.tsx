@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
-import { cartApi } from '@/api/cart';
+import { useCart } from '@/contexts/CartContext';
 import type { Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -69,15 +69,18 @@ export default function ProductDetailPage() {
     fetchDetailData();
   }, [id]);
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = async () => {
     if (!product) return;
     setIsAddingToCart(true);
 
     try {
-      await cartApi.addItem({
-        product_id: product.id,
-        variant_id: selectedVariant ? selectedVariant.id : undefined,
-        quantity,
+      await addToCart(product, quantity, {
+        variantId: selectedVariant ? selectedVariant.id : undefined,
+        variantName: selectedVariant?.name,
+        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
+        imageUrl: product.primary_image_url || product.image_url || undefined,
       });
       toast.success(`Added ${product.name} to cart!`);
     } catch (err) {

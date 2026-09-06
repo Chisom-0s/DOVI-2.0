@@ -236,12 +236,19 @@ export interface ProductSummary {
 // ----------------------------------------------------------
 export interface CartItem {
   id: string;
-  product: ProductSummary;
-  variant: ProductVariant | null;
+  product?: ProductSummary;
+  product_name?: string;
+  name?: string;
+  variant?: ProductVariant | string | null;
+  variant_name?: string;
+  variant_sku?: string;
   quantity: number;
-  unit_price: string;
-  line_total: string;
-  is_in_stock: boolean;
+  unit_price?: string;
+  price?: string;
+  line_total?: string;
+  is_in_stock?: boolean;
+  available_stock?: number;
+  image_url?: string;
 }
 
 export interface Cart {
@@ -434,7 +441,8 @@ export interface Notification {
 }
 
 export interface NotificationUnreadCount {
-  count: number;
+  count?: number;
+  unread_count?: number;
 }
 
 // ----------------------------------------------------------

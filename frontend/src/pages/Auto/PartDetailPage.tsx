@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
 import { autoApi } from '@/api/auto';
-import { cartApi } from '@/api/cart';
+import { useCart } from '@/contexts/CartContext';
 import type { AutoPart } from '@/types';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 export default function PartDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
 
   const [part, setPart] = useState<AutoPart | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -83,13 +84,12 @@ export default function PartDetailPage() {
 
     try {
       setIsAddingToCart(true);
-      await cartApi.addItem({
-        product_id: part.id,
-        quantity,
+      await addToCart(part.id, quantity, undefined, {
+        name: part.name,
+        price: part.price,
+        image_url: part.primary_image_url || (part.images && part.images[0]?.url),
       });
       toast.success(`${part.name} added to cart!`);
-      // Optionally trigger global cart count update event or state sync
-      window.dispatchEvent(new CustomEvent('cart:updated'));
     } catch (err) {
       console.error('Failed to add part to cart:', err);
       toast.error('Unable to add item to cart. Please try again.');
