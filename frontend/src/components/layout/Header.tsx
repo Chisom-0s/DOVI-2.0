@@ -10,6 +10,7 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHomepage = location.pathname === '/';
+  const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
 
   // Notification States
   const [unreadCount, setUnreadCount] = useState(0);
@@ -286,30 +287,32 @@ export default function Header() {
           className="site-header__search-container"
         >
           <SearchBar />
-          <div style={categoryLinksStyles} className="no-scrollbar">
-            {/* Page links – visible on mobile only (desktop has them in the top nav) */}
-            <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
-            <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
-            <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
+          {!isDashboard && (
+            <div style={categoryLinksStyles} className="no-scrollbar">
+              {/* Page links – visible on mobile only (desktop has them in the top nav) */}
+              <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
+              <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
+              <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
 
-            {/* Extensive categories in premium orange block capsules */}
-            <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
-            <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
-            <Link to="/categories/phones-tablets" className="header-category-link">📱 Phones & Tablets</Link>
-            <Link to="/categories/computers" className="header-category-link">🖥️ Computers</Link>
-            <Link to="/categories/audio-video" className="header-category-link">🎧 Audio & Video</Link>
-            <Link to="/categories/gaming" className="header-category-link">🎮 Gaming</Link>
-            <Link to="/categories/smart-home" className="header-category-link">🏠 Smart Home</Link>
-            <Link to="/categories/fashion" className="header-category-link">👗 Fashion & Apparel</Link>
-            <Link to="/categories/shoes" className="header-category-link">👟 Shoes</Link>
-            <Link to="/categories/books" className="header-category-link">📚 Books & Media</Link>
-            <Link to="/categories/home-kitchen" className="header-category-link">🍳 Home & Kitchen</Link>
-            <Link to="/categories/beauty-health" className="header-category-link">💄 Beauty & Health</Link>
-            <Link to="/categories/sports-outdoors" className="header-category-link">⚽ Sports & Outdoors</Link>
-            <Link to="/categories/automotive" className="header-category-link">🚗 Automotive</Link>
-            <Link to="/categories/groceries" className="header-category-link">🍎 Groceries</Link>
-            <Link to="/categories/toys-games" className="header-category-link">🧸 Toys & Games</Link>
-          </div>
+              {/* Extensive categories in premium orange block capsules */}
+              <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
+              <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
+              <Link to="/categories/phones-tablets" className="header-category-link">📱 Phones & Tablets</Link>
+              <Link to="/categories/computers" className="header-category-link">🖥️ Computers</Link>
+              <Link to="/categories/audio-video" className="header-category-link">🎧 Audio & Video</Link>
+              <Link to="/categories/gaming" className="header-category-link">🎮 Gaming</Link>
+              <Link to="/categories/smart-home" className="header-category-link">🏠 Smart Home</Link>
+              <Link to="/categories/fashion" className="header-category-link">👗 Fashion & Apparel</Link>
+              <Link to="/categories/shoes" className="header-category-link">👟 Shoes</Link>
+              <Link to="/categories/books" className="header-category-link">📚 Books & Media</Link>
+              <Link to="/categories/home-kitchen" className="header-category-link">🍳 Home & Kitchen</Link>
+              <Link to="/categories/beauty-health" className="header-category-link">💄 Beauty & Health</Link>
+              <Link to="/categories/sports-outdoors" className="header-category-link">⚽ Sports & Outdoors</Link>
+              <Link to="/categories/automotive" className="header-category-link">🚗 Automotive</Link>
+              <Link to="/categories/groceries" className="header-category-link">🍎 Groceries</Link>
+              <Link to="/categories/toys-games" className="header-category-link">🧸 Toys & Games</Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

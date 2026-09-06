@@ -116,6 +116,10 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
           <div className="dovi-dot" />
           <div className="dovi-dot" />
         </div>
+        
+        <div style={{ marginTop: '24px', fontSize: '12px', color: '#9ca3af', opacity: isAnimated ? 1 : 0, transition: 'opacity 1000ms ease-out' }}>
+          offered by Malc Nexus Technologies LTD
+        </div>
       </div>
     </div>
   );

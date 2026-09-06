@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import CorporateFooter from '@/components/common/CorporateFooter';
 
 interface NavItem {
   label: string;
@@ -250,6 +251,7 @@ export default function DashboardLayout() {
         {/* Dynamic Inner Page Content */}
         <main style={contentStyles}>
           <Outlet />
+          <CorporateFooter />
         </main>
       </div>
     </div>

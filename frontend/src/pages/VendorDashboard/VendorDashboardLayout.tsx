@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/api/client';
 import VendorStoreSetup from './VendorStoreSetup';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import CorporateFooter from '@/components/common/CorporateFooter';
 
 interface NavItem {
   label: string;
@@ -211,6 +212,7 @@ export default function VendorDashboardLayout() {
         {/* Dynamic Sub-Route Page Content */}
         <main style={contentStyles}>
           <Outlet />
+          <CorporateFooter />
         </main>
       </div>
     </div>
