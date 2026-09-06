@@ -4,10 +4,12 @@ import apiClient from '@/api/client';
 
 interface OrderItem {
   id: string;
-  product_name: string;
-  variant_name: string;
+  product_name?: string;
+  variant_name?: string;
+  variant_sku?: string;
   quantity: number;
-  price: number | string;
+  unit_price?: number | string;
+  price?: number | string;
 }
 
 interface Order {
@@ -185,7 +187,7 @@ export default function VendorOrderManager() {
                       </div>
                       <div style={itemMetaStyles}>
                         <span>Qty: {item.quantity}</span>
-                        <span>₦{parseFloat(item.price.toString()).toLocaleString()}</span>
+                        <span>₦{parseFloat((item.unit_price || item.price || '0').toString()).toLocaleString()}</span>
                       </div>
                     </div>
                   ))}
