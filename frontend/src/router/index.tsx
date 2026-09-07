@@ -1,6 +1,5 @@
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
-import CookieConsentBanner from '@/components/common/CookieConsentBanner';
-import PWAInstallPrompt from '@/components/common/PWAInstallPrompt';
+import SmartPromptManager from '@/components/common/SmartPromptManager';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
@@ -50,6 +49,7 @@ import VendorDashboardOverview from '@/pages/VendorDashboard/VendorDashboardOver
 import VendorProductManager from '@/pages/VendorDashboard/VendorProductManager';
 import VendorOrderManager from '@/pages/VendorDashboard/VendorOrderManager';
 import VendorPayoutSettings from '@/pages/VendorDashboard/VendorPayoutSettings';
+import VendorVerificationPage from '@/pages/VendorDashboard/VendorVerificationPage';
 
 // Phase 6 — Save2Own
 import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
@@ -93,8 +93,7 @@ const router = createBrowserRouter([
     element: (
       <>
         <Outlet />
-        <CookieConsentBanner />
-        <PWAInstallPrompt />
+        <SmartPromptManager />
       </>
     ),
     errorElement: <RouteErrorBoundary />,
@@ -215,6 +214,7 @@ const router = createBrowserRouter([
           { path: 'products', element: <VendorProductManager /> },
           { path: 'orders', element: <VendorOrderManager /> },
           { path: 'payout-settings', element: <VendorPayoutSettings /> },
+          { path: 'verification', element: <VendorVerificationPage /> },
         ],
       },
 

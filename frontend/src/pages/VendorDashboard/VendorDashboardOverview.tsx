@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getVendorVerificationStatus } from '@/api/verification';
+import type { VendorVerification } from '@/types/verification';
 
 interface ProductVariant {
   id: string;
@@ -60,6 +62,7 @@ export default function VendorDashboardOverview() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [vendorStore, setVendorStore] = useState<VendorStore | null>(null);
+  const [verification, setVerification] = useState<VendorVerification | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -72,10 +75,12 @@ export default function VendorDashboardOverview() {
     setIsRefreshing(true);
 
     try {
-      const [productsRes, ordersRes, vendorsRes] = await Promise.allSettled([
+      const vendorId = user?.vendor_store?.id || user?.id || 'default_vendor';
+      const [productsRes, ordersRes, vendorsRes, verificationData] = await Promise.allSettled([
         apiClient.get('/api/v1/products/my-products/'),
         apiClient.get('/api/v1/orders/'),
         apiClient.get('/api/v1/vendors/'),
+        getVendorVerificationStatus(vendorId, user?.email, user?.phone || user?.profile?.phone_number || ''),
       ]);
 
       if (productsRes.status === 'fulfilled') {
@@ -100,6 +105,9 @@ export default function VendorDashboardOverview() {
         if (matched) {
           setVendorStore(matched);
         }
+      }
+      if (verificationData.status === 'fulfilled') {
+        setVerification(verificationData.value);
       }
     } catch (err) {
       console.error('Failed to sync vendor dashboard telemetry:', err);
@@ -289,6 +297,21 @@ export default function VendorDashboardOverview() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <span style={activeBadgeStyles}>MERCHANT HUB ACTIVE</span>
+              {verification?.verification_status === 'fully_verified' && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(39, 174, 96, 0.12)',
+                  color: 'var(--color-success)',
+                  fontSize: '0.675rem',
+                  fontWeight: '700',
+                  border: '1px solid rgba(39, 174, 96, 0.3)',
+                }}>
+                  ✓ VERIFIED VENDOR
+                </span>
+              )}
               {vendorStore?.reference_code && (
                 <span style={storeRefBadgeStyles}>STORE: {vendorStore.reference_code}</span>
               )}
@@ -330,6 +353,94 @@ export default function VendorDashboardOverview() {
         </div>
       </div>
 
+      {/* Verification Status Summary Card Widget */}
+      <div style={{
+        background: 'var(--color-bg-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '1.25rem 1.5rem',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: verification?.verification_status === 'fully_verified'
+              ? 'rgba(39, 174, 96, 0.1)'
+              : 'rgba(255, 122, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            flexShrink: 0
+          }}>
+            {verification?.verification_status === 'fully_verified' ? '🛡️' : '⚠️'}
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <strong style={{ fontSize: '1rem', color: 'var(--color-text)' }}>
+                {verification?.verification_status === 'fully_verified' ? '✓ Fully Verified Vendor' : 'Vendor Verification Status'}
+              </strong>
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: verification?.verification_status === 'fully_verified'
+                  ? 'rgba(39, 174, 96, 0.1)'
+                  : verification?.verification_status === 'partially_verified'
+                  ? 'rgba(255, 122, 0, 0.1)'
+                  : 'var(--color-bg-subtle)',
+                color: verification?.verification_status === 'fully_verified'
+                  ? 'var(--color-success)'
+                  : verification?.verification_status === 'partially_verified'
+                  ? 'var(--color-primary)'
+                  : 'var(--color-text-muted)',
+              }}>
+                {verification?.verification_status === 'fully_verified' && 'Fully Verified'}
+                {verification?.verification_status === 'partially_verified' && '1 of 2 Completed'}
+                {(!verification || verification.verification_status === 'unverified') && '0 of 2 Completed'}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)', margin: '4px 0 0 0' }}>
+              {verification?.verification_status === 'fully_verified'
+                ? 'Your vendor account is fully verified. Customers see your verified trust badge on all products.'
+                : 'Complete your email and phone verification to build trust with buyers and unlock verified-vendor status.'}
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to="/vendor/dashboard/verification"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '8px 16px',
+            backgroundColor: verification?.verification_status === 'fully_verified'
+              ? 'var(--color-bg-subtle)'
+              : 'var(--color-primary)',
+            color: verification?.verification_status === 'fully_verified'
+              ? 'var(--color-text)'
+              : '#ffffff',
+            borderRadius: 'var(--radius-md)',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            textDecoration: 'none',
+            border: verification?.verification_status === 'fully_verified'
+              ? '1px solid var(--color-border)'
+              : 'none',
+          }}
+        >
+          {verification?.verification_status === 'fully_verified' ? 'View Verification Details' : 'Complete Verification →'}
+        </Link>
+      </div>
       {/* Real Stats Grid */}
       <div style={statsGridStyles}>
         <div style={statCardStyles}>
