@@ -510,6 +510,19 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
         icon_url: null,
       };
 
+  const normalizedImages = (Array.isArray(p.images) ? p.images : []).map((img: any) => {
+    if (!img) return img;
+    if (typeof img === 'string') {
+      return normalizeUrl(img) || img;
+    }
+    return {
+      ...img,
+      image_url: normalizeUrl(img.image_url) || img.image_url,
+      thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
+      url: normalizeUrl(img.url || img.image_url) || img.url,
+    };
+  });
+
   return {
     id: p.id,
     name: p.name,
@@ -518,7 +531,7 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     original_price: p.original_price ?? null,
     primary_image_url: resolvedPrimary,
     image_url: resolvedPrimary || undefined,
-    images: Array.isArray(p.images) ? p.images : [],
+    images: normalizedImages,
     variants: p.variants || [],
     category: categoryObj,
     category_name: categoryName,

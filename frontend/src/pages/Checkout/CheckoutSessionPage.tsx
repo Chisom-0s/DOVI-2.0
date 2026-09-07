@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { checkoutApi } from '@/api/checkout';
 import { paymentsApi } from '@/api/payments';
+import { normalizeUrl, getProductFallbackImage } from '@/utils/image';
 import type { CheckoutSession, PaymentMethod } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -136,7 +137,8 @@ export default function CheckoutSessionPage() {
             <div style={itemsContainerStyles}>
               {session.cart_snapshot.items.map((item: any) => {
                 const prodName = item.product_name || item.product?.name || 'Product';
-                const prodImg = item.image_url || item.product?.primary_image_url || '/logo.jpg?v=2';
+                const fallbackImg = getProductFallbackImage(item.product || { name: prodName });
+                const prodImg = normalizeUrl(item.image_url || item.product?.primary_image_url) || fallbackImg;
                 const varName = item.variant_name || (typeof item.variant === 'object' ? item.variant?.name : item.variant);
                 const itemTotal = item.line_total ?? String((parseFloat(String(item.unit_price || item.price || 0)) * (Number(item.quantity) || 1)));
 
@@ -146,7 +148,7 @@ export default function CheckoutSessionPage() {
                       src={prodImg}
                       alt={prodName}
                       style={itemImgStyles}
-                      onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                      onError={e => { (e.target as HTMLImageElement).src = fallbackImg; }}
                     />
                     <div style={{ flex: 1 }}>
                       <p style={itemNameStyles}>{prodName}</p>

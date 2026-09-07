@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Order } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -114,10 +115,10 @@ export default function OrderConfirmationPage() {
           {order.items.map((item) => (
             <div key={item.id} style={itemRowStyles}>
               <img
-                src={item.product.primary_image_url || '/logo.jpg?v=2'}
+                src={getProductImageUrl(item.product)}
                 alt={item.product.name}
                 style={itemImgStyles}
-                onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
               />
               <div style={{ flex: 1 }}>
                 <p style={itemNameStyles}>{item.product.name}</p>

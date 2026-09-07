@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { productsApi } from '@/api/products';
 import { formatPrice } from '@/utils/currency';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 
 export default function SearchBar() {
@@ -102,16 +103,14 @@ export default function SearchBar() {
                   onClick={() => handleSuggestionClick(product.id)}
                   style={itemStyles}
                 >
-                  {product.primary_image_url && (
-                    <img
-                      src={product.primary_image_url}
-                      alt=""
-                      style={thumbStyles}
-                      onError={e => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  )}
+                  <img
+                    src={getProductImageUrl(product)}
+                    alt={product.name}
+                    style={thumbStyles}
+                    onError={e => {
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(product);
+                    }}
+                  />
                   <div style={infoStyles}>
                     <span style={nameStyles}>{product.name}</span>
                     <span style={priceStyles}>

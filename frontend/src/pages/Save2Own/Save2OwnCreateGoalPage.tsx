@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
 import { save2ownApi } from '@/api/save2own';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Product, ProductVariant, APIError } from '@/types';
 import VariantSelector from '@/components/product/VariantSelector';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -175,7 +176,8 @@ export default function Save2OwnCreateGoalPage() {
     ? (typeof product.vendor === 'object' ? product.vendor.name : (product.vendor_name || 'Dovi Partner'))
     : (product?.vendor_name || 'Dovi Partner');
 
-  const primaryImage = selectedVariant?.image_url || product?.images?.[0]?.url || '/logo.jpg?v=2';
+  const fallbackImg = product ? getProductFallbackImage(product) : '/logo.jpg?v=2';
+  const primaryImage = (product ? getProductImageUrl(product) : null) || selectedVariant?.image_url || fallbackImg;
 
   return (
     <div className="container" style={formPageWrapperStyles}>
@@ -198,7 +200,7 @@ export default function Save2OwnCreateGoalPage() {
               alt={product.name}
               style={previewImgStyles}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                (e.target as HTMLImageElement).src = fallbackImg;
               }}
             />
             <div style={previewTextStyles}>

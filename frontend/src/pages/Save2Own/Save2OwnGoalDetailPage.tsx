@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { save2ownApi } from '@/api/save2own';
 import { paymentsApi } from '@/api/payments';
 import { productsApi } from '@/api/products';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Save2OwnGoal, PaymentMethod, Product, ProductVariant, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -509,11 +510,11 @@ export default function Save2OwnGoalDetailPage() {
             </div>
             <div style={productRowStyles}>
               <img
-                src={goal.variant?.image_url || goal.product.primary_image_url || '/logo.jpg?v=2'}
+                src={goal.variant?.image_url || getProductImageUrl(goal.product)}
                 alt={goal.product.name}
                 style={productImgStyles}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                  (e.target as HTMLImageElement).src = getProductFallbackImage(goal.product);
                 }}
               />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>

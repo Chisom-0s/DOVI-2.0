@@ -81,27 +81,37 @@ export function getProductFallbackImage(product?: any): string {
 }
 
 export function normalizeUrl(url?: unknown): string | null {
-  if (!url || typeof url !== 'string') return null;
+  if (!url) return null;
+  if (typeof url === 'object') {
+    const obj = url as Record<string, unknown>;
+    const inner = obj.thumbnail_url || obj.image_url || obj.url || obj.image || obj.file || obj.src;
+    if (typeof inner === 'string') return normalizeUrl(inner);
+    return null;
+  }
+  if (typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
 
-  // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints
-  const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN;
+  // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints.
+  // Defaults defensively to known public bucket domain to prevent failed private S3 requests.
+  const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN || 'pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev';
+  const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
   if (trimmed.includes('.r2.cloudflarestorage.com/')) {
-    if (r2PublicDomain) {
-      const parts = trimmed.split('.r2.cloudflarestorage.com/');
-      if (parts[1]) {
-        // Remove bucket prefix if present
-        const afterBucket = parts[1].replace(/^[^/]+\//, '');
-        const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-        return `https://${cleanHost}/${afterBucket}`;
-      }
-    } else {
-      // Cloudflare's private S3 endpoint requires AWS SigV4 authorization.
-      // Without VITE_R2_PUBLIC_DOMAIN configured, direct browser requests will fail with 400 Bad Request.
-      // Return null so the caller can fall back to contextual product imagery instead of a broken request.
-      return null;
+    const parts = trimmed.split('.r2.cloudflarestorage.com/');
+    if (parts[1]) {
+      // Remove bucket prefix if present
+      const afterBucket = parts[1].replace(/^[^/]+\//, '');
+      return `https://${cleanHost}/${afterBucket}`;
     }
+  }
+
+  // Handle direct storage key paths
+  if (trimmed.startsWith('product-images/') || trimmed.startsWith('/product-images/')) {
+    return `https://${cleanHost}/${trimmed.replace(/^\/+/, '')}`;
+  }
+  if (trimmed.startsWith('dovi-media/product-images/') || trimmed.startsWith('/dovi-media/product-images/')) {
+    return `https://${cleanHost}/${trimmed.replace(/^\/+/, '').replace(/^dovi-media\//, '')}`;
   }
 
   // If already absolute or data / blob URL

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage, normalizeUrl } from '@/utils/image';
 import type { CartItem } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -117,7 +117,7 @@ export default function CartPage() {
           {cart.items.map((item: CartItem) => {
             const prod: any = item.product || {};
             const displayName = item.product_name || prod.name || 'Product';
-            const displayImg = item.image_url || prod.primary_image_url || prod.image_url || getProductImageUrl(prod);
+            const displayImg = normalizeUrl(item.image_url || prod.primary_image_url || prod.image_url) || getProductImageUrl(prod);
             const rawUnit = item.unit_price ?? item.price ?? prod.base_price ?? prod.price ?? '0';
             const numUnit = parseFloat(String(rawUnit)) || 0;
             const lineTotal = item.line_total ?? (numUnit * item.quantity).toFixed(2);

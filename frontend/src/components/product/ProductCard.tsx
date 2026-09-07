@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl } from '@/utils/image';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 
@@ -69,6 +69,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const formattedPrice = formatPrice(product);
   const cardImage = getProductImageUrl(product);
+  const fallbackImage = getProductFallbackImage(product);
 
   return (
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
@@ -76,8 +77,10 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div style={imgContainerStyles}>
         <ItemImageLoader
           src={cardImage}
+          fallbackSrc={fallbackImage}
           alt={product.name}
           objectFit="cover"
+          loading="lazy"
         />
 
         {/* Wishlist Button */}
@@ -169,6 +172,7 @@ const cardStyles: React.CSSProperties = {
 
 const imgContainerStyles: React.CSSProperties = {
   position: 'relative',
+  width: '100%',
   aspectRatio: '1/1',
   backgroundColor: 'var(--color-bg-subtle)',
   overflow: 'hidden',

@@ -1,6 +1,7 @@
 // Products API — GET /api/v1/products/*
 import apiClient, { normalizeApiError } from './client';
 import { MOCK_PRODUCTS, normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
+import { normalizeUrl } from '@/utils/image';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
 export interface ProductFilters {
@@ -56,7 +57,23 @@ export const productsApi = {
     if (!id.startsWith('prod-')) {
       try {
         const { data } = await apiClient.get(`/api/v1/products/${id}/`);
-        return data;
+        const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
+        const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
+          if (!img) return img;
+          if (typeof img === 'string') return normalizeUrl(img) || img;
+          return {
+            ...img,
+            image_url: normalizeUrl(img.image_url) || img.image_url,
+            thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
+            url: normalizeUrl(img.url || img.image_url) || img.url,
+          };
+        });
+        return {
+          ...data,
+          primary_image_url: normPrimary,
+          image_url: normPrimary || data.image_url,
+          images: normImages,
+        };
       } catch (err: any) {
         // Only fallback if 404
         if (err?.response?.status !== 404) {
@@ -255,7 +272,11 @@ export const productsApi = {
         `/api/v1/products/${productId}/images/`,
         formData
       );
-      return data;
+      return {
+        ...data,
+        image_url: normalizeUrl(data.image_url) || data.image_url,
+        thumbnail_url: normalizeUrl(data.thumbnail_url) || data.thumbnail_url,
+      };
     } catch (err) {
       throw normalizeApiError(err);
     }

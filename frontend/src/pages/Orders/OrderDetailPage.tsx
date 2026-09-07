@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/api/orders';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Order, OrderTracking } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -118,10 +119,10 @@ export default function OrderDetailPage() {
             {order.items.map((item) => (
               <div key={item.id} style={itemRowStyles}>
                 <img
-                  src={item.product.primary_image_url || '/logo.jpg?v=2'}
+                  src={getProductImageUrl(item.product)}
                   alt={item.product.name}
                   style={itemImgStyles}
-                  onError={e => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                  onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
                 />
                 <div style={{ flex: 1 }}>
                   <Link to={`/products/${item.product.id}`} style={itemNameStyles}>

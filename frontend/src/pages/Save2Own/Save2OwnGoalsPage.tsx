@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { save2ownApi } from '@/api/save2own';
+import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Save2OwnGoalSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -175,11 +176,11 @@ export default function Save2OwnGoalsPage() {
               {/* Product Info Banner */}
               <div style={productBannerStyles}>
                 <img
-                  src={goal.product.primary_image_url || '/logo.jpg?v=2'}
+                  src={getProductImageUrl(goal.product)}
                   alt={goal.product.name}
                   style={productImgStyles}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                    (e.target as HTMLImageElement).src = getProductFallbackImage(goal.product);
                   }}
                 />
                 <div style={productDetailStyles}>
