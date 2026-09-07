@@ -92,45 +92,71 @@ export function normalizeUrl(url?: unknown): string | null {
   const trimmed = url.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
 
+  // Keep local blob and data URLs intact
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+
+  // Detect presigned query strings (?X-Amz-... or ?AWSAccessKeyId=... or ?Signature=...)
+  const isPresigned = /[?&](X-Amz-|AWSAccessKeyId=|Signature=)/i.test(trimmed);
+
   // If a public R2 domain is configured via env (e.g. pub-xxxx.r2.dev or media.dovi.ng), rewrite private R2 S3 endpoints.
   // Defaults defensively to known public bucket domain to prevent failed private S3 requests.
   const r2PublicDomain = import.meta.env.VITE_R2_PUBLIC_DOMAIN || 'pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev';
   const cleanHost = r2PublicDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 
+  // 1. Handle private Cloudflare R2 S3 endpoints
   if (trimmed.includes('.r2.cloudflarestorage.com/')) {
     const parts = trimmed.split('.r2.cloudflarestorage.com/');
     if (parts[1]) {
-      // Remove bucket prefix if present
-      const afterBucket = parts[1].replace(/^[^/]+\//, '');
-      return `https://${cleanHost}/${afterBucket}`;
+      const cleanPath = parts[1].split('?')[0].replace(/^[^/]+\//, ''); // removes bucket prefix like 'dovi-media/'
+      return `https://${cleanHost}/${cleanPath.replace(/^\/+/, '')}`;
     }
   }
 
-  // Handle direct storage key paths
+  // 2. Handle legacy AWS S3 endpoints (e.g. dovi-media.s3.amazonaws.com or s3.amazonaws.com/dovi-media)
+  if (/s3[.-][a-z0-9-]+\.amazonaws\.com/i.test(trimmed) || /s3\.amazonaws\.com/i.test(trimmed)) {
+    const withoutQuery = trimmed.split('?')[0];
+    const pathMatch = withoutQuery.match(/(?:dovi-media\/)?(product-images\/.+)$/i);
+    if (pathMatch && pathMatch[1]) {
+      return `https://${cleanHost}/${pathMatch[1]}`;
+    }
+  }
+
+  // 3. Handle already public R2 dev domains or custom CDN domains with presigned query params
+  if (trimmed.includes(cleanHost) || /pub-[a-z0-9]+\.r2\.dev/i.test(trimmed)) {
+    return trimmed.split('?')[0];
+  }
+
+  // 4. Handle direct storage key paths
   if (trimmed.startsWith('product-images/') || trimmed.startsWith('/product-images/')) {
-    return `https://${cleanHost}/${trimmed.replace(/^\/+/, '')}`;
+    const clean = trimmed.split('?')[0].replace(/^\/+/, '');
+    return `https://${cleanHost}/${clean}`;
   }
   if (trimmed.startsWith('dovi-media/product-images/') || trimmed.startsWith('/dovi-media/product-images/')) {
-    return `https://${cleanHost}/${trimmed.replace(/^\/+/, '').replace(/^dovi-media\//, '')}`;
+    const clean = trimmed.split('?')[0].replace(/^\/+/, '').replace(/^dovi-media\//, '');
+    return `https://${cleanHost}/${clean}`;
   }
 
-  // If already absolute or data / blob URL
-  if (/^(https?:|\/\/|data:|blob:)/i.test(trimmed)) {
-    return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
-  }
-
-  // If it's a frontend static asset
+  // 5. If it's a frontend static asset
   if (trimmed.startsWith('/logo.jpg') || trimmed.startsWith('/assets/') || trimmed.startsWith('/favicon.')) {
     return trimmed;
   }
 
-  // Prepend backend API URL if relative media/static path
-  const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-  if (apiBase) {
-    return trimmed.startsWith('/') ? `${apiBase}${trimmed}` : `${apiBase}/${trimmed}`;
+  // 6. If it's another absolute URL, strip presigned query params if present
+  if (/^(https?:|\/\/)/i.test(trimmed)) {
+    const normalizedUrl = trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
+    return isPresigned ? normalizedUrl.split('?')[0] : normalizedUrl;
   }
 
-  return trimmed;
+  // 7. Prepend backend API URL if relative media/static path
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  if (apiBase) {
+    const clean = isPresigned ? trimmed.split('?')[0] : trimmed;
+    return clean.startsWith('/') ? `${apiBase}${clean}` : `${apiBase}/${clean}`;
+  }
+
+  return isPresigned ? trimmed.split('?')[0] : trimmed;
 }
 
 export function getProductImageUrl(product?: any): string {
