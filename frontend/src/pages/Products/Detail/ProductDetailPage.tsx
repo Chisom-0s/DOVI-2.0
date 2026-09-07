@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
 import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
-import type { Product, ProductVariant, ProductSummary } from '@/types';
+import type { APIError, Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
 import VendorSection from '@/components/product/VendorSection';
@@ -14,6 +14,7 @@ import ShareButtons from '@/components/product/ShareButtons';
 import ProductRow from '@/components/product/ProductRow';
 import { Skeleton } from '@/components/common/Skeleton';
 import { formatPrice } from '@/utils/currency';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,55 +28,62 @@ export default function ProductDetailPage() {
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<ProductSummary[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
+  const [fetchError, setFetchError] = useState<APIError | null>(null);
 
   // Fetch product detail and related recommendations
-  useEffect(() => {
+  const fetchDetailData = useCallback(async () => {
     if (!id) return;
+    setIsLoading(true);
+    setIsLoadingRelated(true);
+    setFetchError(null);
+    try {
+      const detail = await productsApi.getById(id);
+      setProduct(detail);
+      setQuantity(1);
 
-    const fetchDetailData = async () => {
-      setIsLoading(true);
-      setIsLoadingRelated(true);
-      try {
-        const detail = await productsApi.getById(id);
-        setProduct(detail);
-        setQuantity(1);
-
-        // Pre-select first variant if available
-        if (detail.variants && detail.variants.length > 0) {
-          setSelectedVariant(detail.variants[0]);
-        } else {
-          setSelectedVariant(null);
-        }
-
-        // Fetch related products
-        try {
-          const related = await productsApi.getRelated(id);
-          setRelatedProducts(related);
-        } catch (rErr) {
-          console.warn('Could not load related products:', rErr);
-          setRelatedProducts([]);
-        }
-      } catch (err) {
-        console.error('Failed to load product detail:', err);
-        const fallback = findKnownProduct(id, undefined, id) || getCartItemMeta(id);
-        const resolvedId = fallback?.productId || (fallback?.id !== id ? fallback?.id : undefined);
-        if (resolvedId && resolvedId !== id) {
-          navigate(`/products/${resolvedId}`, { replace: true });
-          return;
-        }
-        setProduct(null);
+      // Pre-select first variant if available
+      if (detail.variants && detail.variants.length > 0) {
+        setSelectedVariant(detail.variants[0]);
+      } else {
         setSelectedVariant(null);
-        toast.error('Product not found or offline.');
-      } finally {
-        setIsLoading(false);
-        setIsLoadingRelated(false);
       }
-    };
 
-    fetchDetailData();
-  }, [id]);
+      // Fetch related products
+      try {
+        const related = await productsApi.getRelated(id);
+        setRelatedProducts(related);
+      } catch (rErr) {
+        console.warn('Could not load related products:', rErr);
+        setRelatedProducts([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to load product detail:', err);
+      const fallback = findKnownProduct(id, undefined, id) || getCartItemMeta(id);
+      const resolvedId = fallback?.productId || (fallback?.id !== id ? fallback?.id : undefined);
+      if (resolvedId && resolvedId !== id) {
+        navigate(`/products/${resolvedId}`, { replace: true });
+        return;
+      }
+      setProduct(null);
+      setSelectedVariant(null);
+      const isNetwork = !navigator.onLine || err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
+      setFetchError(
+        isNetwork
+          ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
+          : { error: true, message: "Couldn't fetch item", code: 'FETCH_ERROR' }
+      );
+      toast.error(isNetwork ? 'Check your connection' : "Couldn't fetch item");
+    } finally {
+      setIsLoading(false);
+      setIsLoadingRelated(false);
+    }
+  }, [id, navigate]);
 
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    fetchDetailData();
+  }, [fetchDetailData]);
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -118,12 +126,30 @@ export default function ProductDetailPage() {
     );
   }
 
+  if (fetchError?.code === 'NETWORK_ERROR' || (!product && !navigator.onLine)) {
+    return (
+      <div className="container" style={{ padding: 'var(--space-12) 0', display: 'flex', justifyContent: 'center' }}>
+        <NoInternetBanner onRetry={fetchDetailData} />
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="container" style={errorWrapperStyles}>
-        <h3>Product details unavailable</h3>
-        <p>This item could not be retrieved. It may have been archived or is temporarily offline.</p>
-        <Link to="/products" style={backBtnStyles}>Back to Marketplace</Link>
+        <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
+        <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 'bold' }}>Couldn't fetch item</h3>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+          This item could not be retrieved from the database. It may have been removed or is temporarily unavailable.
+        </p>
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <button onClick={fetchDetailData} style={backBtnStyles}>
+            🔄 Retry
+          </button>
+          <Link to="/products" style={backBtnStyles}>
+            🏪 Back to Marketplace
+          </Link>
+        </div>
       </div>
     );
   }

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
-import type { ProductSummary } from '@/types';
+import type { APIError, ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
 import { SkeletonCard } from '@/components/common/Skeleton';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 const DEFAULT_LISTING_CATEGORIES = [
   { name: 'Phones & Tablets', slug: 'phones-tablets' },
@@ -18,6 +19,7 @@ const DEFAULT_LISTING_CATEGORIES = [
 
 export default function ProductListingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+
 
   // Extract query filters from URL search params
   const categoryParam = searchParams.get('category') ?? '';
@@ -43,6 +45,7 @@ export default function ProductListingPage() {
   const [totalCount, setTotalCount] = useState<number>(() => products.length);
   const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
   const [categories, setCategories] = useState<Array<{ name: string; slug: string }>>(DEFAULT_LISTING_CATEGORIES);
+  const [fetchError, setFetchError] = useState<APIError | null>(null);
 
   // Fetch categories list for filters
   useEffect(() => {
@@ -61,46 +64,39 @@ export default function ProductListingPage() {
   }, []);
 
   // Fetch products list on filter change
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchProducts = async () => {
-      if (products.length === 0) {
-        setIsLoading(true);
-      }
-      try {
-        const response = await productsApi.list({
-          page: pageParam,
-          page_size: 12,
-          category: categoryParam || undefined,
-          sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
-          min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
-          max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
-          in_stock: inStockParam ? true : undefined,
-        });
-        if (isMounted) {
-          setProducts(response.results);
-          setTotalCount(response.count);
-        }
-      } catch (err) {
-        console.error('Failed to load products list:', err);
-        if (isMounted && products.length === 0) {
-          setProducts([]);
-          setTotalCount(0);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchProducts();
-
-    return () => {
-      isMounted = false;
-    };
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const response = await productsApi.list({
+        page: pageParam,
+        page_size: 12,
+        category: categoryParam || undefined,
+        sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
+        min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
+        max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
+        in_stock: inStockParam ? true : undefined,
+      });
+      setProducts(response.results);
+      setTotalCount(response.count);
+    } catch (err: any) {
+      console.error('Failed to load products list:', err);
+      setProducts([]);
+      setTotalCount(0);
+      const isNetwork = !navigator.onLine || err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
+      setFetchError(
+        isNetwork
+          ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
+          : { error: true, message: "Couldn't fetch item", code: 'FETCH_ERROR' }
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }, [categoryParam, sortParam, minPriceParam, maxPriceParam, inStockParam, pageParam]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const updateFilters = (newParams: Record<string, string | null>) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -266,6 +262,14 @@ export default function ProductListingPage() {
               </div>
             )}
           </>
+        ) : fetchError?.code === 'NETWORK_ERROR' || (!navigator.onLine && products.length === 0) ? (
+          <NoInternetBanner onRetry={fetchProducts} />
+        ) : fetchError ? (
+          <div style={emptyStyles}>
+            <h3>Couldn't fetch item</h3>
+            <p>We couldn't retrieve products from the database right now.</p>
+            <button onClick={fetchProducts} style={pageBtnStyles}>🔄 Retry</button>
+          </div>
         ) : (
           <div style={emptyStyles}>
             <h3>No results found</h3>

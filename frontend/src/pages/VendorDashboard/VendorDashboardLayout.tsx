@@ -5,6 +5,7 @@ import apiClient from '@/api/client';
 import VendorStoreSetup from './VendorStoreSetup';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import CorporateFooter from '@/components/common/CorporateFooter';
+import { WhatsAppSupportButton } from '@/components/common/WhatsAppSupportButton';
 
 interface NavItem {
   label: string;
@@ -123,6 +124,16 @@ export default function VendorDashboardLayout() {
         </svg>
       ),
     },
+    {
+      label: 'Payout Details',
+      path: '/vendor/dashboard/payout-settings',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+      ),
+    },
   ];
 
   const isActive = (path: string) => {
@@ -215,6 +226,9 @@ export default function VendorDashboardLayout() {
           <CorporateFooter />
         </main>
       </div>
+
+      {/* Floating WhatsApp Support Button (Vendor Dashboard Only) */}
+      <WhatsAppSupportButton phoneNumber="2347014109517" />
     </div>
   );
 }

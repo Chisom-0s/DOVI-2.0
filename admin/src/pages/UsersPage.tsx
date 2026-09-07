@@ -7,6 +7,7 @@ import type { User, APIError, UserRole, AccountStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
+import { exportUsersToPdf, exportUsersToDocx } from '@/utils/exportUtils';
 
 // Helper to generate consistent avatar background colors from name
 const getAvatarGradient = (name: string): string => {
@@ -66,6 +67,9 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'BUYER' | 'VENDOR' | 'ADMIN' | 'PENDING_VENDOR'>('ALL');
   const [loginStatusFilter, setLoginStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
+
+  // Row Selection State for Exporting
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   // Selected User Modal / Detail
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -356,7 +360,7 @@ export default function UsersPage() {
       phone: user.phone || user.profile?.phone_number || '',
       role: user.role,
       status: user.status,
-      is_email_verified: Boolean(user.is_email_verified),
+      is_email_verified: !!user.is_email_verified,
     });
     setShowEditModal(true);
   };
@@ -367,19 +371,10 @@ export default function UsersPage() {
 
     setIsSubmittingEdit(true);
     try {
-      const updated = await adminApi.updateUser(editingUser.id, {
-        first_name: editForm.first_name,
-        last_name: editForm.last_name,
-        email: editForm.email,
-        phone: editForm.phone,
-        role: editForm.role,
-        status: editForm.status,
-        is_email_verified: editForm.is_email_verified,
-      });
-
+      const updated = await adminApi.updateUser(editingUser.id, editForm);
       toast.success(`Account details for ${updated.email} updated successfully!`);
       setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
-      if (selectedUser && selectedUser.id === updated.id) {
+      if (selectedUser?.id === updated.id) {
         setSelectedUser(updated);
       }
       setShowEditModal(false);
@@ -400,11 +395,11 @@ export default function UsersPage() {
     if (!userToPromote) return;
     setIsSubmittingPromote(true);
     try {
-      const updated = await adminApi.promoteToAdmin(userToPromote.id);
-      toast.success(`${updated.first_name || updated.email} has been promoted to Administrator!`);
-      setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
-      if (selectedUser && selectedUser.id === updated.id) {
-        setSelectedUser(updated);
+      const promoted = await adminApi.promoteToAdmin(userToPromote.id);
+      toast.success(`User ${promoted.email} has been promoted to Administrator!`);
+      setUsers(prev => prev.map(u => (u.id === promoted.id ? promoted : u)));
+      if (selectedUser?.id === promoted.id) {
+        setSelectedUser(promoted);
       }
       setShowPromoteModal(false);
       setUserToPromote(null);
@@ -417,7 +412,7 @@ export default function UsersPage() {
 
   const handleDemote = (user: User) => {
     if (user.id === currentAdmin?.id) {
-      toast.error('You cannot demote your own active administrator account.');
+      toast.error('You cannot demote your own administrator account.');
       return;
     }
     setUserToDemote(user);
@@ -429,11 +424,11 @@ export default function UsersPage() {
     if (!userToDemote) return;
     setIsSubmittingDemote(true);
     try {
-      const updated = await adminApi.demoteAdmin(userToDemote.id, demoteRole);
-      toast.success(`Admin privileges removed. Account updated to ${demoteRole}.`);
-      setUsers(prev => prev.map(u => (u.id === updated.id ? updated : u)));
-      if (selectedUser && selectedUser.id === updated.id) {
-        setSelectedUser(updated);
+      const demoted = await adminApi.demoteAdmin(userToDemote.id, demoteRole);
+      toast.success(`Administrator ${demoted.email} has been demoted to ${demoteRole}.`);
+      setUsers(prev => prev.map(u => (u.id === demoted.id ? demoted : u)));
+      if (selectedUser?.id === demoted.id) {
+        setSelectedUser(demoted);
       }
       setShowDemoteModal(false);
       setUserToDemote(null);
@@ -446,7 +441,7 @@ export default function UsersPage() {
 
   const handleDelete = (user: User) => {
     if (user.id === currentAdmin?.id) {
-      toast.error('You cannot delete your own active administrator account.');
+      toast.error('You cannot delete your own administrator account.');
       return;
     }
     setUserToDelete(user);
@@ -458,9 +453,9 @@ export default function UsersPage() {
     setIsSubmittingDelete(true);
     try {
       await adminApi.deleteUser(userToDelete.id);
-      toast.success(`User account for ${userToDelete.email} has been deleted.`);
+      toast.success(`User account for ${userToDelete.email} has been permanently deleted.`);
       setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-      if (selectedUser && selectedUser.id === userToDelete.id) {
+      if (selectedUser?.id === userToDelete.id) {
         setSelectedUser(null);
       }
       setShowDeleteModal(false);
@@ -470,6 +465,64 @@ export default function UsersPage() {
     } finally {
       setIsSubmittingDelete(false);
     }
+  };
+
+  // --- Export Actions ---
+
+  const handleToggleSelectAll = () => {
+    if (selectedUserIds.size === users.length && users.length > 0) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(users.map((u) => u.id)));
+    }
+  };
+
+  const handleToggleSelectUser = (id: string) => {
+    const next = new Set(selectedUserIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedUserIds(next);
+  };
+
+  const handleExportSelectedDocx = () => {
+    const targets = users.filter((u) => selectedUserIds.has(u.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one user to export.');
+      return;
+    }
+    exportUsersToDocx(targets, `dovi-selected-users-${targets.length}.docx`);
+    toast.success(`Exported ${targets.length} selected users to DOCX`);
+  };
+
+  const handleExportSelectedPdf = () => {
+    const targets = users.filter((u) => selectedUserIds.has(u.id));
+    if (targets.length === 0) {
+      toast.error('Please select at least one user to export.');
+      return;
+    }
+    exportUsersToPdf(targets, `dovi-selected-users-${targets.length}.pdf`);
+    toast.success(`Exported ${targets.length} selected users to PDF`);
+  };
+
+  const handleExportAllDocx = () => {
+    if (users.length === 0) {
+      toast.error('No users available to export.');
+      return;
+    }
+    exportUsersToDocx(users, `dovi-all-users-${users.length}.docx`);
+    toast.success(`Exported ${users.length} users to DOCX`);
+  };
+
+  const handleExportAllPdf = () => {
+    if (users.length === 0) {
+      toast.error('No users available to export.');
+      return;
+    }
+    exportUsersToPdf(users, `dovi-all-users-${users.length}.pdf`);
+    toast.success(`Exported ${users.length} users to PDF`);
   };
 
   if (isLoading) {
@@ -504,17 +557,53 @@ export default function UsersPage() {
             Manage buyer accounts, platform administrators, and vendor merchant verifications.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateAdminModal(true)}
-          style={primaryCreateAdminBtnStyles}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-          + Create Admin
-        </button>
+        {/* Action Buttons: Export + Create Admin */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedUserIds.size > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={handleExportSelectedDocx}
+                style={exportBtnStyles}
+              >
+                📄 Export Selected ({selectedUserIds.size}) DOCX
+              </button>
+              <button
+                type="button"
+                onClick={handleExportSelectedPdf}
+                style={exportBtnStyles}
+              >
+                📕 Export Selected ({selectedUserIds.size}) PDF
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleExportAllDocx}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Users DOCX
+          </button>
+          <button
+            type="button"
+            onClick={handleExportAllPdf}
+            style={secondaryExportBtnStyles}
+          >
+            📥 Export All Users PDF
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateAdminModal(true)}
+            style={primaryCreateAdminBtnStyles}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            + Create Admin
+          </button>
+        </div>
       </div>
 
       <ApiErrorMessage error={error} />
@@ -719,6 +808,14 @@ export default function UsersPage() {
             <table style={spaciousTableStyles}>
               <thead>
                 <tr style={tableHeadRowStyles}>
+                  <th style={{ ...tableHeadCellStyles, width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredUsers.length > 0 && selectedUserIds.size === filteredUsers.length}
+                      onChange={handleToggleSelectAll}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
                   <th style={tableHeadCellStyles}>User Profile</th>
                   <th style={tableHeadCellStyles}>Role</th>
                   <th style={tableHeadCellStyles}>Login Access</th>
@@ -742,6 +839,15 @@ export default function UsersPage() {
 
                   return (
                     <tr key={u.id} style={tableDataRowStyles}>
+                      <td style={{ ...tableDataCellStyles, textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.has(u.id)}
+                          onChange={() => handleToggleSelectUser(u.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </td>
+
                       {/* User Profile Cell (Avatar + 2-line name & email) */}
                       <td style={tableDataCellStyles}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -2298,6 +2404,30 @@ const editDetailsBtnStyles: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '6px',
+};
+
+const exportBtnStyles: React.CSSProperties = {
+  backgroundColor: 'var(--color-primary, #ff7a00)',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(255, 122, 0, 0.2)',
+};
+
+const secondaryExportBtnStyles: React.CSSProperties = {
+  backgroundColor: '#1f2937',
+  color: '#ffffff',
+  border: 'none',
+  padding: '8px 14px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
 };
 
 const roleControlSectionStyles: React.CSSProperties = {

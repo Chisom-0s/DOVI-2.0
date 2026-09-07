@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import CorporateFooter from '@/components/common/CorporateFooter';
+import { WhatsAppSupportButton } from '@/components/common/WhatsAppSupportButton';
 
 interface NavItem {
   label: string;
@@ -254,6 +255,9 @@ export default function DashboardLayout() {
           <CorporateFooter />
         </main>
       </div>
+
+      {/* Floating WhatsApp Support Button (Buyer Dashboard Only) */}
+      <WhatsAppSupportButton phoneNumber="2347014109517" />
     </div>
   );
 }

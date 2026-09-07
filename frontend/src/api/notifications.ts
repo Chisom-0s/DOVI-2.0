@@ -32,14 +32,17 @@ export const notificationsApi = {
 
   getUnreadCount: async (): Promise<NotificationUnreadCount> => {
     try {
-      // Try unread-count endpoint first if supported, fallback to list
-      const { data } = await apiClient.get('/api/v1/notifications/');
-      const items: Notification[] = Array.isArray(data) ? data : (data?.results || []);
-      const unreadCount = items.filter(item => !item.is_read).length;
-      return { unread_count: unreadCount };
-    } catch (err) {
-      // Return 0 silently when unauthenticated or failed
-      return { unread_count: 0 };
+      const { data } = await apiClient.get('/api/v1/notifications/unread-count/');
+      return typeof data === 'object' && 'unread_count' in data ? data : { unread_count: Number(data) || 0 };
+    } catch {
+      try {
+        const { data } = await apiClient.get('/api/v1/notifications/');
+        const items: Notification[] = Array.isArray(data) ? data : (data?.results || []);
+        const unreadCount = items.filter(item => !item.is_read).length;
+        return { unread_count: unreadCount };
+      } catch {
+        return { unread_count: 0 };
+      }
     }
   },
 };

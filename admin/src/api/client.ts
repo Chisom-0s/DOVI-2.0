@@ -158,13 +158,32 @@ apiClient.interceptors.response.use(
 // Converts any Axios error into a consistent APIError shape
 // ============================================================
 export function normalizeApiError(error: unknown): APIError {
-  console.error('[normalizeApiError] Raw error:', error);
-  if (axios.isAxiosError(error)) {
-    console.error('[normalizeApiError] Axios error response data JSON:', JSON.stringify(error.response?.data, null, 2));
-  }
   if (axios.isAxiosError(error)) {
     if (error.response) {
       let data = error.response.data as Record<string, unknown> | null;
+      const status = error.response.status;
+      const requestUrl = error.config?.url || '';
+      const isAuthEndpoint = requestUrl.includes('/auth/login/') || requestUrl.includes('/auth/token/');
+
+      const isCredentialError =
+        (isAuthEndpoint && (status === 400 || status === 401 || status === 403)) ||
+        (data &&
+          typeof data === 'object' &&
+          Boolean(
+            JSON.stringify(data)
+              .toLowerCase()
+              .match(/(credentials|password|username|no active account|unable to log in|invalid email or password)/i)
+          ));
+
+      if (isCredentialError) {
+        return {
+          error: true,
+          message: 'Wrong credentials',
+          code: 'INVALID_CREDENTIALS',
+          details: data?.details as Record<string, string[]> | undefined,
+        };
+      }
+
       if (data && typeof data === 'object') {
         // Handle nested "error" wrapper object or string
         if (data.error) {
@@ -265,7 +284,6 @@ export function normalizeApiError(error: unknown): APIError {
       }
 
       // If status code is 5xx or server had no parseable response body
-      const status = error.response.status;
       if (status >= 500) {
         return {
           error: true,
@@ -281,7 +299,7 @@ export function normalizeApiError(error: unknown): APIError {
     } else if (error.request) {
       return {
         error: true,
-        message: 'No response from server. Please check your network connection.',
+        message: 'No internet signal',
         code: 'NETWORK_ERROR',
       };
     }
@@ -290,8 +308,8 @@ export function normalizeApiError(error: unknown): APIError {
   // General JS exception
   return {
     error: true,
-    message: error instanceof Error ? error.message : 'An unexpected error occurred.',
-    code: 'JS_ERROR',
+    message: error instanceof Error ? error.message : 'No internet signal',
+    code: 'NETWORK_ERROR',
   };
 }
 

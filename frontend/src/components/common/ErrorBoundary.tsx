@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRouteError, isRouteErrorResponse, Link } from 'react-router-dom';
+import { NoInternetBanner } from './NoInternetBanner';
 
 // ============================================================
 // ErrorBoundary (Class Component)
@@ -22,6 +23,16 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    const isExtensionError =
+      error?.message?.toLowerCase().includes('promptengine') ||
+      error?.message?.toLowerCase().includes('chrome-extension') ||
+      error?.message?.toLowerCase().includes('moz-extension');
+
+    if (isExtensionError) {
+      console.warn('[ErrorBoundary] Ignored third-party browser extension error:', error?.message);
+      return { hasError: false, error: null };
+    }
+
     return { hasError: true, error };
   }
 
@@ -37,12 +48,26 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (this.state.hasError) {
       if (this.props.fallback) return <>{this.props.fallback}</>;
 
+      const isNetwork =
+        !navigator.onLine ||
+        this.state.error?.message?.toLowerCase().includes('network') ||
+        this.state.error?.message?.toLowerCase().includes('internet signal') ||
+        this.state.error?.message?.toLowerCase().includes('failed to fetch');
+
+      if (isNetwork) {
+        return (
+          <div style={errorContainerStyles}>
+            <NoInternetBanner onRetry={this.handleReset} />
+          </div>
+        );
+      }
+
       return (
         <div style={errorContainerStyles}>
           <div style={errorCardStyles}>
             <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
-            <h2 style={errorTitleStyles}>Something went wrong</h2>
-            <p style={errorDescStyles}>An unexpected error occurred while rendering this component.</p>
+            <h2 style={errorTitleStyles}>Page Loading Error</h2>
+            <p style={errorDescStyles}>{this.state.error?.message || 'An unexpected error occurred while loading this component.'}</p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button onClick={this.handleReset} style={retryBtnStyles}>
                 Try Again
@@ -67,9 +92,34 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 export function RouteErrorBoundary() {
   const error = useRouteError();
 
-  let message = 'An unexpected error occurred while loading this page.';
+  const isExtensionError =
+    error instanceof Error &&
+    (error.message.toLowerCase().includes('promptengine') ||
+      error.message.toLowerCase().includes('chrome-extension') ||
+      error.message.toLowerCase().includes('moz-extension'));
+
+  if (isExtensionError) {
+    console.warn('[RouteErrorBoundary] Bypassing third-party browser extension error:', (error as Error).message);
+  }
+
+  const isNetwork =
+    !navigator.onLine ||
+    (error instanceof Error &&
+      (error.message.toLowerCase().includes('network') ||
+        error.message.toLowerCase().includes('internet signal') ||
+        error.message.toLowerCase().includes('failed to fetch')));
+
+  if (isNetwork) {
+    return (
+      <div style={errorContainerStyles}>
+        <NoInternetBanner onRetry={() => window.location.reload()} />
+      </div>
+    );
+  }
+
+  let message = "Couldn't fetch item";
   if (isRouteErrorResponse(error)) {
-    message = `${error.status} ${error.statusText} — ${typeof error.data === 'string' ? error.data : 'Page not found or unavailable'}`;
+    message = `${error.status} ${error.statusText} — ${typeof error.data === 'string' ? error.data : "Couldn't fetch item"}`;
   } else if (error instanceof Error) {
     message = error.message;
   }
@@ -78,13 +128,13 @@ export function RouteErrorBoundary() {
     <div style={errorContainerStyles}>
       <div style={errorCardStyles}>
         <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
-        <h2 style={errorTitleStyles}>Page Loading Error</h2>
+        <h2 style={errorTitleStyles}>Couldn't fetch item</h2>
         <p style={errorDescStyles}>
           {message}
         </p>
         <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => window.location.reload()} style={retryBtnStyles}>
-            🔄 Reload Page
+            🔄 Retry
           </button>
           <Link to="/products" style={homeBtnStyles}>
             🏪 Back to Marketplace

@@ -35,7 +35,18 @@ export default function LoginPage() {
         navigate('/', { replace: true });
       }
     } catch (err) {
-      setError(err as APIError);
+      const apiErr = err as APIError;
+      const isNetwork = apiErr?.code === 'NETWORK_ERROR' || apiErr?.message?.toLowerCase().includes('internet signal');
+      if (isNetwork) {
+        setError({ error: true, message: 'No internet signal', code: 'NETWORK_ERROR' });
+      } else {
+        setError({
+          error: true,
+          message: 'Wrong credentials',
+          code: 'INVALID_CREDENTIALS',
+          details: apiErr?.details,
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

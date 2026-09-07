@@ -10,7 +10,15 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const isHomepage = location.pathname === '/';
-  const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
+  const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
+  const isMarketPage = location.pathname === '/products' || location.pathname.startsWith('/products');
+  const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
+
+  // Hide Logo on: Homepage, Cart page, Market page, and Profile/Dashboard pages
+  const shouldHideLogo = isHomepage || isCartPage || isMarketPage || isProfilePage;
+
+  // Hide Searchbar and Categories on: Cart page and Profile/Dashboard pages
+  const shouldHideSearchAndCategories = isCartPage || isProfilePage;
 
   // Notification States
   const [unreadCount, setUnreadCount] = useState(0);
@@ -102,7 +110,7 @@ export default function Header() {
     <header className="site-header" style={headerStyles}>
       <div className="container site-header__container">
         {/* Brand Logo (Row 1, Col 1 on mobile) */}
-        {!isHomepage && (
+        {!shouldHideLogo && (
           <Link to="/" style={logoStyles} className="site-header__logo">
             <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
           </Link>
@@ -278,16 +286,16 @@ export default function Header() {
           )}
         </div>
 
-        {/* Search Bar & Categories (Row 2 on mobile) */}
-        <div 
-          style={{
-            ...searchContainerStyles,
-            maxWidth: isHomepage ? '900px' : undefined,
-          }} 
-          className="site-header__search-container"
-        >
-          <SearchBar />
-          {!isDashboard && (
+        {/* Search Bar & Categories (Row 2 on mobile) — Hidden on Cart & Profile pages */}
+        {!shouldHideSearchAndCategories && (
+          <div 
+            style={{
+              ...searchContainerStyles,
+              maxWidth: isHomepage ? '900px' : undefined,
+            }} 
+            className="site-header__search-container"
+          >
+            <SearchBar />
             <div style={categoryLinksStyles} className="no-scrollbar">
               {/* Page links – visible on mobile only (desktop has them in the top nav) */}
               <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
@@ -312,8 +320,8 @@ export default function Header() {
               <Link to="/categories/groceries" className="header-category-link">🍎 Groceries</Link>
               <Link to="/categories/toys-games" className="header-category-link">🧸 Toys & Games</Link>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </header>
   );

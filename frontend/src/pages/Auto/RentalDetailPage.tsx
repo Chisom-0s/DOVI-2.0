@@ -3,8 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
 import { autoApi } from '@/api/auto';
 import type { AutoRental } from '@/types';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 import toast from 'react-hot-toast';
 
 export default function RentalDetailPage() {
@@ -100,11 +100,23 @@ export default function RentalDetailPage() {
   }
 
   if (error || !rental) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={containerStyles}>
         <AutoSubNav />
         <div style={errorWrapperStyles}>
-          <ApiErrorMessage error={error || new Error('Vehicle not found')} />
+          <div style={{ fontSize: '3rem' }}>⚠️</div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Couldn't fetch item</h3>
+          <p style={{ color: '#6b7280' }}>This rental details could not be retrieved from the database.</p>
           <button style={backBtnStyles} onClick={() => navigate('/auto/rentals')}>
             &larr; Back to Rentals
           </button>

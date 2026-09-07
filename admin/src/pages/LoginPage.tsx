@@ -26,8 +26,13 @@ export default function LoginPage() {
       toast.success('Welcome back, Admin!');
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err);
-      toast.error(err.message || 'Login failed. Please verify credentials.');
+      const isNetwork = err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
+      const errorPayload: APIError = isNetwork
+        ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
+        : { error: true, message: 'Wrong credentials', code: 'INVALID_CREDENTIALS' };
+
+      setError(errorPayload);
+      toast.error(errorPayload.message);
     } finally {
       setIsLoading(false);
     }

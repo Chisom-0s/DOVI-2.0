@@ -4,8 +4,9 @@ import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
 import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl, getProductFallbackImage, clearLocalProductImage } from '@/utils/image';
+import { getProductImageUrl } from '@/utils/image';
 import type { ProductSummary } from '@/types';
+import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 
 interface ProductCardProps {
   key?: string;
@@ -16,20 +17,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
-  const [isImgLoaded, setIsImgLoaded] = useState(false);
-
-  // Fallback image helper
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    setIsImgLoaded(true);
-    if (product?.id) {
-      clearLocalProductImage(product.id);
-    }
-    const target = e.currentTarget;
-    const fallback = getProductFallbackImage(product);
-    if (target.src !== fallback) {
-      target.src = fallback;
-    }
-  };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -87,27 +74,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
-        {!isImgLoaded && (
-          <div
-            className="skeleton-shimmer"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 1,
-            }}
-          />
-        )}
-        <img
+        <ItemImageLoader
           src={cardImage}
           alt={product.name}
-          onLoad={() => setIsImgLoaded(true)}
-          onError={handleImageError}
-          style={{
-            ...imageStyles,
-            opacity: isImgLoaded ? 1 : 0,
-            transition: 'opacity 0.25s ease-in-out',
-          }}
-          loading="lazy"
+          objectFit="cover"
         />
 
         {/* Wishlist Button */}
@@ -202,13 +172,6 @@ const imgContainerStyles: React.CSSProperties = {
   aspectRatio: '1/1',
   backgroundColor: 'var(--color-bg-subtle)',
   overflow: 'hidden',
-};
-
-const imageStyles: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-  transition: 'transform var(--transition-slow)',
 };
 
 const wishlistBtnStyles: React.CSSProperties = {
