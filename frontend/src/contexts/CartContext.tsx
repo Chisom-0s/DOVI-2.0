@@ -284,24 +284,56 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true);
     try {
-      // 1. If we have any items in guest storage, attempt to merge them into backend
+      // 1. If we have any items in guest storage, attempt to merge valid UUID items into backend
       const guest = loadGuestCart();
+      const nonBackendItems: CartItem[] = [];
       if (guest.items.length > 0) {
         for (const gItem of guest.items) {
-          try {
-            await cartApi.addItem({
-              product_id: gItem.product?.id,
-              variant_id: typeof gItem.variant === 'string' ? gItem.variant : gItem.variant?.id,
-              quantity: gItem.quantity,
-            });
-          } catch {}
+          const pId = gItem.product?.id || gItem.product_id || '';
+          const isUuid = Boolean(pId) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pId);
+          if (isUuid) {
+            try {
+              await cartApi.addItem({
+                product_id: pId,
+                variant_id: typeof gItem.variant === 'string' ? gItem.variant : gItem.variant?.id,
+                quantity: gItem.quantity,
+              });
+            } catch {
+              nonBackendItems.push(gItem);
+            }
+          } else {
+            nonBackendItems.push(gItem);
+          }
         }
-        localStorage.removeItem(GUEST_CART_KEY);
+        if (nonBackendItems.length > 0) {
+          saveGuestCart({ ...guest, items: nonBackendItems });
+        } else {
+          localStorage.removeItem(GUEST_CART_KEY);
+        }
       }
 
       // 2. Fetch authoritative cart from backend
       const data = await cartApi.get();
-      setCart(normalizeCart(data));
+      const backendCart = normalizeCart(data);
+      const remainingLocal = loadGuestCart().items;
+      if (remainingLocal.length > 0) {
+        const mergedItems = [...backendCart.items];
+        const getVariantId = (v: any) => (typeof v === 'object' && v !== null ? v.id : v);
+        for (const locItem of remainingLocal) {
+          if (
+            !mergedItems.some(
+              bi =>
+                bi.id === locItem.id ||
+                (bi.product?.id === locItem.product?.id && getVariantId(bi.variant) === getVariantId(locItem.variant))
+            )
+          ) {
+            mergedItems.push(locItem);
+          }
+        }
+        setCart(normalizeCart({ ...backendCart, items: mergedItems }));
+      } else {
+        setCart(backendCart);
+      }
     } catch (err) {
       console.error('Failed to sync backend cart:', err);
     } finally {
@@ -377,8 +409,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // If user is authenticated, call backend API
-      if (user) {
+      // If user is authenticated and ID is a valid UUID, attempt backend addition
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId);
+      if (user && isUuid) {
         try {
           const updated = await cartApi.addItem({
             product_id: productId,
@@ -386,18 +419,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             quantity,
           });
           const normalized = normalizeCart(updated);
-          setCart(normalized);
+          const remainingLocal = loadGuestCart().items;
+          if (remainingLocal.length > 0) {
+            const merged = [...normalized.items];
+            for (const loc of remainingLocal) {
+              if (!merged.some(m => m.id === loc.id || m.product?.id === loc.product?.id)) {
+                merged.push(loc);
+              }
+            }
+            setCart(normalizeCart({ ...normalized, items: merged }));
+          } else {
+            setCart(normalized);
+          }
           window.dispatchEvent(new CustomEvent('cart:updated'));
-        } catch (err) {
-          console.error('Failed to add to cart via backend:', err);
-          throw err;
+          return;
+        } catch (err: any) {
+          console.warn('Backend cart addition failed, smoothly saving in client cart:', err);
+          // Fall through to client cart storage
         } finally {
           setIsLoading(false);
         }
-        return;
       }
 
-      // If Guest user, manage in local storage
+      // Guest user OR non-UUID mock product OR backend failure fallback
       try {
         if (!productObj) {
           try {
@@ -443,12 +487,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        const normalized = normalizeCart(currentGuest);
-        saveGuestCart(normalized);
-        setCart(normalized);
+        saveGuestCart(currentGuest);
+        if (user) {
+          setCart(prev => {
+            const currentNonLocal = prev.items.filter(it => !it.id.startsWith('guest_'));
+            return normalizeCart({ ...prev, items: [...currentNonLocal, ...currentGuest.items] });
+          });
+        } else {
+          setCart(normalizeCart(currentGuest));
+        }
         window.dispatchEvent(new CustomEvent('cart:updated'));
       } catch (err) {
-        console.error('Failed to update guest cart:', err);
+        console.error('Failed to update client cart:', err);
       } finally {
         setIsLoading(false);
       }
@@ -461,10 +511,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (quantity < 1) return;
       setIsLoading(true);
 
-      if (user) {
+      const isGuestItem = itemId.startsWith('guest_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+
+      if (user && !isGuestItem) {
         try {
           const updated = await cartApi.updateItem(itemId, quantity);
-          setCart(normalizeCart(updated));
+          const normalized = normalizeCart(updated);
+          const remainingLocal = loadGuestCart().items;
+          if (remainingLocal.length > 0) {
+            setCart(normalizeCart({ ...normalized, items: [...normalized.items, ...remainingLocal] }));
+          } else {
+            setCart(normalized);
+          }
           window.dispatchEvent(new CustomEvent('cart:updated'));
         } catch (err) {
           console.error('Failed to update cart item quantity:', err);
@@ -475,14 +533,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Guest Cart
+      // Guest / Local item
       const currentGuest = loadGuestCart();
       const target = currentGuest.items.find(i => i.id === itemId);
       if (target) {
         target.quantity = quantity;
-        const normalized = normalizeCart(currentGuest);
-        saveGuestCart(normalized);
-        setCart(normalized);
+        saveGuestCart(currentGuest);
+        if (user) {
+          setCart(prev => {
+            const updatedItems = prev.items.map(it =>
+              it.id === itemId
+                ? {
+                    ...it,
+                    quantity,
+                    line_total: String((parseFloat(String(it.unit_price || 0)) || 0) * quantity),
+                  }
+                : it
+            );
+            return normalizeCart({ ...prev, items: updatedItems });
+          });
+        } else {
+          setCart(normalizeCart(currentGuest));
+        }
         window.dispatchEvent(new CustomEvent('cart:updated'));
       }
       setIsLoading(false);
@@ -493,11 +565,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeItem = useCallback(
     async (itemId: string) => {
       setIsLoading(true);
+      const isGuestItem = itemId.startsWith('guest_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
 
-      if (user) {
+      if (user && !isGuestItem) {
         try {
           const updated = await cartApi.removeItem(itemId);
-          setCart(normalizeCart(updated));
+          const normalized = normalizeCart(updated);
+          const remainingLocal = loadGuestCart().items;
+          if (remainingLocal.length > 0) {
+            setCart(normalizeCart({ ...normalized, items: [...normalized.items, ...remainingLocal] }));
+          } else {
+            setCart(normalized);
+          }
           window.dispatchEvent(new CustomEvent('cart:updated'));
         } catch (err) {
           console.error('Failed to remove cart item:', err);
@@ -508,12 +587,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Guest Cart
+      // Guest / Local Cart
       const currentGuest = loadGuestCart();
       currentGuest.items = currentGuest.items.filter(i => i.id !== itemId);
-      const normalized = normalizeCart(currentGuest);
-      saveGuestCart(normalized);
-      setCart(normalized);
+      saveGuestCart(currentGuest);
+      if (user) {
+        setCart(prev => {
+          const updatedItems = prev.items.filter(it => it.id !== itemId);
+          return normalizeCart({ ...prev, items: updatedItems });
+        });
+      } else {
+        setCart(normalizeCart(currentGuest));
+      }
       window.dispatchEvent(new CustomEvent('cart:updated'));
       setIsLoading(false);
     },
@@ -522,23 +607,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(async () => {
     setIsLoading(true);
+    localStorage.removeItem(GUEST_CART_KEY);
 
     if (user) {
       try {
         await cartApi.clear();
-        setCart(normalizeCart(null));
-        window.dispatchEvent(new CustomEvent('cart:updated'));
       } catch (err) {
         console.error('Failed to clear cart:', err);
-        throw err;
       } finally {
+        setCart(normalizeCart(null));
+        window.dispatchEvent(new CustomEvent('cart:updated'));
         setIsLoading(false);
       }
       return;
     }
 
     // Guest Cart
-    localStorage.removeItem(GUEST_CART_KEY);
     setCart(normalizeCart(null));
     window.dispatchEvent(new CustomEvent('cart:updated'));
     setIsLoading(false);
