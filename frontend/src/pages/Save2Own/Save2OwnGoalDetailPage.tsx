@@ -227,12 +227,14 @@ export default function Save2OwnGoalDetailPage() {
     setShowEditModal(true);
     setIsEditProductLoading(true);
     try {
-      const fullProduct = await productsApi.getById(goal.product.id);
-      setEditProduct(fullProduct);
-      setEditQuantity(goal.quantity);
-      if (goal.variant && fullProduct.variants) {
-        const matching = fullProduct.variants.find(v => v.id === goal.variant?.id);
-        setEditVariant(matching || null);
+      if (goal.product?.id) {
+        const fullProduct = await productsApi.getById(goal.product.id);
+        setEditProduct(fullProduct);
+        setEditQuantity(goal.quantity);
+        if (goal.variant && fullProduct.variants) {
+          const matching = fullProduct.variants.find(v => v.id === goal.variant?.id);
+          setEditVariant(matching || null);
+        }
       }
     } catch {
       toast.error('Failed to load product configurations.');
@@ -510,20 +512,28 @@ export default function Save2OwnGoalDetailPage() {
             </div>
             <div style={productRowStyles}>
               <img
-                src={goal.variant?.image_url || getProductImageUrl(goal.product)}
-                alt={goal.product.name}
+                src={goal.variant?.image_url || (goal.product ? getProductImageUrl(goal.product) : null) || '/logo.jpg?v=2'}
+                alt={goal.product?.name || 'Goal Product'}
                 style={productImgStyles}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = getProductFallbackImage(goal.product);
+                  (e.target as HTMLImageElement).src = goal.product
+                    ? getProductFallbackImage(goal.product)
+                    : '/logo.jpg?v=2';
                 }}
               />
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 'var(--font-bold)', textTransform: 'uppercase' }}>
-                  Vendor: {goal.product.vendor.name}
+                  Vendor: {goal.product?.vendor?.name || goal.product?.vendor_name || 'Dovi Partner'}
                 </span>
-                <Link to={`/products/${goal.product.id}`} style={productNameLinkStyles}>
-                  {goal.product.name}
-                </Link>
+                {goal.product?.id ? (
+                  <Link to={`/products/${goal.product.id}`} style={productNameLinkStyles}>
+                    {goal.product.name}
+                  </Link>
+                ) : (
+                  <span style={{ ...productNameLinkStyles, cursor: 'default' }}>
+                    {goal.product?.name || 'Goal Product'}
+                  </span>
+                )}
                 {goal.variant && (
                   <div style={variantWrapperStyles}>
                     {goal.variant.attributes && typeof goal.variant.attributes === 'object' ? (
@@ -533,7 +543,7 @@ export default function Save2OwnGoalDetailPage() {
                         </span>
                       ))
                     ) : (
-                      <span style={variantTagStyles}>{goal.variant.name}</span>
+                      <span style={variantTagStyles}>{goal.variant.name || 'Selected Variant'}</span>
                     )}
                   </div>
                 )}
@@ -582,9 +592,9 @@ export default function Save2OwnGoalDetailPage() {
                   <div key={ch.id} style={changeItemStyles}>
                     <span style={changeDateStyles}>{new Date(ch.changed_at).toLocaleDateString()}</span>
                     <div style={changeMetaStyles}>
-                      {ch.old_product.id !== ch.new_product.id ? (
+                      {ch.old_product?.id !== ch.new_product?.id ? (
                         <p style={{ margin: 0 }}>
-                          Product changed from <strong>{ch.old_product.name}</strong> to <strong>{ch.new_product.name}</strong>.
+                          Product changed from <strong>{ch.old_product?.name || 'Previous Product'}</strong> to <strong>{ch.new_product?.name || 'New Product'}</strong>.
                         </p>
                       ) : (
                         <p style={{ margin: 0 }}>Product details configuration updated.</p>

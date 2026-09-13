@@ -176,15 +176,17 @@ export default function Save2OwnGoalsPage() {
               {/* Product Info Banner */}
               <div style={productBannerStyles}>
                 <img
-                  src={getProductImageUrl(goal.product)}
-                  alt={goal.product.name}
+                  src={goal.product ? getProductImageUrl(goal.product) : '/logo.jpg?v=2'}
+                  alt={goal.product?.name || 'Goal Product'}
                   style={productImgStyles}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = getProductFallbackImage(goal.product);
+                    (e.target as HTMLImageElement).src = goal.product
+                      ? getProductFallbackImage(goal.product)
+                      : '/logo.jpg?v=2';
                   }}
                 />
                 <div style={productDetailStyles}>
-                  <h3 style={productNameStyles}>{goal.product.name}</h3>
+                  <h3 style={productNameStyles}>{goal.product?.name || 'Goal Product'}</h3>
                   <span style={getStatusBadgeStyles(goal.status)}>{goal.status.replace('_', ' ')}</span>
                 </div>
               </div>
