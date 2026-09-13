@@ -501,6 +501,8 @@ export interface Save2OwnGoal {
   total_contributed: string;
   remaining_amount: string;
   progress_percentage: number;
+  contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  installment_amount?: string;
   target_date: string | null;
   contributions: Save2OwnContribution[];
   product_changes: Save2OwnProductChange[];
@@ -516,6 +518,8 @@ export interface Save2OwnGoalSummary {
   total_contributed: string;
   remaining_amount: string;
   progress_percentage: number;
+  contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  installment_amount?: string;
   target_date: string | null;
 }
 

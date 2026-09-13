@@ -58,6 +58,10 @@ export default function Save2OwnGoalDetailPage() {
         setSelectedProvider('FLUTTERWAVE');
       }
 
+      if (goalData.installment_amount) {
+        setContribAmount(goalData.installment_amount);
+      }
+
       // If status is REFUND_PENDING, fetch refund status details
       if (goalData.status === 'REFUND_PENDING') {
         const refundData = await save2ownApi.getRefundStatus(id).catch(() => null);
@@ -207,6 +211,16 @@ export default function Save2OwnGoalDetailPage() {
   // ----------------------------------------------------------
   // Contribution Handlers
   // ----------------------------------------------------------
+  const openContribModal = () => {
+    if (goal) {
+      const defaultAmount =
+        goal.installment_amount ||
+        (goal.target_amount ? Math.ceil(parseFloat(goal.target_amount) / 10).toString() : '');
+      setContribAmount(defaultAmount);
+    }
+    setShowContribModal(true);
+  };
+
   const handleContributeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !contribAmount || !selectedProvider) {
@@ -480,7 +494,7 @@ export default function Save2OwnGoalDetailPage() {
 
               {goal.status === 'ACTIVE' && (
                 <>
-                  <button type="button" onClick={() => setShowContribModal(true)} style={primaryActionBtnStyles}>
+                  <button type="button" onClick={openContribModal} style={primaryActionBtnStyles}>
                     Make Contribution
                   </button>
                   <button type="button" onClick={() => setShowPauseModal(true)} style={secondaryActionBtnStyles}>
@@ -638,7 +652,14 @@ export default function Save2OwnGoalDetailPage() {
             <h3 style={modalTitleStyles}>Make Contribution</h3>
             <form onSubmit={handleContributeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <div>
-                <label style={modalLabelStyles}>Amount to Save (NGN)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-1)' }}>
+                  <label style={modalLabelStyles}>Amount to Save (NGN)</label>
+                  {goal.contribution_plan && (
+                    <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>
+                      Schedule: {goal.contribution_plan}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="1"
@@ -648,6 +669,44 @@ export default function Save2OwnGoalDetailPage() {
                   onChange={(e) => setContribAmount(e.target.value)}
                   style={modalInputStyles}
                 />
+                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  {goal.installment_amount && (
+                    <button
+                      type="button"
+                      onClick={() => setContribAmount(goal.installment_amount || '')}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: contribAmount === goal.installment_amount ? 'rgba(255, 122, 0, 0.12)' : 'var(--color-surface)',
+                        border: `1px solid ${contribAmount === goal.installment_amount ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        color: contribAmount === goal.installment_amount ? 'var(--color-primary)' : 'var(--color-text)',
+                        cursor: 'pointer',
+                        fontWeight: 'var(--font-medium)',
+                      }}
+                    >
+                      ⚡ Scheduled: ₦{parseFloat(goal.installment_amount).toLocaleString()}
+                    </button>
+                  )}
+                  {goal.remaining_amount && parseFloat(goal.remaining_amount) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setContribAmount(goal.remaining_amount)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        borderRadius: 'var(--radius-sm)',
+                        backgroundColor: contribAmount === goal.remaining_amount ? 'rgba(255, 122, 0, 0.12)' : 'var(--color-surface)',
+                        border: `1px solid ${contribAmount === goal.remaining_amount ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        color: contribAmount === goal.remaining_amount ? 'var(--color-primary)' : 'var(--color-text)',
+                        cursor: 'pointer',
+                        fontWeight: 'var(--font-medium)',
+                      }}
+                    >
+                      Pay Full Remaining: ₦{parseFloat(goal.remaining_amount).toLocaleString()}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>

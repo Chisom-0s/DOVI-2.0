@@ -145,6 +145,30 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
       }))
     : [];
 
+  let storedPlan: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'WEEKLY';
+  try {
+    const local = localStorage.getItem(`s2o_plan_${raw.id}`);
+    if (local === 'DAILY' || local === 'WEEKLY' || local === 'MONTHLY') {
+      storedPlan = local;
+    }
+  } catch {}
+
+  const plan: 'DAILY' | 'WEEKLY' | 'MONTHLY' =
+    raw.contribution_plan ||
+    (Array.isArray(raw.history)
+      ? raw.history.find((h: any) => h.event_type === 'GOAL_CREATED')?.new_value?.contribution_plan
+      : null) ||
+    storedPlan;
+
+  let divisor = 10;
+  if (plan === 'DAILY') divisor = 30;
+  if (plan === 'MONTHLY') divisor = 4;
+
+  const rawInstallment = Math.ceil(targetNum / divisor);
+  const installmentAmount = (
+    remainingNum > 0 && rawInstallment > remainingNum ? remainingNum : rawInstallment
+  ).toString();
+
   return {
     id: raw.id,
     product,
@@ -155,6 +179,8 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     total_contributed: savedAmount,
     remaining_amount: remainingAmount,
     progress_percentage: progressPercent,
+    contribution_plan: plan,
+    installment_amount: installmentAmount,
     target_date: raw.target_date || null,
     contributions,
     product_changes: productChanges,
@@ -173,6 +199,8 @@ export function normalizeGoalSummary(raw: any): Save2OwnGoalSummary {
     total_contributed: goal.total_contributed,
     remaining_amount: goal.remaining_amount,
     progress_percentage: goal.progress_percentage,
+    contribution_plan: goal.contribution_plan,
+    installment_amount: goal.installment_amount,
     target_date: goal.target_date,
   };
 }
@@ -208,6 +236,11 @@ export const save2ownApi = {
   }): Promise<Save2OwnGoal> => {
     try {
       const { data } = await apiClient.post('/api/v1/save2own/goals/', payload);
+      if (payload.contribution_plan && data?.id) {
+        try {
+          localStorage.setItem(`s2o_plan_${data.id}`, payload.contribution_plan);
+        } catch {}
+      }
       return normalizeGoal(data);
     } catch (err) {
       throw normalizeApiError(err);
