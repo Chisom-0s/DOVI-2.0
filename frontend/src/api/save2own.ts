@@ -235,6 +235,15 @@ export const save2ownApi = {
     }
   },
 
+  activate: async (id: string): Promise<Save2OwnGoal> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/activate/`);
+      return normalizeGoal(data);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
   pause: async (id: string): Promise<Save2OwnGoal> => {
     try {
       const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/pause/`);

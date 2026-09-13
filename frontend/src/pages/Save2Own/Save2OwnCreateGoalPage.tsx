@@ -71,7 +71,13 @@ export default function Save2OwnCreateGoalPage() {
         contribution_plan: plan,
       };
       const result = await save2ownApi.createGoal(payload);
-      toast.success('Save2Own goal created successfully!');
+      // Auto-activate the goal so it transitions from DRAFT to ACTIVE immediately
+      try {
+        await save2ownApi.activate(result.id);
+      } catch {
+        // Continue if already active or pending
+      }
+      toast.success('Save2Own goal created and activated!');
       navigate(`/save2own/goals/${result.id}`);
     } catch (err: any) {
       setError(err);

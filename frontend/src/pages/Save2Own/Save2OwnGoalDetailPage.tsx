@@ -54,6 +54,8 @@ export default function Save2OwnGoalDetailPage() {
       if (methods.length > 0) {
         const active = methods.find(m => m.is_active);
         if (active) setSelectedProvider(active.id);
+      } else {
+        setSelectedProvider('FLUTTERWAVE');
       }
 
       // If status is REFUND_PENDING, fetch refund status details
@@ -126,12 +128,26 @@ export default function Save2OwnGoalDetailPage() {
     }
   };
 
+  const handleActivate = async () => {
+    if (!id) return;
+    setIsActionPending(true);
+    try {
+      await save2ownApi.activate(id);
+      toast.success('Goal activated successfully!');
+      await fetchGoalDetails(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to activate goal.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const handleResume = async () => {
     if (!id) return;
     setIsActionPending(true);
     try {
       await save2ownApi.resume(id);
-      toast.success('Goal activated/resumed successfully!');
+      toast.success('Goal resumed successfully!');
       await fetchGoalDetails(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to resume goal.');
@@ -457,7 +473,7 @@ export default function Save2OwnGoalDetailPage() {
             {/* Action CTAs */}
             <div style={actionRowStyles}>
               {goal.status === 'DRAFT' && (
-                <button type="button" onClick={handleResume} disabled={isActionPending} style={primaryActionBtnStyles}>
+                <button type="button" onClick={handleActivate} disabled={isActionPending} style={primaryActionBtnStyles}>
                   Activate Saving Goal
                 </button>
               )}
@@ -637,7 +653,25 @@ export default function Save2OwnGoalDetailPage() {
               <div>
                 <label style={modalLabelStyles}>Select Payment Provider</label>
                 {paymentMethods.length === 0 ? (
-                  <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>No active provider configurations.</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <label
+                      style={{
+                        ...providerLabelStyles,
+                        borderColor: selectedProvider === 'FLUTTERWAVE' ? 'var(--color-primary)' : 'var(--color-border)',
+                        backgroundColor: selectedProvider === 'FLUTTERWAVE' ? 'rgba(255, 122, 0, 0.04)' : '#ffffff',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="contrib_provider"
+                        value="FLUTTERWAVE"
+                        checked={selectedProvider === 'FLUTTERWAVE'}
+                        onChange={() => setSelectedProvider('FLUTTERWAVE')}
+                        style={{ marginRight: 'var(--space-2)' }}
+                      />
+                      <span>Flutterwave (Card, Bank Transfer, USSD)</span>
+                    </label>
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     {paymentMethods.map((pm) => (
