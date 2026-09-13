@@ -20,7 +20,6 @@ function createStubProduct(
   return {
     id: id || '',
     name: name || 'Selected Goal Item',
-    slug: '',
     base_price: price,
     price: price,
     primary_image_url: img,
