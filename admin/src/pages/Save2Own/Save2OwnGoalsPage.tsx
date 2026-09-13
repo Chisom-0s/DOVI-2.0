@@ -50,12 +50,13 @@ export default function Save2OwnGoalsPage() {
     fetchGoals(true);
   };
 
-  const formatCurrency = (val: string) => {
+  const formatCurrency = (val: any) => {
+    const num = parseFloat(String(val || '0'));
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 0,
-    }).format(parseFloat(val || '0'));
+    }).format(isNaN(num) ? 0 : num);
   };
 
   if (isLoading) {
@@ -138,12 +139,27 @@ export default function Save2OwnGoalsPage() {
               </thead>
               <tbody>
                 {goals.map((g: any) => {
-                  const prodName = g.product?.name || g.product_name || g.variant_name || `Goal ${g.reference_code || g.id}`;
-                  const variantName = g.variant?.name || g.variant_sku || (typeof g.variant === 'string' ? '' : '');
+                  const prodName =
+                    g.product?.name ||
+                    (typeof g.product === 'string' ? g.product : null) ||
+                    g.product_name ||
+                    g.variant_name ||
+                    `Goal ${g.reference_code || g.id}`;
+                  const variantName =
+                    g.variant?.name ||
+                    g.variant_name ||
+                    g.variant_sku ||
+                    (typeof g.variant === 'string' ? g.variant : '');
                   const targetAmt = g.target_amount || '0';
                   const savedAmt = g.saved_amount || g.total_contributed || '0';
-                  const progressPct = g.progress_percent ?? g.progress_percentage ?? (parseFloat(targetAmt) > 0 ? (parseFloat(savedAmt) / parseFloat(targetAmt) * 100) : 0);
-                  const img = g.product?.primary_image_url || '/logo.jpg?v=2';
+                  const rawProgress =
+                    g.progress_percent ??
+                    g.progress_percentage ??
+                    (parseFloat(String(targetAmt || '0')) > 0
+                      ? (parseFloat(String(savedAmt || '0')) / parseFloat(String(targetAmt || '0'))) * 100
+                      : 0);
+                  const progressPct = Number(rawProgress) || 0;
+                  const img = g.product?.primary_image_url || g.product_image || '/logo.jpg?v=2';
 
                   return (
                     <tr key={g.id} style={tableRowStyles}>

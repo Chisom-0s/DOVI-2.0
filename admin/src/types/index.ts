@@ -450,10 +450,21 @@ export type Save2OwnGoalStatus =
   | 'REFUND_PENDING'
   | 'SUSPENDED';
 
+export interface Save2OwnHistory {
+  id: string;
+  event_type: string;
+  previous_value: Record<string, any> | string | null;
+  new_value: Record<string, any> | string | null;
+  reason: string | null;
+  created_at: string;
+}
+
 export interface Save2OwnContribution {
   id: string;
   amount: string;
-  payment_status: PaymentStatus;
+  payment_status?: PaymentStatus;
+  status?: string;
+  payment?: any;
   payment_reference: string;
   created_at: string;
 }
@@ -469,16 +480,28 @@ export interface Save2OwnProductChange {
 
 export interface Save2OwnGoal {
   id: string;
+  reference_code?: string;
   product: ProductSummary;
+  product_name?: string;
   variant: ProductVariant | null;
+  variant_name?: string;
+  variant_sku?: string;
+  vendor_name?: string;
+  product_image?: string;
   quantity: number;
   status: Save2OwnGoalStatus;
   target_amount: string;
+  saved_amount?: string;
   total_contributed: string;
   remaining_amount: string;
   progress_percentage: number;
+  progress_percent?: number;
+  installment_amount?: string;
+  suggested_contribution?: string;
+  contribution_plan?: string;
   target_date: string | null;
   contributions: Save2OwnContribution[];
+  history?: Save2OwnHistory[];
   product_changes: Save2OwnProductChange[];
   created_at: string;
   updated_at: string;

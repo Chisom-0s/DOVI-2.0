@@ -23,41 +23,45 @@ import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import AutoListingsPage from '@/pages/Auto/AutoListingsPage';
 
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+
 export default function App() {
   return (
     <BrowserRouter>
       <AdminAuthProvider>
-        <Routes>
-          {/* Public login route */}
-          <Route path="/login" element={<LoginPage />} />
+        <ErrorBoundary>
+          <Routes>
+            {/* Public login route */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected admin routing group */}
-          <Route
-            path="/"
-            element={
-              <AdminAuthGuard>
-                <AdminLayout />
-              </AdminAuthGuard>
-            }
-          >
-            <Route index element={<DashboardOverviewPage />} />
-            <Route path="homepage" element={<HomepageManagerPage />} />
-            <Route path="save2own" element={<Save2OwnGoalsPage />} />
-            <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
-            <Route path="auto" element={<AutoListingsPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="vendors" element={<VendorsPage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="payments" element={<PaymentsPage />} />
-            <Route path="escrow-payouts" element={<EscrowPayoutsPage />} />
-            <Route path="refunds" element={<RefundsPage />} />
-            <Route path="reviews" element={<ReviewsPage />} />
-            <Route path="audit-logs" element={<AuditLogsPage />} />
-          </Route>
-        </Routes>
-        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+            {/* Protected admin routing group */}
+            <Route
+              path="/"
+              element={
+                <AdminAuthGuard>
+                  <AdminLayout />
+                </AdminAuthGuard>
+              }
+            >
+              <Route index element={<DashboardOverviewPage />} />
+              <Route path="homepage" element={<HomepageManagerPage />} />
+              <Route path="save2own" element={<Save2OwnGoalsPage />} />
+              <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
+              <Route path="auto" element={<AutoListingsPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="vendors" element={<VendorsPage />} />
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="escrow-payouts" element={<EscrowPayoutsPage />} />
+              <Route path="refunds" element={<RefundsPage />} />
+              <Route path="reviews" element={<ReviewsPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
+            </Route>
+          </Routes>
+          <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        </ErrorBoundary>
       </AdminAuthProvider>
     </BrowserRouter>
   );

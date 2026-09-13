@@ -56,12 +56,52 @@ export default function Save2OwnGoalDetailPage() {
     }
   };
 
-  const formatCurrency = (val: string) => {
+  const formatCurrency = (val: any) => {
+    const num = parseFloat(String(val || '0'));
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 0,
-    }).format(parseFloat(val || '0'));
+    }).format(isNaN(num) ? 0 : num);
+  };
+
+  const renderHistoryValue = (val: any) => {
+    if (val === null || val === undefined) {
+      return <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>;
+    }
+    if (typeof val !== 'object') {
+      return <span>{String(val)}</span>;
+    }
+    const entries = Object.entries(val);
+    if (entries.length === 0) {
+      return <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>None</span>;
+    }
+    return (
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+        {entries.map(([k, v]) => (
+          <span
+            key={k}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              fontSize: '11px',
+            }}
+          >
+            <span style={{ color: '#6b7280', textTransform: 'capitalize' }}>
+              {k.replace(/_/g, ' ')}:
+            </span>
+            <strong style={{ color: '#111827' }}>
+              {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')}
+            </strong>
+          </span>
+        ))}
+      </span>
+    );
   };
 
   if (isLoading) {
@@ -80,25 +120,52 @@ export default function Save2OwnGoalDetailPage() {
   }
 
   if (error || !goal) {
+    const displayError: APIError = error || {
+      error: true,
+      code: 'NOT_FOUND',
+      message: 'Goal details could not be loaded.',
+    };
+
     return (
       <div style={containerStyles}>
         <button type="button" onClick={() => navigate('/save2own')} style={backBtnStyles}>
           ← Back to Goals List
         </button>
-        <ApiErrorMessage error={error} />
+        <ApiErrorMessage error={displayError} />
       </div>
     );
   }
 
   const g: any = goal;
-  const prodName = g.product?.name || g.product_name || g.variant_name || `Goal ${g.reference_code || g.id}`;
-  const variantName = g.variant?.name || g.variant_sku || (typeof g.variant === 'string' ? '' : '');
+  const prodName =
+    g.product?.name ||
+    (typeof g.product === 'string' ? g.product : null) ||
+    g.product_name ||
+    g.variant_name ||
+    `Goal ${g.reference_code || g.id}`;
+  const variantName =
+    g.variant?.name ||
+    g.variant_name ||
+    g.variant_sku ||
+    (typeof g.variant === 'string' ? g.variant : '');
   const targetAmt = g.target_amount || '0';
   const savedAmt = g.saved_amount || g.total_contributed || '0';
-  const remainingAmt = g.remaining_amount || (Math.max(0, parseFloat(targetAmt) - parseFloat(savedAmt))).toString();
-  const progressPct = g.progress_percent ?? g.progress_percentage ?? (parseFloat(targetAmt) > 0 ? (parseFloat(savedAmt) / parseFloat(targetAmt) * 100) : 0);
-  const img = g.product?.primary_image_url || '/logo.jpg?v=2';
-  const vendorName = g.product?.vendor?.name || g.vendor_name || 'Verified Vendor';
+  const remainingAmt =
+    g.remaining_amount ||
+    Math.max(0, parseFloat(String(targetAmt || '0')) - parseFloat(String(savedAmt || '0'))).toString();
+  const rawProgress =
+    g.progress_percent ??
+    g.progress_percentage ??
+    (parseFloat(String(targetAmt || '0')) > 0
+      ? (parseFloat(String(savedAmt || '0')) / parseFloat(String(targetAmt || '0'))) * 100
+      : 0);
+  const progressPct = Number(rawProgress) || 0;
+  const img = g.product?.primary_image_url || g.product_image || '/logo.jpg?v=2';
+  const vendorName =
+    (typeof g.product?.vendor === 'object' ? g.product?.vendor?.name : null) ||
+    (typeof g.product?.vendor === 'string' ? g.product.vendor : null) ||
+    g.vendor_name ||
+    'Verified Vendor';
 
   return (
     <div style={containerStyles}>
@@ -220,12 +287,25 @@ export default function Save2OwnGoalDetailPage() {
                   <tbody>
                     {g.contributions.map((c: any) => (
                       <tr key={c.id} style={tableRowStyles}>
-                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>{c.id.substring(0, 8)}</td>
-                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(c.amount)}</td>
-                        <td style={tableCellStyles}>{c.payment_reference || c.payment || 'N/A'}</td>
-                        <td style={tableCellStyles}>{new Date(c.created_at).toLocaleDateString()}</td>
+                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                          {String(c.id || '').substring(0, 8) || 'N/A'}
+                        </td>
+                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                          {formatCurrency(c.amount)}
+                        </td>
                         <td style={tableCellStyles}>
-                          <span style={paymentStatusBadgeStyles(c.status || c.payment_status || 'COMPLETED')}>{c.status || c.payment_status || 'COMPLETED'}</span>
+                          {c.payment_reference ||
+                            (typeof c.payment === 'string'
+                              ? c.payment
+                              : c.payment?.reference_code || c.payment?.id || 'N/A')}
+                        </td>
+                        <td style={tableCellStyles}>
+                          {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td style={tableCellStyles}>
+                          <span style={paymentStatusBadgeStyles(c.status || c.payment_status || 'COMPLETED')}>
+                            {c.status || c.payment_status || 'COMPLETED'}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -247,15 +327,26 @@ export default function Save2OwnGoalDetailPage() {
                     <div style={historyDotStyles} />
                     <div style={{ flex: 1 }}>
                       <span style={historyDateStyles}>
-                        {new Date(h.created_at).toLocaleString()}
+                        {h.created_at ? new Date(h.created_at).toLocaleString() : 'N/A'}
                       </span>
                       <div style={historyContentStyles}>
                         <div>
-                          <span style={historyLabelStyles}>Event: {h.event_type}</span>
-                          <p style={historyTextStyles}>
-                            Previous: <strong>{h.previous_value || 'None'}</strong> ➔ New: <strong>{h.new_value || 'None'}</strong>
-                          </p>
-                          {h.reason && <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>Reason: {h.reason}</p>}
+                          <span style={historyLabelStyles}>Event: {String(h.event_type || 'UPDATE')}</span>
+                          <div style={{ ...historyTextStyles, display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>Previous:</span>
+                              {renderHistoryValue(h.previous_value)}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>New:</span>
+                              {renderHistoryValue(h.new_value)}
+                            </div>
+                          </div>
+                          {h.reason && (
+                            <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+                              <strong>Reason:</strong> {String(h.reason)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
