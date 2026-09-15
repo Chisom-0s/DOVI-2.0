@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const isHomepage = location.pathname === '/';
@@ -207,21 +209,28 @@ export default function Header() {
           )}
 
           {/* Cart Status Indicator (visible everywhere) */}
-          <Link to="/cart" style={cartButtonStyles}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
+          <Link to="/cart" style={cartButtonStyles} aria-label={`Shopping Cart${itemCount > 0 ? `, ${itemCount} items` : ''}`}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              {itemCount > 0 && (
+                <span style={cartBadgeStyles}>
+                  {itemCount > 99 ? '99+' : itemCount}
+                </span>
+              )}
+            </div>
             <span style={cartLabelStyles} className="hide-mobile">Cart</span>
           </Link>
 
@@ -375,6 +384,26 @@ const cartButtonStyles: React.CSSProperties = {
   fontWeight: 'var(--font-medium)',
   color: 'var(--color-text)',
   textDecoration: 'none',
+};
+
+const cartBadgeStyles: React.CSSProperties = {
+  position: 'absolute',
+  top: '-7px',
+  right: '-9px',
+  backgroundColor: 'var(--color-primary, #ff7a00)',
+  color: '#ffffff',
+  fontSize: '11px',
+  fontWeight: 700,
+  minWidth: '18px',
+  height: '18px',
+  borderRadius: '9999px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '0 4px',
+  boxShadow: '0 2px 4px rgba(255, 122, 0, 0.35)',
+  lineHeight: 1,
+  pointerEvents: 'none',
 };
 
 const cartLabelStyles: React.CSSProperties = {

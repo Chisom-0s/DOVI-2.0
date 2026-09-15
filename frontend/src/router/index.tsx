@@ -124,11 +124,7 @@ const router = createBrowserRouter([
           // ---- Cart & Checkout (Phase 4 — LIVE) ----
           {
             path: 'cart',
-            element: (
-              <AuthGuard>
-                <CartPage />
-              </AuthGuard>
-            ),
+            element: <CartPage />,
           },
       {
         path: 'checkout',

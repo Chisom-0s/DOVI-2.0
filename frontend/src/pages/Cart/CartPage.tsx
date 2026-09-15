@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage, normalizeUrl } from '@/utils/image';
@@ -9,13 +10,17 @@ import { Skeleton } from '@/components/common/Skeleton';
 
 export default function CartPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { cart, isLoading, updateQty, removeItem, clearCart, validateCart } = useCart();
   const [validating, setValidating] = useState(false);
 
-  // Validate cart on mount to get fresh stock status
+  // Validate cart on mount to get fresh stock status if logged in
   useEffect(() => {
-    validateCart().catch(() => {});
-  }, [validateCart]);
+    if (isAuthenticated) {
+      validateCart().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleUpdateQty = async (itemId: string, newQty: number) => {
     if (newQty < 1) return;
@@ -45,16 +50,23 @@ export default function CartPage() {
   };
 
   const handleProceedToCheckout = async () => {
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      toast.error('Your cart is empty.');
+      return;
+    }
+
     setValidating(true);
     try {
-      const validated = await validateCart();
-      if (validated && validated.is_valid !== false) {
-        navigate('/checkout');
-      } else {
-        toast.error('Some items in your cart are no longer available. Please review.');
+      if (isAuthenticated) {
+        try {
+          await validateCart();
+        } catch (e) {
+          console.warn('Background cart validation skipped:', e);
+        }
       }
+      navigate('/checkout');
     } catch {
-      toast.error('Could not validate cart. Please try again.');
+      navigate('/checkout');
     } finally {
       setValidating(false);
     }
@@ -238,11 +250,11 @@ export default function CartPage() {
 
           <button
             onClick={handleProceedToCheckout}
-            disabled={cart.is_valid === false || isLoading || validating}
+            disabled={!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating}
             style={{
               ...checkoutBtnStyles,
-              opacity: (cart.is_valid === false || isLoading || validating) ? 0.6 : 1,
-              cursor: (cart.is_valid === false || isLoading || validating) ? 'not-allowed' : 'pointer',
+              opacity: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating) ? 0.6 : 1,
+              cursor: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating) ? 'not-allowed' : 'pointer',
             }}
           >
             {validating ? 'Validating...' : 'Proceed to Checkout'}

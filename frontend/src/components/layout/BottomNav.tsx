@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 
 export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
+  const { itemCount } = useCart();
 
   // Determine if the user is a vendor
   const isVendor = user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED';
@@ -43,11 +45,36 @@ export default function BottomNav() {
       )}
 
       <Link to="/cart" className={`mobile-nav__item ${location.pathname === '/cart' ? 'mobile-nav__item--active' : ''}`}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="9" cy="21" r="1"/>
-          <circle cx="20" cy="21" r="1"/>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-        </svg>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"/>
+            <circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          {itemCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '-6px',
+              right: '-8px',
+              backgroundColor: 'var(--color-primary, #ff7a00)',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 700,
+              minWidth: '16px',
+              height: '16px',
+              borderRadius: '9999px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 3px',
+              lineHeight: 1,
+              pointerEvents: 'none',
+              boxShadow: '0 1px 3px rgba(255, 122, 0, 0.4)',
+            }}>
+              {itemCount > 99 ? '99+' : itemCount}
+            </span>
+          )}
+        </div>
         <span>Cart</span>
       </Link>
       

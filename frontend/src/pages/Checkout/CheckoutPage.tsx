@@ -44,14 +44,18 @@ export default function CheckoutPage() {
   const fetchData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      const [addrs, methods] = await Promise.all([
+      const [addrsRes, methodsRes] = await Promise.allSettled([
         authApi.getAddresses(),
         checkoutApi.getDeliveryMethods(),
       ]);
+      const addrs: Address[] = addrsRes.status === 'fulfilled' && Array.isArray(addrsRes.value) ? addrsRes.value : [];
+      const methods = methodsRes.status === 'fulfilled' && Array.isArray(methodsRes.value) ? methodsRes.value : [];
       setAddresses(addrs);
       if (addrs.length > 0) {
         const defaultAddr = addrs.find((a: Address) => a.is_default);
         setSelectedAddressId(defaultAddr?.id || addrs[0].id);
+      } else {
+        setShowAddForm(true);
       }
       setDeliveryMethods(methods);
       if (methods.length > 0) {

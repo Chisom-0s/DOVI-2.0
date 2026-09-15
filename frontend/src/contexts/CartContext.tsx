@@ -146,12 +146,14 @@ export function normalizeCart(raw: any): Cart {
     const numPrice = parseFloat(String(unitPrice)) || 0;
     const lineTotal = (numPrice * qty).toFixed(2);
     const stock =
-      item.available_stock ??
-      item.stock ??
-      matchedProduct?.stock_quantity ??
-      item.product?.stock_quantity ??
-      10;
-    const inStock = item.is_in_stock !== undefined ? item.is_in_stock : stock > 0;
+      (item.available_stock !== undefined && item.available_stock !== null && Number(item.available_stock) > 0)
+        ? Number(item.available_stock)
+        : (item.stock !== undefined && item.stock !== null && Number(item.stock) > 0)
+        ? Number(item.stock)
+        : (matchedProduct?.stock_quantity !== undefined && matchedProduct?.stock_quantity !== null && Number(matchedProduct.stock_quantity) > 0)
+        ? Number(matchedProduct.stock_quantity)
+        : 10;
+    const inStock = item.is_in_stock !== undefined ? Boolean(item.is_in_stock) : true;
 
     // Resolve product object or reconstruct — ensuring product.id is the REAL product UUID (never cart item id!)
     const productObj: ProductSummary =
@@ -219,7 +221,7 @@ export function normalizeCart(raw: any): Cart {
     subtotal,
     delivery_estimate: delivery ? String(delivery) : null,
     total,
-    is_valid: raw.is_valid ?? (items.every(i => i.is_in_stock) && items.length > 0),
+    is_valid: raw.is_valid !== undefined ? Boolean(raw.is_valid) : items.length > 0,
     validation_errors: raw.validation_errors || [],
   };
 }
@@ -630,21 +632,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const validateCart = useCallback(async (): Promise<Cart | null> => {
     if (!user) {
-      return cart;
+      return loadGuestCart();
     }
-    setIsLoading(true);
     try {
       const data = await cartApi.validate();
       const normalized = normalizeCart(data);
       setCart(normalized);
       return normalized;
     } catch (err) {
-      console.error('Failed to validate cart:', err);
-      return cart;
-    } finally {
-      setIsLoading(false);
+      console.warn('Failed to validate cart from API, keeping current cart:', err);
+      return null;
     }
-  }, [user, cart]);
+  }, [user]);
 
   const itemCount = useMemo(() => {
     if (!cart || !Array.isArray(cart.items)) return 0;
