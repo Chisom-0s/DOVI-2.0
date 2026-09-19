@@ -277,6 +277,61 @@ export interface Cart {
 }
 
 // ----------------------------------------------------------
+// DELIVERY & FULFILLMENT
+// ----------------------------------------------------------
+export type DeliveryMethodType = 'PICKUP' | 'VENDOR_ARRANGED';
+
+export type DeliveryStatus =
+  | 'PENDING'
+  | 'READY_FOR_PICKUP'
+  | 'READY_FOR_DELIVERY'
+  | 'IN_TRANSIT'
+  | 'PICKED_UP'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'FAILED';
+
+export interface VendorDeliverySelection {
+  vendor_id: string;
+  method: DeliveryMethodType;
+  delivery_address_id?: string;
+}
+
+export interface DeliveryGroup {
+  id: string;
+  order: string;
+  order_reference: string;
+  vendor: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  method: DeliveryMethodType;
+  status: DeliveryStatus;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  delivery_address?: string | null;
+  delivery_city?: string | null;
+  delivery_state?: string | null;
+  pickup_address?: string | null;
+  pickup_city?: string | null;
+  pickup_state?: string | null;
+  delivery_fee: string;
+  vendor_notes?: string;
+  tracking_reference?: string;
+  items: OrderItem[];
+  created_at: string;
+  updated_at: string;
+  picked_up_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+}
+
+// ----------------------------------------------------------
 // ORDERS
 // ----------------------------------------------------------
 export type OrderStatus =
@@ -300,10 +355,11 @@ export interface OrderItem {
   quantity: number;
   unit_price: string;
   line_total: string;
+  delivery_group_id?: string | null;
 }
 
 export interface OrderTracking {
-  status: OrderStatus;
+  status: OrderStatus | DeliveryStatus;
   location: string | null;
   description: string;
   timestamp: string;
@@ -314,8 +370,9 @@ export interface Order {
   reference: string;
   status: OrderStatus;
   items: OrderItem[];
-  delivery_address: Address;
-  delivery_method: string;
+  delivery_address?: Address | null;
+  delivery_method?: string | null;
+  delivery_groups?: DeliveryGroup[];
   subtotal: string;
   delivery_fee: string;
   total: string;

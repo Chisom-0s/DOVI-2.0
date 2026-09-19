@@ -1,6 +1,10 @@
 # Dependency directories
 node_modules/
 jspm_packages/
+.venv/
+venv/
+__pycache__/
+*.pyc
 
 # Build outputs
 dist/
@@ -34,3 +38,4 @@ yarn-error.log*
 
 # Project files to ignore (as requested by user)
 architecture.md
+

@@ -1,14 +1,31 @@
 // Checkout API — /api/v1/checkout/*
 import apiClient, { normalizeApiError } from './client';
-import type { CheckoutSession } from '@/types';
+import type { CheckoutSession, VendorDeliverySelection } from '@/types';
 
 export const checkoutApi = {
   initializeSession: async (payload: {
-    delivery_address_id: string;
-    delivery_method_id: string;
+    delivery_address_id?: string;
+    delivery_method_id?: string;
+    vendor_delivery_selections?: VendorDeliverySelection[];
   }): Promise<CheckoutSession> => {
     try {
       const { data } = await apiClient.post('/api/v1/checkout/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  previewCheckout: async (payload: {
+    vendor_delivery_selections: VendorDeliverySelection[];
+  }): Promise<{
+    subtotal: string;
+    delivery_fees: Record<string, string>;
+    total_delivery_fee: string;
+    total: string;
+  }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/checkout/preview/', payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -47,3 +64,4 @@ export const checkoutApi = {
     }
   },
 };
+

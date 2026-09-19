@@ -3,13 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/api/orders';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
-import type { Order, OrderTracking } from '@/types';
+import { deliveryApi } from '@/api/delivery';
+import type { Order, DeliveryGroup, DeliveryStatus, OrderTracking } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
-// ----------------------------------------------------------
-// OrderDetailPage — /dashboard/orders/:ref
-// Fetches order + tracking from API.
-// ----------------------------------------------------------
 export default function OrderDetailPage() {
   const { ref } = useParams<{ ref: string }>();
   const [order, setOrder] = useState<Order | null>(null);
@@ -63,14 +60,29 @@ export default function OrderDetailPage() {
     }
   };
 
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
+  const handleConfirmGroupDelivery = async (groupId: string) => {
+    setActionLoading(true);
+    try {
+      await deliveryApi.confirmDelivery(groupId);
+      toast.success('Delivery confirmed for group!');
+      fetchOrder();
+    } catch {
+      toast.error('Failed to confirm delivery.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const formatCurrency = (val: string | number) =>
+    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(
+      typeof val === 'string' ? parseFloat(val) : val
+    );
 
   if (isLoading) {
     return (
       <div className="container" style={pageStyles}>
         <Skeleton width="200px" height="28px" borderRadius="var(--radius-md)" />
-        <div className="order-detail-grid">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--space-6)' }}>
           <Skeleton width="100%" height="400px" borderRadius="var(--radius-lg)" />
           <Skeleton width="100%" height="280px" borderRadius="var(--radius-lg)" />
         </div>
@@ -90,6 +102,8 @@ export default function OrderDetailPage() {
     );
   }
 
+  const hasDeliveryGroups = order.delivery_groups && order.delivery_groups.length > 0;
+
   return (
     <div className="container" style={pageStyles}>
       <div style={headerRowStyles}>
@@ -98,88 +112,164 @@ export default function OrderDetailPage() {
           <h1 style={titleStyles}>Order #{order.reference}</h1>
         </div>
         <span
-          className="status-badge"
           style={{
             backgroundColor: statusColor(order.status).bg,
             color: statusColor(order.status).text,
             fontSize: '11px',
+            fontWeight: 'var(--font-bold)',
             padding: '4px 12px',
+            borderRadius: 'var(--radius-full)',
+            textTransform: 'uppercase',
           }}
         >
           {order.status.replace(/_/g, ' ')}
         </span>
       </div>
 
-      <div className="order-detail-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--space-6)' }}>
         {/* Main Column */}
         <div style={mainColStyles}>
-          {/* Items */}
-          <section style={sectionStyles}>
-            <h3 style={sectionTitleStyles}>Order Items</h3>
-            {order.items.map((item) => (
-              <div key={item.id} style={itemRowStyles}>
-                <img
-                  src={getProductImageUrl(item.product)}
-                  alt={item.product.name}
-                  style={itemImgStyles}
-                  onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
-                />
-                <div style={{ flex: 1 }}>
-                  <Link to={`/products/${item.product.id}`} style={itemNameStyles}>
-                    {item.product.name}
-                  </Link>
-                  {item.variant && <p style={itemSubStyles}>{item.variant.name}</p>}
-                  <p style={itemSubStyles}>Qty: {item.quantity} × {formatCurrency(item.unit_price)}</p>
-                </div>
-                <span style={itemPriceStyles}>{formatCurrency(item.line_total)}</span>
-              </div>
-            ))}
-          </section>
+          {/* MULTI-VENDOR DELIVERY GROUPS */}
+          {hasDeliveryGroups ? (
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', margin: 0 }}>
+                Vendor Fulfillment & Delivery Groups
+              </h2>
 
-          {/* Status Timeline */}
-          {order.tracking && order.tracking.length > 0 && (
-            <section style={sectionStyles}>
-              <h3 style={sectionTitleStyles}>Order Timeline</h3>
-              <div style={timelineContainerStyles}>
-                {order.tracking.map((track: OrderTracking, idx: number) => (
-                  <div key={idx} style={timelineItemStyles}>
-                    <div style={timelineDotStyles(idx === 0)} />
-                    {idx < order.tracking.length - 1 && <div style={timelineLineStyles} />}
-                    <div style={timelineContentStyles}>
-                      <span style={timelineStatusStyles(idx === 0)}>
-                        {track.status.replace(/_/g, ' ')}
-                      </span>
-                      <p style={timelineDescStyles}>{track.description}</p>
-                      {track.location && (
-                        <p style={timelineLocStyles}>📍 {track.location}</p>
-                      )}
-                      <span style={timelineDateStyles}>
-                        {new Date(track.timestamp).toLocaleString('en-NG', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                        })}
-                      </span>
+              {order.delivery_groups!.map((group: DeliveryGroup, idx: number) => (
+                <div key={group.id || idx} style={groupCardStyles}>
+                  <div style={groupHeaderStyles}>
+                    <div>
+                      <strong style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
+                        STORE #{idx + 1}: {group.vendor?.name || 'Vendor Store'}
+                      </strong>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        Method: <strong>{group.method === 'PICKUP' ? '📍 Store Pick Up' : '🚚 Vendor Delivery'}</strong>
+                      </div>
                     </div>
+
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 'var(--font-bold)',
+                        padding: '4px 10px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: deliveryStatusColor(group.status).bg,
+                        color: deliveryStatusColor(group.status).text,
+                      }}
+                    >
+                      {group.status.replace(/_/g, ' ')}
+                    </span>
                   </div>
-                ))}
-              </div>
+
+                  {/* Group Items */}
+                  <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {group.items.map((item) => (
+                      <div key={item.id} style={itemRowStyles}>
+                        <img
+                          src={item.product.primary_image_url || '/logo.jpg?v=2'}
+                          alt={item.product.name}
+                          style={itemImgStyles}
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <Link to={`/products/${item.product.id}`} style={itemNameStyles}>
+                            {item.product.name}
+                          </Link>
+                          {item.variant && <p style={itemSubStyles}>{item.variant.name}</p>}
+                          <p style={itemSubStyles}>Qty: {item.quantity} × {formatCurrency(item.unit_price)}</p>
+                        </div>
+                        <span style={itemPriceStyles}>{formatCurrency(item.line_total)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Location Info & Instructions */}
+                  <div style={{ padding: 'var(--space-4)', background: 'var(--color-bg-subtle)', borderTop: '1px dashed var(--color-border)', fontSize: 'var(--text-xs)' }}>
+                    {group.method === 'PICKUP' ? (
+                      <div>
+                        <strong style={{ color: 'var(--color-text)' }}>📍 Store Pickup Address Snapshot:</strong>
+                        <p style={{ margin: '4px 0 0', color: 'var(--color-text-muted)' }}>
+                          {group.pickup_address || group.vendor.name}<br />
+                          {group.pickup_city ? `${group.pickup_city}, ${group.pickup_state}` : 'Contact vendor for pickup hours'}
+                        </p>
+                        {group.status === 'READY_FOR_PICKUP' && (
+                          <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2)', background: 'rgba(46, 213, 115, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>
+                            ✅ Your order is ready for pickup! Please bring your order reference #{order.reference}.
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <strong style={{ color: 'var(--color-text)' }}>🚚 Shipping Address:</strong>
+                        <p style={{ margin: '4px 0 0', color: 'var(--color-text-muted)' }}>
+                          {group.recipient_name || order.delivery_address?.full_name}<br />
+                          {group.delivery_address || order.delivery_address?.address_line_1}<br />
+                          {group.delivery_city || order.delivery_address?.city}, {group.delivery_state || order.delivery_address?.state}
+                        </p>
+                        {group.tracking_reference && (
+                          <div style={{ marginTop: 'var(--space-2)', color: 'var(--color-primary)', fontWeight: 'var(--font-bold)' }}>
+                            Tracking Reference: {group.tracking_reference}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Group Action */}
+                    {group.status === 'DELIVERED' && (
+                      <button
+                        onClick={() => handleConfirmGroupDelivery(group.id)}
+                        disabled={actionLoading}
+                        style={{ ...primaryBtnStyles, marginTop: 'var(--space-3)' }}
+                      >
+                        {actionLoading ? 'Confirming...' : 'Confirm Delivery Receipt'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </section>
+          ) : (
+            /* Legacy Order Items View */
+            <section style={sectionStyles}>
+              <h3 style={sectionTitleStyles}>Order Items</h3>
+              {order.items.map((item) => (
+                <div key={item.id} style={itemRowStyles}>
+                  <img
+                    src={item.product.primary_image_url || '/logo.jpg?v=2'}
+                    alt={item.product.name}
+                    style={itemImgStyles}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/logo.jpg?v=2'; }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <Link to={`/products/${item.product.id}`} style={itemNameStyles}>
+                      {item.product.name}
+                    </Link>
+                    {item.variant && <p style={itemSubStyles}>{item.variant.name}</p>}
+                    <p style={itemSubStyles}>Qty: {item.quantity} × {formatCurrency(item.unit_price)}</p>
+                  </div>
+                  <span style={itemPriceStyles}>{formatCurrency(item.line_total)}</span>
+                </div>
+              ))}
             </section>
           )}
 
-          {/* Delivery Address */}
-          <section style={sectionStyles}>
-            <h3 style={sectionTitleStyles}>Delivery Address</h3>
-            <p style={addrTextStyles}>
-              {order.delivery_address.full_name}<br />
-              {order.delivery_address.phone}<br />
-              {order.delivery_address.address_line_1}
-              {order.delivery_address.address_line_2 ? `, ${order.delivery_address.address_line_2}` : ''}<br />
-              {order.delivery_address.city}, {order.delivery_address.state}
-            </p>
-          </section>
+          {/* Legacy Delivery Address Fallback if no delivery groups */}
+          {!hasDeliveryGroups && order.delivery_address && (
+            <section style={sectionStyles}>
+              <h3 style={sectionTitleStyles}>Delivery Address</h3>
+              <p style={addrTextStyles}>
+                {order.delivery_address.full_name}<br />
+                {order.delivery_address.phone}<br />
+                {order.delivery_address.address_line_1}
+                {order.delivery_address.address_line_2 ? `, ${order.delivery_address.address_line_2}` : ''}<br />
+                {order.delivery_address.city}, {order.delivery_address.state}
+              </p>
+            </section>
+          )}
         </div>
 
-        {/* Sidebar */}
+        {/* Summary Sidebar */}
         <div style={sidebarStyles}>
           <div style={summaryCardStyles}>
             <h3 style={summaryTitleStyles}>Order Summary</h3>
@@ -189,7 +279,7 @@ export default function OrderDetailPage() {
               <span style={summaryValStyles}>{formatCurrency(order.subtotal)}</span>
             </div>
             <div style={summaryRowStyles}>
-              <span>Delivery ({order.delivery_method})</span>
+              <span>Delivery Fee</span>
               <span style={summaryValStyles}>{formatCurrency(order.delivery_fee)}</span>
             </div>
 
@@ -204,7 +294,7 @@ export default function OrderDetailPage() {
 
             <div style={summaryRowStyles}>
               <span>Payment</span>
-              <span style={summaryValStyles}>{order.payment_method || 'Pending'}</span>
+              <span style={summaryValStyles}>{order.payment_method || 'Standard'}</span>
             </div>
 
             <div style={summaryRowStyles}>
@@ -222,7 +312,7 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Overall Actions */}
           <div style={actionsCardStyles}>
             {order.can_cancel && (
               <button
@@ -292,7 +382,25 @@ function statusColor(status: string) {
   }
 }
 
-// Styling
+function deliveryStatusColor(status: DeliveryStatus | string) {
+  switch (status) {
+    case 'READY_FOR_PICKUP':
+    case 'READY_FOR_DELIVERY':
+    case 'IN_TRANSIT':
+      return { bg: 'rgba(103, 58, 183, 0.12)', text: 'var(--color-primary)' };
+    case 'PICKED_UP':
+    case 'DELIVERED':
+    case 'COMPLETED':
+      return { bg: 'rgba(46, 213, 115, 0.12)', text: 'var(--color-success)' };
+    case 'CANCELLED':
+    case 'FAILED':
+      return { bg: 'rgba(231, 76, 60, 0.12)', text: 'var(--color-danger)' };
+    default:
+      return { bg: 'var(--color-bg-subtle)', text: 'var(--color-text-muted)' };
+  }
+}
+
+// Styles
 const pageStyles: React.CSSProperties = {
   paddingTop: 'var(--space-6)',
   paddingBottom: 'var(--space-12)',
@@ -351,37 +459,45 @@ const mainColStyles: React.CSSProperties = {
 };
 
 const sectionStyles: React.CSSProperties = {
+  background: '#ffffff',
   padding: 'var(--space-5)',
-  border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-lg)',
-  backgroundColor: '#ffffff',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-3)',
+  border: '1px solid var(--color-border)',
 };
 
 const sectionTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
-  margin: 0,
+  margin: '0 0 var(--space-4)',
+};
+
+const groupCardStyles: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: 'var(--radius-lg)',
+  border: '1px solid var(--color-border)',
+  overflow: 'hidden',
+};
+
+const groupHeaderStyles: React.CSSProperties = {
+  padding: 'var(--space-4)',
+  background: 'var(--color-bg-subtle)',
+  borderBottom: '1px solid var(--color-border)',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
 };
 
 const itemRowStyles: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
   gap: 'var(--space-3)',
-  padding: 'var(--space-2) 0',
-  borderBottom: '1px solid var(--color-border)',
+  alignItems: 'center',
 };
 
 const itemImgStyles: React.CSSProperties = {
-  width: '48px',
-  height: '48px',
-  borderRadius: 'var(--radius-md)',
+  width: '50px',
+  height: '50px',
   objectFit: 'cover',
-  border: '1px solid var(--color-border)',
-  flexShrink: 0,
+  borderRadius: 'var(--radius-md)',
 };
 
 const itemNameStyles: React.CSSProperties = {
@@ -389,92 +505,26 @@ const itemNameStyles: React.CSSProperties = {
   fontWeight: 'var(--font-semibold)',
   color: 'var(--color-text)',
   textDecoration: 'none',
-  display: 'block',
 };
 
 const itemSubStyles: React.CSSProperties = {
-  margin: 0,
+  margin: '2px 0 0',
   fontSize: '11px',
   color: 'var(--color-text-muted)',
 };
 
 const itemPriceStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-};
-
-// Timeline
-const timelineContainerStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 0,
-  paddingLeft: 'var(--space-2)',
-};
-
-const timelineItemStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: 'var(--space-3)',
-  position: 'relative',
-  paddingBottom: 'var(--space-4)',
-};
-
-const timelineDotStyles = (isActive: boolean): React.CSSProperties => ({
-  width: '12px',
-  height: '12px',
-  borderRadius: '50%',
-  backgroundColor: isActive ? 'var(--color-primary)' : 'var(--color-border)',
-  flexShrink: 0,
-  marginTop: '4px',
-  zIndex: 1,
-});
-
-const timelineLineStyles: React.CSSProperties = {
-  position: 'absolute',
-  left: '5px',
-  top: '16px',
-  width: '2px',
-  bottom: 0,
-  backgroundColor: 'var(--color-border)',
-};
-
-const timelineContentStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '2px',
-};
-
-const timelineStatusStyles = (isActive: boolean): React.CSSProperties => ({
   fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-bold)',
-  color: isActive ? 'var(--color-primary)' : 'var(--color-text)',
-  textTransform: 'capitalize',
-});
-
-const timelineDescStyles: React.CSSProperties = {
-  margin: 0,
-  fontSize: '11px',
-  color: 'var(--color-text-muted)',
-};
-
-const timelineLocStyles: React.CSSProperties = {
-  margin: 0,
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
-};
-
-const timelineDateStyles: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
 };
 
 const addrTextStyles: React.CSSProperties = {
   margin: 0,
   fontSize: 'var(--text-xs)',
-  color: 'var(--color-text)',
+  color: 'var(--color-text-muted)',
   lineHeight: 1.6,
 };
 
-// Sidebar
 const sidebarStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -482,19 +532,17 @@ const sidebarStyles: React.CSSProperties = {
 };
 
 const summaryCardStyles: React.CSSProperties = {
+  background: '#ffffff',
   padding: 'var(--space-5)',
-  border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-lg)',
-  backgroundColor: 'var(--color-bg-subtle)',
+  border: '1px solid var(--color-border)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-3)',
-  position: 'sticky',
-  top: 'var(--space-4)',
 };
 
 const summaryTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
   margin: 0,
 };
@@ -503,60 +551,55 @@ const summaryRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   fontSize: 'var(--text-xs)',
-  color: 'var(--color-text-muted)',
 };
 
 const summaryValStyles: React.CSSProperties = {
   fontWeight: 'var(--font-semibold)',
-  color: 'var(--color-text)',
 };
 
 const dividerStyles: React.CSSProperties = {
   border: 'none',
   borderTop: '1px solid var(--color-border)',
-  margin: 0,
+  margin: '4px 0',
 };
 
 const actionsCardStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-3)',
+  gap: 'var(--space-2)',
 };
 
 const primaryBtnStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 20px',
+  padding: '10px 16px',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   border: 'none',
   borderRadius: 'var(--radius-md)',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-xs)',
+  cursor: 'pointer',
+  textDecoration: 'none',
+};
+
+const secondaryBtnStyles: React.CSSProperties = {
+  padding: '10px 16px',
+  backgroundColor: 'transparent',
+  color: 'var(--color-text)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  fontWeight: 'var(--font-medium)',
+  fontSize: 'var(--text-xs)',
   cursor: 'pointer',
   textDecoration: 'none',
 };
 
 const dangerBtnStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 20px',
-  backgroundColor: 'transparent',
+  padding: '10px 16px',
+  backgroundColor: 'rgba(231, 76, 60, 0.1)',
   color: 'var(--color-danger)',
   border: '1px solid var(--color-danger)',
   borderRadius: 'var(--radius-md)',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-xs)',
   cursor: 'pointer',
-};
-
-const secondaryBtnStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 20px',
-  backgroundColor: 'transparent',
-  color: 'var(--color-text)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  fontWeight: 'var(--font-semibold)',
-  fontSize: 'var(--text-sm)',
-  textDecoration: 'none',
-  display: 'block',
 };

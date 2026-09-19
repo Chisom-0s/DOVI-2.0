@@ -294,6 +294,37 @@ export default function OrdersPage() {
               </div>
             </div>
 
+            {/* Delivery Groups / Multi-vendor Fulfillment Breakdown */}
+            {(selectedOrder as any).delivery_groups && (selectedOrder as any).delivery_groups.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Fulfillment & Delivery Groups ({(selectedOrder as any).delivery_groups.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {(selectedOrder as any).delivery_groups.map((group: any, idx: number) => (
+                    <div key={group.id || idx} style={{ padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                          {group.vendor?.name || 'Store'} ({group.method === 'PICKUP' ? '📍 Store Pickup' : '🚚 Vendor Delivery'})
+                        </span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#e0e7ff', color: '#3730a3' }}>
+                          {group.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#4b5563' }}>
+                        {group.method === 'PICKUP' ? (
+                          <span>Pickup Snapshot: {group.pickup_city ? `${group.pickup_city}, ${group.pickup_state}` : group.pickup_address || 'Vendor Store'}</span>
+                        ) : (
+                          <span>Recipient: {group.recipient_name || 'Customer'} · {group.delivery_city ? `${group.delivery_city}, ${group.delivery_state}` : group.delivery_address}</span>
+                        )}
+                        {group.tracking_reference && <div style={{ color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>Tracking Ref: {group.tracking_reference}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Items Log list */}
             <div style={borderCoolStyles}>
               <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
