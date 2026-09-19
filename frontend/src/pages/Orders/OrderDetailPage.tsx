@@ -2,9 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/api/orders';
-import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import { deliveryApi } from '@/api/delivery';
-import type { Order, DeliveryGroup, DeliveryStatus, OrderTracking } from '@/types';
+import type { Order, DeliveryGroup, DeliveryStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
 export default function OrderDetailPage() {

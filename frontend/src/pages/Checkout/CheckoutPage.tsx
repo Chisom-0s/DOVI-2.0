@@ -47,8 +47,9 @@ export default function CheckoutPage() {
     if (!cart?.items) return [];
     const map = new Map<string, VendorGroup>();
     cart.items.forEach((item) => {
-      const vId = item.product.vendor?.id || 'vendor_store';
-      const vName = item.product.vendor?.name || item.product.vendor_name || 'Vendor Store';
+      const prod = item.product || (item as any);
+      const vId = prod.vendor?.id || 'vendor_store';
+      const vName = prod.vendor?.name || prod.vendor_name || 'Vendor Store';
       if (!map.has(vId)) {
         map.set(vId, {
           vendor_id: vId,
@@ -243,10 +244,10 @@ export default function CheckoutPage() {
                       {group.items.map((item) => (
                         <div key={item.id} style={itemPreviewRowStyles}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text)' }}>
-                            • {item.product.name} (x{item.quantity})
+                            • {item.product?.name || (item as any).name || 'Product'} (x{item.quantity})
                           </span>
                           <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)' }}>
-                            {formatCurrency(item.line_total)}
+                            {formatCurrency(item.line_total || (item as any).total_price || 0)}
                           </span>
                         </div>
                       ))}
