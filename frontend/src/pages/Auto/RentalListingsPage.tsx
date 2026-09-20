@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import type { AutoRentalSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -210,9 +210,7 @@ export default function RentalListingsPage() {
                 ))}
               </div>
             ) : error ? (
-              <div style={errorContainerStyles}>
-                <ApiErrorMessage error={error} />
-              </div>
+              <AutoComingSoon sectionName="Rentals & Bookings" backPath="/auto" backLabel="Back to Auto" />
             ) : rentals.length === 0 ? (
               <EmptyState
                 title="No Rental Vehicles Found"
