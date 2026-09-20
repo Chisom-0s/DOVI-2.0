@@ -7,6 +7,7 @@ import type { AutoAccessorySummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 import toast from 'react-hot-toast';
 
 export default function AccessoryListingsPage() {
@@ -80,6 +81,22 @@ export default function AccessoryListingsPage() {
     }
   };
 
+  if (error) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <AutoComingSoon sectionName="Accessories" backPath="/auto" backLabel="Back to Auto" />
+    );
+  }
+
   return (
     <div style={containerStyles}>
       <AutoSubNav />
@@ -119,8 +136,6 @@ export default function AccessoryListingsPage() {
               </div>
             ))}
           </div>
-        ) : error ? (
-          <AutoComingSoon sectionName="Accessories" backPath="/auto" backLabel="Back to Auto" />
         ) : accessories.length === 0 ? (
           <EmptyState
             title="No Accessories Found"

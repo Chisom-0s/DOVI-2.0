@@ -282,8 +282,6 @@ export default function PartListingsPage() {
                   </div>
                 ))}
               </div>
-            ) : error ? (
-              <AutoComingSoon sectionName="Car Parts" backPath="/auto" backLabel="Back to Auto" />
             ) : parts.length === 0 ? (
               <EmptyState
                 title="No Auto Parts Found"
