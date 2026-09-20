@@ -226,8 +226,6 @@ export default function RentalListingsPage() {
                   </div>
                 ))}
               </div>
-            ) : error ? (
-              <AutoComingSoon sectionName="Rentals & Bookings" backPath="/auto" backLabel="Back to Auto" />
             ) : rentals.length === 0 ? (
               <EmptyState
                 title="No Rental Vehicles Found"
