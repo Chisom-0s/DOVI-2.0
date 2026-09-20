@@ -101,7 +101,7 @@ export function SectionSkeleton({
       {layout === 'HORIZONTAL_CAROUSEL' ? (
         <div style={carouselScrollStyles} className="hide-scrollbar">
           {Array.from({ length: count }).map((_, idx) => (
-            <div key={idx} style={{ minWidth: '190px', flexShrink: 0 }}>
+            <div key={idx} style={{ minWidth: '150px', flexShrink: 0 }}>
               <ProductCardSkeleton />
             </div>
           ))}
@@ -113,7 +113,7 @@ export function SectionSkeleton({
           ))}
         </div>
       ) : (
-        <div style={gridStyles}>
+        <div className="marketplace-product-grid">
           {Array.from({ length: count }).map((_, idx) => (
             <ProductCardSkeleton key={idx} />
           ))}
@@ -161,11 +161,6 @@ const sectionHeaderStyles: React.CSSProperties = {
   alignItems: 'flex-end',
 };
 
-const gridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-  gap: '16px',
-};
 
 const carouselScrollStyles: React.CSSProperties = {
   display: 'flex',

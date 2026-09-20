@@ -80,7 +80,7 @@ export default function HomePage() {
         return (
           <div style={carouselScrollStyles} className="hide-scrollbar">
             {Array.from({ length: 5 }).map((_, idx) => (
-              <div key={idx} style={{ minWidth: '180px', flexShrink: 0 }}>
+              <div key={idx} style={{ minWidth: '150px', flexShrink: 0 }}>
                 <ProductCardSkeleton />
               </div>
             ))}
@@ -88,7 +88,7 @@ export default function HomePage() {
         );
       }
       return (
-        <div style={gridStyles}>
+        <div className="marketplace-product-grid">
           {Array.from({ length: 4 }).map((_, idx) => (
             <ProductCardSkeleton key={idx} />
           ))}
@@ -99,7 +99,7 @@ export default function HomePage() {
     switch (layout) {
       case 'PRODUCT_GRID':
         return (
-          <div style={gridStyles}>
+          <div className="marketplace-product-grid">
             {products.map(p => (
               <ProductCard key={p.id} product={p} />
             ))}
@@ -110,7 +110,7 @@ export default function HomePage() {
         return (
           <div style={carouselScrollStyles} className="hide-scrollbar">
             {products.map(p => (
-              <div key={p.id} style={{ minWidth: '180px', flexShrink: 0 }}>
+              <div key={p.id} style={{ minWidth: '150px', flexShrink: 0 }}>
                 <ProductCard product={p} />
               </div>
             ))}
@@ -240,7 +240,7 @@ export default function HomePage() {
 
       case 'AUTO_LISTING_GRID':
         return (
-          <div style={autoTeaserGridStyles}>
+          <div className="marketplace-product-grid">
             {products.map(p => (
               <Link to={`/products/${p.id}`} key={p.id} style={autoTeaserCardStyles}>
                 <div style={autoTeaserImgWrapperStyles}>
@@ -379,11 +379,6 @@ const seeAllStyles: React.CSSProperties = {
   textDecoration: 'none',
 };
 
-const gridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-  gap: '16px',
-};
 
 const carouselScrollStyles: React.CSSProperties = {
   display: 'flex',
@@ -642,11 +637,6 @@ const vendorRatingStyles: React.CSSProperties = {
   color: 'var(--color-text-muted)',
 };
 
-const autoTeaserGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-  gap: '16px',
-};
 
 const autoTeaserCardStyles: React.CSSProperties = {
   display: 'flex',
