@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import type { AutoListing } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
@@ -113,17 +114,7 @@ export default function CarDetailPage() {
       );
     }
     return (
-      <div style={containerStyles}>
-        <AutoSubNav />
-        <div style={errorWrapperStyles}>
-          <div style={{ fontSize: '3rem' }}>⚠️</div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Couldn't fetch item</h3>
-          <p style={{ color: '#6b7280' }}>This vehicle details could not be retrieved from the database.</p>
-          <button style={backBtnStyles} onClick={() => navigate('/auto/cars')}>
-            &larr; Back to Cars
-          </button>
-        </div>
-      </div>
+      <AutoComingSoon sectionName="Cars & Vehicles" backPath="/auto/cars" backLabel="Back to Cars" />
     );
   }
 

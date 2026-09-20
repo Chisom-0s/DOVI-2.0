@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import { cartApi } from '@/api/cart';
 import type { AutoAccessorySummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -120,9 +120,7 @@ export default function AccessoryListingsPage() {
             ))}
           </div>
         ) : error ? (
-          <div style={errorContainerStyles}>
-            <ApiErrorMessage error={error} />
-          </div>
+          <AutoComingSoon sectionName="Accessories" backPath="/auto" backLabel="Back to Auto" />
         ) : accessories.length === 0 ? (
           <EmptyState
             title="No Accessories Found"

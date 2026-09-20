@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import { useCart } from '@/contexts/CartContext';
 import type { AutoPart } from '@/types';
@@ -121,17 +122,7 @@ export default function PartDetailPage() {
       );
     }
     return (
-      <div style={containerStyles}>
-        <AutoSubNav />
-        <div style={errorWrapperStyles}>
-          <div style={{ fontSize: '3rem' }}>⚠️</div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Couldn't fetch item</h3>
-          <p style={{ color: '#6b7280' }}>This auto part details could not be retrieved from the database.</p>
-          <button style={backBtnStyles} onClick={() => navigate('/auto/parts')}>
-            &larr; Back to Parts
-          </button>
-        </div>
-      </div>
+      <AutoComingSoon sectionName="Car Parts" backPath="/auto/parts" backLabel="Back to Parts" />
     );
   }
 

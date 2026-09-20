@@ -4,7 +4,6 @@ import AutoSubNav from '@/components/auto/AutoSubNav';
 import { autoApi } from '@/api/auto';
 import type { AutoListingSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 
 export default function AutoLandingPage() {
@@ -57,13 +56,6 @@ export default function AutoLandingPage() {
       path: '/auto/rentals',
       image: '/images/auto/rentals.jpg',
       color: '#ff007a',
-    },
-    {
-      title: 'Auto Services',
-      desc: 'Book diagnostics, detailing, and servicing.',
-      path: '/auto/services',
-      image: '/images/auto/services.jpg',
-      color: '#7a00ff',
     },
   ];
 
@@ -137,7 +129,13 @@ export default function AutoLandingPage() {
           </div>
         ) : error ? (
           <div style={errorContainerStyles}>
-            <ApiErrorMessage error={error} />
+            <div style={comingSoonBannerStyles}>
+              <span style={{ fontSize: '24px' }}>🚧</span>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>Coming Soon</h3>
+                <p style={{ fontSize: '13px', color: '#9ca3af' }}>Vehicle listings are under development. Check back soon!</p>
+              </div>
+            </div>
           </div>
         ) : featuredCars.length === 0 ? (
           <EmptyState
@@ -414,6 +412,19 @@ const loadingGridStyles: React.CSSProperties = {
 const errorContainerStyles: React.CSSProperties = {
   padding: '32px',
   textAlign: 'center',
+};
+
+const comingSoonBannerStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '16px',
+  backgroundColor: '#1f2937',
+  border: '1px solid #374151',
+  borderRadius: '12px',
+  padding: '20px 24px',
+  textAlign: 'left',
+  maxWidth: '420px',
+  margin: '0 auto',
 };
 
 const listingGridStyles: React.CSSProperties = {

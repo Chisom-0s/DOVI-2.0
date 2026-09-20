@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi, type AutoFilters } from '@/api/auto';
 import type { AutoListingSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -344,9 +344,7 @@ export default function CarListingsPage() {
                 ))}
               </div>
             ) : error ? (
-              <div style={errorContainerStyles}>
-                <ApiErrorMessage error={error} />
-              </div>
+              <AutoComingSoon sectionName="Cars & Vehicles" backPath="/auto" backLabel="Back to Auto" />
             ) : listings.length === 0 ? (
               <EmptyState
                 title="No Cars Match Your Filters"

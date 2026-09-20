@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import type { AutoPartSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -266,9 +266,7 @@ export default function PartListingsPage() {
                 ))}
               </div>
             ) : error ? (
-              <div style={errorContainerStyles}>
-                <ApiErrorMessage error={error} />
-              </div>
+              <AutoComingSoon sectionName="Car Parts" backPath="/auto" backLabel="Back to Auto" />
             ) : parts.length === 0 ? (
               <EmptyState
                 title="No Auto Parts Found"
