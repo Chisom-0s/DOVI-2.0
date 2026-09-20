@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import CorporateFooter from '@/components/common/CorporateFooter';
 import { WhatsAppSupportButton } from '@/components/common/WhatsAppSupportButton';
@@ -11,7 +11,17 @@ interface NavItem {
 
 export default function DashboardLayout() {
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   const navItems: NavItem[] = [
     {
@@ -201,6 +211,25 @@ export default function DashboardLayout() {
             {item.label}
           </Link>
         ))}
+        <button
+          onClick={handleLogout}
+          style={{
+            ...mobileNavItemStyles,
+            backgroundColor: 'transparent',
+            color: 'var(--color-danger)',
+            borderColor: 'var(--color-danger)',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ marginRight: '4px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </span>
+          Logout
+        </button>
       </div>
 
       <div style={gridContainerStyles} className="dashboard-grid-container">
@@ -246,6 +275,28 @@ export default function DashboardLayout() {
                 {item.label}
               </Link>
             ))}
+            <button
+              onClick={handleLogout}
+              style={{
+                ...sidebarLinkStyles,
+                backgroundColor: 'transparent',
+                color: 'var(--color-danger)',
+                fontWeight: 'var(--font-medium)',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                marginTop: 'var(--space-4)',
+              }}
+            >
+              <span style={sidebarIconStyles}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </span>
+              Logout
+            </button>
           </nav>
         </aside>
 
