@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
+import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
 import type { RentalBooking } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 export default function RentalConfirmationPage() {
   const [searchParams] = useSearchParams();
@@ -53,12 +54,32 @@ export default function RentalConfirmationPage() {
     );
   }
 
-  if (error || !booking) {
+  if (error) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <AutoComingSoon sectionName="Rentals & Bookings" backPath="/auto/rentals" backLabel="Back to Rentals" />
+    );
+  }
+
+  if (!booking) {
     return (
       <div style={containerStyles}>
         <AutoSubNav />
         <div style={errorWrapperStyles}>
-          <ApiErrorMessage error={error || new Error('Invalid booking reference')} />
+          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📋</div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '8px' }}>No Booking Found</h3>
+          <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+            Invalid booking reference or no reservation found in your history.
+          </p>
           <button style={backBtnStyles} onClick={() => navigate('/auto/rentals')}>
             &larr; Back to Rentals
           </button>

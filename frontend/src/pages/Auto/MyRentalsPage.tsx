@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { autoApi } from '@/api/auto';
 import type { RentalBooking } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import toast from 'react-hot-toast';
 
@@ -67,7 +67,42 @@ export default function MyRentalsPage() {
         </div>
       ) : error ? (
         <div style={errorContainerStyles}>
-          <ApiErrorMessage error={error} />
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '16px',
+              padding: '48px 24px',
+              maxWidth: '520px',
+              margin: '0 auto',
+              textAlign: 'center',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+            }}
+          >
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>🚧</div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', marginBottom: '8px' }}>
+              Rental Bookings Coming Soon
+            </h3>
+            <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, marginBottom: '24px' }}>
+              The rental reservations service is currently under development. Once launched, all your active and past
+              vehicle rentals will appear here.
+            </p>
+            <Link
+              to="/auto"
+              style={{
+                display: 'inline-block',
+                padding: '10px 20px',
+                backgroundColor: 'var(--color-primary, #ff7a00)',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}
+            >
+              Explore Dovi Auto
+            </Link>
+          </div>
         </div>
       ) : bookings.length === 0 ? (
         <EmptyState

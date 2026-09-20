@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
 import AutoComingSoon from '@/components/auto/AutoComingSoon';
 import { autoApi } from '@/api/auto';
@@ -10,7 +10,6 @@ import toast from 'react-hot-toast';
 
 export default function AccessoryDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { addToCart } = useCart();
 
   const [accessory, setAccessory] = useState<any>(null);
@@ -285,26 +284,7 @@ const loadingContainerStyles: React.CSSProperties = {
   padding: '120px 24px',
 };
 
-const errorWrapperStyles: React.CSSProperties = {
-  maxWidth: '640px',
-  margin: '80px auto',
-  padding: '0 24px',
-  textAlign: 'center',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '24px',
-};
 
-const backBtnStyles: React.CSSProperties = {
-  padding: '10px 24px',
-  backgroundColor: '#111827',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '8px',
-  fontWeight: 700,
-  cursor: 'pointer',
-};
 
 const detailWrapperStyles: React.CSSProperties = {
   maxWidth: '1280px',
