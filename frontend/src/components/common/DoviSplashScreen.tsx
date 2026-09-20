@@ -99,7 +99,7 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
   `;
 
   return (
-    <div style={containerStyles}>
+    <div style={{ ...containerStyles, cursor: 'pointer' }} onClick={onComplete}>
       <style dangerouslySetInnerHTML={{ __html: inlineStyles }} />
 
       <div style={centerSectionStyles}>

@@ -14,7 +14,12 @@ import DoviSplashScreen from '@/components/common/DoviSplashScreen';
 // Toaster is outside router so toasts work on any page.
 // ============================================================
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return !sessionStorage.getItem('dovi_splash_shown');
+    }
+    return false;
+  });
 
   return (
     <ErrorBoundary>
@@ -22,7 +27,16 @@ export default function App() {
         <PromptEngineProvider>
           <CartProvider>
             {showSplash ? (
-              <DoviSplashScreen onComplete={() => setShowSplash(false)} />
+              <DoviSplashScreen
+                onComplete={() => {
+                  try {
+                    sessionStorage.setItem('dovi_splash_shown', 'true');
+                  } catch {
+                    // ignore storage errors
+                  }
+                  setShowSplash(false);
+                }}
+              />
             ) : (
               <>
                 <AppRouter />

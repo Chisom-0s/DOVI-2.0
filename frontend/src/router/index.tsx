@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import SmartPromptManager from '@/components/common/SmartPromptManager';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
@@ -234,6 +234,7 @@ const router = createBrowserRouter([
 
       // ---- Dovi Auto (Phase 10, 11, 12) ----
       { path: 'auto', element: <AutoLandingPage /> },
+      { path: 'auto/services', element: <Navigate to="/auto" replace /> },
       { path: 'auto/cars', element: <CarListingsPage /> },
       { path: 'auto/cars/:id', element: <CarDetailPage /> },
       { path: 'auto/parts', element: <PartListingsPage /> },
