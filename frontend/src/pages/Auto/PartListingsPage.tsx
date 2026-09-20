@@ -673,10 +673,7 @@ const loadingCardStyles: React.CSSProperties = {
   padding: '16px',
 };
 
-const errorContainerStyles: React.CSSProperties = {
-  padding: '32px',
-  textAlign: 'center',
-};
+
 
 const paginationStyles: React.CSSProperties = {
   display: 'flex',

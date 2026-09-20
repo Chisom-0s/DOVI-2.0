@@ -353,26 +353,7 @@ const loadingContainerStyles: React.CSSProperties = {
   padding: '120px 24px',
 };
 
-const errorWrapperStyles: React.CSSProperties = {
-  maxWidth: '640px',
-  margin: '80px auto',
-  padding: '0 24px',
-  textAlign: 'center',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '24px',
-};
 
-const backBtnStyles: React.CSSProperties = {
-  padding: '10px 24px',
-  backgroundColor: '#111827',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '8px',
-  fontWeight: 700,
-  cursor: 'pointer',
-};
 
 const detailWrapperStyles: React.CSSProperties = {
   maxWidth: '1280px',
