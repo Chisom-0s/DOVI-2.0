@@ -6,6 +6,7 @@ import type { AutoPartSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 import toast from 'react-hot-toast';
 
 export default function PartListingsPage() {
@@ -84,6 +85,22 @@ export default function PartListingsPage() {
     setCurrentPage(1);
     toast.success('Filters cleared');
   };
+
+  if (error) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <AutoComingSoon sectionName="Car Parts" backPath="/auto" backLabel="Back to Auto" />
+    );
+  }
 
   return (
     <div style={containerStyles}>

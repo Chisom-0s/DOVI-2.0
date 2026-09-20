@@ -6,6 +6,7 @@ import type { AutoListingSummary } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Link } from 'react-router-dom';
+import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 import toast from 'react-hot-toast';
 
 export default function CarListingsPage() {
@@ -132,6 +133,22 @@ export default function CarListingsPage() {
       toast.error('Unable to update favorites');
     }
   };
+
+  if (error) {
+    if (!navigator.onLine || error?.code === 'NETWORK_ERROR' || error?.message?.toLowerCase().includes('internet signal')) {
+      return (
+        <div style={containerStyles}>
+          <AutoSubNav />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 16px' }}>
+            <NoInternetBanner onRetry={() => window.location.reload()} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <AutoComingSoon sectionName="Cars & Vehicles" backPath="/auto" backLabel="Back to Auto" />
+    );
+  }
 
   return (
     <div style={containerStyles}>
@@ -343,8 +360,6 @@ export default function CarListingsPage() {
                   </div>
                 ))}
               </div>
-            ) : error ? (
-              <AutoComingSoon sectionName="Cars & Vehicles" backPath="/auto" backLabel="Back to Auto" />
             ) : listings.length === 0 ? (
               <EmptyState
                 title="No Cars Match Your Filters"
