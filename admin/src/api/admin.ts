@@ -783,31 +783,8 @@ export const adminApi = {
     try {
       const { data } = await apiClient.get('/api/v1/admin/auto/listings/', { params });
       return data;
-    } catch {
-      let pool = ADMIN_SEED_VEHICLES;
-      if (params?.type === 'parts') {
-        pool = ADMIN_SEED_PARTS;
-      } else if (params?.type === 'rentals') {
-        pool = ADMIN_SEED_RENTALS;
-      }
-
-      let results = [...pool];
-      if (params?.q) {
-        const q = params.q.toLowerCase().trim();
-        results = results.filter(item =>
-          (item.name && item.name.toLowerCase().includes(q)) ||
-          (item.make && item.make.toLowerCase().includes(q)) ||
-          (item.model && item.model.toLowerCase().includes(q)) ||
-          (item.part_number && item.part_number.toLowerCase().includes(q))
-        );
-      }
-
-      return {
-        count: results.length,
-        next: null,
-        previous: null,
-        results: results as any,
-      };
+    } catch (err) {
+      throw normalizeApiError(err);
     }
   },
 
@@ -815,15 +792,8 @@ export const adminApi = {
     try {
       const { data } = await apiClient.patch(`/api/v1/admin/auto/listings/${id}/`, payload);
       return data;
-    } catch {
-      for (const pool of [ADMIN_SEED_VEHICLES, ADMIN_SEED_PARTS, ADMIN_SEED_RENTALS]) {
-        const idx = pool.findIndex(item => item.id === id);
-        if (idx >= 0) {
-          pool[idx] = { ...pool[idx], ...payload };
-          return pool[idx];
-        }
-      }
-      return { id, ...payload } as any;
+    } catch (err) {
+      throw normalizeApiError(err);
     }
   },
 
@@ -831,113 +801,9 @@ export const adminApi = {
     try {
       const { data } = await apiClient.delete(`/api/v1/admin/auto/listings/${id}/`);
       return data;
-    } catch {
-      ADMIN_SEED_VEHICLES = ADMIN_SEED_VEHICLES.filter(item => item.id !== id);
-      ADMIN_SEED_PARTS = ADMIN_SEED_PARTS.filter(item => item.id !== id);
-      ADMIN_SEED_RENTALS = ADMIN_SEED_RENTALS.filter(item => item.id !== id);
-      return { success: true };
+    } catch (err) {
+      throw normalizeApiError(err);
     }
   },
 };
 
-let ADMIN_SEED_VEHICLES: any[] = [
-  {
-    id: 'auto-mercedes-g63-2024',
-    name: 'Mercedes-Benz G 63 AMG BiTurbo',
-    make: 'Mercedes-Benz',
-    model: 'G 63 AMG BiTurbo',
-    year: 2024,
-    price: '295000000.00',
-    condition: 'NEW',
-    transmission: 'AUTOMATIC',
-    fuel_type: 'PETROL',
-    location: 'Victoria Island, Lagos',
-    primary_image_url: 'https://images.unsplash.com/photo-1520050206274-a1ae44613e6d?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'Prestige Motors Victoria Island' },
-    status: 'ACTIVE',
-  },
-  {
-    id: 'auto-toyota-lc300-2023',
-    name: 'Toyota Land Cruiser 300 VXR',
-    make: 'Toyota',
-    model: 'Land Cruiser 300 VXR',
-    year: 2023,
-    price: '185000000.00',
-    condition: 'USED',
-    transmission: 'AUTOMATIC',
-    fuel_type: 'PETROL',
-    location: 'Maitama, Abuja',
-    primary_image_url: 'https://images.unsplash.com/photo-1594502184342-2e12f877aa73?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'Capital City Automotive' },
-    status: 'ACTIVE',
-  },
-  {
-    id: 'auto-lexus-rx350-2022',
-    name: 'Lexus RX 350 F-Sport',
-    make: 'Lexus',
-    model: 'RX 350 F-Sport',
-    year: 2022,
-    price: '68000000.00',
-    condition: 'USED',
-    transmission: 'AUTOMATIC',
-    fuel_type: 'PETROL',
-    location: 'Lekki Phase 1, Lagos',
-    primary_image_url: 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'Lekki Luxury Cars' },
-    status: 'ACTIVE',
-  },
-];
-
-let ADMIN_SEED_PARTS: any[] = [
-  {
-    id: 'part-brembo-ceramic-pads',
-    name: 'Brembo Front Ceramic Brake Pads (Set)',
-    part_number: 'P83082N',
-    part_type: 'OEM',
-    condition: 'NEW',
-    price: '85000.00',
-    stock_quantity: 18,
-    location: 'Ladipo Market, Lagos',
-    primary_image_url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'AutoFix Global Spares' },
-  },
-  {
-    id: 'part-bosch-alternator-150a',
-    name: 'Bosch High-Output Alternator 150A',
-    part_number: 'AL0844N',
-    part_type: 'OEM',
-    condition: 'NEW',
-    price: '145000.00',
-    stock_quantity: 8,
-    location: 'Ladipo Market, Lagos',
-    primary_image_url: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'AutoFix Global Spares' },
-  },
-];
-
-let ADMIN_SEED_RENTALS: any[] = [
-  {
-    id: 'rental-range-rover-2024',
-    name: 'Land Rover Range Rover Autobiography',
-    make: 'Land Rover',
-    model: 'Range Rover Autobiography',
-    year: 2024,
-    daily_rate: '250000.00',
-    security_deposit: '500000.00',
-    pickup_location: 'Victoria Island, Lagos',
-    primary_image_url: 'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'Executive Escort & Chauffeur Services' },
-  },
-  {
-    id: 'rental-toyota-hilux-2023',
-    name: 'Toyota Hilux Adventure 4x4 Double Cabin',
-    make: 'Toyota',
-    model: 'Hilux Adventure 4x4 Double Cabin',
-    year: 2023,
-    daily_rate: '95000.00',
-    security_deposit: '150000.00',
-    pickup_location: 'Central Business District, Abuja',
-    primary_image_url: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
-    seller: { name: 'Sahara Fleet Solutions' },
-  },
-];

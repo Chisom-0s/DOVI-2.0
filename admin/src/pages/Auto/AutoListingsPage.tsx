@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { adminApi } from '@/api/admin';
 import { Skeleton } from '@/components/common/Skeleton';
-import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import toast from 'react-hot-toast';
 
@@ -225,7 +224,45 @@ export default function AutoListingsPage() {
         </div>
       ) : error ? (
         <div style={errorWrapperStyles}>
-          <ApiErrorMessage error={error} />
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderRadius: '16px',
+              padding: '48px 32px',
+              maxWidth: '560px',
+              margin: '24px auto',
+              textAlign: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>🚧</div>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>
+              Auto CMS Not Yet Available
+            </h3>
+            <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, marginBottom: '24px' }}>
+              The Dovi Auto backend API (<code>/api/v1/admin/auto/*</code>) is currently under active development.
+              Listing management and moderation tools will become operational once the microservice is deployed.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => fetchListings()}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: 'var(--color-primary, #ff7a00)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                Retry Connection
+              </button>
+            </div>
+          </div>
         </div>
       ) : listings.length === 0 ? (
         <EmptyState
