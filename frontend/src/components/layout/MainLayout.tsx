@@ -10,7 +10,7 @@ export default function MainLayout() {
       <Header />
 
       {/* Main Content Area */}
-      <main style={mainContentStyles}>
+      <main style={mainContentStyles} className="main-content-area">
         <Outlet />
       </main>
 

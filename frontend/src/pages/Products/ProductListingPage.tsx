@@ -118,12 +118,32 @@ export default function ProductListingPage() {
     updateFilters({ page: newPage.toString() });
   };
 
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const hasActiveFilters = Boolean(categoryParam || minPriceParam || maxPriceParam || inStockParam);
+
   const totalPages = Math.ceil(totalCount / 12);
 
   return (
-    <div className="container" style={wrapperStyles}>
+    <div className="container product-listing-layout">
+      {/* Mobile Filter Toggle Button */}
+      <div className="mobile-filter-bar hide-desktop">
+        <button
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          className="mobile-filter-toggle-btn"
+          aria-expanded={showMobileFilters}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          </svg>
+          <span>{showMobileFilters ? 'Hide Filters & Categories' : 'Filter & Categories'}</span>
+          {hasActiveFilters && (
+            <span className="mobile-filter-badge">Active</span>
+          )}
+        </button>
+      </div>
+
       {/* Filters Sidebar */}
-      <aside style={sidebarStyles} className="hide-mobile">
+      <aside style={sidebarStyles} className={`product-listing__sidebar ${showMobileFilters ? 'product-listing__sidebar--open' : ''}`}>
         <h3 style={sidebarTitleStyles}>Filters</h3>
 
         {/* Category Filters */}

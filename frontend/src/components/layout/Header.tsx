@@ -361,7 +361,7 @@ const actionsContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-3)',
-  flexWrap: 'wrap',
+  flexWrap: 'nowrap',
   justifyContent: 'flex-end',
 };
 
@@ -462,9 +462,14 @@ const authButtonsStyles: React.CSSProperties = {
 
 const loginBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
-  color: 'var(--color-text-muted)',
-  fontWeight: 'var(--font-medium)',
+  color: 'var(--color-primary)',
+  fontWeight: 'var(--font-semibold)',
   textDecoration: 'none',
+  padding: '6px 14px',
+  borderRadius: 'var(--radius-full)',
+  border: '1px solid var(--color-primary)',
+  whiteSpace: 'nowrap',
+  transition: 'all 150ms ease',
 };
 
 const registerBtnStyles: React.CSSProperties = {
@@ -528,6 +533,7 @@ const dropdownStyles: React.CSSProperties = {
   right: 0,
   marginTop: '8px',
   width: '280px',
+  maxWidth: 'calc(100vw - 32px)',
   backgroundColor: '#ffffff',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-lg)',
