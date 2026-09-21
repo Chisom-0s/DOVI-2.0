@@ -16,9 +16,6 @@ export default function Header() {
   const isMarketPage = location.pathname === '/products' || location.pathname.startsWith('/products');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
 
-  // Hide Logo on: Homepage, Cart page, Market page, and Profile/Dashboard pages
-  const shouldHideLogo = isHomepage || isCartPage || isMarketPage || isProfilePage;
-
   // Hide Searchbar and Categories on: Cart page and Profile/Dashboard pages
   const shouldHideSearchAndCategories = isCartPage || isProfilePage;
 
@@ -109,24 +106,23 @@ export default function Header() {
   };
 
   return (
-    <header className="site-header" style={headerStyles}>
+    <header className="site-header">
       <div className="container site-header__container">
-        {/* Brand Logo (Row 1, Col 1 on mobile) */}
-        {!shouldHideLogo && (
-          <Link to="/" style={logoStyles} className="site-header__logo">
-            <img src="/logo.jpg?v=2" alt="Dovi" style={logoImageStyles} />
+        {/* Brand Logo & Desktop Nav Links (Row 1, Col 1) */}
+        <div className="site-header__brand">
+          <Link to="/" style={logoStyles} className="site-header__logo" aria-label="Dovi Home">
+            <img src="/logo.jpg?v=2" alt="Dovi" className="site-header__logo-img" />
           </Link>
-        )}
-
-        {/* Header Actions (Desktop only, hidden on mobile) */}
-        <div style={actionsContainerStyles} className="site-header__actions hide-mobile">
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
             <Link to="/auto" className="header-nav-link">Dovi Auto</Link>
             <Link to="/save2own" className="header-nav-link">Save2Own</Link>
           </nav>
+        </div>
 
+        {/* Header Actions (Row 1, Col 2 on mobile, Col 3 on desktop) */}
+        <div style={actionsContainerStyles} className="site-header__actions">
           {/* Notification Bell Dropdown Wrapper */}
           {isAuthenticated && (
             <div ref={dropdownRef} style={{ position: 'relative' }}>
@@ -134,6 +130,7 @@ export default function Header() {
                 onClick={() => setIsOpen(!isOpen)}
                 style={bellBtnStyles}
                 title="Notifications"
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
               >
                 <svg
                   width="20"
@@ -208,7 +205,7 @@ export default function Header() {
             </div>
           )}
 
-          {/* Cart Status Indicator (visible everywhere) */}
+          {/* Cart Status Indicator (visible on mobile & desktop) */}
           <Link to="/cart" style={cartButtonStyles} aria-label={`Shopping Cart${itemCount > 0 ? `, ${itemCount} items` : ''}`}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg
@@ -234,7 +231,7 @@ export default function Header() {
             <span style={cartLabelStyles} className="hide-mobile">Cart</span>
           </Link>
 
-          {/* User Account State (visible everywhere) */}
+          {/* User Account State */}
           {isAuthenticated ? (
             <div style={userMenuStyles}>
               {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') ? (
@@ -253,7 +250,6 @@ export default function Header() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      marginRight: '6px',
                     }}
                     className="hide-mobile"
                   >
@@ -295,23 +291,23 @@ export default function Header() {
           )}
         </div>
 
-        {/* Search Bar & Categories (Row 2 on mobile) — Hidden on Cart & Profile pages */}
+        {/* Search Bar (Row 2 on mobile, Col 2 on desktop) */}
         {!shouldHideSearchAndCategories && (
-          <div 
-            style={{
-              ...searchContainerStyles,
-              maxWidth: isHomepage ? '900px' : undefined,
-            }} 
-            className="site-header__search-container"
-          >
+          <div className="site-header__search-container">
             <SearchBar />
-            <div style={categoryLinksStyles} className="no-scrollbar">
+          </div>
+        )}
+
+        {/* Category Pills Row (Row 3 on mobile, Row 2 spanning across on desktop) */}
+        {!shouldHideSearchAndCategories && (
+          <div className="site-header__categories-container">
+            <div style={categoryLinksStyles} className="site-header__categories no-scrollbar">
               {/* Page links – visible on mobile only (desktop has them in the top nav) */}
               <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
               <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
               <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
 
-              {/* Extensive categories in premium orange block capsules */}
+              {/* Extensive categories */}
               <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
               <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
               <Link to="/categories/phones-tablets" className="header-category-link">📱 Phones & Tablets</Link>
