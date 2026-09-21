@@ -216,14 +216,14 @@ export default function ProductListingPage() {
 
         {/* Products Grid */}
         {isLoading ? (
-          <div style={gridStyles}>
+          <div className="marketplace-product-grid">
             {Array.from({ length: 8 }).map((_, idx) => (
               <SkeletonCard key={idx} />
             ))}
           </div>
         ) : products.length > 0 ? (
           <>
-            <div style={gridStyles}>
+            <div className="marketplace-product-grid">
               {products.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -396,11 +396,6 @@ const selectStyles: React.CSSProperties = {
   backgroundColor: 'var(--color-bg)',
 };
 
-const gridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-  gap: 'var(--space-6)',
-};
 
 const paginationStyles: React.CSSProperties = {
   display: 'flex',

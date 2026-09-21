@@ -180,10 +180,10 @@ const imgContainerStyles: React.CSSProperties = {
 
 const wishlistBtnStyles: React.CSSProperties = {
   position: 'absolute',
-  top: '8px',
-  right: '8px',
-  width: '32px',
-  height: '32px',
+  top: '6px',
+  right: '6px',
+  width: '28px',
+  height: '28px',
   borderRadius: '50%',
   backgroundColor: 'rgba(255,255,255,0.9)',
   display: 'flex',
@@ -211,7 +211,7 @@ const stockBadgeStyles: React.CSSProperties = {
 };
 
 const detailsStyles: React.CSSProperties = {
-  padding: 'var(--space-3)',
+  padding: 'var(--space-2)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-1)',
@@ -227,7 +227,7 @@ const vendorStyles: React.CSSProperties = {
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-medium)',
   lineHeight: 1.3,
   overflow: 'hidden',
@@ -235,7 +235,7 @@ const titleStyles: React.CSSProperties = {
   display: '-webkit-box',
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
-  height: '36px',
+  height: '32px',
 };
 
 const ratingStyles: React.CSSProperties = {
@@ -269,8 +269,8 @@ const priceStyles: React.CSSProperties = {
 };
 
 const cartBtnStyles: React.CSSProperties = {
-  width: '28px',
-  height: '28px',
+  width: '26px',
+  height: '26px',
   borderRadius: 'var(--radius-sm)',
   backgroundColor: 'var(--color-primary)',
   color: 'white',

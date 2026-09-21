@@ -71,7 +71,7 @@ export default function CategoryPage() {
       <h1 style={titleStyles}>{categoryName}</h1>
 
       {isLoading ? (
-        <div style={gridStyles}>
+        <div className="marketplace-product-grid">
           {Array.from({ length: 4 }).map((_, idx) => (
             <SkeletonCard key={idx} />
           ))}
@@ -83,7 +83,7 @@ export default function CategoryPage() {
           <button onClick={loadCategoryData} style={{ padding: '8px 16px', marginTop: '12px', cursor: 'pointer' }}>🔄 Retry</button>
         </div>
       ) : products.length > 0 ? (
-        <div style={gridStyles}>
+        <div className="marketplace-product-grid">
           {products.map(product => (
             <ProductCard key={product.id} product={product} />
           ))}
@@ -135,11 +135,6 @@ const titleStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
 };
 
-const gridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-  gap: 'var(--space-6)',
-};
 
 const emptyStyles: React.CSSProperties = {
   textAlign: 'center',

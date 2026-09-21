@@ -1181,8 +1181,30 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Marketplace Product Grid */
+.marketplace-product-grid {
+  display: grid;
+  gap: var(--space-3); /* 12px for mobile */
+  /* Fallback: 2 columns on small mobile */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
+@media (min-width: 600px) {
+  .marketplace-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-4); /* 16px */
+  }
+}
 
+@media (min-width: 768px) {
+  .marketplace-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
 
-
-
+@media (min-width: 1024px) {
+  .marketplace-product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-6); /* 24px */
+  }
+}

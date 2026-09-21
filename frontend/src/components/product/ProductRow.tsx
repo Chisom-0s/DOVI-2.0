@@ -96,5 +96,5 @@ const listStyles: React.CSSProperties = {
 };
 
 const cardWrapperStyles: React.CSSProperties = {
-  width: '180px',
+  width: '150px',
 };
