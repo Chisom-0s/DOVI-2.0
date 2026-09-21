@@ -99,7 +99,7 @@ export default function RentalListingsPage() {
 
       <div style={mainContentStyles}>
         {/* Mobile Filters Toggle */}
-        <div style={mobileFiltersBarStyles}>
+        <div style={mobileFiltersBarStyles} className="mobile-filters-bar">
           <button style={toggleFilterBtnStyles} onClick={() => setShowMobileFilters(!showMobileFilters)}>
             {showMobileFilters ? (
               <span>Hide Filters</span>
@@ -115,7 +115,7 @@ export default function RentalListingsPage() {
           </button>
         </div>
 
-        <div style={layoutGridStyles}>
+        <div style={layoutGridStyles} className="auto-listing-grid">
           {/* Filters Sidebar */}
           <aside
             style={{

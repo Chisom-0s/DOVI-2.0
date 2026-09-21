@@ -178,7 +178,7 @@ export default function HomePage() {
       case 'CATEGORY_GRID':
       case 'CATEGORY_CIRCLES':
         return (
-          <div style={categoriesGridStyles}>
+          <div className="homepage-categories-grid">
             {categories.map(c => (
               <Link to={`/categories/${c.slug}`} key={c.id} style={categoryCircleStyles}>
                 <div style={categoryIconCircleStyles}>

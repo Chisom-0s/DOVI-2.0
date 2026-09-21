@@ -23,8 +23,8 @@ export default function AutoComingSoon({
     <div style={containerStyles}>
       <AutoSubNav />
 
-      <div style={contentStyles}>
-        <div style={cardStyles}>
+      <div className="auto-coming-soon__content">
+        <div className="auto-coming-soon__card">
           {/* Animated car icon */}
           <div style={iconContainerStyles}>
             <span style={iconStyles}>🚧</span>
@@ -78,23 +78,6 @@ const containerStyles: React.CSSProperties = {
   fontFamily: 'var(--font-sans)',
 };
 
-const contentStyles: React.CSSProperties = {
-  maxWidth: '640px',
-  margin: '0 auto',
-  padding: '80px 24px 120px 24px',
-  display: 'flex',
-  justifyContent: 'center',
-};
-
-const cardStyles: React.CSSProperties = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #e5e7eb',
-  borderRadius: '24px',
-  padding: '48px 40px',
-  textAlign: 'center',
-  boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
-  width: '100%',
-};
 
 const iconContainerStyles: React.CSSProperties = {
   width: '80px',

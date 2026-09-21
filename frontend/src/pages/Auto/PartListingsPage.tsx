@@ -108,7 +108,7 @@ export default function PartListingsPage() {
 
       <div style={mainContentStyles}>
         {/* Mobile Filters Toggle */}
-        <div style={mobileFiltersBarStyles}>
+        <div style={mobileFiltersBarStyles} className="mobile-filters-bar">
           <button style={toggleFilterBtnStyles} onClick={() => setShowMobileFilters(!showMobileFilters)}>
             {showMobileFilters ? (
               <span>Hide Filters</span>
@@ -124,7 +124,7 @@ export default function PartListingsPage() {
           </button>
         </div>
 
-        <div style={layoutGridStyles}>
+        <div style={layoutGridStyles} className="auto-listing-grid">
           {/* Filters Sidebar */}
           <aside
             style={{

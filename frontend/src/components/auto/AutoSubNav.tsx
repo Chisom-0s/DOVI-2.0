@@ -19,16 +19,16 @@ export default function AutoSubNav() {
   };
 
   return (
-    <div style={navContainerStyles}>
-      <div style={navInnerStyles}>
+    <div style={navContainerStyles} className="auto-subnav">
+      <div style={navInnerStyles} className="auto-subnav__inner">
         {/* Dovi Auto Section Logo Badge */}
-        <Link to="/auto" style={brandBadgeStyles}>
+        <Link to="/auto" style={brandBadgeStyles} className="auto-subnav__badge">
           <span style={brandIconStyles}>🚗</span>
           <span style={brandTitleStyles}>DOVI AUTO</span>
         </Link>
 
         {/* Sub-Nav Links */}
-        <nav style={tabsNavStyles}>
+        <nav style={tabsNavStyles} className="auto-subnav__tabs no-scrollbar">
           {navItems.map((item) => {
             const active = isActive(item.path);
             return (
@@ -37,7 +37,7 @@ export default function AutoSubNav() {
                 to={item.path}
                 style={{
                   ...tabLinkStyles,
-                  color: active ? 'var(--color-primary, #ff7a00)' : 'var(--color-text-secondary, #4b5563)',
+                  color: active ? 'var(--color-primary, #ff7a00)' : '#9ca3af',
                   borderBottom: active ? '3px solid var(--color-primary, #ff7a00)' : '3px solid transparent',
                   fontWeight: active ? 700 : 500,
                 }}
@@ -56,12 +56,11 @@ export default function AutoSubNav() {
 // Styling Tokens
 // ----------------------------------------------------------
 const navContainerStyles: React.CSSProperties = {
-  backgroundColor: '#111827', // Sleek dark theme for auto section subnav
+  backgroundColor: '#111827',
   borderBottom: '1px solid #1f2937',
   padding: '0 var(--space-4, 16px)',
   boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  position: 'sticky',
-  top: 0,
+  position: 'relative',
   zIndex: 40,
 };
 
@@ -71,9 +70,8 @@ const navInnerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  height: '56px',
-  gap: '24px',
-  flexWrap: 'wrap',
+  minHeight: '52px',
+  gap: '16px',
 };
 
 const brandBadgeStyles: React.CSSProperties = {

@@ -1073,6 +1073,36 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 24px;
 }
 
+/* Auto SubNav Responsive */
+.auto-subnav {
+  background-color: #111827;
+  border-bottom: 1px solid #1f2937;
+  padding: 0 var(--space-4, 16px);
+  position: relative;
+  z-index: 40;
+}
+
+.auto-subnav__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.auto-subnav__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+  height: 52px;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Auto Coming Soon Responsive */
 .auto-coming-soon__content {
   max-width: 640px;
