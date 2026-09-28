@@ -23,7 +23,7 @@ export default function RegisterPage() {
     phone: '',
     password: '',
     confirm_password: '',
-    role: 'BUYER' as 'BUYER' | 'VENDOR',
+    role: 'BUYER' as const,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<APIError | null>(null);
@@ -102,51 +102,6 @@ export default function RegisterPage() {
 
         <form className="auth-card__form" onSubmit={handleSubmit} noValidate>
           <ApiErrorMessage error={error} />
-
-          {/* Role selector to fulfill backend API requirements */}
-          <div className="form-group" style={{ marginBottom: 'var(--space-2)' }}>
-            <label className="form-label">Join Dovi as a...</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginTop: '4px' }}>
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, role: 'BUYER' }))}
-                style={{
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)',
-                  border: form.role === 'BUYER' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                  backgroundColor: form.role === 'BUYER' ? 'rgba(255, 122, 0, 0.05)' : 'transparent',
-                  fontWeight: 'var(--font-semibold)',
-                  color: form.role === 'BUYER' ? 'var(--color-primary)' : 'var(--color-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'all 200ms ease',
-                }}
-              >
-                <span>🛍️</span> Buyer
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm(prev => ({ ...prev, role: 'VENDOR' }))}
-                style={{
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)',
-                  border: form.role === 'VENDOR' ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                  backgroundColor: form.role === 'VENDOR' ? 'rgba(255, 122, 0, 0.05)' : 'transparent',
-                  fontWeight: 'var(--font-semibold)',
-                  color: form.role === 'VENDOR' ? 'var(--color-primary)' : 'var(--color-text)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  transition: 'all 200ms ease',
-                }}
-              >
-                <span>🏪</span> Vendor Store
-              </button>
-            </div>
-          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
             <div className="form-group">

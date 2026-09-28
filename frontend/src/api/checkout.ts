@@ -6,6 +6,7 @@ export const checkoutApi = {
   initializeSession: async (payload: {
     delivery_address_id?: string;
     delivery_method_id?: string;
+    delivery_method?: string;
     vendor_delivery_selections?: VendorDeliverySelection[];
   }): Promise<CheckoutSession> => {
     try {
@@ -17,10 +18,12 @@ export const checkoutApi = {
   },
 
   previewCheckout: async (payload: {
-    vendor_delivery_selections: VendorDeliverySelection[];
+    delivery_method?: string;
+    delivery_address_id?: string;
+    vendor_delivery_selections?: VendorDeliverySelection[];
   }): Promise<{
     subtotal: string;
-    delivery_fees: Record<string, string>;
+    delivery_fees?: Record<string, string>;
     total_delivery_fee: string;
     total: string;
   }> => {

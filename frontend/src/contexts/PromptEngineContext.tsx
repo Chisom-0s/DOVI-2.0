@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 // --- Configuration ---
 export const PROMPT_CONFIG = {
-  vendorVerification: { enabled: true, priority: 1, initialDelaySeconds: 5, cooldownHours: 12 },
+  vendorVerification: { enabled: false, priority: 1, initialDelaySeconds: 5, cooldownHours: 12 },
   cookie: { enabled: true, priority: 2 },
   notification: { enabled: true, priority: 3, cooldownHours: 72 },
   pwa: { enabled: true, priority: 4, initialDelaySeconds: 10, cooldownHours: 12, maxPromptCountPerSession: 1 },

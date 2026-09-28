@@ -17,7 +17,7 @@ export const reviewsApi = {
     product_id: string;
     order_reference: string;
     product_rating: number;
-    vendor_rating: number;
+    vendor_rating?: number;
     delivery_rating: number;
     title?: string;
     body: string;

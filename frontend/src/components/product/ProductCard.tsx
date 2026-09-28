@@ -113,9 +113,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       {/* Product Details */}
       <div style={detailsStyles}>
         <span style={vendorStyles}>
-          {typeof product.vendor === 'object' && product.vendor !== null
-            ? product.vendor.name
-            : product.vendor_name || (typeof product.vendor === 'string' ? product.vendor : '')}
+          {product.brand || 'Dovi Direct'}
         </span>
         <h3 style={titleStyles}>{product.name}</h3>
 

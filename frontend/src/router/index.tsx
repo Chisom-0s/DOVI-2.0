@@ -43,30 +43,11 @@ import NotificationsPage from '@/pages/Dashboard/NotificationsPage';
 import AccountSettingsPage from '@/pages/Dashboard/AccountSettingsPage';
 import SecuritySettingsPage from '@/pages/Dashboard/SecuritySettingsPage';
 
-// Vendor Dashboard (Merchant Hub)
-import VendorDashboardLayout from '@/pages/VendorDashboard/VendorDashboardLayout';
-import VendorDashboardOverview from '@/pages/VendorDashboard/VendorDashboardOverview';
-import VendorProductManager from '@/pages/VendorDashboard/VendorProductManager';
-import VendorOrderManager from '@/pages/VendorDashboard/VendorOrderManager';
-import VendorPayoutSettings from '@/pages/VendorDashboard/VendorPayoutSettings';
-import VendorVerificationPage from '@/pages/VendorDashboard/VendorVerificationPage';
-
 // Phase 6 — Save2Own
 import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 
-// Phase 10, 11 & 12 — Dovi Auto & Rentals
-import AutoLandingPage from '@/pages/Auto/AutoLandingPage';
-import CarListingsPage from '@/pages/Auto/CarListingsPage';
-import CarDetailPage from '@/pages/Auto/CarDetailPage';
-import PartListingsPage from '@/pages/Auto/PartListingsPage';
-import PartDetailPage from '@/pages/Auto/PartDetailPage';
-import AccessoryListingsPage from '@/pages/Auto/AccessoryListingsPage';
-import AccessoryDetailPage from '@/pages/Auto/AccessoryDetailPage';
-import RentalListingsPage from '@/pages/Auto/RentalListingsPage';
-import RentalDetailPage from '@/pages/Auto/RentalDetailPage';
-import RentalConfirmationPage from '@/pages/Auto/RentalConfirmationPage';
 import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 
 // ============================================================
@@ -116,7 +97,6 @@ const router = createBrowserRouter([
           { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'search', element: <SearchResultsPage />, errorElement: <RouteErrorBoundary /> },
-          { path: 'vendors/:id', element: <Placeholder name="Vendor Store" /> },
           { path: 'faq', element: <Placeholder name="FAQ" /> },
           { path: 'contact', element: <Placeholder name="Contact Support" /> },
           { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },
@@ -169,11 +149,11 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ---- Buyer Dashboard (Phase 5 — LIVE Layout) ----
+      // ---- Customer Dashboard (Phase 5 — LIVE Layout) ----
       {
         path: 'dashboard',
         element: (
-          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
+          <RoleGuard role={['BUYER', 'ADMIN']}>
             <DashboardLayout />
           </RoleGuard>
         ),
@@ -197,28 +177,11 @@ const router = createBrowserRouter([
         ],
       },
 
-      // ---- Vendor Dashboard (Phase 7 — Merchant Hub) ----
-      {
-        path: 'vendor/dashboard',
-        element: (
-          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
-            <VendorDashboardLayout />
-          </RoleGuard>
-        ),
-        children: [
-          { path: '', element: <VendorDashboardOverview /> },
-          { path: 'products', element: <VendorProductManager /> },
-          { path: 'orders', element: <VendorOrderManager /> },
-          { path: 'payout-settings', element: <VendorPayoutSettings /> },
-          { path: 'verification', element: <VendorVerificationPage /> },
-        ],
-      },
-
       // ---- Save2Own (Phase 6) ----
       {
         path: 'save2own',
         element: (
-          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
+          <RoleGuard role={['BUYER', 'ADMIN']}>
             <Save2OwnCreateGoalPage />
           </RoleGuard>
         ),
@@ -226,32 +189,15 @@ const router = createBrowserRouter([
       {
         path: 'save2own/goals/:id',
         element: (
-          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
+          <RoleGuard role={['BUYER', 'ADMIN']}>
             <Save2OwnGoalDetailPage />
           </RoleGuard>
         ),
       },
 
-      // ---- Dovi Auto (Phase 10, 11, 12) ----
-      { path: 'auto', element: <AutoLandingPage /> },
-      { path: 'auto/services', element: <Navigate to="/auto" replace /> },
-      { path: 'auto/cars', element: <CarListingsPage /> },
-      { path: 'auto/cars/:id', element: <CarDetailPage /> },
-      { path: 'auto/parts', element: <PartListingsPage /> },
-      { path: 'auto/parts/:id', element: <PartDetailPage /> },
-      { path: 'auto/accessories', element: <AccessoryListingsPage /> },
-      { path: 'auto/accessories/:id', element: <AccessoryDetailPage /> },
-      { path: 'auto/rentals', element: <RentalListingsPage /> },
-      { path: 'auto/rentals/:id', element: <RentalDetailPage /> },
-      { path: 'auto/rentals/confirmation', element: <RentalConfirmationPage /> },
-      {
-        path: 'auto/rentals/bookings',
-        element: (
-          <RoleGuard role={['BUYER', 'VENDOR', 'ADMIN']}>
-            <MyRentalsPage />
-          </RoleGuard>
-        ),
-      },
+      // ---- Dovi Auto (Category Domain) ----
+      { path: 'auto', element: <Navigate to="/categories/auto" replace /> },
+      { path: 'auto/*', element: <Navigate to="/categories/auto" replace /> },
     ],
   },
 

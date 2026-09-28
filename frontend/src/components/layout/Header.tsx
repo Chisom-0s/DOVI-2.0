@@ -123,7 +123,7 @@ export default function Header() {
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
-            <Link to="/auto" className="header-nav-link">Dovi Auto</Link>
+            <Link to="/categories/auto" className="header-nav-link">Auto</Link>
             <Link to="/save2own" className="header-nav-link">Save2Own</Link>
           </nav>
 
@@ -237,54 +237,16 @@ export default function Header() {
           {/* User Account State (visible everywhere) */}
           {isAuthenticated ? (
             <div style={userMenuStyles}>
-              {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') ? (
-                <>
-                  <Link
-                    to="/vendor/dashboard"
-                    style={{
-                      padding: '5px 12px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      borderRadius: 'var(--radius-full, 9999px)',
-                      backgroundColor: 'rgba(255, 122, 0, 0.15)',
-                      color: 'var(--color-primary, #ff7a00)',
-                      border: '1px solid var(--color-primary, #ff7a00)',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      marginRight: '6px',
-                    }}
-                    className="hide-mobile"
-                  >
-                    <span>🏪</span>
-                    <span>Merchant Hub</span>
-                  </Link>
-                  <Link to="/vendor/dashboard" style={avatarLinkStyles} title="Merchant Dashboard">
-                    {user?.avatar_url ? (
-                      <img src={user.avatar_url} alt="Merchant Profile" style={avatarStyles} />
-                    ) : (
-                      <div style={avatarFallbackStyles}>
-                        {user?.first_name?.[0]?.toUpperCase() ?? 'M'}
-                      </div>
-                    )}
-                    <span style={userNameStyles} className="hide-mobile">
-                      {user?.first_name} <span style={{ fontSize: '10px', color: 'var(--color-primary)', fontWeight: 'bold' }}>(Vendor)</span>
-                    </span>
-                  </Link>
-                </>
-              ) : (
-                <Link to="/dashboard" style={avatarLinkStyles} title="Buyer Account">
-                  {user?.avatar_url ? (
-                    <img src={user.avatar_url} alt="Profile" style={avatarStyles} />
-                  ) : (
-                    <div style={avatarFallbackStyles}>
-                      {user?.first_name?.[0]?.toUpperCase() ?? 'U'}
-                    </div>
-                  )}
-                  <span style={userNameStyles} className="hide-mobile">{user?.first_name}</span>
-                </Link>
-              )}
+              <Link to="/dashboard" style={avatarLinkStyles} title="My Account">
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" style={avatarStyles} />
+                ) : (
+                  <div style={avatarFallbackStyles}>
+                    {user?.first_name?.[0]?.toUpperCase() ?? 'U'}
+                  </div>
+                )}
+                <span style={userNameStyles} className="hide-mobile">{user?.first_name}</span>
+              </Link>
               <button onClick={handleLogout} style={logoutBtnStyles} className="hide-mobile">Logout</button>
             </div>
           ) : (

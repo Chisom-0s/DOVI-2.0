@@ -3,7 +3,6 @@ import PWAInstallPrompt from './PWAInstallPrompt';
 import NotificationPrompt from './NotificationPrompt';
 import MobileAppPrompt from './MobileAppPrompt';
 import DoviCommunityPrompt from './DoviCommunityPrompt';
-import VendorVerificationPrompt from './VendorVerificationPrompt';
 
 /**
  * SmartPromptManager sits at the root of the application (inside PromptEngineProvider)
@@ -13,7 +12,6 @@ import VendorVerificationPrompt from './VendorVerificationPrompt';
 export default function SmartPromptManager() {
   return (
     <>
-      <VendorVerificationPrompt />
       <CookieConsentBanner />
       <NotificationPrompt />
       <PWAInstallPrompt />

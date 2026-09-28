@@ -34,10 +34,7 @@ export function RoleGuard({ role, roles, children, fallback }: RoleGuardProps) {
   if (!hasPermission && user) {
     if (allowedRoles.includes(user.role)) {
       hasPermission = true;
-    } else if (allowedRoles.includes('VENDOR') && (user.profile?.vendor_status === 'APPROVED' || user.role === 'ADMIN')) {
-      hasPermission = true;
-    } else if (allowedRoles.includes('BUYER') && (user.role === 'VENDOR' || user.role === 'ADMIN')) {
-      // Vendors and Admins also have access to standard buyer dashboards and profile features
+    } else if (allowedRoles.includes('BUYER') || allowedRoles.includes('CUSTOMER')) {
       hasPermission = true;
     }
   }
@@ -57,7 +54,7 @@ export function RoleGuard({ role, roles, children, fallback }: RoleGuardProps) {
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.75rem', color: 'var(--color-text, #f8fafc)' }}>Access Denied</h2>
           <p style={{ color: 'var(--color-text-muted, #94a3b8)', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-            You do not have permission to view this page. If you are a merchant, please access the Merchant Hub.
+            You do not have permission to view this page.
           </p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a 
@@ -74,22 +71,6 @@ export function RoleGuard({ role, roles, children, fallback }: RoleGuardProps) {
             >
               Go to Home
             </a>
-            {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') && (
-              <a 
-                href="/vendor/dashboard" 
-                style={{
-                  padding: '0.625rem 1.25rem',
-                  borderRadius: '8px',
-                  background: 'var(--color-primary, #6366f1)',
-                  color: '#ffffff',
-                  textDecoration: 'none',
-                  fontWeight: '600',
-                  fontSize: '0.875rem'
-                }}
-              >
-                Go to Vendor Dashboard
-              </a>
-            )}
           </div>
         </div>
       </div>

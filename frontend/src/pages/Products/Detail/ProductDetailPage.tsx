@@ -6,7 +6,6 @@ import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartConte
 import type { APIError, Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
-import VendorSection from '@/components/product/VendorSection';
 import ProductSpecs from '@/components/product/ProductSpecs';
 import ProductDescription from '@/components/product/ProductDescription';
 import CustomerReviews from '@/components/product/CustomerReviews';
@@ -275,9 +274,6 @@ export default function ProductDetailPage() {
           >
             💰 Save to Own
           </button>
-
-          {/* Vendor profile header info */}
-          <VendorSection vendor={product.vendor} vendorName={(product as { vendor_name?: string }).vendor_name} />
         </div>
       </div>
 

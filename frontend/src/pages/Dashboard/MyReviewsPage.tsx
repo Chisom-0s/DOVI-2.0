@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { reviewsApi } from '@/api/reviews';
-import type { Review } from '@/types';
+import { ordersApi } from '@/api/orders';
+import type { Review, Order } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
 interface UserReview extends Review {
@@ -13,8 +15,19 @@ interface UserReview extends Review {
 }
 
 export default function MyReviewsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orderRefToReview = searchParams.get('order');
+
   const [reviews, setReviews] = useState<UserReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // New review state
+  const [newReviewOrder, setNewReviewOrder] = useState<Order | null>(null);
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
+  const [newProductRating, setNewProductRating] = useState(5);
+  const [newVendorRating, setNewVendorRating] = useState(5);
+  const [newDeliveryRating, setNewDeliveryRating] = useState(5);
+  const [newBody, setNewBody] = useState('');
 
   // Edit modal/state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,10 +47,57 @@ export default function MyReviewsPage() {
     }
   }, []);
 
+  // Fetch order details if we are trying to review a specific order
+  const checkPendingReview = useCallback(async () => {
+    if (!orderRefToReview) return;
+    try {
+      const order = await ordersApi.getByRef(orderRefToReview);
+      setNewReviewOrder(order);
+    } catch (err) {
+      toast.error('Could not find order to review.');
+      // Remove query param to clean up URL
+      setSearchParams({});
+    }
+  }, [orderRefToReview, setSearchParams]);
+
   useEffect(() => {
     fetchReviews();
-  }, [fetchReviews]);
+    checkPendingReview();
+  }, [fetchReviews, checkPendingReview]);
 
+  // Submit new review
+  const handleSubmitNew = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReviewOrder || newReviewOrder.items.length === 0) return;
+
+    setIsSubmittingNew(true);
+    try {
+      const primaryProduct = newReviewOrder.items[0].product;
+      await reviewsApi.submit({
+        product_id: primaryProduct.id,
+        order_reference: newReviewOrder.reference,
+        product_rating: newProductRating,
+        delivery_rating: newDeliveryRating,
+        body: newBody,
+      });
+      
+      toast.success('Review submitted successfully!');
+      setNewReviewOrder(null);
+      setSearchParams({});
+      fetchReviews(); // Refresh the list
+    } catch (err) {
+      toast.error('Failed to submit review.');
+    } finally {
+      setIsSubmittingNew(false);
+    }
+  };
+
+  const handleCancelNew = () => {
+    setNewReviewOrder(null);
+    setSearchParams({});
+  };
+
+  // Edit/Delete handlers
   const handleEditClick = (rev: UserReview) => {
     setEditingId(rev.id);
     setEditRating(rev.product_rating);
@@ -86,6 +146,94 @@ export default function MyReviewsPage() {
         </div>
       )}
 
+      {/* Write New Review Modal */}
+      {newReviewOrder && (
+        <form onSubmit={handleSubmitNew} style={editFormStyles}>
+          <div style={{ marginBottom: 'var(--space-2)' }}>
+            <h3 style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 'var(--font-bold)' }}>
+              Review Order #{newReviewOrder.reference}
+            </h3>
+            <p style={{ margin: '4px 0 0', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+              Primary item: {newReviewOrder.items[0]?.product.name}
+            </p>
+          </div>
+
+          <div style={ratingGridStyles}>
+            <div style={ratingSelectorStyles}>
+              <label style={labelStyles}>Product Rating</label>
+              <div style={starsRowStyles}>
+                {Array.from({ length: 5 }).map((_, idx) => {
+                  const starVal = idx + 1;
+                  return (
+                    <button
+                      key={starVal}
+                      type="button"
+                      onClick={() => setNewProductRating(starVal)}
+                      style={starBtnStyles(starVal <= newProductRating)}
+                    >★</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={ratingSelectorStyles}>
+              <label style={labelStyles}>Vendor Rating</label>
+              <div style={starsRowStyles}>
+                {Array.from({ length: 5 }).map((_, idx) => {
+                  const starVal = idx + 1;
+                  return (
+                    <button
+                      key={starVal}
+                      type="button"
+                      onClick={() => setNewVendorRating(starVal)}
+                      style={starBtnStyles(starVal <= newVendorRating)}
+                    >★</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={ratingSelectorStyles}>
+              <label style={labelStyles}>Delivery Rating</label>
+              <div style={starsRowStyles}>
+                {Array.from({ length: 5 }).map((_, idx) => {
+                  const starVal = idx + 1;
+                  return (
+                    <button
+                      key={starVal}
+                      type="button"
+                      onClick={() => setNewDeliveryRating(starVal)}
+                      style={starBtnStyles(starVal <= newDeliveryRating)}
+                    >★</button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div style={fieldStyles}>
+            <label style={labelStyles}>Review Comment</label>
+            <textarea
+              value={newBody}
+              onChange={e => setNewBody(e.target.value)}
+              style={textareaStyles}
+              rows={4}
+              required
+              placeholder="Tell us about your experience..."
+            />
+          </div>
+
+          <div style={actionRowStyles}>
+            <button type="submit" disabled={isSubmittingNew} style={{ ...primaryBtnStyles, opacity: isSubmittingNew ? 0.6 : 1 }}>
+              {isSubmittingNew ? 'Submitting...' : 'Submit Review'}
+            </button>
+            <button type="button" onClick={handleCancelNew} style={secondaryBtnStyles}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
       {/* Edit Review Modal/Form Overlay */}
       {editingId && (
         <form onSubmit={handleUpdate} style={editFormStyles}>
@@ -101,9 +249,7 @@ export default function MyReviewsPage() {
                     type="button"
                     onClick={() => setEditRating(starVal)}
                     style={starBtnStyles(starVal <= editRating)}
-                  >
-                    ★
-                  </button>
+                  >★</button>
                 );
               })}
             </div>
@@ -122,10 +268,7 @@ export default function MyReviewsPage() {
             <button
               type="submit"
               disabled={isUpdating}
-              style={{
-                ...primaryBtnStyles,
-                opacity: isUpdating ? 0.6 : 1,
-              }}
+              style={{ ...primaryBtnStyles, opacity: isUpdating ? 0.6 : 1 }}
             >
               {isUpdating ? 'Updating...' : 'Save Changes'}
             </button>
@@ -136,7 +279,7 @@ export default function MyReviewsPage() {
         </form>
       )}
 
-      {!isLoading && !editingId && reviews.length === 0 && (
+      {!isLoading && !editingId && !newReviewOrder && reviews.length === 0 && (
         <div style={emptyStyles}>
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
@@ -145,7 +288,7 @@ export default function MyReviewsPage() {
         </div>
       )}
 
-      {!isLoading && !editingId && reviews.length > 0 && (
+      {!isLoading && !editingId && !newReviewOrder && reviews.length > 0 && (
         <div style={listStyles}>
           {reviews.map((rev) => (
             <div key={rev.id} style={reviewCardStyles}>
@@ -298,6 +441,15 @@ const editFormStyles: React.CSSProperties = {
   gap: 'var(--space-4)',
 };
 
+const ratingGridStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+  gap: 'var(--space-4)',
+  padding: 'var(--space-3)',
+  backgroundColor: 'var(--color-bg-subtle)',
+  borderRadius: 'var(--radius-md)',
+};
+
 const ratingSelectorStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -307,7 +459,7 @@ const ratingSelectorStyles: React.CSSProperties = {
 const labelStyles: React.CSSProperties = {
   fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-semibold)',
-  color: 'var(--color-text-muted)',
+  color: 'var(--color-text)',
 };
 
 const starsRowStyles: React.CSSProperties = {
@@ -316,11 +468,12 @@ const starsRowStyles: React.CSSProperties = {
 };
 
 const starBtnStyles = (active: boolean): React.CSSProperties => ({
-  fontSize: '20px',
+  fontSize: '22px',
   color: active ? 'var(--color-warning)' : 'var(--color-border)',
   backgroundColor: 'transparent',
   border: 'none',
   cursor: 'pointer',
+  padding: 0,
 });
 
 const fieldStyles: React.CSSProperties = {
@@ -337,6 +490,7 @@ const textareaStyles: React.CSSProperties = {
   fontFamily: 'var(--font-sans)',
   resize: 'vertical',
   outline: 'none',
+  minHeight: '80px',
 };
 
 const actionRowStyles: React.CSSProperties = {
