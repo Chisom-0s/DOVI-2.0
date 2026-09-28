@@ -1,7 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
 
 // ============================================================
 // RoleGuard
@@ -19,7 +18,7 @@ export function RoleGuard({ role, roles, children, fallback }: RoleGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
 
   if (isLoading) {
-    return <LoadingSpinner fullScreen />;
+    return null;
   }
 
   if (!isAuthenticated) {
