@@ -12,8 +12,6 @@ const DEFAULT_LISTING_CATEGORIES = [
   { name: 'Computers', slug: 'computers' },
   { name: 'Audio & Music', slug: 'audio-video' },
   { name: 'Gaming', slug: 'gaming' },
-  { name: 'Auto Parts', slug: 'auto-parts' },
-  { name: 'Auto Accessories', slug: 'auto-accessories' },
   { name: 'Dovi Auto (Cars)', slug: 'auto-cars' },
 ];
 
@@ -38,7 +36,7 @@ export default function ProductListingPage() {
           const list = JSON.parse(cached);
           if (Array.isArray(list) && list.length > 0) return list;
         }
-      } catch {}
+      } catch { }
     }
     return [];
   });

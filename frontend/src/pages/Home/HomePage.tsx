@@ -16,8 +16,6 @@ const DEFAULT_CATEGORIES = [
   { id: 'cat-computers', name: 'Computers', slug: 'computers', icon: '💻' },
   { id: 'cat-electronics', name: 'Electronics', slug: 'electronics', icon: '🔌' },
   { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon: '🎮' },
-  { id: 'cat-auto-parts', name: 'Auto Parts', slug: 'auto-parts', icon: '⚙️' },
-  { id: 'cat-auto-acc', name: 'Auto Accessories', slug: 'auto-accessories', icon: '🚗' },
 ];
 
 const DEFAULT_VENDORS = [
