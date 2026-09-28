@@ -37,6 +37,7 @@ export default function HomePage() {
         const now = new Date();
         const active = (data.sections || []).filter(section => {
           if (!section.is_active) return false;
+          if (section.key === 'FEATURED_CATEGORIES' || section.key === 'TOP_VENDORS' || section.configuration?.layout === 'VENDOR_GRID') return false;
           if (section.starts_at && new Date(section.starts_at) > now) return false;
           if (section.ends_at && new Date(section.ends_at) < now) return false;
           return true;
