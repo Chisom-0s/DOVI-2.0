@@ -161,11 +161,6 @@ export default function Save2OwnGoalDetailPage() {
       : 0);
   const progressPct = Number(rawProgress) || 0;
   const img = g.product?.primary_image_url || g.product_image || '/logo.jpg?v=2';
-  const vendorName =
-    (typeof g.product?.vendor === 'object' ? g.product?.vendor?.name : null) ||
-    (typeof g.product?.vendor === 'string' ? g.product.vendor : null) ||
-    g.vendor_name ||
-    'Verified Vendor';
 
   return (
     <div style={containerStyles}>
@@ -257,10 +252,7 @@ export default function Save2OwnGoalDetailPage() {
                     <span style={specLabelStyles}>Quantity:</span>
                     <span style={specValueStyles}>{g.quantity || 1} item{g.quantity !== 1 ? 's' : ''}</span>
                   </div>
-                  <div style={specItemStyles}>
-                    <span style={specLabelStyles}>Vendor:</span>
-                    <span style={specValueStyles}>{vendorName}</span>
-                  </div>
+
                 </div>
               </div>
             </div>

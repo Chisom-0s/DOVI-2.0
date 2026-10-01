@@ -92,7 +92,7 @@ export default function DashboardOverviewPage() {
 
   const widgets = [
     { label: 'Total Users', value: data.total_users, sub: `+${data.new_users_today} joined today`, icon: '👤', color: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' },
-    { label: 'Total Vendors', value: data.total_vendors, sub: `${data.pending_vendors_count} pending approval`, icon: '🏢', color: 'linear-gradient(135deg, #10b981 0%, #047857 100%)' },
+    { label: 'Total Orders', value: data.total_orders, sub: 'All-time platform orders', icon: '📦', color: 'linear-gradient(135deg, #10b981 0%, #047857 100%)' },
     { label: 'Revenue Today', value: formatCurrency(data.revenue_today), sub: `Payments Month: ${formatCurrency(data.payments_summary?.month || 0)}`, icon: '💰', color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
     { label: 'Pending Refunds', value: data.pending_refunds_count, sub: `Active Save2Own: ${data.active_s2o_goals_count}`, icon: '💵', color: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' },
   ];

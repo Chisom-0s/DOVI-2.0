@@ -1,4 +1,5 @@
 import apiClient, { normalizeApiError } from './client';
+import { normalizeUrl } from '@/utils/image';
 import type {
   PaginatedResponse,
   User,
@@ -352,12 +353,102 @@ export const adminApi = {
   },
 
   // --- Product Management ---
-  listProducts: async (params?: { page?: number; q?: string; search?: string; vendor?: string; category?: string }): Promise<PaginatedResponse<ProductSummary>> => {
+  listProducts: async (params?: { page?: number; q?: string; search?: string; category?: string; vendor?: string }): Promise<PaginatedResponse<ProductSummary>> => {
     try {
-      const queryParams: Record<string, any> = { page: params?.page, vendor: params?.vendor, category: params?.category };
+      const queryParams: Record<string, any> = { page: params?.page, category: params?.category };
+      if (params?.vendor) queryParams.vendor = params.vendor;
       if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
       return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getProduct: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createProduct: async (payload: {
+    name: string;
+    category: string;
+    base_price: number;
+    description?: string;
+    status?: string;
+    variants?: Array<{
+      name: string;
+      sku: string;
+      quantity: number;
+      price_override?: number | null;
+    }>;
+  }): Promise<any> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/products/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateProduct: async (
+    id: string,
+    payload: {
+      name?: string;
+      category?: string;
+      base_price?: number;
+      description?: string;
+      status?: string;
+    }
+  ): Promise<any> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/products/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  uploadProductImage: async (
+    productId: string,
+    imageFile: File,
+    isPrimary: boolean = false
+  ): Promise<{
+    id: string;
+    product: string;
+    image_url: string;
+    thumbnail_url: string;
+    storage_key: string;
+    is_primary: boolean;
+    created_at: string;
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile, imageFile.name);
+      formData.append('file', imageFile, imageFile.name);
+      formData.append('is_primary', isPrimary ? 'true' : 'false');
+
+      const { data } = await apiClient.post(
+        `/api/v1/products/${productId}/images/`,
+        formData
+      );
+      return {
+        ...data,
+        image_url: normalizeUrl(data.image_url) || data.image_url,
+        thumbnail_url: normalizeUrl(data.thumbnail_url) || data.thumbnail_url,
+      };
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteProductImage: async (productId: string, imageId: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/api/v1/products/${productId}/images/${imageId}/`);
     } catch (err) {
       throw normalizeApiError(err);
     }
