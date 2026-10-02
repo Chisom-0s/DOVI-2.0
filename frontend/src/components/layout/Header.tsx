@@ -11,6 +11,7 @@ export default function Header() {
   const { itemCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const isHomepage = location.pathname === '/';
   const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
 
@@ -108,9 +109,11 @@ export default function Header() {
       <div className="container site-header__container">
         {/* Brand Logo & Desktop Nav Links (Row 1, Col 1) */}
         <div className="site-header__brand">
-          <Link to="/" style={logoStyles} className="site-header__logo" aria-label="Dovi Home">
-            <img src="/logo.jpg?v=2" alt="Dovi" className="site-header__logo-img" />
-          </Link>
+          {!isHomepage && (
+            <Link to="/" style={logoStyles} className="site-header__logo" aria-label="Dovi Home">
+              <img src="/logo.jpg?v=2" alt="Dovi" className="site-header__logo-img" />
+            </Link>
+          )}
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
@@ -204,30 +207,32 @@ export default function Header() {
           )}
 
           {/* Cart Status Indicator (visible on mobile & desktop) */}
-          <Link to="/cart" style={cartButtonStyles} aria-label={`Shopping Cart${itemCount > 0 ? `, ${itemCount} items` : ''}`}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="9" cy="21" r="1" />
-                <circle cx="20" cy="21" r="1" />
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-              </svg>
-              {itemCount > 0 && (
-                <span style={cartBadgeStyles}>
-                  {itemCount > 99 ? '99+' : itemCount}
-                </span>
-              )}
-            </div>
-            <span style={cartLabelStyles} className="hide-mobile">Cart</span>
-          </Link>
+          {!isHomepage && (
+            <Link to="/cart" style={cartButtonStyles} aria-label={`Shopping Cart${itemCount > 0 ? `, ${itemCount} items` : ''}`}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                {itemCount > 0 && (
+                  <span style={cartBadgeStyles}>
+                    {itemCount > 99 ? '99+' : itemCount}
+                  </span>
+                )}
+              </div>
+              <span style={cartLabelStyles} className="hide-mobile">Cart</span>
+            </Link>
+          )}
 
           {/* User Account State */}
           {isAuthenticated ? (
@@ -283,10 +288,12 @@ export default function Header() {
               <button onClick={handleLogout} style={logoutBtnStyles} className="hide-mobile">Logout</button>
             </div>
           ) : (
-            <div style={authButtonsStyles}>
-              <Link to="/login" style={loginBtnStyles}>Sign In</Link>
-              <Link to="/register" style={registerBtnStyles} className="hide-mobile">Register</Link>
-            </div>
+            !isHomepage && (
+              <div style={authButtonsStyles}>
+                <Link to="/login" style={loginBtnStyles}>Sign In</Link>
+                <Link to="/register" style={registerBtnStyles} className="hide-mobile">Register</Link>
+              </div>
+            )
           )}
         </div>
 
