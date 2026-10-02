@@ -15,7 +15,6 @@ import MainLayout from '@/components/layout/MainLayout';
 import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
-import SearchResultsPage from '@/pages/Products/SearchResultsPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
 
 // Phase 4 — Cart, Checkout, Orders, Payments, Refunds
@@ -96,7 +95,7 @@ const router = createBrowserRouter([
           { path: 'products', element: <ProductListingPage /> },
           { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
-          { path: 'search', element: <SearchResultsPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'search', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'faq', element: <Placeholder name="FAQ" /> },
           { path: 'contact', element: <Placeholder name="Contact Support" /> },
           { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },

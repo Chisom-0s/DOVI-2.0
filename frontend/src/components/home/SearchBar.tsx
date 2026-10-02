@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { productsApi } from '@/api/products';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
@@ -7,7 +7,15 @@ import type { ProductSummary } from '@/types';
 
 export default function SearchBar() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlQ = searchParams.get('q') || searchParams.get('search') || '';
+  const [query, setQuery] = useState(urlQ);
+
+  useEffect(() => {
+    if (urlQ) {
+      setQuery(urlQ);
+    }
+  }, [urlQ]);
   const [suggestions, setSuggestions] = useState<ProductSummary[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +58,7 @@ export default function SearchBar() {
     e.preventDefault();
     if (!query.trim()) return;
     setShowDropdown(false);
-    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+    navigate(`/products?q=${encodeURIComponent(query.trim())}`);
   };
 
   const handleSuggestionClick = (productId: string) => {

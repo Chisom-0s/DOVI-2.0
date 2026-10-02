@@ -72,7 +72,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const fallbackImage = getProductFallbackImage(product);
 
   return (
-    <Link to={`/products/${product.id}`} style={cardStyles} className="product-card">
+    <Link to={`/products/${product.id}`} state={{ product }} style={cardStyles} className="product-card">
       {/* Product Image */}
       <div style={imgContainerStyles}>
         <ItemImageLoader

@@ -268,14 +268,41 @@ export const productsApi = {
           images: normImages,
         };
       } catch (err: any) {
-        // Only fallback if 404
-        if (err?.response?.status !== 404) {
-          throw normalizeApiError(err);
-        }
+        console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
       }
     }
 
-    // 2. Check mock products fallback
+    // 2. Check local sessionStorage cache of real backend products
+    try {
+      const cached = sessionStorage.getItem('dovi_real_products_cache');
+      if (cached) {
+        const list: ProductSummary[] = JSON.parse(cached);
+        const found = list.find((p: any) => p.id === id || p.slug === id);
+        if (found) {
+          const normPrimary = normalizeUrl(found.primary_image_url) || found.primary_image_url;
+          return {
+            ...found,
+            category: found.category || 'General',
+            description: (found as any).description || `Premium authentic ${found.name} available at Dovi Official Store.`,
+            status: found.status || 'PUBLISHED',
+            primary_image_url: normPrimary,
+            image_url: normPrimary || found.image_url,
+            images: found.images && found.images.length > 0 ? found.images : (normPrimary ? [{ id: `img-${found.id}`, image_url: normPrimary, is_primary: true }] : []),
+            variants: found.variants && found.variants.length > 0 ? found.variants : [
+              {
+                id: `var-${found.id}`,
+                name: 'Standard Option',
+                sku: `SKU-${found.id.substring(0, 8).toUpperCase()}`,
+                stock: found.stock_quantity || 10,
+                reserved: 0,
+              },
+            ],
+          };
+        }
+      }
+    } catch {}
+
+    // 3. Check mock products fallback
     const mock = MOCK_PRODUCTS.find(p => p.id === id);
     if (mock) {
       const vendorName = typeof mock.vendor === 'object' ? mock.vendor.name : (mock.vendor_name || 'Verified Vendor');

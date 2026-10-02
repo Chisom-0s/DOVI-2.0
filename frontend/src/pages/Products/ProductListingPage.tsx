@@ -26,10 +26,11 @@ export default function ProductListingPage() {
   const maxPriceParam = searchParams.get('max_price') ?? '';
   const inStockParam = searchParams.get('in_stock') === 'true';
   const pageParam = parseInt(searchParams.get('page') ?? '1', 10);
+  const searchParam = searchParams.get('q') || searchParams.get('search') || '';
 
   // Synchronous cache seed for instant 0ms mount
   const [products, setProducts] = useState<ProductSummary[]>(() => {
-    if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && pageParam === 1) {
+    if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !searchParam && pageParam === 1) {
       try {
         const cached = sessionStorage.getItem('dovi_real_products_cache');
         if (cached) {
@@ -74,6 +75,7 @@ export default function ProductListingPage() {
         min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
         max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
         in_stock: inStockParam ? true : undefined,
+        q: searchParam.trim() || undefined,
       });
       setProducts(response.results);
       setTotalCount(response.count);
@@ -90,7 +92,7 @@ export default function ProductListingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [categoryParam, sortParam, minPriceParam, maxPriceParam, inStockParam, pageParam]);
+  }, [categoryParam, sortParam, minPriceParam, maxPriceParam, inStockParam, pageParam, searchParam]);
 
   useEffect(() => {
     fetchProducts();
@@ -116,8 +118,25 @@ export default function ProductListingPage() {
     updateFilters({ page: newPage.toString() });
   };
 
+  const [searchTerm, setSearchTerm] = useState(searchParam);
+
+  useEffect(() => {
+    setSearchTerm(searchParam);
+  }, [searchParam]);
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    updateFilters({ q: searchTerm.trim() || null });
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    updateFilters({ q: null });
+  };
+
+  const hasSearched = Boolean(searchParam.trim());
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const hasActiveFilters = Boolean(categoryParam || minPriceParam || maxPriceParam || inStockParam);
+  const hasActiveFilters = Boolean(searchParam || categoryParam || minPriceParam || maxPriceParam || inStockParam);
 
   const totalPages = Math.ceil(totalCount / 12);
 
@@ -143,6 +162,36 @@ export default function ProductListingPage() {
       {/* Filters Sidebar */}
       <aside style={sidebarStyles} className={`product-listing__sidebar ${showMobileFilters ? 'product-listing__sidebar--open' : ''}`}>
         <h3 style={sidebarTitleStyles}>Filters</h3>
+
+        {/* Search Filter */}
+        <div style={filterGroupStyles}>
+          <h4 style={filterTitleStyles}>Search</h4>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={priceInputStyles}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                backgroundColor: 'var(--color-primary)',
+                color: 'white',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-xs)',
+                fontWeight: 'var(--font-medium)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Go
+            </button>
+          </form>
+        </div>
 
         {/* Category Filters */}
         <div style={filterGroupStyles}>
@@ -213,9 +262,37 @@ export default function ProductListingPage() {
       <div style={mainContentStyles}>
         {/* Results Header Info */}
         <div style={resultsHeaderStyles}>
-          <span style={resultsCountStyles}>
-            {totalCount} products found
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            {hasSearched ? (
+              <span style={resultsCountStyles}>
+                {totalCount} {totalCount === 1 ? 'product' : 'products'} found
+                {searchParam ? (
+                  <>
+                    {' '}for &ldquo;<strong>{searchParam}</strong>&rdquo;
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      style={{
+                        marginLeft: 'var(--space-2)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-primary)',
+                        cursor: 'pointer',
+                        fontSize: 'var(--text-xs)',
+                        textDecoration: 'underline',
+                        padding: 0,
+                      }}
+                      title="Clear search"
+                    >
+                      Clear
+                    </button>
+                  </>
+                ) : null}
+              </span>
+            ) : (
+              <span style={resultsCountStyles}></span>
+            )}
+          </div>
           <div style={sortWrapperStyles}>
             <label htmlFor="sort-dropdown" style={sortLabelStyles}>Sort by:</label>
             <select
@@ -290,8 +367,17 @@ export default function ProductListingPage() {
           </div>
         ) : (
           <div style={emptyStyles}>
-            <h3>No results found</h3>
-            <p>Try resetting filters or checking different criteria.</p>
+            <h3>No results found{searchParam ? ` for "${searchParam}"` : ''}</h3>
+            <p>Try resetting filters, checking your spelling, or searching for other items.</p>
+            {hasSearched && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                style={{ ...pageBtnStyles, marginTop: 'var(--space-4)', backgroundColor: 'var(--color-primary)', color: 'white', border: 'none' }}
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
       </div>

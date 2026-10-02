@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
 import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
@@ -18,21 +18,70 @@ import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const stateProduct = (location.state as { product?: any })?.product;
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const initialProduct = useMemo<Product | null>(() => {
+    if (stateProduct && (stateProduct.id === id || stateProduct.slug === id)) {
+      return stateProduct as Product;
+    }
+    try {
+      const cached = sessionStorage.getItem('dovi_real_products_cache');
+      if (cached) {
+        const list = JSON.parse(cached);
+        const found = list.find((p: any) => p.id === id || p.slug === id);
+        if (found) return found as Product;
+      }
+    } catch {}
+
+    const known = findKnownProduct(id || '', undefined, id) || getCartItemMeta(id || '');
+    if (known) {
+      return {
+        id: known.productId || known.id,
+        name: known.name,
+        price: known.price,
+        base_price: known.price,
+        primary_image_url: known.imageUrl,
+        image_url: known.imageUrl,
+        status: 'PUBLISHED',
+      } as Product;
+    }
+    return null;
+  }, [id, stateProduct]);
+
+  const [product, setProduct] = useState<Product | null>(() => initialProduct);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(() => {
+    if (initialProduct?.variants && initialProduct.variants.length > 0) {
+      return initialProduct.variants[0];
+    }
+    return null;
+  });
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !initialProduct);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<ProductSummary[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [fetchError, setFetchError] = useState<APIError | null>(null);
 
-  // Fetch product detail and related recommendations
+  // Keep a stable ref to product to prevent re-creating fetchDetailData on state updates
+  const productRef = useRef<Product | null>(product);
+  useEffect(() => {
+    productRef.current = product;
+  }, [product]);
+
+  // Track the ID that was already fetched to completely avoid infinite re-render loops
+  const lastFetchedIdRef = useRef<string | null>(null);
+
+  // Fetch product detail and related recommendations strictly once per product id
   const fetchDetailData = useCallback(async () => {
     if (!id) return;
-    setIsLoading(true);
+    if (lastFetchedIdRef.current === id) return;
+    lastFetchedIdRef.current = id;
+
+    if (!productRef.current) {
+      setIsLoading(true);
+    }
     setIsLoadingRelated(true);
     setFetchError(null);
     try {
@@ -50,28 +99,45 @@ export default function ProductDetailPage() {
       // Fetch related products
       try {
         const related = await productsApi.getRelated(id);
-        setRelatedProducts(related);
+        if (related && related.length > 0) {
+          setRelatedProducts(related);
+        } else {
+          // Graceful fallback: show other catalog products so section is populated stably
+          try {
+            const cached = sessionStorage.getItem('dovi_real_products_cache');
+            if (cached) {
+              const list: ProductSummary[] = JSON.parse(cached);
+              const others = list.filter((p: any) => p.id !== id && (p.slug ? p.slug !== id : true));
+              setRelatedProducts(others.slice(0, 6));
+            } else {
+              setRelatedProducts([]);
+            }
+          } catch {
+            setRelatedProducts([]);
+          }
+        }
       } catch (rErr) {
         console.warn('Could not load related products:', rErr);
         setRelatedProducts([]);
       }
     } catch (err: any) {
       console.error('Failed to load product detail:', err);
+      // If we already have a product shown from cache, don't wipe it out or crash
+      if (productRef.current) {
+        return;
+      }
       const fallback = findKnownProduct(id, undefined, id) || getCartItemMeta(id);
       const resolvedId = fallback?.productId || (fallback?.id !== id ? fallback?.id : undefined);
       if (resolvedId && resolvedId !== id) {
         navigate(`/products/${resolvedId}`, { replace: true });
         return;
       }
-      setProduct(null);
-      setSelectedVariant(null);
       const isNetwork = !navigator.onLine || err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
       setFetchError(
         isNetwork
           ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
           : { error: true, message: "Couldn't fetch item", code: 'FETCH_ERROR' }
       );
-      toast.error(isNetwork ? 'Check your connection' : "Couldn't fetch item");
     } finally {
       setIsLoading(false);
       setIsLoadingRelated(false);
@@ -81,8 +147,9 @@ export default function ProductDetailPage() {
   const { addToCart } = useCart();
 
   useEffect(() => {
+    lastFetchedIdRef.current = null;
     fetchDetailData();
-  }, [fetchDetailData]);
+  }, [id, fetchDetailData]);
 
   const handleAddToCart = async () => {
     if (!product) return;

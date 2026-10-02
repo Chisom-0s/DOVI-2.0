@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
+import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
@@ -10,6 +11,47 @@ import {
   ProductCardSkeleton,
   SectionSkeleton,
 } from '@/components/common/Skeleton';
+
+
+// LazySection component defers below-the-fold content rendering until within 350px of viewport
+function LazySection({ children, priority = false }: { children: React.ReactNode; priority?: boolean }) {
+  const [isVisible, setIsVisible] = useState(priority);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (priority || isVisible) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '350px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [priority, isVisible]);
+
+  if (!isVisible) {
+    return (
+      <div ref={containerRef} style={{ minHeight: '260px', margin: 'var(--space-6) 0' }}>
+        <SectionSkeleton layout="HORIZONTAL_CAROUSEL" count={4} />
+      </div>
+    );
+  }
+
+  return <div ref={containerRef}>{children}</div>;
+}
 
 export default function HomePage() {
   // 1. Mount immediately with synchronous cached/seed sections (0ms perceived load time)
@@ -113,15 +155,16 @@ export default function HomePage() {
         return (
           <div style={listStyles}>
             {products.map(p => (
-              <Link to={`/products/${p.id}`} key={p.id} style={listItemStyles}>
-                <img
-                  src={getProductImageUrl(p)}
-                  alt={p.name}
-                  style={listThumbStyles}
-                  onError={e => {
-                    (e.target as HTMLImageElement).src = getProductFallbackImage(p);
-                  }}
-                />
+              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={listItemStyles}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
+                  <ItemImageLoader
+                    src={getProductImageUrl(p)}
+                    fallbackSrc={getProductFallbackImage(p)}
+                    alt={p.name}
+                    objectFit="cover"
+                    loading="lazy"
+                  />
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={listItemNameStyles}>{p.name}</div>
                   <div style={listItemPriceStyles}>
@@ -142,15 +185,14 @@ export default function HomePage() {
         return (
           <div style={largeGridStyles}>
             {products.map(p => (
-              <Link to={`/products/${p.id}`} key={p.id} style={largeCardStyles}>
+              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={largeCardStyles}>
                 <div style={largeCardImageWrapperStyles}>
-                  <img
+                  <ItemImageLoader
                     src={getProductImageUrl(p)}
+                    fallbackSrc={getProductFallbackImage(p)}
                     alt={p.name}
-                    style={largeCardImageStyles}
-                    onError={e => {
-                      (e.target as HTMLImageElement).src = getProductFallbackImage(p);
-                    }}
+                    objectFit="cover"
+                    loading="lazy"
                   />
                 </div>
                 <div style={largeCardBodyStyles}>
@@ -198,15 +240,14 @@ export default function HomePage() {
         return (
           <div className="marketplace-product-grid">
             {products.map(p => (
-              <Link to={`/products/${p.id}`} key={p.id} style={autoTeaserCardStyles}>
+              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={autoTeaserCardStyles}>
                 <div style={autoTeaserImgWrapperStyles}>
-                  <img
+                  <ItemImageLoader
                     src={getProductImageUrl(p)}
+                    fallbackSrc={getProductFallbackImage(p)}
                     alt={p.name}
-                    style={autoTeaserImgStyles}
-                    onError={e => {
-                      (e.target as HTMLImageElement).src = getProductFallbackImage(p);
-                    }}
+                    objectFit="cover"
+                    loading="lazy"
                   />
                   <span style={autoTeaserBadgeStyles}>
                     {formatPrice(p)}
@@ -244,8 +285,9 @@ export default function HomePage() {
             <SectionSkeleton layout="PRODUCT_GRID" title="Best Sellers" count={4} />
           </div>
         ) : sections.length > 0 ? (
-          sections.map(section => (
-            <section key={section.id} style={sectionWrapperStyles}>
+          sections.map((section, idx) => (
+            <LazySection key={section.id} priority={idx < 2}>
+              <section style={sectionWrapperStyles}>
               {/* Section Header */}
               {section.configuration?.layout !== 'BANNER' && (
                 <div style={sectionHeaderStyles}>
@@ -267,7 +309,8 @@ export default function HomePage() {
               {/* Dynamic Layout Parser */}
               {renderLayout(section)}
             </section>
-          ))
+          </LazySection>
+        ))
         ) : (
           <div style={emptyStyles}>
             <h3>No Sections Active</h3>
@@ -363,13 +406,7 @@ const listItemStyles: React.CSSProperties = {
   transition: 'border-color 150ms ease',
 };
 
-const listThumbStyles: React.CSSProperties = {
-  width: '48px',
-  height: '48px',
-  objectFit: 'contain',
-  borderRadius: '4px',
-  backgroundColor: '#f9fafb',
-};
+
 
 const listItemNameStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
@@ -419,11 +456,7 @@ const largeCardImageWrapperStyles: React.CSSProperties = {
   padding: '16px',
 };
 
-const largeCardImageStyles: React.CSSProperties = {
-  maxHeight: '100%',
-  maxWidth: '100%',
-  objectFit: 'contain',
-};
+
 
 const largeCardBodyStyles: React.CSSProperties = {
   padding: '16px',
@@ -519,11 +552,7 @@ const autoTeaserImgWrapperStyles: React.CSSProperties = {
   position: 'relative',
 };
 
-const autoTeaserImgStyles: React.CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
+
 
 const autoTeaserBadgeStyles: React.CSSProperties = {
   position: 'absolute',

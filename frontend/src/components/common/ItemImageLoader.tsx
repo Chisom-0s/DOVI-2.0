@@ -131,6 +131,7 @@ export function ItemImageLoader({
           src={currentSrc}
           alt={alt}
           loading={loading}
+          decoding="async"
           onLoad={handleImageLoad}
           onError={handleImageError}
           style={{

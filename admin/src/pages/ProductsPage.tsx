@@ -596,15 +596,11 @@ export default function ProductsPage() {
     setIsArchivePending(true);
     try {
       await adminApi.archiveProduct(productToArchive.id);
-      toast.success(`Product "${productToArchive.name}" archived.`);
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === productToArchive.id ? { ...p, status: 'ARCHIVED' as const } : p
-        )
-      );
+      toast.success(`Product "${productToArchive.name}" deleted.`);
+      setProducts((prev) => prev.filter((p) => p.id !== productToArchive.id));
       setProductToArchive(null);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to archive product.');
+      toast.error(err.message || 'Failed to delete product.');
     } finally {
       setIsArchivePending(false);
     }
@@ -712,17 +708,13 @@ export default function ProductsPage() {
                         >
                           Edit
                         </button>
-                        {p.status !== 'ARCHIVED' ? (
-                          <button
-                            type="button"
-                            onClick={() => setProductToArchive(p)}
-                            style={archiveBtnStyles}
-                          >
-                            Archive
-                          </button>
-                        ) : (
-                          <span style={archivedLabelStyles}>Archived</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setProductToArchive(p)}
+                          style={archiveBtnStyles}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1247,13 +1239,13 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Archive Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       {productToArchive && (
         <div style={modalBackdropStyles}>
           <div style={modalContentStyles}>
-            <h3 style={modalTitleStyles}>Archive Product</h3>
+            <h3 style={modalTitleStyles}>Delete Product</h3>
             <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.5, margin: '0 0 20px 0' }}>
-              Are you sure you want to archive <strong>{productToArchive.name}</strong>? This will remove the listing from active marketplace pages.
+              Are you sure you want to delete <strong>{productToArchive.name}</strong>? This will immediately remove the listing from active marketplace pages and catalog.
             </p>
             <div style={modalActionsStyles}>
               <button
@@ -1269,7 +1261,7 @@ export default function ProductsPage() {
                 onClick={handleArchiveConfirm}
                 style={modalDangerSubmitBtnStyles}
               >
-                {isArchivePending ? 'Archiving...' : 'Confirm Archive'}
+                {isArchivePending ? 'Deleting...' : 'Delete Product'}
               </button>
             </div>
           </div>
@@ -1472,11 +1464,7 @@ const archiveBtnStyles: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const archivedLabelStyles: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#9ca3af',
-  fontWeight: 600,
-};
+
 
 const paginationStyles: React.CSSProperties = {
   display: 'flex',
