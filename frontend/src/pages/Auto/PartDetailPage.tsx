@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AutoSubNav from '@/components/auto/AutoSubNav';
 import AutoComingSoon from '@/components/auto/AutoComingSoon';
@@ -27,6 +27,10 @@ export default function PartDetailPage() {
   const [checkModel, setCheckModel] = useState('');
   const [checkYear, setCheckYear] = useState<number | ''>('');
   const [compatStatus, setCompatStatus] = useState<'UNCHECKED' | 'FIT' | 'MISMATCH'>('UNCHECKED');
+
+  // Independent image loading state
+  const [partImageLoaded, setPartImageLoaded] = useState(false);
+  const partImgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const fetchPartDetail = async () => {
@@ -130,6 +134,15 @@ export default function PartDetailPage() {
     ? part.images[activeImageIndex]?.url
     : part.primary_image_url;
 
+  // Reset image loading state when the active image source changes
+  useEffect(() => {
+    setPartImageLoaded(false);
+    const img = partImgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setPartImageLoaded(true);
+    }
+  }, [currentImage]);
+
   return (
     <div style={containerStyles}>
       <AutoSubNav />
@@ -148,8 +161,28 @@ export default function PartDetailPage() {
           <div style={leftColStyles}>
             <div style={galleryStyles}>
               <div style={mainImgWrapperStyles}>
+                {/* Shimmer skeleton while image is loading */}
+                {currentImage && !partImageLoaded && (
+                  <div style={partImageSkeletonStyles}>
+                    <div style={partShimmerStyles} />
+                  </div>
+                )}
                 {currentImage ? (
-                  <img src={currentImage} alt={part.name} style={mainImgStyles} />
+                  <img
+                    ref={partImgRef}
+                    src={currentImage}
+                    alt={part.name}
+                    style={{
+                      ...mainImgStyles,
+                      opacity: partImageLoaded ? 1 : 0,
+                      transition: partImageLoaded ? 'opacity 0.3s ease-in' : 'none',
+                    }}
+                    onLoad={() => setPartImageLoaded(true)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      setPartImageLoaded(true);
+                    }}
+                  />
                 ) : (
                   <div style={placeholderImgStyles}>⚙️</div>
                 )}
@@ -361,6 +394,14 @@ export default function PartDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Injected keyframes for image shimmer animation */}
+      <style>{`
+        @keyframes part-shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -457,6 +498,24 @@ const placeholderImgStyles: React.CSSProperties = {
   justifyContent: 'center',
   fontSize: '96px',
   color: '#9ca3af',
+};
+
+const partImageSkeletonStyles: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: '#e5e7eb',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+  zIndex: 1,
+};
+
+const partShimmerStyles: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)',
+  animation: 'part-shimmer 1.5s ease-in-out infinite',
 };
 
 const partTypeBadgeStyles: React.CSSProperties = {
