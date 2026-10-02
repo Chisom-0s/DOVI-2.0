@@ -302,12 +302,6 @@ export default function ProductListingPage() {
 // ----------------------------------------------------------
 // Styling Tokens
 // ----------------------------------------------------------
-const wrapperStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: 'var(--space-8)',
-  paddingTop: 'var(--space-6)',
-  paddingBottom: 'var(--space-12)',
-};
 
 const sidebarStyles: React.CSSProperties = {
   width: '240px',

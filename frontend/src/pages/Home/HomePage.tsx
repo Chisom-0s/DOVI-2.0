@@ -11,13 +11,6 @@ import {
   SectionSkeleton,
 } from '@/components/common/Skeleton';
 
-const DEFAULT_CATEGORIES = [
-  { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', icon: '📱' },
-  { id: 'cat-computers', name: 'Computers', slug: 'computers', icon: '💻' },
-  { id: 'cat-electronics', name: 'Electronics', slug: 'electronics', icon: '🔌' },
-  { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon: '🎮' },
-];
-
 export default function HomePage() {
   // 1. Mount immediately with synchronous cached/seed sections (0ms perceived load time)
   const [sections, setSections] = useState<HomepageSection[]>(() => getCachedHomepageSections());
@@ -35,7 +28,15 @@ export default function HomePage() {
         const now = new Date();
         const active = (data.sections || []).filter(section => {
           if (!section.is_active) return false;
-          if (section.key === 'FEATURED_CATEGORIES' || section.key === 'TOP_VENDORS' || section.configuration?.layout === 'VENDOR_GRID') return false;
+          if (
+            section.key === 'FEATURED_CATEGORIES' ||
+            section.key === 'TOP_VENDORS' ||
+            section.configuration?.layout === 'VENDOR_GRID' ||
+            section.configuration?.layout === 'CATEGORY_GRID' ||
+            section.configuration?.layout === 'CATEGORY_CIRCLES' ||
+            section.configuration?.layout === 'CATEGORY_PILLS' ||
+            section.configuration?.layout === 'BRAND_GRID'
+          ) return false;
           if (section.starts_at && new Date(section.starts_at) > now) return false;
           if (section.ends_at && new Date(section.ends_at) < now) return false;
           return true;
@@ -64,10 +65,9 @@ export default function HomePage() {
   const renderLayout = (section: HomepageSection) => {
     const layout = section.configuration?.layout || 'PRODUCT_GRID';
     const products: ProductSummary[] = section.products || [];
-    const categories = section.categories || DEFAULT_CATEGORIES;
 
     // If section products are still loading, show individual skeletons matching layout
-    if (products.length === 0 && layout !== 'BANNER' && layout !== 'CATEGORY_PILLS' && layout !== 'CATEGORY_GRID' && layout !== 'CATEGORY_CIRCLES' && layout !== 'VENDOR_GRID' && layout !== 'BRAND_GRID') {
+    if (products.length === 0 && layout !== 'BANNER') {
       if (layout === 'HORIZONTAL_CAROUSEL') {
         return (
           <div style={carouselScrollStyles} className="hide-scrollbar">
@@ -169,30 +169,10 @@ export default function HomePage() {
 
       case 'CATEGORY_GRID':
       case 'CATEGORY_CIRCLES':
-        return (
-          <div className="homepage-categories-grid">
-            {categories.map(c => (
-              <Link to={`/categories/${c.slug}`} key={c.id} style={categoryCircleStyles}>
-                <div style={categoryIconCircleStyles}>
-                  {c.icon || '📦'}
-                </div>
-                <span style={categoryNameStyles}>{c.name}</span>
-              </Link>
-            ))}
-          </div>
-        );
-
       case 'CATEGORY_PILLS':
-        return (
-          <div style={carouselScrollStyles} className="hide-scrollbar">
-            {categories.map(c => (
-              <Link to={`/categories/${c.slug}`} key={c.id} style={pillStyles}>
-                <span>{c.icon || '📦'}</span>
-                <span>{c.name}</span>
-              </Link>
-            ))}
-          </div>
-        );
+      case 'VENDOR_GRID':
+      case 'BRAND_GRID':
+        return null;
 
       case 'BANNER':
         return (
@@ -211,22 +191,6 @@ export default function HomePage() {
                 </a>
               )}
             </div>
-          </div>
-        );
-
-      case 'VENDOR_GRID':
-      case 'BRAND_GRID':
-        return (
-          <div style={vendorsGridStyles}>
-            {categories.slice(0, 6).map(c => (
-              <Link to={`/categories/${c.slug}`} key={c.id} style={vendorCardStyles}>
-                <div style={vendorAvatarStyles}>
-                  {c.icon || c.name.charAt(0).toUpperCase()}
-                </div>
-                <div style={vendorNameStyles}>{c.name}</div>
-                <div style={vendorRatingStyles}>Dovi Collection</div>
-              </Link>
-            ))}
           </div>
         );
 
@@ -498,54 +462,6 @@ const largeCardDiscountStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
 };
 
-const categoriesGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
-  gap: '16px',
-};
-
-const categoryCircleStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-  textDecoration: 'none',
-  color: 'inherit',
-};
-
-const categoryIconCircleStyles: React.CSSProperties = {
-  width: '64px',
-  height: '64px',
-  borderRadius: '50%',
-  backgroundColor: 'rgba(255, 122, 0, 0.06)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '24px',
-  transition: 'transform 150ms ease',
-};
-
-const categoryNameStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-semibold)',
-  textAlign: 'center',
-};
-
-const pillStyles: React.CSSProperties = {
-  padding: '8px 16px',
-  borderRadius: '99px',
-  border: '1px solid var(--color-border)',
-  backgroundColor: '#ffffff',
-  textDecoration: 'none',
-  color: 'inherit',
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-semibold)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-  whiteSpace: 'nowrap',
-};
-
 const bannerStyles: React.CSSProperties = {
   display: 'flex',
   borderRadius: '12px',
@@ -585,50 +501,6 @@ const bannerCtaStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-xs)',
 };
-
-const vendorsGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '16px',
-};
-
-const vendorCardStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '16px',
-  border: '1px solid var(--color-border)',
-  borderRadius: '12px',
-  textDecoration: 'none',
-  color: 'inherit',
-  backgroundColor: '#f9fafb',
-};
-
-const vendorAvatarStyles: React.CSSProperties = {
-  width: '48px',
-  height: '48px',
-  borderRadius: '50%',
-  backgroundColor: 'var(--color-primary)',
-  color: '#ffffff',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '20px',
-  fontWeight: 'var(--font-bold)',
-};
-
-const vendorNameStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-  textAlign: 'center',
-};
-
-const vendorRatingStyles: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
-};
-
 
 const autoTeaserCardStyles: React.CSSProperties = {
   display: 'flex',

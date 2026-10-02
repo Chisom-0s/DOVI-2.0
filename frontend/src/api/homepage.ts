@@ -550,15 +550,26 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
 
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
+  let sections: HomepageSection[] = [];
   if (!data || data === '[]' || !data.includes('sec-new-arrivals')) {
     localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
-    return SEED_SECTIONS;
+    sections = SEED_SECTIONS;
+  } else {
+    try {
+      sections = JSON.parse(data);
+    } catch {
+      sections = SEED_SECTIONS;
+    }
   }
-  try {
-    return JSON.parse(data);
-  } catch {
-    return SEED_SECTIONS;
-  }
+  return sections.filter(s =>
+    s.key !== 'FEATURED_CATEGORIES' &&
+    s.key !== 'TOP_VENDORS' &&
+    s.configuration?.layout !== 'VENDOR_GRID' &&
+    s.configuration?.layout !== 'CATEGORY_GRID' &&
+    s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
+    s.configuration?.layout !== 'CATEGORY_PILLS' &&
+    s.configuration?.layout !== 'BRAND_GRID'
+  );
 }
 
 // Helper to filter and combine real products + mock products matching section config
@@ -801,13 +812,22 @@ export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
  * with zero waiting, before live background revalidation finishes.
  */
 export function getCachedHomepageSections(): HomepageSection[] {
+  const isExcluded = (s: HomepageSection) =>
+    s.key === 'FEATURED_CATEGORIES' ||
+    s.key === 'TOP_VENDORS' ||
+    s.configuration?.layout === 'VENDOR_GRID' ||
+    s.configuration?.layout === 'CATEGORY_GRID' ||
+    s.configuration?.layout === 'CATEGORY_CIRCLES' ||
+    s.configuration?.layout === 'CATEGORY_PILLS' ||
+    s.configuration?.layout === 'BRAND_GRID';
+
   // 1. Try previously cached sections from localStorage (stale-while-revalidate)
   try {
     const cached = localStorage.getItem('dovi_cached_homepage_sections');
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.filter((s: HomepageSection) => s.is_active && !isExcluded(s));
       }
     }
   } catch {}
@@ -817,7 +837,7 @@ export function getCachedHomepageSections(): HomepageSection[] {
     const cachedReal = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
     const rawSections = getMockSections();
     return rawSections
-      .filter(s => s.is_active)
+      .filter(s => s.is_active && !isExcluded(s))
       .sort((a, b) => a.sort_order - b.sort_order)
       .map(s => ({
         ...s,

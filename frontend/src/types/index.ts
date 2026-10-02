@@ -29,7 +29,7 @@ export interface APIError {
 // ----------------------------------------------------------
 // USER & AUTH
 // ----------------------------------------------------------
-export type UserRole = 'BUYER' | 'ADMIN' | 'CUSTOMER';
+export type UserRole = 'BUYER' | 'ADMIN' | 'CUSTOMER' | 'VENDOR';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
 export interface UserProfile {
@@ -41,7 +41,7 @@ export interface UserProfile {
   state?: string | null;
   postal_code?: string | null;
   country?: string | null;
-  vendor_status?: 'N/A';
+  vendor_status?: 'N/A' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface User {

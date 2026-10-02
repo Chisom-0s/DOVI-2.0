@@ -23,23 +23,6 @@ import type {
 
 const SEED_SECTIONS: HomepageSection[] = [
   {
-    id: 'sec-categories',
-    name: 'Featured Categories',
-    key: 'FEATURED_CATEGORIES',
-    title: 'Featured Categories',
-    subtitle: 'Find items by department',
-    is_active: true,
-    visible: true,
-    sort_order: 1,
-    display_order: 1,
-    display_limit: 10,
-    configuration: {
-      layout: 'CATEGORY_PILLS',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
     id: 'sec-flash-deals',
     name: 'Flash Deals',
     key: 'FLASH_DEALS',
@@ -174,23 +157,6 @@ const SEED_SECTIONS: HomepageSection[] = [
     display_limit: 4,
     configuration: {
       layout: 'AUTO_LISTING_GRID',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-vendors',
-    name: 'Top Vendors',
-    key: 'TOP_VENDORS',
-    title: 'Top Vendors',
-    subtitle: 'Certified sellers with excellent delivery record',
-    is_active: true,
-    visible: true,
-    sort_order: 10,
-    display_order: 10,
-    display_limit: 4,
-    configuration: {
-      layout: 'VENDOR_GRID',
       source: 'AUTOMATIC',
     },
     config: {},

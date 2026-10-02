@@ -11,9 +11,7 @@ export default function Header() {
   const { itemCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
-  const isHomepage = location.pathname === '/';
   const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
-  const isMarketPage = location.pathname === '/products' || location.pathname.startsWith('/products');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
 
   // Hide Searchbar and Categories on: Cart page and Profile/Dashboard pages
@@ -336,26 +334,12 @@ export default function Header() {
 // ----------------------------------------------------------
 // Functional Styling Tokens for Header
 // ----------------------------------------------------------
-const headerStyles: React.CSSProperties = {
-  backgroundColor: 'var(--color-bg)',
-  borderBottom: '1px solid var(--color-border)',
-  position: 'sticky',
-  top: 0,
-  zIndex: 100,
-};
-
 const logoStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-xl)',
   color: 'var(--color-primary)',
-};
-
-const searchContainerStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
 };
 
 const actionsContainerStyles: React.CSSProperties = {
@@ -481,13 +465,6 @@ const registerBtnStyles: React.CSSProperties = {
   borderRadius: 'var(--radius-md)',
   fontWeight: 'var(--font-medium)',
   textDecoration: 'none',
-};
-
-const logoImageStyles: React.CSSProperties = {
-  height: '72px',
-  width: 'auto',
-  objectFit: 'contain',
-  display: 'block',
 };
 
 const categoryLinksStyles: React.CSSProperties = {
