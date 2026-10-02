@@ -1,14 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 
 export default function BottomNav() {
   const location = useLocation();
-  const { user } = useAuth();
   const { itemCount } = useCart();
-
-  // Determine if the user is a vendor
-  const isVendor = user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED';
 
   return (
     <nav className="mobile-nav">
@@ -30,19 +25,13 @@ export default function BottomNav() {
         <span>Market</span>
       </Link>
 
-      {isVendor ? (
-        <Link to="/vendor/dashboard" className={`mobile-nav__item mobile-nav__item--sell ${location.pathname.startsWith('/vendor') ? 'mobile-nav__item--active' : ''}`}>
-          <span>Sell</span>
-        </Link>
-      ) : (
-        <Link to="/save2own" className={`mobile-nav__item mobile-nav__item--sell ${location.pathname.startsWith('/save2own') ? 'mobile-nav__item--active' : ''}`}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1, color: 'white' }}>
-            <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px' }}>SAVE</span>
-            <span style={{ fontSize: '18px', fontWeight: 900, marginTop: '-2px', marginBottom: '-2px' }}>2</span>
-            <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px' }}>OWN</span>
-          </div>
-        </Link>
-      )}
+      <Link to="/save2own" className={`mobile-nav__item mobile-nav__item--sell ${location.pathname.startsWith('/save2own') ? 'mobile-nav__item--active' : ''}`}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.1, color: 'white' }}>
+          <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px' }}>SAVE</span>
+          <span style={{ fontSize: '18px', fontWeight: 900, marginTop: '-2px', marginBottom: '-2px' }}>2</span>
+          <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px' }}>OWN</span>
+        </div>
+      </Link>
 
       <Link to="/cart" className={`mobile-nav__item ${location.pathname === '/cart' ? 'mobile-nav__item--active' : ''}`}>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -78,7 +67,7 @@ export default function BottomNav() {
         <span>Cart</span>
       </Link>
       
-      <Link to={isVendor ? '/vendor/dashboard' : '/dashboard'} className={`mobile-nav__item ${(isVendor ? location.pathname.startsWith('/vendor') : location.pathname.startsWith('/dashboard')) ? 'mobile-nav__item--active' : ''}`}>
+      <Link to="/dashboard" className={`mobile-nav__item ${location.pathname.startsWith('/dashboard') ? 'mobile-nav__item--active' : ''}`}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
           <circle cx="12" cy="7" r="4"/>
@@ -88,3 +77,4 @@ export default function BottomNav() {
     </nav>
   );
 }
+

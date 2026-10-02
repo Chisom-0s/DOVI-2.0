@@ -114,36 +114,9 @@ export default function ReviewForm({ productId, onReviewSubmitted }: ReviewFormP
       </div>
 
       <div style={ratingsGridStyles}>
-        {/* Vendor Rating */}
-        <div style={formGroupStyles}>
-          <label style={labelStyles}>Vendor Rating</label>
-          <div style={starRowStyles}>
-            {Array.from({ length: 5 }).map((_, idx) => {
-              const ratingValue = idx + 1;
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setVendorRating(ratingValue)}
-                  style={starBtnStyles}
-                  aria-label={`Rate Vendor ${ratingValue} Stars`}
-                >
-                  <span style={{
-                    ...starStyles,
-                    fontSize: '1.25rem',
-                    color: ratingValue <= vendorRating ? '#f39c12' : 'var(--color-border)',
-                  }}>
-                    ★
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Delivery Rating */}
         <div style={formGroupStyles}>
-          <label style={labelStyles}>Delivery Rating</label>
+          <label style={labelStyles}>Delivery Experience Rating</label>
           <div style={starRowStyles}>
             {Array.from({ length: 5 }).map((_, idx) => {
               const ratingValue = idx + 1;

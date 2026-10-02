@@ -10,12 +10,23 @@ from .services import DeliveryStateService
 from .permissions import IsDeliveryGroupParticipant
 
 
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+
+from .models import DeliveryGroup, DeliveryStatus
+from .serializers import DeliveryGroupSerializer, DeliveryGroupTransitionSerializer
+from .selectors import get_delivery_groups_for_user, get_delivery_group_by_id
+from .services import DeliveryStateService
+from .permissions import IsDeliveryGroupParticipant
+
+
 class DeliveryGroupViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet for tracking and updating vendor fulfillment groups.
-    - Buyer: views groups for their own orders, confirms receipt when delivered.
-    - Vendor: views groups for their store, marks ready, dispatches, confirms pickup.
-    - Admin: full monitoring and transition rights.
+    ViewSet for tracking and updating Dovi fulfillment groups.
+    - Buyer / Customer: views groups for their own orders, confirms receipt when delivered.
+    - Admin: full monitoring, dispatch, and transition rights.
     """
     serializer_class = DeliveryGroupSerializer
     permission_classes = [permissions.IsAuthenticated, IsDeliveryGroupParticipant]
@@ -38,7 +49,7 @@ class DeliveryGroupViewSet(viewsets.ReadOnlyModelViewSet):
         notes = serializer.validated_data.get('vendor_notes', '')
 
         target_status = DeliveryStatus.READY_FOR_PICKUP if group.method == 'PICKUP' else DeliveryStatus.READY_FOR_DELIVERY
-        updated_group = DeliveryStateService.transition(group, target_status, request.user, vendor_notes=notes)
+        updated_group = DeliveryStateService.transition(group, target_status, request.user, notes=notes)
         return Response(DeliveryGroupSerializer(updated_group).data)
 
     @action(detail=True, methods=['post'], url_path='dispatch')
@@ -54,7 +65,7 @@ class DeliveryGroupViewSet(viewsets.ReadOnlyModelViewSet):
             DeliveryStatus.IN_TRANSIT,
             request.user,
             tracking_reference=tracking_ref,
-            vendor_notes=notes
+            notes=notes
         )
         return Response(DeliveryGroupSerializer(updated_group).data)
 
@@ -84,6 +95,7 @@ class OrderDeliveryGroupsView(viewsets.GenericViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def list(self, request, order_pk=None):
-        groups = DeliveryGroup.objects.filter(order_id=order_pk).select_related('order', 'vendor').prefetch_related('items')
+        groups = DeliveryGroup.objects.filter(order_id=order_pk).select_related('order').prefetch_related('items')
         serializer = DeliveryGroupSerializer(groups, many=True)
         return Response(serializer.data)
+

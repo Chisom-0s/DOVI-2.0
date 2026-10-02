@@ -116,7 +116,7 @@ export default function Header() {
           {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
-            <Link to="/auto" className="header-nav-link">Dovi Auto</Link>
+            <Link to="/categories/auto" className="header-nav-link">Auto</Link>
             <Link to="/save2own" className="header-nav-link">Save2Own</Link>
           </nav>
         </div>
@@ -250,6 +250,7 @@ export default function Header() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
+                      marginRight: '6px',
                     }}
                     className="hide-mobile"
                   >

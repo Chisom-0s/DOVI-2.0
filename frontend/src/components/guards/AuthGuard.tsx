@@ -1,6 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import LoadingSpinner from '@/components/common/LoadingSpinner';
 
 // ============================================================
 // AuthGuard
@@ -16,7 +15,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingSpinner fullScreen />;
+    return null;
   }
 
   if (!isAuthenticated) {

@@ -26,7 +26,10 @@ export interface APIError {
 // ----------------------------------------------------------
 // USER & AUTH
 // ----------------------------------------------------------
-export type UserRole = 'BUYER' | 'VENDOR' | 'ADMIN';
+// ----------------------------------------------------------
+// USER & AUTH
+// ----------------------------------------------------------
+export type UserRole = 'BUYER' | 'ADMIN' | 'CUSTOMER';
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
 
 export interface UserProfile {
@@ -38,7 +41,7 @@ export interface UserProfile {
   state?: string | null;
   postal_code?: string | null;
   country?: string | null;
-  vendor_status?: 'N/A' | VendorStatus;
+  vendor_status?: 'N/A';
 }
 
 export interface User {
@@ -54,13 +57,6 @@ export interface User {
   date_joined: string;
   last_login: string | null;
   profile?: UserProfile;
-  vendor_store?: {
-    id: string;
-    name: string;
-    slug?: string;
-    description?: string;
-    logo_url?: string | null;
-  } | null;
 }
 
 export interface AuthTokens {
@@ -79,7 +75,7 @@ export interface RegisterRequest {
   first_name: string;
   last_name: string;
   phone?: string;
-  role: UserRole;
+  role?: UserRole;
 }
 
 export interface Address {
@@ -97,9 +93,9 @@ export interface Address {
 }
 
 // ----------------------------------------------------------
-// VENDORS
+// VENDORS (LEGACY COMPATIBILITY STUBS)
 // ----------------------------------------------------------
-export type VendorStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+export type VendorStatus = 'APPROVED';
 
 export interface VendorSummary {
   id: string;
@@ -118,8 +114,6 @@ export interface VendorPayoutAccount {
   bank_name: string;
   bank_code: string;
   is_primary: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface Vendor extends VendorSummary {
@@ -128,7 +122,6 @@ export interface Vendor extends VendorSummary {
   product_count: number;
   joined_date: string;
   response_rate: number | null;
-  payout_account?: VendorPayoutAccount | null;
 }
 
 // ----------------------------------------------------------
@@ -194,14 +187,15 @@ export interface Product {
   description: string;
   price?: string;
   base_price?: string;
+  compare_at_price?: string;
   reference_code?: string;
   sku?: string;
   stock_quantity?: number;
   status: ProductStatus | string;
-  vendor: VendorSummary | string;
-  vendor_name?: string;
   category: CategorySummary | string;
   category_name?: string;
+  brand?: string;
+  condition?: string;
   images?: ProductImage[];
   primary_image_url?: string | null;
   image_url?: string | null;
@@ -212,6 +206,8 @@ export interface Product {
   created_at?: string;
   updated_at?: string;
   specifications?: Record<string, string> | ProductSpecificationItem[];
+  vendor?: VendorSummary | string;
+  vendor_name?: string;
 }
 
 export interface ProductSummary {
@@ -219,10 +215,9 @@ export interface ProductSummary {
   name: string;
   price?: string;
   base_price?: string;
+  compare_at_price?: string;
   variants?: ProductVariant[];
   primary_image_url?: string | null;
-  vendor: VendorSummary;
-  vendor_name?: string;
   average_rating: number;
   review_count: number;
   stock_quantity: number;
@@ -233,6 +228,8 @@ export interface ProductSummary {
   discount_percentage?: number;
   category?: CategorySummary;
   category_name?: string;
+  brand?: string;
+  condition?: string;
   is_flash_deal?: boolean;
   is_trending?: boolean;
   is_best_seller?: boolean;
@@ -242,6 +239,8 @@ export interface ProductSummary {
   image_url?: string;
   images?: ProductImage[];
   in_stock?: boolean;
+  vendor?: VendorSummary;
+  vendor_name?: string;
 }
 
 // ----------------------------------------------------------

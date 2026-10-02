@@ -12,7 +12,7 @@ interface NavItem {
 export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -176,24 +176,6 @@ export default function DashboardLayout() {
 
   return (
     <div className="container" style={layoutWrapperStyles}>
-      {/* Vendor Account Notification Banner if vendor is in buyer mode */}
-      {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED') && (
-        <div style={vendorNoticeBannerStyles}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '1.25rem' }}>🏪</span>
-            <div>
-              <strong style={{ color: 'var(--color-primary)' }}>Merchant Account:</strong>
-              <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>
-                You are currently in Buyer Mode.
-              </span>
-            </div>
-          </div>
-          <Link to="/vendor/dashboard" style={switchVendorBtnStyles}>
-            Go to Merchant Hub &rarr;
-          </Link>
-        </div>
-      )}
-
       {/* Mobile Horizontal Sub-Navigation Scroll Bar */}
       <div style={mobileNavStyles} className="no-scrollbar hide-desktop">
         {navItems.map((item) => (
@@ -235,30 +217,7 @@ export default function DashboardLayout() {
       <div style={gridContainerStyles} className="dashboard-grid-container">
         {/* Desktop Sidebar Navigation */}
         <aside style={sidebarStyles} className="hide-mobile">
-          {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') && (
-            <div style={{ marginBottom: '1.25rem' }}>
-              <Link
-                to="/vendor/dashboard"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 'var(--radius-md, 8px)',
-                  background: 'linear-gradient(135deg, #ff7a00 0%, #ff5500 100%)',
-                  color: '#ffffff',
-                  fontWeight: '700',
-                  fontSize: 'var(--text-sm, 14px)',
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 12px rgba(255, 122, 0, 0.25)',
-                }}
-              >
-                <span>🏪</span>
-                <span>Merchant Hub</span>
-              </Link>
-            </div>
-          )}
-          <div style={sidebarTitleStyles}>Buyer Account</div>
+          <div style={sidebarTitleStyles}>Customer Account</div>
           <nav style={sidebarNavStyles}>
             {navItems.map((item) => (
               <Link
@@ -392,27 +351,4 @@ const sidebarIconStyles: React.CSSProperties = {
 const contentStyles: React.CSSProperties = {
   minHeight: '400px',
   width: '100%',
-};
-
-const vendorNoticeBannerStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '12px 16px',
-  backgroundColor: 'rgba(255, 122, 0, 0.08)',
-  border: '1px solid rgba(255, 122, 0, 0.25)',
-  borderRadius: 'var(--radius-md, 8px)',
-  marginBottom: 'var(--space-4)',
-  gap: '12px',
-};
-
-const switchVendorBtnStyles: React.CSSProperties = {
-  padding: '6px 14px',
-  backgroundColor: 'var(--color-primary, #ff7a00)',
-  color: '#ffffff',
-  fontWeight: '600',
-  fontSize: 'var(--text-xs, 12px)',
-  borderRadius: 'var(--radius-full, 9999px)',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap',
 };

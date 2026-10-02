@@ -17,15 +17,8 @@ class DeliveryGroupItemSerializer(serializers.Serializer):
         return None
 
 
-class VendorMinimalSerializer(serializers.Serializer):
-    id = serializers.UUIDField(read_only=True)
-    name = serializers.CharField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-
-
 class DeliveryGroupSerializer(serializers.ModelSerializer):
     order_reference = serializers.SerializerMethodField()
-    vendor = VendorMinimalSerializer(read_only=True)
     items = serializers.SerializerMethodField()
 
     class Meta:
@@ -34,7 +27,6 @@ class DeliveryGroupSerializer(serializers.ModelSerializer):
             'id',
             'order',
             'order_reference',
-            'vendor',
             'method',
             'status',
             'recipient_name',
@@ -74,10 +66,10 @@ class DeliveryGroupSerializer(serializers.ModelSerializer):
 class DeliveryGroupTransitionSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=DeliveryStatus.choices, required=False)
     tracking_reference = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    vendor_notes = serializers.CharField(required=False, allow_blank=True)
+    notes = serializers.CharField(source='vendor_notes', required=False, allow_blank=True)
 
 
-class VendorDeliverySelectionSerializer(serializers.Serializer):
-    vendor_id = serializers.UUIDField()
+class DoviDeliverySelectionSerializer(serializers.Serializer):
     method = serializers.ChoiceField(choices=DeliveryMethod.choices)
     delivery_address_id = serializers.UUIDField(required=False, allow_null=True)
+

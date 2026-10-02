@@ -18,12 +18,6 @@ const DEFAULT_CATEGORIES = [
   { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon: '🎮' },
 ];
 
-const DEFAULT_VENDORS = [
-  { id: 'vend-slot', name: 'SLOT Nigeria', rating: '4.8', location: 'Ikeja, Lagos' },
-  { id: 'vend-apple', name: 'iConnect Store', rating: '4.9', location: 'Lekki, Lagos' },
-  { id: 'vend-lubes', name: 'Dovi Auto Hub', rating: '4.7', location: 'Enugu, Nigeria' },
-];
-
 export default function HomePage() {
   // 1. Mount immediately with synchronous cached/seed sections (0ms perceived load time)
   const [sections, setSections] = useState<HomepageSection[]>(() => getCachedHomepageSections());
@@ -41,6 +35,7 @@ export default function HomePage() {
         const now = new Date();
         const active = (data.sections || []).filter(section => {
           if (!section.is_active) return false;
+          if (section.key === 'FEATURED_CATEGORIES' || section.key === 'TOP_VENDORS' || section.configuration?.layout === 'VENDOR_GRID') return false;
           if (section.starts_at && new Date(section.starts_at) > now) return false;
           if (section.ends_at && new Date(section.ends_at) < now) return false;
           return true;
@@ -70,7 +65,6 @@ export default function HomePage() {
     const layout = section.configuration?.layout || 'PRODUCT_GRID';
     const products: ProductSummary[] = section.products || [];
     const categories = section.categories || DEFAULT_CATEGORIES;
-    const vendors = section.vendors || DEFAULT_VENDORS;
 
     // If section products are still loading, show individual skeletons matching layout
     if (products.length === 0 && layout !== 'BANNER' && layout !== 'CATEGORY_PILLS' && layout !== 'CATEGORY_GRID' && layout !== 'CATEGORY_CIRCLES' && layout !== 'VENDOR_GRID' && layout !== 'BRAND_GRID') {
@@ -224,13 +218,13 @@ export default function HomePage() {
       case 'BRAND_GRID':
         return (
           <div style={vendorsGridStyles}>
-            {vendors.map(v => (
-              <Link to={`/vendors/${v.id}`} key={v.id} style={vendorCardStyles}>
+            {categories.slice(0, 6).map(c => (
+              <Link to={`/categories/${c.slug}`} key={c.id} style={vendorCardStyles}>
                 <div style={vendorAvatarStyles}>
-                  {v.name.charAt(0).toUpperCase()}
+                  {c.icon || c.name.charAt(0).toUpperCase()}
                 </div>
-                <div style={vendorNameStyles}>{v.name}</div>
-                <div style={vendorRatingStyles}>⭐ {v.rating} · {v.location}</div>
+                <div style={vendorNameStyles}>{c.name}</div>
+                <div style={vendorRatingStyles}>Dovi Collection</div>
               </Link>
             ))}
           </div>
