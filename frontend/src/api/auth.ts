@@ -13,6 +13,15 @@ export const authApi = {
     }
   },
 
+  googleAuth: async (payload: { id_token: string; role?: 'BUYER' | 'VENDOR' }): Promise<{ tokens: AuthTokens; user: User }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/auth/google/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
   register: async (payload: RegisterRequest): Promise<{ message: string }> => {
     try {
       const { data } = await apiClient.post('/api/v1/auth/register/', payload);

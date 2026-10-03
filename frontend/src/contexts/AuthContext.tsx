@@ -18,6 +18,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<User>;
+  loginWithGoogle: (idToken: string, role?: 'BUYER' | 'VENDOR') => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -88,6 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ----------------------------------------------------------
+  // loginWithGoogle()
+  // ----------------------------------------------------------
+  const loginWithGoogle = useCallback(async (idToken: string, role?: 'BUYER' | 'VENDOR'): Promise<User> => {
+    const result = await authApi.googleAuth({ id_token: idToken, role });
+    tokenStore.set(result.tokens.access);
+    setUser(result.user);
+    return result.user;
+  }, []);
+
+  // ----------------------------------------------------------
   // logout()
   // ----------------------------------------------------------
   const logout = useCallback(async () => {
@@ -112,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: user !== null,
     isLoading,
     login,
+    loginWithGoogle,
     logout,
     refreshUser,
   };

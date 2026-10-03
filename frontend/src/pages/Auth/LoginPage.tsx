@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiErrorMessage, FieldError } from '@/components/common/ApiErrorMessage';
 import type { APIError } from '@/types';
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 
 // ============================================================
 // LoginPage
@@ -115,6 +116,12 @@ export default function LoginPage() {
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+
+        <div className="auth-card__divider">
+          <span>or</span>
+        </div>
+
+        <GoogleAuthButton mode="signin" disabled={isSubmitting} />
 
         <p className="auth-card__footer">
           Don&apos;t have an account?{' '}
