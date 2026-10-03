@@ -310,7 +310,8 @@ export default function ProductListingPage() {
         </div>
 
         {/* Products Grid */}
-        {isLoading ? (
+        {isLoading && products.length === 0 ? (
+          /* Initial load: no data yet, show skeleton placeholders */
           <div className="marketplace-product-grid">
             {Array.from({ length: 8 }).map((_, idx) => (
               <SkeletonCard key={idx} />

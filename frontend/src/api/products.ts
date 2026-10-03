@@ -167,81 +167,64 @@ function getFallbackReviews(productId: string, ratingFilter?: number, sort?: str
 export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
-      const queryParams: Record<string, any> = { ...filters };
-      if (filters?.q && !queryParams.search) {
+      const queryParams: Record<string, any> = {};
+      if (filters?.page) queryParams.page = filters.page;
+      if (filters?.page_size) queryParams.page_size = filters.page_size;
+      if (filters?.category) queryParams.category = filters.category;
+      if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
+      if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
+      if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
+      if (filters?.q) {
         queryParams.search = filters.q;
+      } else if (filters?.search) {
+        queryParams.search = filters.search;
       }
+
+      // Map frontend sort to Django DRF ordering parameter
+      if (filters?.sort) {
+        if (filters.sort === 'price_asc') queryParams.ordering = 'base_price';
+        else if (filters.sort === 'price_desc') queryParams.ordering = '-base_price';
+        else if (filters.sort === 'newest') queryParams.ordering = '-created_at';
+        else if (filters.sort === 'rating') queryParams.ordering = '-created_at';
+      }
+
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
       const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
       const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
 
-      let results = [...realProducts];
-      const page = filters?.page || 1;
-
-      // If page 1 and fewer than 12 items, supplement with mock items matching category/search
-      if (page === 1 && results.length < 12) {
-        const existingIds = new Set(results.map(r => r.id));
-        let candidateMocks = [...MOCK_PRODUCTS];
-
-        if (filters?.category) {
-          const normCat = filters.category.toLowerCase().trim();
-          candidateMocks = candidateMocks.filter(m => {
-            const catSlug = typeof m.category === 'object' ? m.category?.slug : '';
-            const catName = typeof m.category === 'object' ? m.category?.name : (m.category_name || '');
-            return (
-              catSlug?.toLowerCase() === normCat ||
-              catName?.toLowerCase().includes(normCat) ||
-              normCat.includes(catSlug?.toLowerCase() || '')
-            );
-          });
-        }
-
-        if (filters?.q) {
-          const lq = filters.q.toLowerCase().trim();
-          candidateMocks = candidateMocks.filter(m => m.name.toLowerCase().includes(lq));
-        }
-
-        if (filters?.min_price !== undefined) {
-          candidateMocks = candidateMocks.filter(m => parseFloat(m.price || '0') >= filters.min_price!);
-        }
-        if (filters?.max_price !== undefined) {
-          candidateMocks = candidateMocks.filter(m => parseFloat(m.price || '0') <= filters.max_price!);
-        }
-        if (filters?.in_stock) {
-          candidateMocks = candidateMocks.filter(m => (m.stock_quantity ?? 1) > 0);
-        }
-
-        for (const m of candidateMocks) {
-          if (!existingIds.has(m.id)) {
-            results.push(m);
-            if (results.length >= 12) break;
-          }
-        }
+      // Cache real products when viewing default listing (page 1, no filters)
+      const isDefaultView = !filters?.category && !filters?.min_price && !filters?.max_price && !filters?.in_stock && !filters?.q && (filters?.page || 1) === 1;
+      if (isDefaultView && realProducts.length > 0) {
+        try {
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
+        } catch {}
       }
 
       return {
-        count: Math.max(data?.count || 0, results.length),
+        count: data?.count ?? realProducts.length,
         next: data?.next || null,
         previous: data?.previous || null,
-        results,
+        results: realProducts,
       };
-    } catch (err) {
-      console.warn('Backend products list failed, returning mock products fallback:', err);
-      let results = [...MOCK_PRODUCTS];
-      if (filters?.category) {
-        const normCat = filters.category.toLowerCase().trim();
-        results = results.filter(m => {
-          const catSlug = typeof m.category === 'object' ? m.category?.slug : '';
-          const catName = typeof m.category === 'object' ? m.category?.name : (m.category_name || '');
-          return catSlug?.toLowerCase() === normCat || catName?.toLowerCase().includes(normCat);
-        });
-      }
-      return {
-        count: results.length,
-        next: null,
-        previous: null,
-        results,
-      };
+    } catch (err: any) {
+      console.warn('Backend products list fetch failed:', err?.message || err);
+      // If offline or network error, attempt to return cached real products
+      try {
+        const cached = sessionStorage.getItem('dovi_real_products_cache');
+        if (cached) {
+          const list: ProductSummary[] = JSON.parse(cached);
+          if (Array.isArray(list) && list.length > 0) {
+            return {
+              count: list.length,
+              next: null,
+              previous: null,
+              results: list,
+            };
+          }
+        }
+      } catch {}
+
+      throw err;
     }
   },
 
@@ -340,50 +323,28 @@ export const productsApi = {
   },
 
   search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
-    let realProducts: ProductSummary[] = [];
-    let serverCount = 0;
     try {
       const queryParams: Record<string, any> = { search: q, ...filters };
       delete queryParams.q;
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
       const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
-      realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
-      serverCount = data?.count || realProducts.length;
-    } catch {
-      // Backend search error or offline — fall back to mock search
+      const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
+
+      return {
+        count: data?.count ?? realProducts.length,
+        next: data?.next || null,
+        previous: data?.previous || null,
+        results: realProducts,
+      };
+    } catch (err: any) {
+      console.warn('Backend search failed:', err?.message || err);
+      return {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      };
     }
-
-    let results = [...realProducts];
-    const existingIds = new Set(results.map(r => r.id));
-
-    if (q) {
-      const lowerQ = q.toLowerCase().trim();
-      const matchingMocks = MOCK_PRODUCTS.filter(m => {
-        const nameMatch = m.name.toLowerCase().includes(lowerQ);
-        const catName = typeof m.category === 'object' ? m.category?.name?.toLowerCase() : '';
-        const catSlug = typeof m.category === 'object' ? m.category?.slug?.toLowerCase() : '';
-        const vendorName = typeof m.vendor === 'object' ? m.vendor?.name?.toLowerCase() : (m.vendor_name || '').toLowerCase();
-        return (
-          nameMatch ||
-          (catName && catName.includes(lowerQ)) ||
-          (catSlug && catSlug.includes(lowerQ)) ||
-          (vendorName && vendorName.includes(lowerQ))
-        );
-      });
-
-      for (const m of matchingMocks) {
-        if (!existingIds.has(m.id)) {
-          results.push(m);
-        }
-      }
-    }
-
-    return {
-      count: Math.max(serverCount, results.length),
-      next: null,
-      previous: null,
-      results,
-    };
   },
 
   featured: async (): Promise<ProductSummary[]> => {

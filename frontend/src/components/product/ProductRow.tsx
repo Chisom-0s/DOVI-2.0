@@ -49,7 +49,7 @@ export default function ProductRow({ title, products, isLoading }: ProductRowPro
 
       <div style={scrollWrapperStyles} className="hide-scrollbar">
         <div style={listStyles}>
-          {isLoading
+          {isLoading && products.length === 0
             ? Array.from({ length: 4 }).map((_, idx) => (
                 <div key={idx} style={cardWrapperStyles}>
                   <SkeletonCard />
