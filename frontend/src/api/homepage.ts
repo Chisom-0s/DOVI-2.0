@@ -640,7 +640,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     }
   }
 
-  // 4. Combine: REAL USER PRODUCTS COME FIRST, followed by supplemental mock inventory
+  // 4. Combine: If real products exist, show real products. Only fallback to mock inventory if zero real products exist.
   const seenIds = new Set<string>();
   const combined: ProductSummary[] = [];
 
@@ -651,10 +651,12 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     }
   }
 
-  for (const p of matchingMock) {
-    if (!seenIds.has(p.id)) {
-      seenIds.add(p.id);
-      combined.push(p);
+  if (matchingReal.length === 0) {
+    for (const p of matchingMock) {
+      if (!seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        combined.push(p);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { warmupBackend } from '@/api/client';
 import type { User } from '@/types';
 
 declare global {
@@ -68,27 +69,47 @@ export default function GoogleAuthButton({
     }
 
     setIsLoading(true);
-    try {
-      const user = await loginWithGoogle(response.credential, role);
-      toast.success(
-        mode === 'signup'
-          ? `Welcome to Dovi, ${user.first_name || 'User'}!`
-          : `Signed in as ${user.email}`
-      );
-      if (onSuccess) {
-        onSuccess(user);
-      } else {
-        navigate(from, { replace: true });
+    const maxAttempts = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const user = await loginWithGoogle(response.credential, role);
+        toast.success(
+          mode === 'signup'
+            ? `Welcome to Dovi, ${user.first_name || 'User'}!`
+            : `Signed in as ${user.email}`
+        );
+        if (onSuccess) {
+          onSuccess(user);
+        } else {
+          navigate(from, { replace: true });
+        }
+        setIsLoading(false);
+        return;
+      } catch (err: any) {
+        lastError = err;
+        const isNetwork = err?.code === 'NETWORK_ERROR' || !err?.response;
+        if (isNetwork && attempt < maxAttempts) {
+          // If server was cold starting, wait with backoff and retry seamlessly
+          await new Promise(res => setTimeout(res, 1200 * attempt));
+          continue;
+        }
+        break;
       }
-    } catch (err: any) {
-      console.error('Google auth error:', err);
-      const message = err?.message || 'Google authentication failed. Please try again.';
-      toast.error(message);
-      onError?.(err);
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
+    console.error('Google auth error:', lastError);
+    const message = lastError?.message || 'Google authentication failed. Please try again.';
+    toast.error(message);
+    onError?.(lastError);
   };
+
+  // Pre-warm backend immediately when auth button appears on screen
+  useEffect(() => {
+    warmupBackend();
+  }, []);
 
   // Load GIS script dynamically if Client ID is configured
   useEffect(() => {

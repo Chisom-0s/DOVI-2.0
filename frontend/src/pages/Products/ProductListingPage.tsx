@@ -79,6 +79,11 @@ export default function ProductListingPage() {
       });
       setProducts(response.results);
       setTotalCount(response.count);
+      if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !searchParam && pageParam === 1 && response.results.length > 0) {
+        try {
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(response.results));
+        } catch {}
+      }
     } catch (err: any) {
       console.error('Failed to load products list:', err);
       setProducts([]);

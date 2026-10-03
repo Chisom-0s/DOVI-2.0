@@ -79,7 +79,17 @@ function onRefreshed(token: string) {
 apiClient.interceptors.response.use(
   response => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number };
+
+    // Network error / cold-start retry (up to 2 retries with exponential backoff)
+    const isNetworkError = !error.response && Boolean(error.request);
+    const retryCount = originalRequest._retryCount || 0;
+    if (isNetworkError && retryCount < 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
+      originalRequest._retryCount = retryCount + 1;
+      const delay = retryCount === 0 ? 1200 : 2500;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return apiClient(originalRequest);
+    }
 
     // 401 — attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -278,9 +288,16 @@ export function normalizeApiError(error: unknown): APIError {
         code: 'HTTP_ERROR',
       };
     } else if (error.request || !navigator.onLine) {
+      if (!navigator.onLine) {
+        return {
+          error: true,
+          message: 'No internet signal',
+          code: 'NETWORK_ERROR',
+        };
+      }
       return {
         error: true,
-        message: 'No internet signal',
+        message: 'Server connection timed out. Please try again.',
         code: 'NETWORK_ERROR',
       };
     }
