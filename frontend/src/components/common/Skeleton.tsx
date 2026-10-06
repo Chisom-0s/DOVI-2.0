@@ -79,7 +79,7 @@ export function CategoryPillSkeleton() {
 }
 
 export function SectionSkeleton({
-  layout = 'PRODUCT_GRID',
+  layout: _layout = 'PRODUCT_GRID',
   title: _title = 'Loading section...',
   count = 4,
 }: {
@@ -98,27 +98,11 @@ export function SectionSkeleton({
         </div>
       </div>
 
-      {layout === 'HORIZONTAL_CAROUSEL' ? (
-        <div style={carouselScrollStyles} className="hide-scrollbar">
-          {Array.from({ length: count }).map((_, idx) => (
-            <div key={idx} style={{ minWidth: '150px', flexShrink: 0 }}>
-              <ProductCardSkeleton />
-            </div>
-          ))}
-        </div>
-      ) : layout === 'CATEGORY_PILLS' ? (
-        <div style={carouselScrollStyles} className="hide-scrollbar">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <CategoryPillSkeleton key={idx} />
-          ))}
-        </div>
-      ) : (
-        <div className="marketplace-product-grid">
-          {Array.from({ length: count }).map((_, idx) => (
-            <ProductCardSkeleton key={idx} />
-          ))}
-        </div>
-      )}
+      <div className="marketplace-product-grid">
+        {Array.from({ length: count || 4 }).map((_, idx) => (
+          <ProductCardSkeleton key={idx} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -159,13 +143,5 @@ const sectionHeaderStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'flex-end',
-};
-
-
-const carouselScrollStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: '16px',
-  overflowX: 'auto',
-  paddingBottom: '8px',
 };
 

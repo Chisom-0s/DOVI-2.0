@@ -2,10 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
-import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
-import { formatPrice } from '@/utils/currency';
-import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { HomepageSection, ProductSummary } from '@/types';
 import {
   ProductCardSkeleton,
@@ -110,17 +107,6 @@ export default function HomePage() {
 
     // If section products are still loading, show individual skeletons matching layout
     if (products.length === 0 && layout !== 'BANNER') {
-      if (layout === 'HORIZONTAL_CAROUSEL') {
-        return (
-          <div style={carouselScrollStyles} className="hide-scrollbar">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <div key={idx} style={{ minWidth: '150px', flexShrink: 0 }}>
-                <ProductCardSkeleton />
-              </div>
-            ))}
-          </div>
-        );
-      }
       return (
         <div className="marketplace-product-grid">
           {Array.from({ length: 4 }).map((_, idx) => (
@@ -132,79 +118,14 @@ export default function HomePage() {
 
     switch (layout) {
       case 'PRODUCT_GRID':
+      case 'HORIZONTAL_CAROUSEL':
+      case 'COMPACT_LIST':
+      case 'LARGE_PRODUCT_CARDS':
+      case 'AUTO_LISTING_GRID':
         return (
           <div className="marketplace-product-grid">
             {products.map(p => (
               <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        );
-
-      case 'HORIZONTAL_CAROUSEL':
-        return (
-          <div style={carouselScrollStyles} className="hide-scrollbar">
-            {products.map(p => (
-              <div key={p.id} style={{ minWidth: '150px', flexShrink: 0 }}>
-                <ProductCard product={p} />
-              </div>
-            ))}
-          </div>
-        );
-
-      case 'COMPACT_LIST':
-        return (
-          <div style={listStyles}>
-            {products.map(p => (
-              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={listItemStyles}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
-                  <ItemImageLoader
-                    src={getProductImageUrl(p)}
-                    fallbackSrc={getProductFallbackImage(p)}
-                    alt={p.name}
-                    objectFit="cover"
-                    loading="lazy"
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={listItemNameStyles}>{p.name}</div>
-                  <div style={listItemPriceStyles}>
-                    {formatPrice(p)}
-                    {p.original_price && (
-                      <span style={listOriginalPriceStyles}>
-                        {formatPrice(p.original_price)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        );
-
-      case 'LARGE_PRODUCT_CARDS':
-        return (
-          <div style={largeGridStyles}>
-            {products.map(p => (
-              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={largeCardStyles}>
-                <div style={largeCardImageWrapperStyles}>
-                  <ItemImageLoader
-                    src={getProductImageUrl(p)}
-                    fallbackSrc={getProductFallbackImage(p)}
-                    alt={p.name}
-                    objectFit="cover"
-                    loading="lazy"
-                  />
-                </div>
-                <div style={largeCardBodyStyles}>
-                  <div style={largeCardTitleStyles}>{p.name}</div>
-                  <div style={largeCardFooterStyles}>
-                    <span style={largeCardPriceStyles}>{formatPrice(p)}</span>
-                    {p.discount_percentage !== undefined && p.discount_percentage > 0 && (
-                      <span style={largeCardDiscountStyles}>-{p.discount_percentage}% OFF</span>
-                    )}
-                  </div>
-                </div>
-              </Link>
             ))}
           </div>
         );
@@ -236,34 +157,14 @@ export default function HomePage() {
           </div>
         );
 
-      case 'AUTO_LISTING_GRID':
+      default:
         return (
           <div className="marketplace-product-grid">
             {products.map(p => (
-              <Link to={`/products/${p.id}`} state={{ product: p }} key={p.id} style={autoTeaserCardStyles}>
-                <div style={autoTeaserImgWrapperStyles}>
-                  <ItemImageLoader
-                    src={getProductImageUrl(p)}
-                    fallbackSrc={getProductFallbackImage(p)}
-                    alt={p.name}
-                    objectFit="cover"
-                    loading="lazy"
-                  />
-                  <span style={autoTeaserBadgeStyles}>
-                    {formatPrice(p)}
-                  </span>
-                </div>
-                <div style={autoTeaserBodyStyles}>
-                  <div style={autoTeaserTitleStyles}>{p.name}</div>
-                  <div style={autoTeaserCategoryStyles}>{p.category?.name || 'Auto'}</div>
-                </div>
-              </Link>
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         );
-
-      default:
-        return null;
     }
   };
 
@@ -379,122 +280,6 @@ const seeAllStyles: React.CSSProperties = {
 };
 
 
-const carouselScrollStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: '16px',
-  overflowX: 'auto',
-  paddingBottom: '8px',
-  width: '100%',
-};
-
-const listStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '12px',
-};
-
-const listItemStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '16px',
-  textDecoration: 'none',
-  color: 'inherit',
-  padding: '12px',
-  border: '1px solid var(--color-border)',
-  borderRadius: '8px',
-  backgroundColor: '#ffffff',
-  transition: 'border-color 150ms ease',
-};
-
-
-
-const listItemNameStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
-};
-
-const listItemPriceStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-semibold)',
-  color: 'var(--color-primary)',
-  marginTop: '4px',
-  display: 'flex',
-  gap: '8px',
-  alignItems: 'center',
-};
-
-const listOriginalPriceStyles: React.CSSProperties = {
-  textDecoration: 'line-through',
-  color: 'var(--color-text-muted)',
-  fontWeight: 'var(--font-normal)',
-};
-
-const largeGridStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '16px',
-};
-
-const largeCardStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  textDecoration: 'none',
-  color: 'inherit',
-  border: '1px solid var(--color-border)',
-  borderRadius: '12px',
-  overflow: 'hidden',
-  backgroundColor: '#ffffff',
-};
-
-const largeCardImageWrapperStyles: React.CSSProperties = {
-  height: '180px',
-  backgroundColor: '#f9fafb',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '16px',
-};
-
-
-
-const largeCardBodyStyles: React.CSSProperties = {
-  padding: '16px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-};
-
-const largeCardTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-bold)',
-  height: '40px',
-  overflow: 'hidden',
-  lineHeight: '1.4',
-};
-
-const largeCardFooterStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginTop: '4px',
-};
-
-const largeCardPriceStyles: React.CSSProperties = {
-  color: 'var(--color-primary)',
-  fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
-};
-
-const largeCardDiscountStyles: React.CSSProperties = {
-  fontSize: '9px',
-  color: '#ffffff',
-  backgroundColor: 'var(--color-primary)',
-  padding: '2px 6px',
-  borderRadius: '4px',
-  fontWeight: 'var(--font-bold)',
-};
-
 const bannerStyles: React.CSSProperties = {
   display: 'flex',
   borderRadius: '12px',
@@ -520,7 +305,6 @@ const bannerSubtitleStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   marginTop: '8px',
-  marginRepeat: 0,
 };
 
 const bannerCtaStyles: React.CSSProperties = {
@@ -533,55 +317,6 @@ const bannerCtaStyles: React.CSSProperties = {
   textDecoration: 'none',
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-xs)',
-};
-
-const autoTeaserCardStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  textDecoration: 'none',
-  color: 'inherit',
-  border: '1px solid var(--color-border)',
-  borderRadius: '8px',
-  overflow: 'hidden',
-  backgroundColor: '#ffffff',
-};
-
-const autoTeaserImgWrapperStyles: React.CSSProperties = {
-  height: '110px',
-  backgroundColor: '#f3f4f6',
-  position: 'relative',
-};
-
-
-
-const autoTeaserBadgeStyles: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '6px',
-  left: '6px',
-  backgroundColor: 'rgba(0,0,0,0.65)',
-  color: '#ffffff',
-  fontSize: '10px',
-  padding: '2px 6px',
-  borderRadius: '4px',
-  fontWeight: 'var(--font-bold)',
-};
-
-const autoTeaserBodyStyles: React.CSSProperties = {
-  padding: '8px',
-};
-
-const autoTeaserTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-bold)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
-
-const autoTeaserCategoryStyles: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
-  marginTop: '4px',
 };
 
 const emptyStyles: React.CSSProperties = {
