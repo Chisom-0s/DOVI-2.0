@@ -1,17 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCart } from '@/contexts/CartContext';
 import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
-  const { itemCount } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
-  const isHomepage = location.pathname === '/';
   const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
 
@@ -107,14 +104,8 @@ export default function Header() {
   return (
     <header className="site-header">
       <div className="container site-header__container">
-        {/* Brand Logo & Desktop Nav Links (Row 1, Col 1) */}
+        {/* Desktop Nav Links (Row 1, Col 1) */}
         <div className="site-header__brand">
-          {!isHomepage && (
-            <Link to="/" style={logoStyles} className="site-header__logo" aria-label="Dovi Home">
-              <img src="/logo.jpg?v=2" alt="Dovi" className="site-header__logo-img" />
-            </Link>
-          )}
-          {/* Desktop Navigation Links */}
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
             <Link to="/categories/auto" className="header-nav-link">Auto</Link>
@@ -206,36 +197,8 @@ export default function Header() {
             </div>
           )}
 
-          {/* Cart Status Indicator (visible on mobile & desktop) */}
-          {!isHomepage && (
-            <Link to="/cart" style={cartButtonStyles} aria-label={`Shopping Cart${itemCount > 0 ? `, ${itemCount} items` : ''}`}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="9" cy="21" r="1" />
-                  <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                </svg>
-                {itemCount > 0 && (
-                  <span style={cartBadgeStyles}>
-                    {itemCount > 99 ? '99+' : itemCount}
-                  </span>
-                )}
-              </div>
-              <span style={cartLabelStyles} className="hide-mobile">Cart</span>
-            </Link>
-          )}
-
           {/* User Account State */}
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <div style={userMenuStyles}>
               {(user?.role === 'VENDOR' || user?.profile?.vendor_status === 'APPROVED' || user?.profile?.vendor_status === 'PENDING') ? (
                 <>
@@ -287,13 +250,6 @@ export default function Header() {
               )}
               <button onClick={handleLogout} style={logoutBtnStyles} className="hide-mobile">Logout</button>
             </div>
-          ) : (
-            !isHomepage && (
-              <div style={authButtonsStyles}>
-                <Link to="/login" style={loginBtnStyles}>Sign In</Link>
-                <Link to="/register" style={registerBtnStyles} className="hide-mobile">Register</Link>
-              </div>
-            )
           )}
         </div>
 
@@ -341,14 +297,6 @@ export default function Header() {
 // ----------------------------------------------------------
 // Functional Styling Tokens for Header
 // ----------------------------------------------------------
-const logoStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-xl)',
-  color: 'var(--color-primary)',
-};
-
 const actionsContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -362,40 +310,6 @@ const navLinksStyles: React.CSSProperties = {
   alignItems: 'center',
   gap: '2px',
   marginRight: 'var(--space-1)',
-};
-
-const cartButtonStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-1)',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-medium)',
-  color: 'var(--color-text)',
-  textDecoration: 'none',
-};
-
-const cartBadgeStyles: React.CSSProperties = {
-  position: 'absolute',
-  top: '-7px',
-  right: '-9px',
-  backgroundColor: 'var(--color-primary, #ff7a00)',
-  color: '#ffffff',
-  fontSize: '11px',
-  fontWeight: 700,
-  minWidth: '18px',
-  height: '18px',
-  borderRadius: '9999px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '0 4px',
-  boxShadow: '0 2px 4px rgba(255, 122, 0, 0.35)',
-  lineHeight: 1,
-  pointerEvents: 'none',
-};
-
-const cartLabelStyles: React.CSSProperties = {
-  display: 'inline',
 };
 
 const userMenuStyles: React.CSSProperties = {
@@ -444,34 +358,6 @@ const logoutBtnStyles: React.CSSProperties = {
   backgroundColor: 'transparent',
   border: 'none',
   cursor: 'pointer',
-};
-
-const authButtonsStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-3)',
-};
-
-const loginBtnStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--color-primary)',
-  fontWeight: 'var(--font-semibold)',
-  textDecoration: 'none',
-  padding: '6px 14px',
-  borderRadius: 'var(--radius-full)',
-  border: '1px solid var(--color-primary)',
-  whiteSpace: 'nowrap',
-  transition: 'all 150ms ease',
-};
-
-const registerBtnStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  backgroundColor: 'var(--color-primary)',
-  color: 'white',
-  padding: 'var(--space-2) var(--space-4)',
-  borderRadius: 'var(--radius-md)',
-  fontWeight: 'var(--font-medium)',
-  textDecoration: 'none',
 };
 
 const categoryLinksStyles: React.CSSProperties = {
