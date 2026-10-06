@@ -3,11 +3,11 @@ import type {
   PaginatedResponse,
   Save2OwnGoal,
   Save2OwnGoalSummary,
-  PaymentInitResponse,
   ProductSummary,
   ProductVariant,
   Save2OwnContribution,
   Save2OwnProductChange,
+  PaymentAccount,
 } from '@/types';
 
 function createStubProduct(
@@ -139,8 +139,20 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     ? raw.contributions.map((c: any) => ({
         id: c.id,
         amount: c.amount?.toString() || '0',
-        payment_status: c.payment_status || c.status || 'PENDING',
-        payment_reference: c.payment_reference || '',
+        currency: c.currency || 'NGN',
+        status: c.status || 'PENDING',
+        payment_status: c.payment_status || (c.status === 'CONFIRMED' ? 'SUCCESSFUL' : c.status === 'REJECTED' ? 'FAILED' : 'PENDING'),
+        payment_method: c.payment_method || 'bank_transfer',
+        payment_reference: c.payment_reference || c.transfer_reference || '',
+        transfer_reference: c.transfer_reference || c.payment_reference || '',
+        bank_name_snapshot: c.bank_name_snapshot || '',
+        account_name_snapshot: c.account_name_snapshot || '',
+        account_number_snapshot: c.account_number_snapshot || '',
+        payment_proof: c.payment_proof || c.payment_proof_url || null,
+        payment_proof_url: c.payment_proof_url || c.payment_proof || null,
+        submitted_at: c.submitted_at || null,
+        verified_at: c.verified_at || null,
+        rejection_reason: c.rejection_reason || '',
         created_at: c.created_at || new Date().toISOString(),
       }))
     : [];
@@ -171,6 +183,7 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
 
   return {
     id: raw.id,
+    reference_code: raw.reference_code || (raw.id ? `S2O-${raw.id.slice(0, 8).toUpperCase()}` : undefined),
     product,
     variant,
     quantity: raw.quantity || 1,
@@ -304,12 +317,72 @@ export const save2ownApi = {
     }
   },
 
+  getActivePaymentAccount: async (accountType: 'save2own' | 'marketplace' = 'save2own'): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/payments/accounts/active/', {
+        params: { account_type: accountType },
+      });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
   contribute: async (
     id: string,
-    payload: { amount: string; provider: string; redirect_url: string }
-  ): Promise<PaymentInitResponse> => {
+    payload: { amount: string; transfer_reference?: string; payment_proof?: File }
+  ): Promise<{
+    contribution: Save2OwnContribution;
+    bank_account: {
+      bank_name: string;
+      account_name: string;
+      account_number: string;
+      currency: string;
+      transfer_reference: string;
+      instructions: string;
+    };
+    message: string;
+  }> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/contribute/`, payload);
+      let reqData: any = payload;
+      let headers: Record<string, string> = {};
+      if (payload.payment_proof) {
+        const formData = new FormData();
+        formData.append('amount', payload.amount);
+        if (payload.transfer_reference) {
+          formData.append('transfer_reference', payload.transfer_reference);
+        }
+        formData.append('payment_proof', payload.payment_proof);
+        reqData = formData;
+      }
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/contribute/`, reqData, { headers });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  submitProof: async (
+    id: string,
+    contribId: string,
+    payload: { transfer_reference?: string; payment_proof?: File }
+  ): Promise<{ contribution: Save2OwnContribution; message: string }> => {
+    try {
+      let reqData: any = payload;
+      let headers: Record<string, string> = {};
+      if (payload.payment_proof) {
+        const formData = new FormData();
+        if (payload.transfer_reference) {
+          formData.append('transfer_reference', payload.transfer_reference);
+        }
+        formData.append('payment_proof', payload.payment_proof);
+        reqData = formData;
+      }
+      const { data } = await apiClient.post(
+        `/api/v1/save2own/goals/${id}/contributions/${contribId}/submit/`,
+        reqData,
+        { headers }
+      );
       return data;
     } catch (err) {
       throw normalizeApiError(err);

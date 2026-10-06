@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import type { Save2OwnGoal, APIError } from '@/types';
@@ -263,44 +263,71 @@ export default function Save2OwnGoalDetailPage() {
         <div style={columnStyles}>
           {/* Timeline Table */}
           <div style={cardStyles}>
-            <h3 style={cardTitleStyles}>Contribution Payment Timeline (Immutable)</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ ...cardTitleStyles, margin: 0 }}>Contribution Payment Timeline</h3>
+              <Link to="/save2own/contributions" style={{ fontSize: '12px', color: '#ff7a00', textDecoration: 'none', fontWeight: 600 }}>
+                Verification Queue →
+              </Link>
+            </div>
             {g.contributions && g.contributions.length > 0 ? (
               <div style={tableWrapperStyles}>
                 <table style={tableStyles}>
                   <thead>
                     <tr style={tableHeaderRowStyles}>
-                      <th style={tableHeaderCellStyles}>Deposit Ref</th>
+                      <th style={tableHeaderCellStyles}>Deposit Ref / Narration</th>
                       <th style={tableHeaderCellStyles}>Amount</th>
-                      <th style={tableHeaderCellStyles}>Gateway Ref</th>
+                      <th style={tableHeaderCellStyles}>Bank Snapshot</th>
+                      <th style={tableHeaderCellStyles}>Receipt</th>
                       <th style={tableHeaderCellStyles}>Date</th>
                       <th style={tableHeaderCellStyles}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {g.contributions.map((c: any) => (
-                      <tr key={c.id} style={tableRowStyles}>
-                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                          {String(c.id || '').substring(0, 8) || 'N/A'}
-                        </td>
-                        <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                          {formatCurrency(c.amount)}
-                        </td>
-                        <td style={tableCellStyles}>
-                          {c.payment_reference ||
-                            (typeof c.payment === 'string'
-                              ? c.payment
-                              : c.payment?.reference_code || c.payment?.id || 'N/A')}
-                        </td>
-                        <td style={tableCellStyles}>
-                          {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td style={tableCellStyles}>
-                          <span style={paymentStatusBadgeStyles(c.status || c.payment_status || 'COMPLETED')}>
-                            {c.status || c.payment_status || 'COMPLETED'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {g.contributions.map((c: any) => {
+                      const isConfirmed = c.status === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL';
+                      const isRejected = c.status === 'REJECTED' || c.payment_status === 'FAILED';
+                      return (
+                        <tr key={c.id} style={tableRowStyles}>
+                          <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                            <code>{c.transfer_reference || c.payment_reference || String(c.id || '').substring(0, 8)}</code>
+                          </td>
+                          <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                            {formatCurrency(c.amount)}
+                          </td>
+                          <td style={tableCellStyles}>
+                            {c.bank_name_snapshot ? (
+                              <span style={{ fontSize: '11px' }}>
+                                <strong>{c.bank_name_snapshot}</strong> ({c.account_number_snapshot})
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>Save2Own Account</span>
+                            )}
+                          </td>
+                          <td style={tableCellStyles}>
+                            {c.payment_proof ? (
+                              <a
+                                href={c.payment_proof}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: '11px', color: '#ff7a00', textDecoration: 'underline' }}
+                              >
+                                View Receipt
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>None</span>
+                            )}
+                          </td>
+                          <td style={tableCellStyles}>
+                            {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td style={tableCellStyles}>
+                            <span style={paymentStatusBadgeStyles(isConfirmed ? 'SUCCESSFUL' : isRejected ? 'FAILED' : 'PENDING')}>
+                              {isConfirmed ? 'CONFIRMED' : isRejected ? 'REJECTED' : 'PENDING'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -392,10 +419,10 @@ export default function Save2OwnGoalDetailPage() {
 const paymentStatusBadgeStyles = (status: string): React.CSSProperties => {
   let backgroundColor = '#fee2e2';
   let color = '#991b1b';
-  if (status === 'SUCCESSFUL') {
+  if (status === 'SUCCESSFUL' || status === 'CONFIRMED') {
     backgroundColor = '#d1fae5';
     color = '#065f46';
-  } else if (status === 'PENDING') {
+  } else if (status === 'PENDING' || status === 'SUBMITTED' || status === 'UNDER_REVIEW') {
     backgroundColor = '#fef3c7';
     color = '#92400e';
   }

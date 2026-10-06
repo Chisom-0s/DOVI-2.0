@@ -530,11 +530,48 @@ export type Save2OwnGoalStatus =
   | 'REFUND_PENDING'
   | 'SUSPENDED';
 
+export type Save2OwnContributionStatus =
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'REFUNDED'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface PaymentAccount {
+  id: string | null;
+  account_type: 'marketplace' | 'save2own';
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active?: boolean;
+  instructions?: string;
+  created_at?: string;
+  updated_at?: string;
+  updated_by_email?: string;
+}
+
 export interface Save2OwnContribution {
   id: string;
   amount: string;
-  payment_status: PaymentStatus;
-  payment_reference: string;
+  currency?: string;
+  status: Save2OwnContributionStatus;
+  payment_status?: PaymentStatus;
+  payment_method?: string;
+  payment_reference?: string;
+  transfer_reference?: string;
+  bank_name_snapshot?: string;
+  account_name_snapshot?: string;
+  account_number_snapshot?: string;
+  payment_proof?: string | null;
+  payment_proof_url?: string | null;
+  submitted_at?: string | null;
+  verified_at?: string | null;
+  rejection_reason?: string;
   created_at: string;
 }
 
@@ -549,6 +586,7 @@ export interface Save2OwnProductChange {
 
 export interface Save2OwnGoal {
   id: string;
+  reference_code?: string;
   product: ProductSummary;
   variant: ProductVariant | null;
   quantity: number;

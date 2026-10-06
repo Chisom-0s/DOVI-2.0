@@ -19,6 +19,8 @@ import type {
   Save2OwnGoal,
   AutoListing,
   AutoListingSummary,
+  PaymentAccount,
+  Save2OwnContributionAdmin,
 } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -857,6 +859,80 @@ export const adminApi = {
   deleteAutoListing: async (id: string): Promise<any> => {
     try {
       const { data } = await apiClient.delete(`/api/v1/admin/auto/listings/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Payment Accounts Management ---
+  listPaymentAccounts: async (): Promise<PaymentAccount[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-accounts/');
+      return Array.isArray(data) ? data : data?.results || [];
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createPaymentAccount: async (payload: Partial<PaymentAccount>): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/payment-accounts/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updatePaymentAccount: async (id: string, payload: Partial<PaymentAccount>): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/admin/payment-accounts/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  activatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/activate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deactivatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/deactivate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Contributions Verification ---
+  listSave2OwnContributions: async (params?: { page?: number; status?: string; search?: string }): Promise<PaginatedResponse<Save2OwnContributionAdmin>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  confirmSave2OwnContribution: async (id: string): Promise<{ contribution: Save2OwnContributionAdmin; goal_status: string; saved_amount: string; message: string }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/confirm/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  rejectSave2OwnContribution: async (id: string, reason: string): Promise<{ contribution: Save2OwnContributionAdmin; message: string }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reject/`, { reason });
       return data;
     } catch (err) {
       throw normalizeApiError(err);

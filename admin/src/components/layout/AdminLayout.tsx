@@ -112,6 +112,22 @@ export default function AdminLayout() {
       isViewOnly: true,
     },
     {
+      label: 'Payment Accounts',
+      path: '/payment-accounts',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 21h18"></path>
+          <path d="M3 10h18"></path>
+          <path d="M5 6l7-3 7 3"></path>
+          <path d="M4 10v11"></path>
+          <path d="M20 10v11"></path>
+          <path d="M8 14v4"></path>
+          <path d="M12 14v4"></path>
+          <path d="M16 14v4"></path>
+        </svg>
+      ),
+    },
+    {
       label: 'Refunds',
       path: '/refunds',
       icon: (

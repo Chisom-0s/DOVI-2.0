@@ -842,3 +842,59 @@ export interface PayoutBatch {
   vendor_summaries: VendorSettlementSummary[];
   order_references: string[];
 }
+
+// ----------------------------------------------------------
+// PAYMENT ACCOUNTS & SAVE2OWN CONTRIBUTIONS
+// ----------------------------------------------------------
+export type PaymentAccountType = 'marketplace' | 'save2own';
+
+export interface PaymentAccount {
+  id: string;
+  account_type: PaymentAccountType;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active: boolean;
+  instructions: string;
+  created_at: string;
+  updated_at: string;
+  updated_by_email?: string;
+}
+
+export type Save2OwnContributionStatus =
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'REFUNDED'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface Save2OwnContributionAdmin {
+  id: string;
+  goal_id: string;
+  goal_reference_code?: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  product_name: string;
+  amount: string;
+  currency: string;
+  payment_method: string;
+  payment_account_id?: string | null;
+  bank_name_snapshot?: string;
+  account_name_snapshot?: string;
+  account_number_snapshot?: string;
+  transfer_reference?: string;
+  payment_proof?: string | null;
+  status: Save2OwnContributionStatus;
+  submitted_at?: string | null;
+  verified_at?: string | null;
+  verified_by_email?: string | null;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
