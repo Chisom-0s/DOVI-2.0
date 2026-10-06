@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
 import { save2ownApi } from '@/api/save2own';
+import { notificationsApi } from '@/api/notifications';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { Product, ProductVariant, APIError } from '@/types';
 import VariantSelector from '@/components/product/VariantSelector';
@@ -77,6 +78,15 @@ export default function Save2OwnCreateGoalPage() {
       } catch {
         // Continue if already active or pending
       }
+      
+      try {
+        await notificationsApi.create(
+          'Save2Own Goal Created!',
+          'You have successfully started a new savings goal.',
+          'SUCCESS'
+        );
+      } catch (e) {}
+
       toast.success('Save2Own goal created and activated!');
       navigate(`/save2own/goals/${result.id}`);
     } catch (err: any) {

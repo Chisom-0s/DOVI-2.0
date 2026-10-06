@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { wishlistApi } from '@/api/wishlist';
+import { notificationsApi } from '@/api/notifications';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
@@ -33,12 +34,28 @@ export default function ProductCard({ product }: ProductCardProps) {
         await wishlistApi.add(product.id);
         setIsWishlisted(true);
         toast.success('Added to wishlist');
+        try {
+          await notificationsApi.create(
+            'Added to Wishlist',
+            `${product.name} was added to your wishlist.`,
+            'INFO'
+          );
+        } catch (e) {}
       }
     } catch (err) {
       console.error('Wishlist action failed:', err);
       // Fallback state toggle for demonstration if auth or API offline
       setIsWishlisted(!isWishlisted);
       toast.success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist');
+      if (!isWishlisted) {
+        try {
+          await notificationsApi.create(
+            'Added to Wishlist',
+            `${product.name} was added to your wishlist.`,
+            'INFO'
+          );
+        } catch (e) {}
+      }
     } finally {
       setIsWishlistLoading(false);
     }

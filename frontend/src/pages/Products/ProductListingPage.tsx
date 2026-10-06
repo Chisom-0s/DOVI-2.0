@@ -141,26 +141,35 @@ export default function ProductListingPage() {
 
   const hasSearched = Boolean(searchParam.trim());
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showMobileSort, setShowMobileSort] = useState(false);
   const hasActiveFilters = Boolean(searchParam || categoryParam || minPriceParam || maxPriceParam || inStockParam);
 
   const totalPages = Math.ceil(totalCount / 12);
 
   return (
     <div className="container product-listing-layout">
-      {/* Mobile Filter Toggle Button */}
-      <div className="mobile-filter-bar hide-desktop">
-        <button
-          onClick={() => setShowMobileFilters(!showMobileFilters)}
-          className="mobile-filter-toggle-btn"
-          aria-expanded={showMobileFilters}
+      {/* Floating Mobile Action Bar */}
+      <div className="mobile-floating-bar hide-desktop">
+        <button 
+          onClick={() => setShowMobileSort(true)}
+          className="floating-action-btn"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
           </svg>
-          <span>{showMobileFilters ? 'Hide Filters & Categories' : 'Filter & Categories'}</span>
-          {hasActiveFilters && (
-            <span className="mobile-filter-badge">Active</span>
-          )}
+          <span>Sort</span>
+        </button>
+        <div className="floating-divider"></div>
+        <button 
+          onClick={() => setShowMobileFilters(true)}
+          className="floating-action-btn"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span>Filter</span>
+          {hasActiveFilters && <span className="floating-badge"></span>}
         </button>
       </div>
 
@@ -168,35 +177,7 @@ export default function ProductListingPage() {
       <aside style={sidebarStyles} className={`product-listing__sidebar ${showMobileFilters ? 'product-listing__sidebar--open' : ''}`}>
         <h3 style={sidebarTitleStyles}>Filters</h3>
 
-        {/* Search Filter */}
-        <div style={filterGroupStyles}>
-          <h4 style={filterTitleStyles}>Search</h4>
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={priceInputStyles}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: 'var(--space-2) var(--space-3)',
-                backgroundColor: 'var(--color-primary)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 'var(--text-xs)',
-                fontWeight: 'var(--font-medium)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Go
-            </button>
-          </form>
-        </div>
+        {/* Removed Search Filter as requested */}
 
         {/* Category Filters */}
         <div style={filterGroupStyles}>
@@ -261,7 +242,52 @@ export default function ProductListingPage() {
             <span>In Stock Only</span>
           </label>
         </div>
+        {/* Close Button for Mobile Filters */}
+        <div className="hide-desktop" style={{ marginTop: 'var(--space-4)', textAlign: 'center' }}>
+          <button 
+            onClick={() => setShowMobileFilters(false)}
+            style={{ ...pageBtnStyles, width: '100%', backgroundColor: 'var(--color-primary)', color: 'white', border: 'none' }}
+          >
+            Apply Filters
+          </button>
+        </div>
       </aside>
+
+      {/* Mobile Sort Drawer Overlay */}
+      {showMobileSort && (
+        <div className="mobile-sort-overlay hide-desktop" onClick={() => setShowMobileSort(false)}>
+          <div className="mobile-sort-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-sort-header">
+              <h3>Sort By</h3>
+              <button onClick={() => setShowMobileSort(false)}>&times;</button>
+            </div>
+            <div className="mobile-sort-options">
+              {[
+                { value: 'newest', label: 'Newest Arrivals' },
+                { value: 'price_asc', label: 'Price: Low to High' },
+                { value: 'price_desc', label: 'Price: High to Low' },
+                { value: 'rating', label: 'Top Rated' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  className={`mobile-sort-opt ${sortParam === opt.value ? 'active' : ''}`}
+                  onClick={() => {
+                    updateFilters({ sort: opt.value });
+                    setShowMobileSort(false);
+                  }}
+                >
+                  {opt.label}
+                  {sortParam === opt.value && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Listing Content */}
       <div style={mainContentStyles}>
@@ -298,7 +324,7 @@ export default function ProductListingPage() {
               <span style={resultsCountStyles}></span>
             )}
           </div>
-          <div style={sortWrapperStyles}>
+          <div style={sortWrapperStyles} className="hide-mobile">
             <label htmlFor="sort-dropdown" style={sortLabelStyles}>Sort by:</label>
             <select
               id="sort-dropdown"
@@ -387,6 +413,166 @@ export default function ProductListingPage() {
           </div>
         )}
       </div>
+      <style>{`
+        /* Mobile Floating Filter/Sort Bar */
+        .mobile-floating-bar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 60px;
+          background-color: #ffffff;
+          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+          display: flex;
+          align-items: center;
+          z-index: 100;
+          border-top: 1px solid var(--color-border);
+        }
+        
+        .floating-action-btn {
+          flex: 1;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justifyContent: center;
+          justify-content: center;
+          gap: 8px;
+          background: none;
+          border: none;
+          color: var(--color-text);
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          position: relative;
+        }
+
+        .floating-action-btn:active {
+          background-color: var(--color-bg-subtle);
+        }
+
+        .floating-divider {
+          width: 1px;
+          height: 30px;
+          background-color: var(--color-border);
+        }
+
+        .floating-badge {
+          position: absolute;
+          top: 12px;
+          right: 35%;
+          width: 8px;
+          height: 8px;
+          background-color: var(--color-primary);
+          border-radius: 50%;
+        }
+
+        /* Mobile Sort Drawer */
+        .mobile-sort-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0,0,0,0.5);
+          z-index: 1000;
+          display: flex;
+          align-items: flex-end;
+          animation: fadeIn 0.2s ease;
+        }
+
+        .mobile-sort-drawer {
+          background-color: #ffffff;
+          width: 100%;
+          border-top-left-radius: 16px;
+          border-top-right-radius: 16px;
+          padding: 20px;
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .mobile-sort-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .mobile-sort-header h3 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 700;
+        }
+
+        .mobile-sort-header button {
+          background: none;
+          border: none;
+          font-size: 24px;
+          color: var(--color-text-muted);
+          cursor: pointer;
+        }
+
+        .mobile-sort-options {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .mobile-sort-opt {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 0;
+          background: none;
+          border: none;
+          border-bottom: 1px solid var(--color-border);
+          font-size: 15px;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+
+        .mobile-sort-opt:last-child {
+          border-bottom: none;
+        }
+
+        .mobile-sort-opt.active {
+          color: var(--color-primary);
+          font-weight: 600;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+
+        .hide-mobile {
+          display: block;
+        }
+        .hide-desktop {
+          display: none;
+        }
+
+        @media (max-width: 1023px) {
+          .hide-mobile {
+            display: none !important;
+          }
+          .hide-desktop {
+            display: flex !important;
+          }
+          .mobile-sort-overlay.hide-desktop {
+            display: flex !important;
+          }
+          .mobile-floating-bar.hide-desktop {
+            display: flex !important;
+          }
+          /* Add bottom padding to container to prevent content hiding behind floating bar */
+          .product-listing-layout {
+            padding-bottom: 80px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

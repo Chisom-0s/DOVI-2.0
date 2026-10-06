@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '@/api/auth';
+import { notificationsApi } from '@/api/notifications';
 import { ApiErrorMessage, FieldError } from '@/components/common/ApiErrorMessage';
 import type { APIError } from '@/types';
 import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
@@ -56,6 +57,13 @@ export default function RegisterPage() {
         phone: form.phone || undefined,
         role: form.role,
       });
+      try {
+        await notificationsApi.create(
+          'Welcome to Dovi!',
+          'Your account has been successfully created. Enjoy shopping with us.',
+          'SUCCESS'
+        );
+      } catch (e) {}
       setSuccess(true);
     } catch (err) {
       console.error('[RegisterPage] Caught error:', err);

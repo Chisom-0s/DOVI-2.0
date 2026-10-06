@@ -43,6 +43,23 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      await notificationsApi.delete(id);
+      setData(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          results: prev.results.filter(n => n.id !== id),
+          count: Math.max(0, prev.count - 1),
+        };
+      });
+      toast.success('Notification deleted.');
+    } catch {
+      toast.error('Failed to delete notification.');
+    }
+  };
+
   const handleMarkAllRead = async () => {
     try {
       await notificationsApi.markAllRead();
@@ -245,6 +262,10 @@ export default function NotificationsPage() {
                         Mark read
                       </button>
                     )}
+
+                    <button onClick={() => handleDelete(notif.id)} style={deleteBtnStyles}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -458,4 +479,14 @@ const emptyStyles: React.CSSProperties = {
   border: '2px dashed var(--color-border)',
   borderRadius: 'var(--radius-lg)',
   backgroundColor: 'var(--color-bg-subtle)',
+};
+
+const deleteBtnStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  fontWeight: '600',
+  color: 'var(--color-danger)',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: 'var(--space-1) var(--space-3)',
 };

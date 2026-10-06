@@ -122,21 +122,26 @@ export default function HeroBannerCarousel() {
       background-color: var(--color-bg-subtle, #f3f4f6);
       outline: none;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-      /* Balanced aspect ratio for desktop & tablet */
-      aspect-ratio: 2.8 / 1;
-      max-height: 380px;
+      /* Desktop compact horizontal banner: max 220px tall */
+      height: clamp(160px, 18vw, 220px);
     }
     
+    @media (max-width: 1024px) {
+      .hero-carousel-container {
+        height: clamp(140px, 18vw, 190px);
+      }
+    }
+
     @media (max-width: 767px) {
       .hero-carousel-container {
-        aspect-ratio: 2.5 / 1;
+        height: clamp(120px, 24vw, 150px);
         border-radius: var(--radius-md, 8px);
       }
       .hero-nav-btn {
         display: none !important;
       }
       .hero-dots {
-        bottom: 6px !important;
+        bottom: 5px !important;
       }
     }
 

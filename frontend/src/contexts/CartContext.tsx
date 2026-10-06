@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
+import { notificationsApi } from '@/api/notifications';
 import { MOCK_PRODUCTS } from '@/api/homepage';
 import { useAuth } from './AuthContext';
 
@@ -434,6 +435,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             setCart(normalized);
           }
           window.dispatchEvent(new CustomEvent('cart:updated'));
+          try {
+            await notificationsApi.create(
+              'Item Added to Cart',
+              `${effectiveName} was added to your cart.`,
+              'INFO'
+            );
+          } catch (e) {}
           return;
         } catch (err: any) {
           console.warn('Backend cart addition failed, smoothly saving in client cart:', err);
@@ -499,6 +507,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setCart(normalizeCart(currentGuest));
         }
         window.dispatchEvent(new CustomEvent('cart:updated'));
+        try {
+          await notificationsApi.create(
+            'Item Added to Cart',
+            `${effectiveName} was added to your cart.`,
+            'INFO'
+          );
+        } catch (e) {}
       } catch (err) {
         console.error('Failed to update client cart:', err);
       } finally {

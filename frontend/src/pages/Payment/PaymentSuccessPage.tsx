@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { paymentsApi } from '@/api/payments';
+import { notificationsApi } from '@/api/notifications';
 import type { Payment } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
@@ -28,6 +29,15 @@ export default function PaymentSuccessPage() {
         const ref = paymentRef || orderRef;
         const data = await paymentsApi.verify(ref);
         setPayment(data);
+        if (data.status === 'SUCCESSFUL') {
+          try {
+            await notificationsApi.create(
+              'Purchase Successful!',
+              'Your order has been confirmed. Thank you for shopping with Dovi!',
+              'SUCCESS'
+            );
+          } catch (e) {}
+        }
       } catch {
         setError('Could not verify payment. Please check your order history.');
       } finally {

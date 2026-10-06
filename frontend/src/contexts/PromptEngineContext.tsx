@@ -56,17 +56,9 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
   
   const [sessionViews, setSessionViews] = useState(0);
 
-  // Load state from localStorage
+  // Load state from localStorage with safe fallback merging
   const loadState = useCallback((): PromptDataMap => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (e) {
-      console.error('Failed to load prompt state', e);
-    }
-    return {
+    const defaults: PromptDataMap = {
       vendorVerification: { ...defaultPromptState },
       cookie: { ...defaultPromptState },
       notification: { ...defaultPromptState },
@@ -74,13 +66,36 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
       community: { ...defaultPromptState },
       mobileApp: { ...defaultPromptState }
     };
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            vendorVerification: { ...defaults.vendorVerification, ...parsed.vendorVerification },
+            cookie: { ...defaults.cookie, ...parsed.cookie },
+            notification: { ...defaults.notification, ...parsed.notification },
+            pwa: { ...defaults.pwa, ...parsed.pwa },
+            community: { ...defaults.community, ...parsed.community },
+            mobileApp: { ...defaults.mobileApp, ...parsed.mobileApp }
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load prompt state', e);
+    }
+    return defaults;
   }, []);
 
   const [promptStates, setPromptStates] = useState<PromptDataMap>(loadState());
 
   // Persist state to localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(promptStates));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(promptStates));
+    } catch (e) {
+      console.error('Failed to save prompt state', e);
+    }
   }, [promptStates]);
 
   // Track session views
@@ -95,14 +110,14 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
   }, []);
 
   const getPromptState = useCallback((type: PromptType) => {
-    return promptStates[type] || defaultPromptState;
+    return promptStates?.[type] || defaultPromptState;
   }, [promptStates]);
 
   const updatePromptState = useCallback((type: PromptType, updates: Partial<PromptState>) => {
     setPromptStates(prev => ({
       ...prev,
       [type]: {
-        ...prev[type],
+        ...(prev?.[type] || defaultPromptState),
         ...updates
       }
     }));
@@ -124,23 +139,23 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
     
     for (const type of priorityList) {
       const config = PROMPT_CONFIG[type];
-      if (!config.enabled) continue;
+      if (!config?.enabled) continue;
       if (!eligibilityMap[type]) continue; // Component says it's not eligible (e.g. unsupported, already installed)
 
-      const state = promptStates[type];
+      const state = promptStates?.[type] || defaultPromptState;
       
       // If already resolved, skip
-      if (['ACCEPTED', 'INSTALLED', 'BLOCKED'].includes(state.status)) {
+      if (['ACCEPTED', 'INSTALLED', 'BLOCKED'].includes(state?.status || '')) {
         continue;
       }
       
       // If cookie is declined, we still consider it resolved (doesn't show again)
-      if (type === 'cookie' && state.status === 'DECLINED') {
+      if (type === 'cookie' && state?.status === 'DECLINED') {
         continue;
       }
 
       // Check cooldown
-      if (state.nextEligibleAt && now < state.nextEligibleAt) {
+      if (state?.nextEligibleAt && now < state.nextEligibleAt) {
         continue;
       }
 
@@ -160,13 +175,16 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
 
   const dismissPrompt = useCallback((type: PromptType) => {
     const config = PROMPT_CONFIG[type];
-    const cooldownMs = (config as any).cooldownHours ? (config as any).cooldownHours * 60 * 60 * 1000 : 0;
+    const cooldownMs = (config as any)?.cooldownHours ? (config as any).cooldownHours * 60 * 60 * 1000 : 0;
     
+    const currentState = promptStates?.[type] || defaultPromptState;
+    const pwaState = promptStates?.pwa || defaultPromptState;
+
     // For PWA, progressively increase cooldown based on promptCount
     let finalCooldownMs = cooldownMs;
-    if (type === 'pwa' && promptStates.pwa.promptCount > 0) {
-      if (promptStates.pwa.promptCount === 1) finalCooldownMs = 24 * 60 * 60 * 1000; // 24 hours
-      else if (promptStates.pwa.promptCount === 2) finalCooldownMs = 3 * 24 * 60 * 60 * 1000; // 3 days
+    if (type === 'pwa' && (pwaState?.promptCount || 0) > 0) {
+      if (pwaState.promptCount === 1) finalCooldownMs = 24 * 60 * 60 * 1000; // 24 hours
+      else if (pwaState.promptCount === 2) finalCooldownMs = 3 * 24 * 60 * 60 * 1000; // 3 days
       else finalCooldownMs = 7 * 24 * 60 * 60 * 1000; // 7 days
     }
 
@@ -174,16 +192,17 @@ export const PromptEngineProvider = ({ children }: { children: React.ReactNode }
       status: 'DECLINED',
       lastShownAt: Date.now(),
       nextEligibleAt: Date.now() + finalCooldownMs,
-      promptCount: promptStates[type].promptCount + 1
+      promptCount: (currentState?.promptCount || 0) + 1
     });
     setActivePrompt(null);
   }, [promptStates, updatePromptState]);
 
   const acceptPrompt = useCallback((type: PromptType) => {
+    const currentState = promptStates?.[type] || defaultPromptState;
     updatePromptState(type, {
       status: type === 'pwa' || type === 'mobileApp' ? 'INSTALLED' : 'ACCEPTED',
       lastShownAt: Date.now(),
-      promptCount: promptStates[type].promptCount + 1
+      promptCount: (currentState?.promptCount || 0) + 1
     });
     setActivePrompt(null);
   }, [promptStates, updatePromptState]);

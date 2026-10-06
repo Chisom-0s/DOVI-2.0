@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { authApi } from '@/api/auth';
+import { notificationsApi } from '@/api/notifications';
 import { tokenStore } from '@/api/client';
 import type { LoginRequest, User } from '@/types';
 
@@ -84,6 +85,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await authApi.login(credentials);
     tokenStore.set(result.tokens.access);
     setUser(result.user);
+    try {
+      await notificationsApi.create(
+        'Welcome Back!',
+        'We are glad to see you again. Explore our latest deals today.',
+        'INFO'
+      );
+    } catch (e) {}
     return result.user;
     // Note: Django sets the refresh token as an httpOnly cookie
   }, []);
@@ -95,6 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await authApi.googleAuth({ id_token: idToken, role });
     tokenStore.set(result.tokens.access);
     setUser(result.user);
+    try {
+      await notificationsApi.create(
+        'Welcome Back!',
+        'We are glad to see you again. Explore our latest deals today.',
+        'INFO'
+      );
+    } catch (e) {}
     return result.user;
   }, []);
 
