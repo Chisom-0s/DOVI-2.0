@@ -123,19 +123,7 @@ export default function ProductListingPage() {
     updateFilters({ page: newPage.toString() });
   };
 
-  const [searchTerm, setSearchTerm] = useState(searchParam);
-
-  useEffect(() => {
-    setSearchTerm(searchParam);
-  }, [searchParam]);
-
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    updateFilters({ q: searchTerm.trim() || null });
-  };
-
   const handleClearSearch = () => {
-    setSearchTerm('');
     updateFilters({ q: null });
   };
 

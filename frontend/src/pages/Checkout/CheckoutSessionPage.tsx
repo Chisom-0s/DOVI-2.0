@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { checkoutApi } from '@/api/checkout';
-import { notificationsApi } from '@/api/notifications';
 import { paymentsApi } from '@/api/payments';
 import { normalizeUrl, getProductFallbackImage } from '@/utils/image';
 import type { CheckoutSession, PaymentMethod } from '@/types';
