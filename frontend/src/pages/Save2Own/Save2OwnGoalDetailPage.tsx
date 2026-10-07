@@ -42,6 +42,22 @@ export default function Save2OwnGoalDetailPage() {
   // Refund details
   const [refundStatus, setRefundStatus] = useState<any>(null);
 
+  // Participant Identity & Admin Unlock State
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
+  const [unlockCodeInput, setUnlockCodeInput] = useState('');
+  const [verifiedCode, setVerifiedCode] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [isUpdatingIdentity, setIsUpdatingIdentity] = useState(false);
+
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editReason, setEditReason] = useState('');
+
   const fetchGoalDetails = useCallback(async (showSkeleton = true) => {
     if (!id) return;
     if (showSkeleton) setIsLoading(true);
@@ -349,6 +365,83 @@ export default function Save2OwnGoalDetailPage() {
     };
   };
 
+  const handleVerifyUnlockCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !unlockCodeInput.trim()) return;
+
+    setIsVerifyingCode(true);
+    try {
+      const code = unlockCodeInput.trim().toUpperCase();
+      const res = await save2ownApi.verifyUnlockCode(id, code);
+      setVerifiedCode(code);
+      setShowUnlockModal(false);
+
+      // Pre-fill identity editing inputs
+      const p = res.participant || goal?.participant;
+      if (p) {
+        setEditFullName(p.full_name || '');
+        setEditPhone(p.phone || '');
+        setEditWhatsapp(p.whatsapp_number || '');
+        setEditAddress(p.address || '');
+        setEditCity(p.city || '');
+        setEditState(p.state || '');
+      }
+      setEditReason('');
+      setShowEditIdentityModal(true);
+
+      // Refresh goal in state with new unlock status
+      if (goal) {
+        setGoal({
+          ...goal,
+          participant: res.participant,
+        });
+      }
+
+      toast.success(
+        res.message || 'Unlock code verified! Temporary edit window is now open.'
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid, expired, or already used unlock code.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
+  const handleUpdateIdentitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    if (!editFullName.trim()) {
+      toast.error('Legal full name is required.');
+      return;
+    }
+    if (!editReason.trim()) {
+      toast.error('Please state the reason for updating this registered identity.');
+      return;
+    }
+
+    setIsUpdatingIdentity(true);
+    try {
+      await save2ownApi.updateParticipantIdentity(id, {
+        code: verifiedCode,
+        full_name: editFullName.trim(),
+        phone: editPhone.trim(),
+        whatsapp_number: editWhatsapp.trim(),
+        residential_address: editAddress.trim(),
+        city: editCity.trim(),
+        state: editState.trim(),
+        reason: editReason.trim(),
+      });
+
+      setShowEditIdentityModal(false);
+      toast.success('Save2Own identity information updated and permanently re-locked.');
+      await fetchGoalDetails(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update identity information.');
+    } finally {
+      setIsUpdatingIdentity(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container" style={pageWrapperStyles}>
@@ -590,6 +683,136 @@ export default function Save2OwnGoalDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Save2Own Participant Identity Card */}
+          <div style={cardStyles}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🔒</span>
+                <h3 style={{ ...cardTitleStyles, margin: 0 }}>Save2Own Participant Identity</h3>
+              </div>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  backgroundColor: goal.participant?.identity_locked ? 'rgba(15, 23, 42, 0.08)' : 'rgba(16, 185, 129, 0.12)',
+                  color: goal.participant?.identity_locked ? 'var(--color-text)' : '#059669',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {goal.participant?.identity_locked ? '🔒 IDENTITY LOCKED' : '🔓 EDIT WINDOW OPEN'}
+              </span>
+            </div>
+
+            <div
+              style={{
+                padding: 'var(--space-3)',
+                backgroundColor: 'var(--color-bg-subtle)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                fontSize: 'var(--text-xs)',
+                lineHeight: 1.6,
+                marginBottom: 'var(--space-3)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Registered Legal Name:</span>
+                <strong style={{ color: 'var(--color-text)' }}>{goal.participant?.full_name || 'N/A'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Email:</span>
+                <span>{goal.participant?.email || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Phone / WhatsApp:</span>
+                <span>{goal.participant?.phone || 'N/A'} / {goal.participant?.whatsapp_number || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Location:</span>
+                <span>{goal.participant?.city || 'Lagos'}, {goal.participant?.state || 'Lagos'}, {goal.participant?.country || 'Nigeria'}</span>
+              </div>
+            </div>
+
+            {goal.participant?.identity_locked ? (
+              <div>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '11px',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  🛡️ <strong>Save2Own information locked.</strong> You cannot edit your registered Save2Own information directly. If you need a legal correction, contact Dovi Support to request an authorized unlock code.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 14px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  🔑 Enter Save2Own Edit Code
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '11px',
+                    color: '#065f46',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  ⏱️ <strong>Temporary Edit Window Active!</strong> Window expires at{' '}
+                  {goal.participant?.identity_unlock_expires_at
+                    ? new Date(goal.participant.identity_unlock_expires_at).toLocaleTimeString()
+                    : '30 minutes'}
+                  . Editing will automatically re-lock upon submission.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEditIdentityModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✏️ Edit Save2Own Identity Information
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Column: Timelines & History */}
@@ -818,6 +1041,33 @@ export default function Save2OwnGoalDetailPage() {
                   📌 <strong>Instructions:</strong> {bankAccount.instructions}
                 </div>
               )}
+            </div>
+
+            {/* Section 15: Payment Account Name Warning */}
+            <div
+              style={{
+                padding: 'var(--space-3)',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              <span style={{ fontSize: '18px', lineHeight: 1 }}>⚠️</span>
+              <div>
+                <h5 style={{ margin: '0 0 2px 0', fontSize: '11px', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
+                  PAYMENT ACCOUNT NAME REQUIREMENT
+                </h5>
+                <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
+                  <strong>IMPORTANT:</strong> The account name used to make your Save2Own transfer should match the name registered on your Save2Own account (<strong>{goal.participant?.full_name || 'your registered name'}</strong>).
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#92400e' }}>
+                  Transfers from an account with a different name may require additional manual verification by administration.
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleContributeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -1055,6 +1305,216 @@ export default function Save2OwnGoalDetailPage() {
                 </div>
               )
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------
+          MODAL: Enter Save2Own Unlock Code
+          ---------------------------------------------------------- */}
+      {showUnlockModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🔑</span>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>Enter Save2Own Edit Code</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUnlockModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: 'var(--space-4)' }}>
+              Your Save2Own identity information is permanently locked to this financial agreement. If an administrator authorized a legal correction, enter your one-time unlock code below to open a temporary 30-minute editing window.
+            </p>
+
+            <form onSubmit={handleVerifyUnlockCode} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <div>
+                <label style={modalLabelStyles}>Save2Own Unlock Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. S2O-ABC123"
+                  value={unlockCodeInput}
+                  onChange={(e) => setUnlockCodeInput(e.target.value.toUpperCase())}
+                  style={{
+                    ...modalInputStyles,
+                    fontFamily: 'monospace',
+                    letterSpacing: '2px',
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                  }}
+                />
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                  One-time use code generated and authorized by Dovi administrators.
+                </span>
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockModal(false)}
+                  style={modalCancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingCode || !unlockCodeInput.trim()}
+                  style={{
+                    ...modalSubmitBtnStyles,
+                    backgroundColor: 'var(--color-primary)',
+                    opacity: isVerifyingCode || !unlockCodeInput.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isVerifyingCode ? 'Verifying Code...' : 'Verify Code & Open Edit Window'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------
+          MODAL: Edit Save2Own Identity (Temporary Window)
+          ---------------------------------------------------------- */}
+      {showEditIdentityModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>✏️</span>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>Authorized Identity Correction</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditIdentityModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '11px',
+              color: '#92400e',
+              marginBottom: 'var(--space-4)',
+              lineHeight: 1.45,
+            }}>
+              ⚖️ <strong>Permanent Audit Trail:</strong> All changes made here are recorded in the permanent audit ledger with previous and new values, authorization reference (Code: <code>{verifiedCode}</code>), and timestamps. The record will immediately re-lock upon submission.
+            </div>
+
+            <form onSubmit={handleUpdateIdentitySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <label style={modalLabelStyles}>Full Legal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  style={modalInputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                <div>
+                  <label style={modalLabelStyles}>Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+                <div>
+                  <label style={modalLabelStyles}>WhatsApp Number</label>
+                  <input
+                    type="tel"
+                    value={editWhatsapp}
+                    onChange={(e) => setEditWhatsapp(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Residential Address</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  style={modalInputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                <div>
+                  <label style={modalLabelStyles}>City</label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+                <div>
+                  <label style={modalLabelStyles}>State</label>
+                  <input
+                    type="text"
+                    value={editState}
+                    onChange={(e) => setEditState(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Reason for Identity Correction *</label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="e.g. Legal surname correction after official name update"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  style={{
+                    ...modalInputStyles,
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditIdentityModal(false)}
+                  style={modalCancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingIdentity || !editFullName.trim() || !editReason.trim()}
+                  style={{
+                    ...modalSubmitBtnStyles,
+                    backgroundColor: 'var(--color-primary)',
+                    opacity: isUpdatingIdentity || !editFullName.trim() || !editReason.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isUpdatingIdentity ? 'Submitting & Re-locking...' : 'Submit & Re-lock Identity'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

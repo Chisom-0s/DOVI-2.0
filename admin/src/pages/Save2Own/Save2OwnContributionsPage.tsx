@@ -155,6 +155,9 @@ export default function Save2OwnContributionsPage() {
           <Link to="/save2own/contributions" style={tabActiveStyles}>
             🏦 Contributions Verification ({totalCount})
           </Link>
+          <Link to="/save2own/participants" style={tabInactiveStyles}>
+            👥 Participants & Identity
+          </Link>
         </div>
       </div>
 

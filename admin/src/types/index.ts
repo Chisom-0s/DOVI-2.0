@@ -898,3 +898,76 @@ export interface Save2OwnContributionAdmin {
   created_at: string;
   updated_at: string;
 }
+
+// ----------------------------------------------------------
+// SAVE2OWN PARTICIPANTS & IDENTITY CONTROL
+// ----------------------------------------------------------
+export interface Save2OwnUnlockCode {
+  id: string;
+  code: string;
+  fee_amount: string;
+  is_used: boolean;
+  used_at?: string | null;
+  expires_at: string;
+  created_by_email?: string | null;
+  created_at: string;
+}
+
+export interface Save2OwnIdentityAuditLog {
+  id: string;
+  changed_fields: Record<string, { previous: string; new: string }>;
+  reason?: string;
+  unlock_code_display?: string | null;
+  authorized_by_email?: string | null;
+  submitted_by_email?: string | null;
+  created_at: string;
+}
+
+export interface AdminSave2OwnParticipant {
+  id: string;
+  user_id: string;
+  user_email: string;
+  goal_id: string;
+  goal_reference: string;
+  product_name: string;
+  target_amount: string;
+  saved_amount: string;
+  remaining_amount: string;
+  progress_percent: number;
+  goal_status: Save2OwnGoalStatus;
+  full_name: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  selfie_url?: string | null;
+  identity_locked: boolean;
+  identity_locked_at?: string | null;
+  identity_unlocked_at?: string | null;
+  identity_unlock_expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  audit_logs?: Save2OwnIdentityAuditLog[];
+  unlock_codes?: Save2OwnUnlockCode[];
+}
+
+export interface Save2OwnUnlockFeeHistory {
+  id: string;
+  previous_fee: string;
+  new_fee: string;
+  currency: string;
+  changed_by_email?: string | null;
+  reason?: string;
+  created_at: string;
+}
+
+export interface Save2OwnUnlockConfig {
+  fee_amount: string;
+  currency: string;
+  updated_at: string;
+  updated_by?: string | null;
+  history?: Save2OwnUnlockFeeHistory[];
+}

@@ -90,6 +90,12 @@ export default function Save2OwnGoalsPage() {
           >
             🏦 Contributions Verification
           </Link>
+          <Link
+            to="/save2own/participants"
+            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+          >
+            👥 Participants & Identity
+          </Link>
         </div>
       </div>
 

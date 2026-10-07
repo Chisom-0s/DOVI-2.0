@@ -584,6 +584,44 @@ export interface Save2OwnProductChange {
   changed_at: string;
 }
 
+export interface Save2OwnParticipant {
+  id: string;
+  user_id?: string;
+  goal_id?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  selfie_url?: string | null;
+  identity_locked: boolean;
+  identity_locked_at?: string | null;
+  identity_unlocked_at?: string | null;
+  identity_unlock_expires_at?: string | null;
+  terms_acknowledged?: boolean;
+  terms_acknowledged_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Save2OwnEligibilityResponse {
+  eligible: boolean;
+  can_create_goal: boolean;
+  message: string;
+  active_goal?: Save2OwnGoal | null;
+}
+
+export interface Save2OwnUnlockVerificationResponse {
+  success: boolean;
+  message: string;
+  identity_unlock_expires_at: string;
+  expires_in_minutes: number;
+  participant: Save2OwnParticipant;
+}
+
 export interface Save2OwnGoal {
   id: string;
   reference_code?: string;
@@ -598,6 +636,7 @@ export interface Save2OwnGoal {
   contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   installment_amount?: string;
   target_date: string | null;
+  participant?: Save2OwnParticipant | null;
   contributions: Save2OwnContribution[];
   product_changes: Save2OwnProductChange[];
   created_at: string;

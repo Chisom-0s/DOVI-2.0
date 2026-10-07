@@ -49,6 +49,18 @@ export default function AdminLayout() {
       ),
     },
     {
+      label: 'Save2Own Participants',
+      path: '/save2own/participants',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      ),
+    },
+    {
       label: 'Users',
       path: '/users',
       icon: (
@@ -161,6 +173,14 @@ export default function AdminLayout() {
   const isActive = (path: string) => {
     if (path === '/') {
       return location.pathname === '/';
+    }
+    if (path === '/save2own') {
+      return (
+        location.pathname === '/save2own' ||
+        (location.pathname.startsWith('/save2own/') &&
+          !location.pathname.startsWith('/save2own/participants') &&
+          !location.pathname.startsWith('/save2own/contributions'))
+      );
     }
     return location.pathname.startsWith(path);
   };

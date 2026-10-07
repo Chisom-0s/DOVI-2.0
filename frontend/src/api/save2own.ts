@@ -8,6 +8,9 @@ import type {
   Save2OwnContribution,
   Save2OwnProductChange,
   PaymentAccount,
+  Save2OwnParticipant,
+  Save2OwnEligibilityResponse,
+  Save2OwnUnlockVerificationResponse,
 } from '@/types';
 
 function createStubProduct(
@@ -241,15 +244,43 @@ export const save2ownApi = {
     }
   },
 
-  createGoal: async (payload: {
-    product_id: string;
-    variant_id?: string;
-    quantity: number;
-    contribution_plan?: string;
-  }): Promise<Save2OwnGoal> => {
+  checkEligibility: async (): Promise<Save2OwnEligibilityResponse> => {
     try {
-      const { data } = await apiClient.post('/api/v1/save2own/goals/', payload);
-      if (payload.contribution_plan && data?.id) {
+      const { data } = await apiClient.get('/api/v1/save2own/goals/eligibility/');
+      return {
+        ...data,
+        active_goal: data.active_goal ? normalizeGoal(data.active_goal) : null,
+      };
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createGoal: async (
+    payload:
+      | FormData
+      | {
+          product_id?: string;
+          variant_id?: string;
+          quantity: number;
+          contribution_plan?: string;
+          full_name?: string;
+          email?: string;
+          phone?: string;
+          whatsapp_number?: string;
+          residential_address?: string;
+          city?: string;
+          state?: string;
+          country?: string;
+          terms_acknowledged?: boolean;
+          selfie?: File;
+        }
+  ): Promise<Save2OwnGoal> => {
+    try {
+      const isFormData = payload instanceof FormData;
+      const headers = isFormData ? { 'Content-Type': 'multipart/form-data' } : {};
+      const { data } = await apiClient.post('/api/v1/save2own/goals/', payload, { headers });
+      if (!isFormData && payload.contribution_plan && data?.id) {
         try {
           localStorage.setItem(`s2o_plan_${data.id}`, payload.contribution_plan);
         } catch {}
@@ -410,6 +441,52 @@ export const save2ownApi = {
   getRefundStatus: async (id: string) => {
     try {
       const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/refund/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getParticipant: async (id: string): Promise<Save2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/participant/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  verifyUnlockCode: async (
+    id: string,
+    code: string
+  ): Promise<Save2OwnUnlockVerificationResponse> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/verify-unlock-code/`, {
+        code,
+      });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateParticipantIdentity: async (
+    id: string,
+    payload: {
+      code?: string;
+      full_name?: string;
+      email?: string;
+      phone?: string;
+      whatsapp_number?: string;
+      residential_address?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      reason?: string;
+    }
+  ): Promise<{ message: string; participant: Save2OwnParticipant }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/update-participant/`, payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);

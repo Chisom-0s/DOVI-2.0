@@ -21,6 +21,10 @@ import type {
   AutoListingSummary,
   PaymentAccount,
   Save2OwnContributionAdmin,
+  AdminSave2OwnParticipant,
+  Save2OwnUnlockCode,
+  Save2OwnUnlockConfig,
+  Save2OwnIdentityAuditLog,
 } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -937,6 +941,108 @@ export const adminApi = {
     } catch (err) {
       throw normalizeApiError(err);
     }
+  },
+
+  // --- Save2Own Participants & Identity Administration ---
+  listSave2OwnParticipants: async (params?: {
+    page?: number;
+    q?: string;
+    status?: string;
+    identity_locked?: string;
+  }): Promise<PaginatedResponse<AdminSave2OwnParticipant>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  lockSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/lock/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  unlockSave2OwnParticipant: async (id: string, hours = 24): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/unlock/`, { hours });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  generateSave2OwnUnlockCode: async (
+    id: string,
+    payload?: { fee_amount?: string | number; expires_hours?: number }
+  ): Promise<{ id: string; code: string; fee_amount: string; expires_at: string; participant_id: string; participant_name: string }> => {
+    try {
+      const { data } = await apiClient.post(
+        `/api/v1/admin/save2own/participants/${id}/generate-unlock-code/`,
+        payload || {}
+      );
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipantHistory: async (id: string): Promise<{
+    participant_id: string;
+    full_name: string;
+    identity_locked: boolean;
+    audit_logs: Save2OwnIdentityAuditLog[];
+    unlock_codes: Save2OwnUnlockCode[];
+  }> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/history/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnUnlockFee: async (): Promise<Save2OwnUnlockConfig> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/unlock-fee/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateSave2OwnUnlockFee: async (payload: {
+    fee_amount: string | number;
+    reason?: string;
+  }): Promise<{ message: string; fee_amount: string; currency: string; updated_at: string; updated_by?: string }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/save2own/participants/unlock-fee/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnParticipantsCsvUrl: (params?: { q?: string; status?: string; identity_locked?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.append('q', params.q);
+    if (params?.status) query.append('status', params.status);
+    if (params?.identity_locked) query.append('identity_locked', params.identity_locked);
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/participants/export-csv/${qs ? `?${qs}` : ''}`;
   },
 };
 
