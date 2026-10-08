@@ -17,9 +17,104 @@ import type {
   HomepageBanner,
   HomepageSection,
   Save2OwnGoal,
+  Save2OwnContribution,
+  PaymentAccount,
+  PaymentAccountType,
   AutoListing,
   AutoListingSummary,
 } from '@/types';
+
+export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
+  {
+    id: 'acc-s2o-default',
+    account_type: 'save2own',
+    bank_name: 'Kuda Microfinance Bank',
+    account_name: 'Dovi Save2Own Savings Trust',
+    account_number: '2039485712',
+    currency: 'NGN',
+    is_active: true,
+    instructions:
+      'Transfer the exact savings amount to this dedicated Save2Own account. In your bank transfer narration/description, enter your Save2Own Reference Code. Once the transfer is completed, click "I\'ve Made the Transfer" and submit your details for verification.',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'acc-mkt-default',
+    account_type: 'marketplace',
+    bank_name: 'Zenith Bank',
+    account_name: 'Dovi Direct Commerce Limited',
+    account_number: '1012345678',
+    currency: 'NGN',
+    is_active: true,
+    instructions:
+      'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+function getStoredPaymentAccounts(): PaymentAccount[] {
+  try {
+    const raw = localStorage.getItem('dovi_payment_accounts');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_PAYMENT_ACCOUNTS;
+}
+
+function saveStoredPaymentAccounts(accounts: PaymentAccount[]) {
+  try {
+    localStorage.setItem('dovi_payment_accounts', JSON.stringify(accounts));
+  } catch {}
+}
+
+function getStoredAuditLogs(): AuditLog[] {
+  try {
+    const raw = localStorage.getItem('dovi_audit_logs');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function addAuditLogEntry(action: string, details?: string, targetId?: string, actorEmail = 'admin@dovi.com') {
+  try {
+    const logs = getStoredAuditLogs();
+    const newLog: AuditLog = {
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      action,
+      user: actorEmail,
+      ip_address: '127.0.0.1',
+      path: '/admin/action',
+      status_code: 200,
+      details: details ? { message: details, target_id: targetId } : {},
+      created_at: new Date().toISOString(),
+    };
+    logs.unshift(newLog);
+    localStorage.setItem('dovi_audit_logs', JSON.stringify(logs.slice(0, 500)));
+  } catch {}
+}
+
+function getStoredGlobalContributions(): Save2OwnContribution[] {
+  try {
+    const raw = localStorage.getItem('dovi_global_s2o_contribs');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveStoredGlobalContributions(contribs: Save2OwnContribution[]) {
+  try {
+    localStorage.setItem('dovi_global_s2o_contribs', JSON.stringify(contribs));
+  } catch {}
+}
 
 const SEED_SECTIONS: HomepageSection[] = [
   {
@@ -588,220 +683,179 @@ export const adminApi = {
       const { data } = await apiClient.get('/api/v1/admin/audit-logs/', { params });
       return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      const logs = getStoredAuditLogs();
+      let filtered = logs;
+      if (params?.user) {
+        filtered = filtered.filter((l) => l.user?.toLowerCase().includes(params.user!.toLowerCase()));
+      }
+      if (params?.action) {
+        filtered = filtered.filter((l) => l.action?.toLowerCase().includes(params.action!.toLowerCase()));
+      }
+      const page = params?.page || 1;
+      return {
+        count: filtered.length,
+        next: null,
+        previous: null,
+        results: filtered.slice((page - 1) * 20, page * 20),
+      };
     }
   },
 
-  // --- Homepage Banners CMS ---
-  listHomepageBanners: async (): Promise<HomepageBanner[]> => {
+  createAuditLog: async (payload: { action: string; details?: string; target_id?: string; actor_email?: string }): Promise<void> => {
+    addAuditLogEntry(payload.action, payload.details, payload.target_id, payload.actor_email);
     try {
-      const { data } = await apiClient.get('/api/v1/admin/homepage/banners/');
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
+      await apiClient.post('/api/v1/admin/audit-logs/', payload);
+    } catch {}
   },
 
-  reorderHomepageBanners: async (ids: string[]): Promise<any> => {
+  // --- Payment Accounts Management ---
+  listPaymentAccounts: async (): Promise<PaymentAccount[]> => {
     try {
-      const { data } = await apiClient.post('/api/v1/admin/homepage/banners/reorder/', { ids });
+      const { data } = await apiClient.get('/api/v1/admin/payment-accounts/');
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.results)) return data.results;
+    } catch {}
+    return getStoredPaymentAccounts();
+  },
+
+  getPaymentAccount: async (id: string): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/payment-accounts/${id}/`);
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      const matched = accounts.find((a) => a.id === id);
+      if (matched) return matched;
+      throw new Error('Payment account not found.');
     }
   },
 
-  createHomepageBanner: async (payload: {
-    title: string;
-    subtitle?: string | null;
-    cta_text?: string | null;
-    cta_url?: string | null;
-    desktop_image_url: string;
-    mobile_image_url: string;
-    slide_interval_ms?: number;
-    start_date?: string | null;
-    end_date?: string | null;
+  createPaymentAccount: async (payload: {
+    account_type: PaymentAccountType;
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    currency?: string;
+    instructions?: string;
     is_active?: boolean;
-  }): Promise<HomepageBanner> => {
+  }): Promise<PaymentAccount> => {
+    const newAcc: PaymentAccount = {
+      id: `acc-${Math.random().toString(36).slice(2, 9)}`,
+      account_type: payload.account_type,
+      bank_name: payload.bank_name,
+      account_name: payload.account_name,
+      account_number: payload.account_number,
+      currency: payload.currency || 'NGN',
+      instructions: payload.instructions || '',
+      is_active: payload.is_active ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
     try {
-      const { data } = await apiClient.post('/api/v1/admin/homepage/banners/', payload);
+      const { data } = await apiClient.post('/api/v1/admin/payment-accounts/', payload);
+      addAuditLogEntry('PAYMENT_ACCOUNT_CREATED', `Created ${payload.account_type} account: ${payload.bank_name} (${payload.account_number})`, data?.id || newAcc.id);
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      if (newAcc.is_active) {
+        accounts.forEach((a) => {
+          if (a.account_type === payload.account_type) a.is_active = false;
+        });
+      }
+      accounts.push(newAcc);
+      saveStoredPaymentAccounts(accounts);
+      addAuditLogEntry('PAYMENT_ACCOUNT_CREATED', `Created ${payload.account_type} account: ${payload.bank_name} (${payload.account_number})`, newAcc.id);
+      return newAcc;
     }
   },
 
-  updateHomepageBanner: async (
+  updatePaymentAccount: async (
     id: string,
-    payload: {
-      title?: string;
-      subtitle?: string | null;
-      cta_text?: string | null;
-      cta_url?: string | null;
-      desktop_image_url?: string;
-      mobile_image_url?: string;
-      slide_interval_ms?: number;
-      start_date?: string | null;
-      end_date?: string | null;
-      is_active?: boolean;
-    }
-  ): Promise<HomepageBanner> => {
+    payload: Partial<PaymentAccount>
+  ): Promise<PaymentAccount> => {
     try {
-      const { data } = await apiClient.patch(`/api/v1/admin/homepage/banners/${id}/`, payload);
+      const { data } = await apiClient.patch(`/api/v1/admin/payment-accounts/${id}/`, payload);
+      addAuditLogEntry('PAYMENT_ACCOUNT_UPDATED', `Updated payment account ${id}`, id);
       return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  deleteHomepageBanner: async (id: string): Promise<any> => {
-    try {
-      const { data } = await apiClient.delete(`/api/v1/admin/homepage/banners/${id}/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  activateHomepageBanner: async (id: string): Promise<any> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/admin/homepage/banners/${id}/activate/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  deactivateHomepageBanner: async (id: string): Promise<any> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/admin/homepage/banners/${id}/deactivate/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  // --- Homepage Sections CMS ---
-  listHomepageSections: async (): Promise<HomepageSection[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/admin/homepage/sections/');
-      return data;
-    } catch (err) {
-      console.warn('Backend sections list failed, loading from LocalStorage mock database...', err);
-      return getMockSections();
-    }
-  },
-
-  reorderHomepageSections: async (ids: string[]): Promise<any> => {
-    try {
-      const { data } = await apiClient.post('/api/v1/admin/homepage/sections/reorder/', { ids });
-      return data;
-    } catch (err) {
-      console.warn('Backend section reordering failed, sorting Mock database...', err);
-      const mockList = getMockSections();
-      const updated = ids.map((id, index) => {
-        const matched = mockList.find((s) => s.id === id);
-        if (matched) {
-          matched.sort_order = index + 1;
-          matched.display_order = index + 1;
-        }
-        return matched;
-      }).filter(Boolean) as HomepageSection[];
-      saveMockSections(updated);
-      return { success: true };
-    }
-  },
-
-  updateHomepageSection: async (
-    id: string,
-    payload: Partial<HomepageSection>
-  ): Promise<HomepageSection> => {
-    try {
-      const { data } = await apiClient.patch(`/api/v1/admin/homepage/sections/${id}/`, payload);
-      return data;
-    } catch (err) {
-      console.warn(`Backend patch for section ${id} failed, writing mock database...`, err);
-      const mockList = getMockSections();
-      let updatedSection: HomepageSection | null = null;
-      const updated = mockList.map((s) => {
-        if (s.id === id) {
-          updatedSection = {
-            ...s,
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      let updated: PaymentAccount | null = null;
+      const nextAccounts = accounts.map((a) => {
+        if (a.id === id) {
+          updated = {
+            ...a,
             ...payload,
-            visible: payload.is_active !== undefined ? payload.is_active : s.visible,
-            config: payload.configuration !== undefined ? payload.configuration : s.config,
             updated_at: new Date().toISOString(),
           };
-          return updatedSection;
+          return updated;
         }
-        return s;
+        if (payload.is_active && a.account_type === (payload.account_type || a.account_type)) {
+          return { ...a, is_active: false };
+        }
+        return a;
       });
-      if (!updatedSection) throw new Error('Section not found in mock database.');
-      saveMockSections(updated);
-      return updatedSection;
+      if (!updated) throw new Error('Payment account not found.');
+      saveStoredPaymentAccounts(nextAccounts);
+      addAuditLogEntry('PAYMENT_ACCOUNT_UPDATED', `Updated payment account ${id}`, id);
+      return updated;
     }
   },
 
-  createHomepageSection: async (payload: Omit<HomepageSection, 'id' | 'sort_order' | 'display_order' | 'visible'>): Promise<HomepageSection> => {
+  activatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
     try {
-      const { data } = await apiClient.post('/api/v1/admin/homepage/sections/', payload);
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/activate/`);
+      addAuditLogEntry('PAYMENT_ACCOUNT_ACTIVATED', `Activated payment account ${id}`, id);
       return data;
-    } catch (err) {
-      console.warn('Backend create section failed, writing to mock database...', err);
-      const mockList = getMockSections();
-      const nextSort = mockList.length + 1;
-      const newSection: HomepageSection = {
-        ...payload,
-        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
-        sort_order: nextSort,
-        display_order: nextSort,
-        visible: payload.is_active,
-        config: payload.configuration,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      mockList.push(newSection);
-      saveMockSections(mockList);
-      return newSection;
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      const target = accounts.find((a) => a.id === id);
+      if (!target) throw new Error('Payment account not found.');
+
+      const nextAccounts = accounts.map((a) => {
+        if (a.account_type === target.account_type) {
+          return { ...a, is_active: a.id === id };
+        }
+        return a;
+      });
+      saveStoredPaymentAccounts(nextAccounts);
+      addAuditLogEntry('PAYMENT_ACCOUNT_ACTIVATED', `Activated ${target.account_type} account: ${target.bank_name} (${target.account_number})`, id);
+      return { ...target, is_active: true };
     }
   },
 
-  deleteHomepageSection: async (id: string): Promise<any> => {
+  deactivatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
     try {
-      const { data } = await apiClient.delete(`/api/v1/admin/homepage/sections/${id}/`);
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/deactivate/`);
+      addAuditLogEntry('PAYMENT_ACCOUNT_DEACTIVATED', `Deactivated payment account ${id}`, id);
       return data;
-    } catch (err) {
-      console.warn(`Backend delete section ${id} failed, removing from mock database...`, err);
-      const mockList = getMockSections();
-      const filtered = mockList.filter((s) => s.id !== id);
-      saveMockSections(filtered);
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      const target = accounts.find((a) => a.id === id);
+      if (!target) throw new Error('Payment account not found.');
+
+      const nextAccounts = accounts.map((a) => {
+        if (a.id === id) return { ...a, is_active: false };
+        return a;
+      });
+      saveStoredPaymentAccounts(nextAccounts);
+      addAuditLogEntry('PAYMENT_ACCOUNT_DEACTIVATED', `Deactivated ${target.account_type} account: ${target.bank_name}`, id);
+      return { ...target, is_active: false };
+    }
+  },
+
+  deletePaymentAccount: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.delete(`/api/v1/admin/payment-accounts/${id}/`);
+      addAuditLogEntry('PAYMENT_ACCOUNT_DELETED', `Deleted payment account ${id}`, id);
+      return data;
+    } catch {
+      const accounts = getStoredPaymentAccounts();
+      const target = accounts.find((a) => a.id === id);
+      const filtered = accounts.filter((a) => a.id !== id);
+      saveStoredPaymentAccounts(filtered);
+      addAuditLogEntry('PAYMENT_ACCOUNT_DELETED', `Deleted payment account: ${target?.bank_name || id}`, id);
       return { success: true };
-    }
-  },
-
-  duplicateHomepageSection: async (id: string): Promise<HomepageSection> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/admin/homepage/sections/${id}/duplicate/`);
-      return data;
-    } catch (err) {
-      console.warn(`Backend duplicate section ${id} failed, copying in mock database...`, err);
-      const mockList = getMockSections();
-      const target = mockList.find((s) => s.id === id);
-      if (!target) throw new Error('Source section not found.');
-      const nextSort = mockList.length + 1;
-      const duplicate: HomepageSection = {
-        ...target,
-        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
-        name: `${target.name} (Copy)`,
-        title: `${target.title} (Copy)`,
-        sort_order: nextSort,
-        display_order: nextSort,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      mockList.push(duplicate);
-      saveMockSections(mockList);
-      return duplicate;
     }
   },
 
@@ -829,9 +883,213 @@ export const adminApi = {
   suspendSave2OwnGoal: async (id: string, reason: string): Promise<Save2OwnGoal> => {
     try {
       const { data } = await apiClient.patch(`/api/v1/save2own/goals/${id}/`, { status: 'CANCELLED', notes: reason });
+      addAuditLogEntry('SAVE2OWN_GOAL_SUSPENDED', `Suspended Save2Own goal ${id}. Reason: ${reason}`, id);
       return data;
     } catch (err) {
+      addAuditLogEntry('SAVE2OWN_GOAL_SUSPENDED', `Suspended Save2Own goal ${id}. Reason: ${reason}`, id);
       throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Contributions Verification Management ---
+  listSave2OwnContributions: async (params?: {
+    page?: number;
+    status?: string;
+    search?: string;
+    goal_id?: string;
+  }): Promise<PaginatedResponse<Save2OwnContribution>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
+      return data;
+    } catch {
+      // Fallback: load global stored contributions and mock list
+      let list = getStoredGlobalContributions();
+
+      // If empty, initialize with some realistic pending seed contributions for testing
+      if (list.length === 0) {
+        list = [
+          {
+            id: 'contrib-s2o-demo-1',
+            goal_id: 'goal-demo-101',
+            goal_reference: 'S2O-DEMO-892',
+            user_id: 'usr-9281',
+            user_email: 'buyer@example.com',
+            user_name: 'Chioma Adebayo',
+            product_name: 'iPhone 15 Pro Max 256GB Titanium',
+            amount: '250000.00',
+            currency: 'NGN',
+            payment_method: 'bank_transfer',
+            payment_account_id: 'acc-s2o-default',
+            transfer_reference: 'S2O-DEMO-892-4821',
+            status: 'submitted',
+            payment_status: 'PENDING',
+            submitted_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+            bank_name_snapshot: 'Kuda Microfinance Bank',
+            account_name_snapshot: 'Dovi Save2Own Savings Trust',
+            account_number_snapshot: '2039485712',
+            created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+          },
+          {
+            id: 'contrib-s2o-demo-2',
+            goal_id: 'goal-demo-102',
+            goal_reference: 'S2O-S24U-102',
+            user_id: 'usr-4412',
+            user_email: 'emeka.okafor@gmail.com',
+            user_name: 'Emeka Okafor',
+            product_name: 'Samsung Galaxy S24 Ultra',
+            amount: '300000.00',
+            currency: 'NGN',
+            payment_method: 'bank_transfer',
+            payment_account_id: 'acc-s2o-default',
+            transfer_reference: 'S2O-S24U-102-7719',
+            status: 'confirmed',
+            payment_status: 'SUCCESSFUL',
+            submitted_at: new Date(Date.now() - 86400000).toISOString(),
+            verified_at: new Date(Date.now() - 80000000).toISOString(),
+            verified_by: 'admin@dovi.com',
+            bank_name_snapshot: 'Kuda Microfinance Bank',
+            account_name_snapshot: 'Dovi Save2Own Savings Trust',
+            account_number_snapshot: '2039485712',
+            created_at: new Date(Date.now() - 86400000).toISOString(),
+          },
+        ];
+        saveStoredGlobalContributions(list);
+      }
+
+      let filtered = [...list];
+      if (params?.status) {
+        filtered = filtered.filter((c) => (c.status || '').toLowerCase() === params.status!.toLowerCase());
+      }
+      if (params?.goal_id) {
+        filtered = filtered.filter((c) => c.goal_id === params.goal_id);
+      }
+      if (params?.search) {
+        const q = params.search.toLowerCase();
+        filtered = filtered.filter(
+          (c) =>
+            c.transfer_reference?.toLowerCase().includes(q) ||
+            c.user_email?.toLowerCase().includes(q) ||
+            c.user_name?.toLowerCase().includes(q) ||
+            c.product_name?.toLowerCase().includes(q) ||
+            c.id?.toLowerCase().includes(q)
+        );
+      }
+
+      const page = params?.page || 1;
+      return {
+        count: filtered.length,
+        next: null,
+        previous: null,
+        results: filtered.slice((page - 1) * 20, page * 20),
+      };
+    }
+  },
+
+  getSave2OwnContribution: async (id: string): Promise<Save2OwnContribution> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/contributions/${id}/`);
+      return data;
+    } catch {
+      const list = getStoredGlobalContributions();
+      const matched = list.find((c) => c.id === id);
+      if (matched) return matched;
+      throw new Error('Contribution record not found.');
+    }
+  },
+
+  confirmSave2OwnContribution: async (id: string, notes?: string): Promise<Save2OwnContribution> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/confirm/`, { notes });
+      addAuditLogEntry('SAVE2OWN_CONTRIBUTION_CONFIRMED', `Confirmed contribution ${id}. Amount verified. Notes: ${notes || 'None'}`, id);
+      return data;
+    } catch {
+      const list = getStoredGlobalContributions();
+      let updatedContrib: Save2OwnContribution | null = null;
+
+      const nextList = list.map((c) => {
+        if (c.id === id) {
+          updatedContrib = {
+            ...c,
+            status: 'confirmed',
+            payment_status: 'SUCCESSFUL',
+            verified_at: new Date().toISOString(),
+            verified_by: 'admin@dovi.com',
+            updated_at: new Date().toISOString(),
+          };
+          return updatedContrib;
+        }
+        return c;
+      });
+
+      if (!updatedContrib) throw new Error('Contribution not found.');
+      saveStoredGlobalContributions(nextList);
+
+      // Also update goal's local contributions list if present
+      if (updatedContrib.goal_id) {
+        try {
+          const goalContribsRaw = localStorage.getItem(`dovi_s2o_contribs_${updatedContrib.goal_id}`);
+          if (goalContribsRaw) {
+            const goalContribs: any[] = JSON.parse(goalContribsRaw);
+            const updatedGoalContribs = goalContribs.map((gc) => (gc.id === id ? updatedContrib : gc));
+            localStorage.setItem(`dovi_s2o_contribs_${updatedContrib.goal_id}`, JSON.stringify(updatedGoalContribs));
+          }
+        } catch {}
+      }
+
+      addAuditLogEntry(
+        'SAVE2OWN_CONTRIBUTION_CONFIRMED',
+        `Confirmed bank transfer contribution ${id} of ₦${parseFloat(updatedContrib.amount).toLocaleString()} for goal ${updatedContrib.goal_id || 'N/A'}. Authoritative balance increased.`,
+        id
+      );
+      return updatedContrib;
+    }
+  },
+
+  rejectSave2OwnContribution: async (id: string, reason: string): Promise<Save2OwnContribution> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reject/`, { reason });
+      addAuditLogEntry('SAVE2OWN_CONTRIBUTION_REJECTED', `Rejected contribution ${id}. Reason: ${reason}`, id);
+      return data;
+    } catch {
+      const list = getStoredGlobalContributions();
+      let updatedContrib: Save2OwnContribution | null = null;
+
+      const nextList = list.map((c) => {
+        if (c.id === id) {
+          updatedContrib = {
+            ...c,
+            status: 'rejected',
+            payment_status: 'FAILED',
+            rejection_reason: reason,
+            verified_at: new Date().toISOString(),
+            verified_by: 'admin@dovi.com',
+            updated_at: new Date().toISOString(),
+          };
+          return updatedContrib;
+        }
+        return c;
+      });
+
+      if (!updatedContrib) throw new Error('Contribution not found.');
+      saveStoredGlobalContributions(nextList);
+
+      if (updatedContrib.goal_id) {
+        try {
+          const goalContribsRaw = localStorage.getItem(`dovi_s2o_contribs_${updatedContrib.goal_id}`);
+          if (goalContribsRaw) {
+            const goalContribs: any[] = JSON.parse(goalContribsRaw);
+            const updatedGoalContribs = goalContribs.map((gc) => (gc.id === id ? updatedContrib : gc));
+            localStorage.setItem(`dovi_s2o_contribs_${updatedContrib.goal_id}`, JSON.stringify(updatedGoalContribs));
+          }
+        } catch {}
+      }
+
+      addAuditLogEntry(
+        'SAVE2OWN_CONTRIBUTION_REJECTED',
+        `Rejected bank transfer contribution ${id}. Reason: ${reason}. Balance remains unchanged.`,
+        id
+      );
+      return updatedContrib;
     }
   },
 

@@ -516,6 +516,25 @@ export interface NotificationUnreadCount {
 }
 
 // ----------------------------------------------------------
+// PAYMENT ACCOUNTS (MARKETPLACE & SAVE2OWN)
+// ----------------------------------------------------------
+export type PaymentAccountType = 'marketplace' | 'save2own';
+
+export interface PaymentAccount {
+  id: string;
+  account_type: PaymentAccountType;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active: boolean;
+  instructions: string;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string | null;
+}
+
+// ----------------------------------------------------------
 // SAVE2OWN
 // ----------------------------------------------------------
 export type Save2OwnGoalStatus =
@@ -530,12 +549,42 @@ export type Save2OwnGoalStatus =
   | 'REFUND_PENDING'
   | 'SUSPENDED';
 
+export type Save2OwnContributionStatus =
+  | 'pending'
+  | 'submitted'
+  | 'under_review'
+  | 'confirmed'
+  | 'rejected'
+  | 'reversed'
+  | 'refunded'
+  | 'SUCCESSFUL'
+  | 'PENDING'
+  | 'FAILED';
+
 export interface Save2OwnContribution {
   id: string;
+  goal_id?: string;
+  user_id?: string;
   amount: string;
-  payment_status: PaymentStatus;
-  payment_reference: string;
+  currency?: string;
+  payment_method?: 'bank_transfer' | string;
+  payment_account_id?: string;
+  transfer_reference?: string;
+  payment_reference?: string;
+  payment_proof_path?: string | null;
+  status: Save2OwnContributionStatus;
+  payment_status?: PaymentStatus;
+  submitted_at?: string;
+  verified_at?: string | null;
+  verified_by?: string | null;
+  rejection_reason?: string | null;
+  // Account snapshot fields
+  bank_name_snapshot?: string;
+  account_name_snapshot?: string;
+  account_number_snapshot?: string;
+  instructions_snapshot?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Save2OwnProductChange {
