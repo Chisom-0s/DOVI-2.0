@@ -842,3 +842,192 @@ export interface PayoutBatch {
   vendor_summaries: VendorSettlementSummary[];
   order_references: string[];
 }
+
+// ----------------------------------------------------------
+// PAYMENT ACCOUNTS & SAVE2OWN CONTRIBUTIONS
+// ----------------------------------------------------------
+export type PaymentAccountType = 'marketplace' | 'save2own';
+
+export interface PaymentAccount {
+  id: string;
+  account_type: PaymentAccountType;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active: boolean;
+  instructions: string;
+  created_at: string;
+  updated_at: string;
+  updated_by_email?: string;
+}
+
+export type Save2OwnContributionStatus =
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'REFUNDED'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface Save2OwnContributionAdmin {
+  id: string;
+  goal_id: string;
+  goal_reference_code?: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  product_name: string;
+  amount: string;
+  currency: string;
+  payment_method: string;
+  payment_account_id?: string | null;
+  bank_name_snapshot?: string;
+  account_name_snapshot?: string;
+  account_number_snapshot?: string;
+  transfer_reference?: string;
+  payment_proof?: string | null;
+  has_duplicate_reference?: boolean;
+  duplicate_references_count?: number;
+  status: Save2OwnContributionStatus;
+  submitted_at?: string | null;
+  verified_at?: string | null;
+  verified_by_email?: string | null;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ----------------------------------------------------------
+// PAYMENT ACCOUNT AUDIT LOG
+// ----------------------------------------------------------
+export interface PaymentAccountAuditLog {
+  id: string;
+  account: string;
+  account_type: 'marketplace' | 'save2own';
+  admin?: string | null;
+  admin_email?: string | null;
+  action: string;
+  previous_data?: Record<string, any> | null;
+  new_data?: Record<string, any> | null;
+  reason?: string;
+  ip_address?: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------
+// SAVE2OWN REFUNDS & FINANCIAL CONTROLS
+// ----------------------------------------------------------
+export type Save2OwnRefundStatus = 'PENDING' | 'APPROVED' | 'PROCESSED' | 'REJECTED';
+
+export interface Save2OwnRefund {
+  id: string;
+  goal: string;
+  goal_reference: string;
+  contribution?: string | null;
+  product_name?: string;
+  buyer_email?: string;
+  buyer_name?: string;
+  amount: string;
+  currency: string;
+  status: Save2OwnRefundStatus;
+  refund_reference: string;
+  reason?: string;
+  destination_bank_name?: string;
+  destination_account_name?: string;
+  destination_account_number?: string;
+  processed_by?: string | null;
+  processed_by_email?: string | null;
+  processed_at?: string | null;
+  admin_notes?: string;
+  created_at: string;
+}
+
+export interface Save2OwnDashboardMetrics {
+  total_participants: number;
+  active_goals: number;
+  completed_goals: number;
+  cancelled_goals: number;
+  paused_goals: number;
+  pending_contributions: number;
+  confirmed_contributions: number;
+  total_confirmed_funds: string;
+  pending_verification_amount: string;
+  refund_amount: string;
+}
+
+// ----------------------------------------------------------
+// SAVE2OWN PARTICIPANTS & IDENTITY CONTROL
+// ----------------------------------------------------------
+export interface Save2OwnUnlockCode {
+  id: string;
+  code: string;
+  fee_amount: string;
+  is_used: boolean;
+  used_at?: string | null;
+  expires_at: string;
+  created_by_email?: string | null;
+  created_at: string;
+}
+
+export interface Save2OwnIdentityAuditLog {
+  id: string;
+  changed_fields: Record<string, { previous: string; new: string }>;
+  reason?: string;
+  unlock_code_display?: string | null;
+  authorized_by_email?: string | null;
+  submitted_by_email?: string | null;
+  created_at: string;
+}
+
+export interface AdminSave2OwnParticipant {
+  id: string;
+  user_id: string;
+  user_email: string;
+  goal_id: string;
+  goal_reference: string;
+  product_name: string;
+  target_amount: string;
+  saved_amount: string;
+  remaining_amount: string;
+  progress_percent: number;
+  goal_status: Save2OwnGoalStatus;
+  full_name: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  selfie_url?: string | null;
+  identity_locked: boolean;
+  identity_locked_at?: string | null;
+  identity_unlocked_at?: string | null;
+  identity_unlock_expires_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  audit_logs?: Save2OwnIdentityAuditLog[];
+  unlock_codes?: Save2OwnUnlockCode[];
+}
+
+export interface Save2OwnUnlockFeeHistory {
+  id: string;
+  previous_fee: string;
+  new_fee: string;
+  currency: string;
+  changed_by_email?: string | null;
+  reason?: string;
+  created_at: string;
+}
+
+export interface Save2OwnUnlockConfig {
+  fee_amount: string;
+  currency: string;
+  updated_at: string;
+  updated_by?: string | null;
+  history?: Save2OwnUnlockFeeHistory[];
+}

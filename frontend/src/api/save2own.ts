@@ -3,11 +3,14 @@ import type {
   PaginatedResponse,
   Save2OwnGoal,
   Save2OwnGoalSummary,
-  PaymentInitResponse,
   ProductSummary,
   ProductVariant,
   Save2OwnContribution,
   Save2OwnProductChange,
+  PaymentAccount,
+  Save2OwnParticipant,
+  Save2OwnEligibilityResponse,
+  Save2OwnUnlockVerificationResponse,
 } from '@/types';
 
 function createStubProduct(
@@ -139,8 +142,20 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     ? raw.contributions.map((c: any) => ({
         id: c.id,
         amount: c.amount?.toString() || '0',
-        payment_status: c.payment_status || c.status || 'PENDING',
-        payment_reference: c.payment_reference || '',
+        currency: c.currency || 'NGN',
+        status: c.status || 'PENDING',
+        payment_status: c.payment_status || (c.status === 'CONFIRMED' ? 'SUCCESSFUL' : c.status === 'REJECTED' ? 'FAILED' : 'PENDING'),
+        payment_method: c.payment_method || 'bank_transfer',
+        payment_reference: c.payment_reference || c.transfer_reference || '',
+        transfer_reference: c.transfer_reference || c.payment_reference || '',
+        bank_name_snapshot: c.bank_name_snapshot || '',
+        account_name_snapshot: c.account_name_snapshot || '',
+        account_number_snapshot: c.account_number_snapshot || '',
+        payment_proof: c.payment_proof || c.payment_proof_url || null,
+        payment_proof_url: c.payment_proof_url || c.payment_proof || null,
+        submitted_at: c.submitted_at || null,
+        verified_at: c.verified_at || null,
+        rejection_reason: c.rejection_reason || '',
         created_at: c.created_at || new Date().toISOString(),
       }))
     : [];
@@ -171,12 +186,15 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
 
   return {
     id: raw.id,
+    reference_code: raw.reference_code || (raw.id ? `S2O-${raw.id.slice(0, 8).toUpperCase()}` : undefined),
     product,
     variant,
     quantity: raw.quantity || 1,
     status: raw.status || 'ACTIVE',
     target_amount: targetAmount,
     total_contributed: savedAmount,
+    confirmed_balance: raw.confirmed_balance?.toString() || savedAmount,
+    saved_amount: savedAmount,
     remaining_amount: remainingAmount,
     progress_percentage: progressPercent,
     contribution_plan: plan,
@@ -228,15 +246,43 @@ export const save2ownApi = {
     }
   },
 
-  createGoal: async (payload: {
-    product_id: string;
-    variant_id?: string;
-    quantity: number;
-    contribution_plan?: string;
-  }): Promise<Save2OwnGoal> => {
+  checkEligibility: async (): Promise<Save2OwnEligibilityResponse> => {
     try {
-      const { data } = await apiClient.post('/api/v1/save2own/goals/', payload);
-      if (payload.contribution_plan && data?.id) {
+      const { data } = await apiClient.get('/api/v1/save2own/goals/eligibility/');
+      return {
+        ...data,
+        active_goal: data.active_goal ? normalizeGoal(data.active_goal) : null,
+      };
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createGoal: async (
+    payload:
+      | FormData
+      | {
+          product_id?: string;
+          variant_id?: string;
+          quantity: number;
+          contribution_plan?: string;
+          full_name?: string;
+          email?: string;
+          phone?: string;
+          whatsapp_number?: string;
+          residential_address?: string;
+          city?: string;
+          state?: string;
+          country?: string;
+          terms_acknowledged?: boolean;
+          selfie?: File;
+        }
+  ): Promise<Save2OwnGoal> => {
+    try {
+      const isFormData = payload instanceof FormData;
+      const headers = isFormData ? { 'Content-Type': 'multipart/form-data' } : {};
+      const { data } = await apiClient.post('/api/v1/save2own/goals/', payload, { headers });
+      if (!isFormData && payload.contribution_plan && data?.id) {
         try {
           localStorage.setItem(`s2o_plan_${data.id}`, payload.contribution_plan);
         } catch {}
@@ -295,10 +341,41 @@ export const save2ownApi = {
     }
   },
 
-  cancel: async (id: string): Promise<Save2OwnGoal> => {
+  cancel: async (
+    id: string,
+    payload?: {
+      reason?: string;
+      destination_bank_name?: string;
+      destination_account_name?: string;
+      destination_account_number?: string;
+    }
+  ): Promise<Save2OwnGoal> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/cancel/`);
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/cancel/`, payload || {});
       return normalizeGoal(data);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  changeProduct: async (
+    id: string,
+    payload: { new_variant_id: string; reason?: string }
+  ): Promise<Save2OwnGoal> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/change-product/`, payload);
+      return normalizeGoal(data);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getActivePaymentAccount: async (accountType: 'save2own' | 'marketplace' = 'save2own'): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/payments/accounts/active/', {
+        params: { account_type: accountType },
+      });
+      return data;
     } catch (err) {
       throw normalizeApiError(err);
     }
@@ -306,10 +383,59 @@ export const save2ownApi = {
 
   contribute: async (
     id: string,
-    payload: { amount: string; provider: string; redirect_url: string }
-  ): Promise<PaymentInitResponse> => {
+    payload: { amount: string; transfer_reference?: string; payment_proof?: File }
+  ): Promise<{
+    contribution: Save2OwnContribution;
+    bank_account: {
+      bank_name: string;
+      account_name: string;
+      account_number: string;
+      currency: string;
+      transfer_reference: string;
+      instructions: string;
+    };
+    message: string;
+  }> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/contribute/`, payload);
+      let reqData: any = payload;
+      let headers: Record<string, string> = {};
+      if (payload.payment_proof) {
+        const formData = new FormData();
+        formData.append('amount', payload.amount);
+        if (payload.transfer_reference) {
+          formData.append('transfer_reference', payload.transfer_reference);
+        }
+        formData.append('payment_proof', payload.payment_proof);
+        reqData = formData;
+      }
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/contribute/`, reqData, { headers });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  submitProof: async (
+    id: string,
+    contribId: string,
+    payload: { transfer_reference?: string; payment_proof?: File }
+  ): Promise<{ contribution: Save2OwnContribution; message: string }> => {
+    try {
+      let reqData: any = payload;
+      let headers: Record<string, string> = {};
+      if (payload.payment_proof) {
+        const formData = new FormData();
+        if (payload.transfer_reference) {
+          formData.append('transfer_reference', payload.transfer_reference);
+        }
+        formData.append('payment_proof', payload.payment_proof);
+        reqData = formData;
+      }
+      const { data } = await apiClient.post(
+        `/api/v1/save2own/goals/${id}/contributions/${contribId}/submit/`,
+        reqData,
+        { headers }
+      );
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -337,6 +463,52 @@ export const save2ownApi = {
   getRefundStatus: async (id: string) => {
     try {
       const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/refund/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getParticipant: async (id: string): Promise<Save2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/participant/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  verifyUnlockCode: async (
+    id: string,
+    code: string
+  ): Promise<Save2OwnUnlockVerificationResponse> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/verify-unlock-code/`, {
+        code,
+      });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateParticipantIdentity: async (
+    id: string,
+    payload: {
+      code?: string;
+      full_name?: string;
+      email?: string;
+      phone?: string;
+      whatsapp_number?: string;
+      residential_address?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      reason?: string;
+    }
+  ): Promise<{ message: string; participant: Save2OwnParticipant }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/update-participant/`, payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);

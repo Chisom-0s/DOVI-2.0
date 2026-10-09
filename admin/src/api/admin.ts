@@ -19,6 +19,15 @@ import type {
   Save2OwnGoal,
   AutoListing,
   AutoListingSummary,
+  PaymentAccount,
+  Save2OwnContributionAdmin,
+  AdminSave2OwnParticipant,
+  Save2OwnUnlockCode,
+  Save2OwnUnlockConfig,
+  Save2OwnIdentityAuditLog,
+  PaymentAccountAuditLog,
+  Save2OwnRefund,
+  Save2OwnDashboardMetrics,
 } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -857,6 +866,301 @@ export const adminApi = {
   deleteAutoListing: async (id: string): Promise<any> => {
     try {
       const { data } = await apiClient.delete(`/api/v1/admin/auto/listings/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Payment Accounts Management ---
+  listPaymentAccounts: async (): Promise<PaymentAccount[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-accounts/');
+      return Array.isArray(data) ? data : data?.results || [];
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createPaymentAccount: async (payload: Partial<PaymentAccount>): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/payment-accounts/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updatePaymentAccount: async (id: string, payload: Partial<PaymentAccount>): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/admin/payment-accounts/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  activatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/activate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deactivatePaymentAccount: async (id: string): Promise<PaymentAccount> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/payment-accounts/${id}/deactivate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Contributions Verification ---
+  listSave2OwnContributions: async (params?: { page?: number; status?: string; search?: string }): Promise<PaginatedResponse<Save2OwnContributionAdmin>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  confirmSave2OwnContribution: async (id: string): Promise<{ contribution: Save2OwnContributionAdmin; goal_status: string; saved_amount: string; message: string }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/confirm/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  rejectSave2OwnContribution: async (id: string, reason: string): Promise<{ contribution: Save2OwnContributionAdmin; message: string }> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reject/`, { reason });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Participants & Identity Administration ---
+  listSave2OwnParticipants: async (params?: {
+    page?: number;
+    q?: string;
+    status?: string;
+    identity_locked?: string;
+  }): Promise<PaginatedResponse<AdminSave2OwnParticipant>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  lockSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/lock/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  unlockSave2OwnParticipant: async (id: string, hours = 24): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/unlock/`, { hours });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  generateSave2OwnUnlockCode: async (
+    id: string,
+    payload?: { fee_amount?: string | number; expires_hours?: number }
+  ): Promise<{ id: string; code: string; fee_amount: string; expires_at: string; participant_id: string; participant_name: string }> => {
+    try {
+      const { data } = await apiClient.post(
+        `/api/v1/admin/save2own/participants/${id}/generate-unlock-code/`,
+        payload || {}
+      );
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipantHistory: async (id: string): Promise<{
+    participant_id: string;
+    full_name: string;
+    identity_locked: boolean;
+    audit_logs: Save2OwnIdentityAuditLog[];
+    unlock_codes: Save2OwnUnlockCode[];
+  }> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/history/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnUnlockFee: async (): Promise<Save2OwnUnlockConfig> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/unlock-fee/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateSave2OwnUnlockFee: async (payload: {
+    fee_amount: string | number;
+    reason?: string;
+  }): Promise<{ message: string; fee_amount: string; currency: string; updated_at: string; updated_by?: string }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/save2own/participants/unlock-fee/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnParticipantsCsvUrl: (params?: { q?: string; status?: string; identity_locked?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.append('q', params.q);
+    if (params?.status) query.append('status', params.status);
+    if (params?.identity_locked) query.append('identity_locked', params.identity_locked);
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/participants/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Payment Account Audit Logs ---
+  getPaymentAccountAuditLogs: async (params?: { account_type?: string; page?: number }): Promise<PaginatedResponse<PaymentAccountAuditLog>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-accounts/audit-logs/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Financial Controls & Reversals ---
+  reverseSave2OwnContribution: async (id: string, reason: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reverse/`, { reason });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnContributionsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/contributions/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Goals Management ---
+  cancelSave2OwnGoal: async (id: string, payload?: { reason?: string; destination_bank_name?: string; destination_account_name?: string; destination_account_number?: string }): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/goals/${id}/cancel/`, payload || {});
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  changeSave2OwnGoalProduct: async (id: string, payload: { new_variant_id: string; reason?: string }): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/goals/${id}/change-product/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnGoalsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/goals/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Refunds Management ---
+  listSave2OwnRefunds: async (params?: { page?: number; status?: string; goal_id?: string; q?: string }): Promise<PaginatedResponse<Save2OwnRefund>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/refunds/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  approveSave2OwnRefund: async (id: string): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/approve/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  processSave2OwnRefund: async (id: string, payload?: { admin_notes?: string; payout_reference?: string }): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/process/`, payload || {});
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  rejectSave2OwnRefund: async (id: string, reason: string): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/reject/`, { reason });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnRefundsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/refunds/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Admin Dashboard ---
+  getSave2OwnDashboardMetrics: async (): Promise<Save2OwnDashboardMetrics> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/dashboard/');
       return data;
     } catch (err) {
       throw normalizeApiError(err);

@@ -38,6 +38,17 @@ export default function AdminLayout() {
       ),
     },
     {
+      label: 'Save2Own Dashboard',
+      path: '/save2own/dashboard',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      ),
+    },
+    {
       label: 'Save2Own Goals',
       path: '/save2own',
       icon: (
@@ -45,6 +56,28 @@ export default function AdminLayout() {
           <circle cx="12" cy="12" r="10"></circle>
           <circle cx="12" cy="12" r="6"></circle>
           <circle cx="12" cy="12" r="2"></circle>
+        </svg>
+      ),
+    },
+    {
+      label: 'Save2Own Refunds',
+      path: '/save2own/refunds',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      ),
+    },
+    {
+      label: 'Save2Own Participants',
+      path: '/save2own/participants',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
         </svg>
       ),
     },
@@ -112,6 +145,22 @@ export default function AdminLayout() {
       isViewOnly: true,
     },
     {
+      label: 'Payment Accounts',
+      path: '/payment-accounts',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 21h18"></path>
+          <path d="M3 10h18"></path>
+          <path d="M5 6l7-3 7 3"></path>
+          <path d="M4 10v11"></path>
+          <path d="M20 10v11"></path>
+          <path d="M8 14v4"></path>
+          <path d="M12 14v4"></path>
+          <path d="M16 14v4"></path>
+        </svg>
+      ),
+    },
+    {
       label: 'Refunds',
       path: '/refunds',
       icon: (
@@ -145,6 +194,14 @@ export default function AdminLayout() {
   const isActive = (path: string) => {
     if (path === '/') {
       return location.pathname === '/';
+    }
+    if (path === '/save2own') {
+      return (
+        location.pathname === '/save2own' ||
+        (location.pathname.startsWith('/save2own/') &&
+          !location.pathname.startsWith('/save2own/participants') &&
+          !location.pathname.startsWith('/save2own/contributions'))
+      );
     }
     return location.pathname.startsWith(path);
   };

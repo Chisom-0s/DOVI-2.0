@@ -2,10 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { save2ownApi } from '@/api/save2own';
-import { paymentsApi } from '@/api/payments';
 import { productsApi } from '@/api/products';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
-import type { Save2OwnGoal, PaymentMethod, Product, ProductVariant, APIError } from '@/types';
+import type { Save2OwnGoal, PaymentAccount, Product, ProductVariant, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import VariantSelector from '@/components/product/VariantSelector';
 import { NoInternetBanner } from '@/components/common/NoInternetBanner';
@@ -16,14 +15,17 @@ export default function Save2OwnGoalDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [goal, setGoal] = useState<Save2OwnGoal | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionPending, setIsActionPending] = useState(false);
   const [error, setError] = useState<APIError | null>(null);
 
-  // Contribution Modal / State
+  // Contribution Modal / State (Direct Bank Transfer)
   const [contribAmount, setContribAmount] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState('');
+  const [transferReference, setTransferReference] = useState('');
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showContribModal, setShowContribModal] = useState(false);
 
   // Edit Modal / State (Product, Variant, Qty)
@@ -37,26 +39,42 @@ export default function Save2OwnGoalDetailPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
 
+  // Cancellation / Refund Destination State
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelBankName, setCancelBankName] = useState('');
+  const [cancelAccountNumber, setCancelAccountNumber] = useState('');
+  const [cancelAccountName, setCancelAccountName] = useState('');
+
   // Refund details
   const [refundStatus, setRefundStatus] = useState<any>(null);
+
+  // Participant Identity & Admin Unlock State
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showEditIdentityModal, setShowEditIdentityModal] = useState(false);
+  const [unlockCodeInput, setUnlockCodeInput] = useState('');
+  const [verifiedCode, setVerifiedCode] = useState('');
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [isUpdatingIdentity, setIsUpdatingIdentity] = useState(false);
+
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editWhatsapp, setEditWhatsapp] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editReason, setEditReason] = useState('');
 
   const fetchGoalDetails = useCallback(async (showSkeleton = true) => {
     if (!id) return;
     if (showSkeleton) setIsLoading(true);
     setError(null);
     try {
-      const [goalData, methods] = await Promise.all([
+      const [goalData, activeAccount] = await Promise.all([
         save2ownApi.getGoal(id),
-        paymentsApi.getMethods().catch(() => [] as PaymentMethod[]),
+        save2ownApi.getActivePaymentAccount('save2own').catch(() => null),
       ]);
       setGoal(goalData);
-      setPaymentMethods(methods.filter(m => m.is_active));
-      if (methods.length > 0) {
-        const active = methods.find(m => m.is_active);
-        if (active) setSelectedProvider(active.id);
-      } else {
-        setSelectedProvider('FLUTTERWAVE');
-      }
+      setBankAccount(activeAccount);
 
       if (goalData.installment_amount) {
         setContribAmount(goalData.installment_amount);
@@ -161,11 +179,28 @@ export default function Save2OwnGoalDetailPage() {
   };
 
   const handleCancel = async () => {
-    if (!id) return;
+    if (!id || !goal) return;
+    const savedNum = parseFloat(String(goal.confirmed_balance ?? goal.saved_amount ?? 0));
+    const hasFunds = !isNaN(savedNum) && savedNum > 0;
+
+    if (hasFunds && (!cancelBankName.trim() || !cancelAccountNumber.trim() || !cancelAccountName.trim())) {
+      toast.error('Please enter your destination bank details so we can process your refund.');
+      return;
+    }
+
     setIsActionPending(true);
     try {
-      await save2ownApi.cancel(id);
-      toast.success('Goal cancelled successfully.');
+      await save2ownApi.cancel(id, {
+        reason: cancelReason.trim() || 'Goal cancelled by customer.',
+        destination_bank_name: cancelBankName.trim() || undefined,
+        destination_account_number: cancelAccountNumber.trim() || undefined,
+        destination_account_name: cancelAccountName.trim() || undefined,
+      });
+      toast.success(
+        hasFunds
+          ? 'Goal cancelled. Your refund has been submitted to the queue for admin approval & payout!'
+          : 'Goal cancelled successfully.'
+      );
       setShowCancelModal(false);
       await fetchGoalDetails(false);
     } catch (err: any) {
@@ -209,41 +244,54 @@ export default function Save2OwnGoalDetailPage() {
   };
 
   // ----------------------------------------------------------
-  // Contribution Handlers
+  // Contribution Handlers (Direct Bank Transfer)
   // ----------------------------------------------------------
+  const handleCopy = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(label);
+    toast.success(`${label} copied to clipboard!`);
+    setTimeout(() => setCopiedField(null), 2500);
+  };
+
   const openContribModal = () => {
     if (goal) {
       const defaultAmount =
         goal.installment_amount ||
-        (goal.target_amount ? Math.ceil(parseFloat(goal.target_amount) / 10).toString() : '');
+        (goal.remaining_amount && parseFloat(goal.remaining_amount) > 0
+          ? goal.remaining_amount
+          : goal.target_amount
+          ? Math.ceil(parseFloat(goal.target_amount) / 10).toString()
+          : '');
       setContribAmount(defaultAmount);
+      setTransferReference('');
+      setPaymentProofFile(null);
+      setPaymentProofPreview(null);
     }
     setShowContribModal(true);
   };
 
   const handleContributeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !contribAmount || !selectedProvider) {
-      toast.error('Please enter a valid amount and select provider.');
+    if (!id || !contribAmount || parseFloat(contribAmount) <= 0) {
+      toast.error('Please enter a valid contribution amount.');
       return;
     }
     setIsActionPending(true);
     try {
-      const payload = {
+      await save2ownApi.contribute(id, {
         amount: contribAmount,
-        provider: selectedProvider,
-        redirect_url: `${window.location.origin}/save2own/goals/${id}?verifyRef=true`,
-      };
-      const result = await save2ownApi.contribute(id, payload);
-      if (result.payment_link) {
-        window.location.href = result.payment_link;
-      } else {
-        toast.success('Payment initialized.');
-        setShowContribModal(false);
-        await fetchGoalDetails(false);
-      }
+        transfer_reference: transferReference.trim() || undefined,
+        payment_proof: paymentProofFile || undefined,
+      });
+      toast.success('Transfer submitted! Your contribution is pending verification.');
+      setShowContribModal(false);
+      setPaymentProofFile(null);
+      setPaymentProofPreview(null);
+      setTransferReference('');
+      await fetchGoalDetails(false);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to initialize contribution payment.');
+      toast.error(err.message || 'Failed to submit transfer.');
     } finally {
       setIsActionPending(false);
     }
@@ -278,12 +326,20 @@ export default function Save2OwnGoalDetailPage() {
     if (!id || !goal) return;
     setIsActionPending(true);
     try {
-      const payload = {
-        variant_id: editVariant?.id || undefined,
-        quantity: editQuantity,
-      };
-      await save2ownApi.updateGoal(id, payload);
-      toast.success('Goal updated successfully.');
+      if (editVariant && editVariant.id !== goal.variant?.id && goal.status === 'ACTIVE') {
+        await save2ownApi.changeProduct(id, {
+          new_variant_id: editVariant.id,
+          reason: 'Variant target updated by customer.',
+        });
+        toast.success('Goal target variant updated successfully!');
+      } else {
+        const payload = {
+          variant_id: editVariant?.id || undefined,
+          quantity: editQuantity,
+        };
+        await save2ownApi.updateGoal(id, payload);
+        toast.success('Goal updated successfully.');
+      }
       setShowEditModal(false);
       await fetchGoalDetails(false);
     } catch (err: any) {
@@ -340,6 +396,83 @@ export default function Save2OwnGoalDetailPage() {
     };
   };
 
+  const handleVerifyUnlockCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !unlockCodeInput.trim()) return;
+
+    setIsVerifyingCode(true);
+    try {
+      const code = unlockCodeInput.trim().toUpperCase();
+      const res = await save2ownApi.verifyUnlockCode(id, code);
+      setVerifiedCode(code);
+      setShowUnlockModal(false);
+
+      // Pre-fill identity editing inputs
+      const p = res.participant || goal?.participant;
+      if (p) {
+        setEditFullName(p.full_name || '');
+        setEditPhone(p.phone || '');
+        setEditWhatsapp(p.whatsapp_number || '');
+        setEditAddress(p.address || '');
+        setEditCity(p.city || '');
+        setEditState(p.state || '');
+      }
+      setEditReason('');
+      setShowEditIdentityModal(true);
+
+      // Refresh goal in state with new unlock status
+      if (goal) {
+        setGoal({
+          ...goal,
+          participant: res.participant,
+        });
+      }
+
+      toast.success(
+        res.message || 'Unlock code verified! Temporary edit window is now open.'
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid, expired, or already used unlock code.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  };
+
+  const handleUpdateIdentitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    if (!editFullName.trim()) {
+      toast.error('Legal full name is required.');
+      return;
+    }
+    if (!editReason.trim()) {
+      toast.error('Please state the reason for updating this registered identity.');
+      return;
+    }
+
+    setIsUpdatingIdentity(true);
+    try {
+      await save2ownApi.updateParticipantIdentity(id, {
+        code: verifiedCode,
+        full_name: editFullName.trim(),
+        phone: editPhone.trim(),
+        whatsapp_number: editWhatsapp.trim(),
+        residential_address: editAddress.trim(),
+        city: editCity.trim(),
+        state: editState.trim(),
+        reason: editReason.trim(),
+      });
+
+      setShowEditIdentityModal(false);
+      toast.success('Save2Own identity information updated and permanently re-locked.');
+      await fetchGoalDetails(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update identity information.');
+    } finally {
+      setIsUpdatingIdentity(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container" style={pageWrapperStyles}>
@@ -384,7 +517,7 @@ export default function Save2OwnGoalDetailPage() {
   }
 
   const formattedTarget = formatCurrency(goal.target_amount);
-  const formattedContributed = formatCurrency(goal.total_contributed);
+  const formattedContributed = formatCurrency(goal.confirmed_balance ?? goal.saved_amount ?? goal.total_contributed);
   const formattedRemaining = formatCurrency(goal.remaining_amount);
 
   return (
@@ -581,6 +714,136 @@ export default function Save2OwnGoalDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Save2Own Participant Identity Card */}
+          <div style={cardStyles}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>🔒</span>
+                <h3 style={{ ...cardTitleStyles, margin: 0 }}>Save2Own Participant Identity</h3>
+              </div>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-full)',
+                  backgroundColor: goal.participant?.identity_locked ? 'rgba(15, 23, 42, 0.08)' : 'rgba(16, 185, 129, 0.12)',
+                  color: goal.participant?.identity_locked ? 'var(--color-text)' : '#059669',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {goal.participant?.identity_locked ? '🔒 IDENTITY LOCKED' : '🔓 EDIT WINDOW OPEN'}
+              </span>
+            </div>
+
+            <div
+              style={{
+                padding: 'var(--space-3)',
+                backgroundColor: 'var(--color-bg-subtle)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                fontSize: 'var(--text-xs)',
+                lineHeight: 1.6,
+                marginBottom: 'var(--space-3)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Registered Legal Name:</span>
+                <strong style={{ color: 'var(--color-text)' }}>{goal.participant?.full_name || 'N/A'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Email:</span>
+                <span>{goal.participant?.email || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Phone / WhatsApp:</span>
+                <span>{goal.participant?.phone || 'N/A'} / {goal.participant?.whatsapp_number || 'N/A'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>Location:</span>
+                <span>{goal.participant?.city || 'Lagos'}, {goal.participant?.state || 'Lagos'}, {goal.participant?.country || 'Nigeria'}</span>
+              </div>
+            </div>
+
+            {goal.participant?.identity_locked ? (
+              <div>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '11px',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  🛡️ <strong>Save2Own information locked.</strong> You cannot edit your registered Save2Own information directly. If you need a legal correction, contact Dovi Support to request an authorized unlock code.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 14px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  🔑 Enter Save2Own Edit Code
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '11px',
+                    color: '#065f46',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  ⏱️ <strong>Temporary Edit Window Active!</strong> Window expires at{' '}
+                  {goal.participant?.identity_unlock_expires_at
+                    ? new Date(goal.participant.identity_unlock_expires_at).toLocaleTimeString()
+                    : '30 minutes'}
+                  . Editing will automatically re-lock upon submission.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEditIdentityModal(true)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✏️ Edit Save2Own Identity Information
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Column: Timelines & History */}
@@ -590,21 +853,74 @@ export default function Save2OwnGoalDetailPage() {
             <h3 style={cardTitleStyles}>Contribution History</h3>
             {goal.contributions && goal.contributions.length > 0 ? (
               <div style={timelineWrapperStyles}>
-                {goal.contributions.map((c) => (
-                  <div key={c.id} style={timelineRowStyles}>
-                    <div style={timelineDotStyles(c.payment_status)} />
-                    <div style={timelineContentStyles}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={timelineAmountStyles}>{formatCurrency(c.amount)}</span>
-                        <span style={timelineStatusBadgeStyles(c.payment_status)}>{c.payment_status}</span>
-                      </div>
-                      <div style={timelineMetaRowStyles}>
-                        <span>Ref: {c.payment_reference}</span>
-                        <span>{new Date(c.created_at).toLocaleString()}</span>
+                {goal.contributions.map((c) => {
+                  const isConfirmed = c.status === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL';
+                  const isRejected = c.status === 'REJECTED' || c.payment_status === 'FAILED';
+                  const statusLabel = isConfirmed
+                    ? 'CONFIRMED'
+                    : isRejected
+                    ? 'REJECTED'
+                    : 'PENDING VERIFICATION';
+
+                  return (
+                    <div key={c.id} style={timelineRowStyles}>
+                      <div
+                        style={{
+                          ...timelineDotStyles(isConfirmed ? 'SUCCESSFUL' : isRejected ? 'FAILED' : 'PENDING'),
+                          backgroundColor: isConfirmed ? '#10b981' : isRejected ? '#ef4444' : '#f59e0b',
+                        }}
+                      />
+                      <div style={timelineContentStyles}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={timelineAmountStyles}>{formatCurrency(c.amount)}</span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              textTransform: 'uppercase',
+                              backgroundColor: isConfirmed
+                                ? 'rgba(16, 185, 129, 0.12)'
+                                : isRejected
+                                ? 'rgba(239, 68, 68, 0.12)'
+                                : 'rgba(245, 158, 11, 0.15)',
+                              color: isConfirmed ? '#059669' : isRejected ? '#dc2626' : '#d97706',
+                            }}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div style={timelineMetaRowStyles}>
+                          <span>Ref: {c.transfer_reference || c.payment_reference || 'N/A'}</span>
+                          <span>{new Date(c.created_at).toLocaleString()}</span>
+                        </div>
+                        {c.bank_name_snapshot && (
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                            Paid to: <strong>{c.bank_name_snapshot}</strong> ({c.account_number_snapshot})
+                          </div>
+                        )}
+                        {c.payment_proof && (
+                          <div style={{ fontSize: '11px', marginTop: '3px' }}>
+                            <a
+                              href={c.payment_proof}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}
+                            >
+                              📎 View Payment Receipt
+                            </a>
+                          </div>
+                        )}
+                        {c.rejection_reason && (
+                          <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '2px', fontWeight: 500 }}>
+                            Rejection Reason: {c.rejection_reason}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--space-4) 0' }}>
@@ -648,15 +964,150 @@ export default function Save2OwnGoalDetailPage() {
           ---------------------------------------------------------- */}
       {showContribModal && (
         <div style={modalBackdropStyles}>
-          <div style={modalContentStyles}>
-            <h3 style={modalTitleStyles}>Make Contribution</h3>
+          <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🏦</span>
+                <div>
+                  <h3 style={{ ...modalTitleStyles, margin: 0, fontSize: '18px' }}>SAVE2OWN BANK TRANSFER</h3>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Dedicated Direct Commerce Account</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowContribModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Dedicated Save2Own Bank Account Details Card */}
+            <div
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-4)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                  Bank Name
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                  {bankAccount?.bank_name || 'Dovi Partner Bank'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+                  Account Name
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                  {bankAccount?.account_name || 'DOVI DIRECT / SAVE2OWN'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block' }}>
+                    Account Number
+                  </span>
+                  <span style={{ fontSize: '18px', fontWeight: 'var(--font-extrabold)', letterSpacing: '1px', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
+                    {bankAccount?.account_number || '0123456789'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(bankAccount?.account_number || '', 'Account Number')}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: copiedField === 'Account Number' ? '#10b981' : 'var(--color-primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedField === 'Account Number' ? '✓ Copied' : 'Copy Number'}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block' }}>
+                    Transfer Reference / Narration
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)', fontFamily: 'monospace' }}>
+                    {goal.reference_code || `S2O-${goal.id.slice(0, 8).toUpperCase()}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(goal.reference_code || `S2O-${goal.id.slice(0, 8).toUpperCase()}`, 'Transfer Reference')}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: copiedField === 'Transfer Reference' ? '#10b981' : 'rgba(255, 122, 0, 0.12)',
+                    color: copiedField === 'Transfer Reference' ? '#ffffff' : 'var(--color-primary)',
+                    border: '1px solid var(--color-primary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedField === 'Transfer Reference' ? '✓ Copied' : 'Copy Ref'}
+                </button>
+              </div>
+
+              {bankAccount?.instructions && (
+                <div style={{ marginTop: 'var(--space-1)', padding: 'var(--space-2) var(--space-3)', backgroundColor: 'rgba(255, 159, 67, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  📌 <strong>Instructions:</strong> {bankAccount.instructions}
+                </div>
+              )}
+            </div>
+
+            {/* Section 15: Payment Account Name Warning */}
+            <div
+              style={{
+                padding: 'var(--space-3)',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
+                marginBottom: 'var(--space-4)',
+              }}
+            >
+              <span style={{ fontSize: '18px', lineHeight: 1 }}>⚠️</span>
+              <div>
+                <h5 style={{ margin: '0 0 2px 0', fontSize: '11px', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
+                  PAYMENT ACCOUNT NAME REQUIREMENT
+                </h5>
+                <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
+                  <strong>IMPORTANT:</strong> The account name used to make your Save2Own transfer should match the name registered on your Save2Own account (<strong>{goal.participant?.full_name || 'your registered name'}</strong>).
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#92400e' }}>
+                  Transfers from an account with a different name may require additional manual verification by administration.
+                </p>
+              </div>
+            </div>
+
             <form onSubmit={handleContributeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-1)' }}>
-                  <label style={modalLabelStyles}>Amount to Save (NGN)</label>
-                  {goal.contribution_plan && (
+                  <label style={modalLabelStyles}>Amount to Save (NGN) *</label>
+                  {goal.installment_amount && (
                     <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>
-                      Schedule: {goal.contribution_plan}
+                      Schedule: ₦{parseFloat(goal.installment_amount).toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -664,7 +1115,7 @@ export default function Save2OwnGoalDetailPage() {
                   type="number"
                   min="1"
                   required
-                  placeholder="Enter contribution amount"
+                  placeholder="Enter amount transferred"
                   value={contribAmount}
                   onChange={(e) => setContribAmount(e.target.value)}
                   style={modalInputStyles}
@@ -710,59 +1161,68 @@ export default function Save2OwnGoalDetailPage() {
               </div>
 
               <div>
-                <label style={modalLabelStyles}>Select Payment Provider</label>
-                {paymentMethods.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    <label
-                      style={{
-                        ...providerLabelStyles,
-                        borderColor: selectedProvider === 'FLUTTERWAVE' ? 'var(--color-primary)' : 'var(--color-border)',
-                        backgroundColor: selectedProvider === 'FLUTTERWAVE' ? 'rgba(255, 122, 0, 0.04)' : '#ffffff',
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="contrib_provider"
-                        value="FLUTTERWAVE"
-                        checked={selectedProvider === 'FLUTTERWAVE'}
-                        onChange={() => setSelectedProvider('FLUTTERWAVE')}
-                        style={{ marginRight: 'var(--space-2)' }}
-                      />
-                      <span>Flutterwave (Card, Bank Transfer, USSD)</span>
-                    </label>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    {paymentMethods.map((pm) => (
-                      <label
-                        key={pm.id}
-                        style={{
-                          ...providerLabelStyles,
-                          borderColor: selectedProvider === pm.id ? 'var(--color-primary)' : 'var(--color-border)',
-                          backgroundColor: selectedProvider === pm.id ? 'rgba(255, 122, 0, 0.04)' : '#ffffff',
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="contrib_provider"
-                          value={pm.id}
-                          checked={selectedProvider === pm.id}
-                          onChange={() => setSelectedProvider(pm.id)}
-                          style={{ marginRight: 'var(--space-2)' }}
-                        />
-                        <span>{pm.name}</span>
-                      </label>
-                    ))}
+                <label style={modalLabelStyles}>Sender Bank Narration / Reference (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sender Name or Bank Transaction Ref"
+                  value={transferReference}
+                  onChange={(e) => setTransferReference(e.target.value)}
+                  style={modalInputStyles}
+                />
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Payment Receipt / Proof (Optional)</label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setPaymentProofFile(file);
+                    if (file && file.type.startsWith('image/')) {
+                      setPaymentProofPreview(URL.createObjectURL(file));
+                    } else {
+                      setPaymentProofPreview(null);
+                    }
+                  }}
+                  style={{ ...modalInputStyles, padding: '8px' }}
+                />
+                {paymentProofPreview && (
+                  <div style={{ marginTop: 'var(--space-2)' }}>
+                    <img src={paymentProofPreview} alt="Receipt preview" style={{ maxHeight: '90px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
                   </div>
                 )}
               </div>
 
+              <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 'var(--radius-sm)', padding: '10px', fontSize: '11px', color: '#1d4ed8', lineHeight: 1.4 }}>
+                ℹ️ Status will be set to <strong>Pending Verification</strong> until our finance admin verifies the credit. Your goal balance will automatically update once confirmed.
+              </div>
+
               <div style={modalActionsStyles}>
-                <button type="button" onClick={() => setShowContribModal(false)} style={modalCancelBtnStyles}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowContribModal(false);
+                    setPaymentProofFile(null);
+                    setPaymentProofPreview(null);
+                  }}
+                  style={modalCancelBtnStyles}
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={isActionPending} style={modalSubmitBtnStyles}>
-                  {isActionPending ? 'Redirecting...' : 'Initialize Payment'}
+                <button
+                  type="submit"
+                  disabled={isActionPending}
+                  style={{
+                    ...modalSubmitBtnStyles,
+                    backgroundColor: 'var(--color-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  {isActionPending ? 'Submitting Transfer...' : "I've Made the Transfer"}
                 </button>
               </div>
             </form>
@@ -797,17 +1257,75 @@ export default function Save2OwnGoalDetailPage() {
           ---------------------------------------------------------- */}
       {showCancelModal && (
         <div style={modalBackdropStyles}>
-          <div style={modalContentStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
             <h3 style={modalTitleStyles}>Cancel Goal</h3>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-4) 0' }}>
-              Are you sure you want to cancel this goal? Any contributions made will be queued for refund automatically. This action is irreversible.
-            </p>
+            {parseFloat(String(goal.confirmed_balance ?? goal.saved_amount ?? 0)) > 0 ? (
+              <>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-3) 0' }}>
+                  You currently have <strong>{formattedContributed}</strong> saved in this goal. Upon cancellation, this amount will be immediately queued for an administrative refund payout.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                  <div>
+                    <label style={modalLabelStyles}>Cancellation Reason</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Changed plans / Emergency"
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Bank Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. GTBank, Zenith Bank, Access Bank"
+                      value={cancelBankName}
+                      onChange={(e) => setCancelBankName(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Account Number *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 0123456789"
+                      value={cancelAccountNumber}
+                      onChange={(e) => setCancelAccountNumber(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Account Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Full legal account name"
+                      value={cancelAccountName}
+                      onChange={(e) => setCancelAccountName(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-4) 0' }}>
+                Are you sure you want to cancel this goal? Since no verified funds have been contributed yet, this goal will be cancelled immediately without a refund request.
+              </p>
+            )}
+
             <div style={modalActionsStyles}>
               <button type="button" onClick={() => setShowCancelModal(false)} style={modalCancelBtnStyles}>
                 Go Back
               </button>
               <button type="button" onClick={handleCancel} disabled={isActionPending} style={modalDangerSubmitBtnStyles}>
-                Yes, Cancel Goal
+                {isActionPending ? 'Cancelling...' : 'Yes, Cancel Goal'}
               </button>
             </div>
           </div>
@@ -876,6 +1394,216 @@ export default function Save2OwnGoalDetailPage() {
                 </div>
               )
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------
+          MODAL: Enter Save2Own Unlock Code
+          ---------------------------------------------------------- */}
+      {showUnlockModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🔑</span>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>Enter Save2Own Edit Code</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUnlockModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: 'var(--space-4)' }}>
+              Your Save2Own identity information is permanently locked to this financial agreement. If an administrator authorized a legal correction, enter your one-time unlock code below to open a temporary 30-minute editing window.
+            </p>
+
+            <form onSubmit={handleVerifyUnlockCode} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <div>
+                <label style={modalLabelStyles}>Save2Own Unlock Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. S2O-ABC123"
+                  value={unlockCodeInput}
+                  onChange={(e) => setUnlockCodeInput(e.target.value.toUpperCase())}
+                  style={{
+                    ...modalInputStyles,
+                    fontFamily: 'monospace',
+                    letterSpacing: '2px',
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                  }}
+                />
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                  One-time use code generated and authorized by Dovi administrators.
+                </span>
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setShowUnlockModal(false)}
+                  style={modalCancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingCode || !unlockCodeInput.trim()}
+                  style={{
+                    ...modalSubmitBtnStyles,
+                    backgroundColor: 'var(--color-primary)',
+                    opacity: isVerifyingCode || !unlockCodeInput.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isVerifyingCode ? 'Verifying Code...' : 'Verify Code & Open Edit Window'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------
+          MODAL: Edit Save2Own Identity (Temporary Window)
+          ---------------------------------------------------------- */}
+      {showEditIdentityModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>✏️</span>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>Authorized Identity Correction</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditIdentityModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '11px',
+              color: '#92400e',
+              marginBottom: 'var(--space-4)',
+              lineHeight: 1.45,
+            }}>
+              ⚖️ <strong>Permanent Audit Trail:</strong> All changes made here are recorded in the permanent audit ledger with previous and new values, authorization reference (Code: <code>{verifiedCode}</code>), and timestamps. The record will immediately re-lock upon submission.
+            </div>
+
+            <form onSubmit={handleUpdateIdentitySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <label style={modalLabelStyles}>Full Legal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  style={modalInputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                <div>
+                  <label style={modalLabelStyles}>Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+                <div>
+                  <label style={modalLabelStyles}>WhatsApp Number</label>
+                  <input
+                    type="tel"
+                    value={editWhatsapp}
+                    onChange={(e) => setEditWhatsapp(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Residential Address</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  style={modalInputStyles}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                <div>
+                  <label style={modalLabelStyles}>City</label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+                <div>
+                  <label style={modalLabelStyles}>State</label>
+                  <input
+                    type="text"
+                    value={editState}
+                    onChange={(e) => setEditState(e.target.value)}
+                    style={modalInputStyles}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Reason for Identity Correction *</label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="e.g. Legal surname correction after official name update"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  style={{
+                    ...modalInputStyles,
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditIdentityModal(false)}
+                  style={modalCancelBtnStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingIdentity || !editFullName.trim() || !editReason.trim()}
+                  style={{
+                    ...modalSubmitBtnStyles,
+                    backgroundColor: 'var(--color-primary)',
+                    opacity: isUpdatingIdentity || !editFullName.trim() || !editReason.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isUpdatingIdentity ? 'Submitting & Re-locking...' : 'Submit & Re-lock Identity'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1190,18 +1918,6 @@ const timelineAmountStyles: React.CSSProperties = {
   color: 'var(--color-text)',
 };
 
-const timelineStatusBadgeStyles = (status: string): React.CSSProperties => {
-  let color = 'var(--color-text-muted)';
-  if (status === 'SUCCESSFUL') color = 'var(--color-success)';
-  else if (status === 'FAILED') color = 'var(--color-danger)';
-  else if (status === 'PENDING') color = 'var(--color-warning)';
-
-  return {
-    fontSize: '9px',
-    fontWeight: 'var(--font-bold)',
-    color,
-  };
-};
 
 const timelineMetaRowStyles: React.CSSProperties = {
   display: 'flex',
@@ -1286,17 +2002,6 @@ const modalInputStyles: React.CSSProperties = {
   outline: 'none',
 };
 
-const providerLabelStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  padding: '10px 14px',
-  border: '2px solid',
-  borderRadius: 'var(--radius-md)',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-medium)',
-  cursor: 'pointer',
-  transition: 'all var(--transition-fast)',
-};
 
 const modalActionsStyles: React.CSSProperties = {
   display: 'flex',

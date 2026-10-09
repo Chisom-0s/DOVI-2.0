@@ -530,11 +530,48 @@ export type Save2OwnGoalStatus =
   | 'REFUND_PENDING'
   | 'SUSPENDED';
 
+export type Save2OwnContributionStatus =
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'REFUNDED'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface PaymentAccount {
+  id: string | null;
+  account_type: 'marketplace' | 'save2own';
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  currency: string;
+  is_active?: boolean;
+  instructions?: string;
+  created_at?: string;
+  updated_at?: string;
+  updated_by_email?: string;
+}
+
 export interface Save2OwnContribution {
   id: string;
   amount: string;
-  payment_status: PaymentStatus;
-  payment_reference: string;
+  currency?: string;
+  status: Save2OwnContributionStatus;
+  payment_status?: PaymentStatus;
+  payment_method?: string;
+  payment_reference?: string;
+  transfer_reference?: string;
+  bank_name_snapshot?: string;
+  account_name_snapshot?: string;
+  account_number_snapshot?: string;
+  payment_proof?: string | null;
+  payment_proof_url?: string | null;
+  submitted_at?: string | null;
+  verified_at?: string | null;
+  rejection_reason?: string;
   created_at: string;
 }
 
@@ -547,19 +584,61 @@ export interface Save2OwnProductChange {
   changed_at: string;
 }
 
+export interface Save2OwnParticipant {
+  id: string;
+  user_id?: string;
+  goal_id?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  selfie_url?: string | null;
+  identity_locked: boolean;
+  identity_locked_at?: string | null;
+  identity_unlocked_at?: string | null;
+  identity_unlock_expires_at?: string | null;
+  terms_acknowledged?: boolean;
+  terms_acknowledged_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Save2OwnEligibilityResponse {
+  eligible: boolean;
+  can_create_goal: boolean;
+  message: string;
+  active_goal?: Save2OwnGoal | null;
+}
+
+export interface Save2OwnUnlockVerificationResponse {
+  success: boolean;
+  message: string;
+  identity_unlock_expires_at: string;
+  expires_in_minutes: number;
+  participant: Save2OwnParticipant;
+}
+
 export interface Save2OwnGoal {
   id: string;
+  reference_code?: string;
   product: ProductSummary;
   variant: ProductVariant | null;
   quantity: number;
   status: Save2OwnGoalStatus;
   target_amount: string;
   total_contributed: string;
+  confirmed_balance?: string;
+  saved_amount?: string;
   remaining_amount: string;
   progress_percentage: number;
   contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   installment_amount?: string;
   target_date: string | null;
+  participant?: Save2OwnParticipant | null;
   contributions: Save2OwnContribution[];
   product_changes: Save2OwnProductChange[];
   created_at: string;
