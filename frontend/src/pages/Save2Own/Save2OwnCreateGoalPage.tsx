@@ -241,6 +241,24 @@ export default function Save2OwnCreateGoalPage() {
     } catch (err: any) {
       setError(err);
       const apiErr = err as APIError;
+      const errMsg = apiErr?.message || '';
+
+      if (
+        errMsg.toLowerCase().includes('unexpected') ||
+        errMsg.toLowerCase().includes('server error') ||
+        apiErr?.code === 'SERVER_ERROR'
+      ) {
+        try {
+          const check = await save2ownApi.checkEligibility();
+          if (!check.can_create_goal && check.active_goal) {
+            setEligibility(check);
+            toast.error('You already have an active Save2Own goal. Only one active goal is permitted.');
+            navigate(`/save2own/goals/${check.active_goal.id}`);
+            return;
+          }
+        } catch {}
+      }
+
       if (apiErr?.details && typeof apiErr.details === 'object' && 'active_goal' in apiErr.details) {
         toast.error('You already have an active Save2Own goal.');
       } else {
