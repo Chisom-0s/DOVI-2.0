@@ -25,6 +25,9 @@ import type {
   Save2OwnUnlockCode,
   Save2OwnUnlockConfig,
   Save2OwnIdentityAuditLog,
+  PaymentAccountAuditLog,
+  Save2OwnRefund,
+  Save2OwnDashboardMetrics,
 } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -1043,6 +1046,125 @@ export const adminApi = {
     if (params?.identity_locked) query.append('identity_locked', params.identity_locked);
     const qs = query.toString();
     return `/api/v1/admin/save2own/participants/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Payment Account Audit Logs ---
+  getPaymentAccountAuditLogs: async (params?: { account_type?: string; page?: number }): Promise<PaginatedResponse<PaymentAccountAuditLog>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-accounts/audit-logs/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Save2Own Financial Controls & Reversals ---
+  reverseSave2OwnContribution: async (id: string, reason: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reverse/`, { reason });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnContributionsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/contributions/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Goals Management ---
+  cancelSave2OwnGoal: async (id: string, payload?: { reason?: string; destination_bank_name?: string; destination_account_name?: string; destination_account_number?: string }): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/goals/${id}/cancel/`, payload || {});
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  changeSave2OwnGoalProduct: async (id: string, payload: { new_variant_id: string; reason?: string }): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/goals/${id}/change-product/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnGoalsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/goals/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Refunds Management ---
+  listSave2OwnRefunds: async (params?: { page?: number; status?: string; goal_id?: string; q?: string }): Promise<PaginatedResponse<Save2OwnRefund>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/refunds/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  approveSave2OwnRefund: async (id: string): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/approve/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  processSave2OwnRefund: async (id: string, payload?: { admin_notes?: string }): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/process/`, payload || {});
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  rejectSave2OwnRefund: async (id: string, reason: string): Promise<Save2OwnRefund> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/reject/`, { reason });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnRefundsCsvUrl: (params?: Record<string, any>) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+      });
+    }
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/refunds/export-csv/${qs ? `?${qs}` : ''}`;
+  },
+
+  // --- Save2Own Admin Dashboard ---
+  getSave2OwnDashboardMetrics: async (): Promise<Save2OwnDashboardMetrics> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/dashboard/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
   },
 };
 

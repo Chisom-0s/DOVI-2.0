@@ -339,9 +339,29 @@ export const save2ownApi = {
     }
   },
 
-  cancel: async (id: string): Promise<Save2OwnGoal> => {
+  cancel: async (
+    id: string,
+    payload?: {
+      reason?: string;
+      destination_bank_name?: string;
+      destination_account_name?: string;
+      destination_account_number?: string;
+    }
+  ): Promise<Save2OwnGoal> => {
     try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/cancel/`);
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/cancel/`, payload || {});
+      return normalizeGoal(data);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  changeProduct: async (
+    id: string,
+    payload: { new_variant_id: string; reason?: string }
+  ): Promise<Save2OwnGoal> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/change-product/`, payload);
       return normalizeGoal(data);
     } catch (err) {
       throw normalizeApiError(err);

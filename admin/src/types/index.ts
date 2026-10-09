@@ -890,6 +890,8 @@ export interface Save2OwnContributionAdmin {
   account_number_snapshot?: string;
   transfer_reference?: string;
   payment_proof?: string | null;
+  has_duplicate_reference?: boolean;
+  duplicate_references_count?: number;
   status: Save2OwnContributionStatus;
   submitted_at?: string | null;
   verified_at?: string | null;
@@ -897,6 +899,64 @@ export interface Save2OwnContributionAdmin {
   rejection_reason?: string;
   created_at: string;
   updated_at: string;
+}
+
+// ----------------------------------------------------------
+// PAYMENT ACCOUNT AUDIT LOG
+// ----------------------------------------------------------
+export interface PaymentAccountAuditLog {
+  id: string;
+  account: string;
+  account_type: 'marketplace' | 'save2own';
+  admin?: string | null;
+  admin_email?: string | null;
+  action: string;
+  previous_data?: Record<string, any> | null;
+  new_data?: Record<string, any> | null;
+  reason?: string;
+  ip_address?: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------
+// SAVE2OWN REFUNDS & FINANCIAL CONTROLS
+// ----------------------------------------------------------
+export type Save2OwnRefundStatus = 'PENDING' | 'APPROVED' | 'PROCESSED' | 'REJECTED';
+
+export interface Save2OwnRefund {
+  id: string;
+  goal: string;
+  goal_reference: string;
+  contribution?: string | null;
+  product_name?: string;
+  buyer_email?: string;
+  buyer_name?: string;
+  amount: string;
+  currency: string;
+  status: Save2OwnRefundStatus;
+  refund_reference: string;
+  reason?: string;
+  destination_bank_name?: string;
+  destination_account_name?: string;
+  destination_account_number?: string;
+  processed_by?: string | null;
+  processed_by_email?: string | null;
+  processed_at?: string | null;
+  admin_notes?: string;
+  created_at: string;
+}
+
+export interface Save2OwnDashboardMetrics {
+  total_participants: number;
+  active_goals: number;
+  completed_goals: number;
+  cancelled_goals: number;
+  paused_goals: number;
+  pending_contributions: number;
+  confirmed_contributions: number;
+  total_confirmed_funds: string;
+  pending_verification_amount: string;
+  refund_amount: string;
 }
 
 // ----------------------------------------------------------
