@@ -49,7 +49,7 @@ export default function PaymentAccountsPage() {
   const fetchAuditLogs = async (filter = auditFilterType) => {
     setIsLoadingAuditLogs(true);
     try {
-      const res = await adminApi.listPaymentAccountAuditLogs({
+      const res = await adminApi.getPaymentAccountAuditLogs({
         account_type: filter !== 'all' ? filter : undefined,
       });
       // Handle array or paginated response

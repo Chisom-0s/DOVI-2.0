@@ -192,9 +192,9 @@ export default function Save2OwnGoalDetailPage() {
     try {
       await save2ownApi.cancel(id, {
         reason: cancelReason.trim() || 'Goal cancelled by customer.',
-        customer_bank_name: cancelBankName.trim() || undefined,
-        customer_account_number: cancelAccountNumber.trim() || undefined,
-        customer_account_name: cancelAccountName.trim() || undefined,
+        destination_bank_name: cancelBankName.trim() || undefined,
+        destination_account_number: cancelAccountNumber.trim() || undefined,
+        destination_account_name: cancelAccountName.trim() || undefined,
       });
       toast.success(
         hasFunds

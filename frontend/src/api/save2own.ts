@@ -193,6 +193,8 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     status: raw.status || 'ACTIVE',
     target_amount: targetAmount,
     total_contributed: savedAmount,
+    confirmed_balance: raw.confirmed_balance?.toString() || savedAmount,
+    saved_amount: savedAmount,
     remaining_amount: remainingAmount,
     progress_percentage: progressPercent,
     contribution_plan: plan,

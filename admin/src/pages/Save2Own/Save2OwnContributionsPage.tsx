@@ -1032,3 +1032,20 @@ const btnRejectSubmitStyles: React.CSSProperties = {
   border: 'none',
   cursor: 'pointer',
 };
+
+const formLabelStyles: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#374151',
+  marginBottom: '4px',
+};
+
+const formInputStyles: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: '6px',
+  border: '1px solid #d1d5db',
+  fontSize: '13px',
+  boxSizing: 'border-box',
+};

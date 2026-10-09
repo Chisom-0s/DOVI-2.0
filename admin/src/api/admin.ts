@@ -1128,7 +1128,7 @@ export const adminApi = {
     }
   },
 
-  processSave2OwnRefund: async (id: string, payload?: { admin_notes?: string }): Promise<Save2OwnRefund> => {
+  processSave2OwnRefund: async (id: string, payload?: { admin_notes?: string; payout_reference?: string }): Promise<Save2OwnRefund> => {
     try {
       const { data } = await apiClient.post(`/api/v1/admin/save2own/refunds/${id}/process/`, payload || {});
       return data;

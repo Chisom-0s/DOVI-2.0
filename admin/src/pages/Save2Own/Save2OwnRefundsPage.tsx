@@ -90,7 +90,7 @@ export default function Save2OwnRefundsPage() {
     try {
       await adminApi.processSave2OwnRefund(selectedRefund.id, {
         payout_reference: payoutReference.trim(),
-        notes: actionNotes.trim() || undefined,
+        admin_notes: actionNotes.trim() || undefined,
       });
       toast.success(`Refund ${selectedRefund.refund_reference} marked as PROCESSED / PAID.`);
       setShowProcessModal(false);
