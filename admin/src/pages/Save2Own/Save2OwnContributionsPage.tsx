@@ -33,6 +33,11 @@ export default function Save2OwnContributionsPage() {
   const [contribToReject, setContribToReject] = useState<Save2OwnContributionAdmin | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Reverse Modal
+  const [showReverseModal, setShowReverseModal] = useState(false);
+  const [contribToReverse, setContribToReverse] = useState<Save2OwnContributionAdmin | null>(null);
+  const [reversalReason, setReversalReason] = useState('');
+
   // Proof Image Preview Modal
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
 
@@ -114,6 +119,33 @@ export default function Save2OwnContributionsPage() {
     }
   };
 
+  const handleOpenReverse = (c: Save2OwnContributionAdmin) => {
+    setContribToReverse(c);
+    setReversalReason('');
+    setShowReverseModal(true);
+  };
+
+  const handleReverseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contribToReverse || !reversalReason.trim()) {
+      toast.error('Please specify a reversal reason.');
+      return;
+    }
+    setIsActionPending(true);
+    try {
+      const res = await adminApi.reverseSave2OwnContribution(contribToReverse.id, reversalReason.trim());
+      toast.success(res.message || 'Contribution reversed! Balance deducted.');
+      setShowReverseModal(false);
+      setContribToReverse(null);
+      setReversalReason('');
+      await fetchContributions(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reverse contribution.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const formatCurrency = (val: any) => {
     const num = parseFloat(String(val || '0'));
     return new Intl.NumberFormat('en-NG', {
@@ -148,17 +180,38 @@ export default function Save2OwnContributionsPage() {
             Review and verify incoming bank transfer payments for Save2Own goals.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link to="/save2own" style={tabInactiveStyles}>
-            🎯 All Goals
-          </Link>
-          <Link to="/save2own/contributions" style={tabActiveStyles}>
-            🏦 Contributions Verification ({totalCount})
-          </Link>
-          <Link to="/save2own/participants" style={tabInactiveStyles}>
-            👥 Participants & Identity
-          </Link>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <a
+            href={adminApi.exportSave2OwnContributionsCsvUrl({
+              status: statusFilter || undefined,
+              search: searchTerm || undefined,
+            })}
+            target="_blank"
+            rel="noreferrer"
+            style={{ ...tabInactiveStyles, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            📥 Export CSV
+          </a>
         </div>
+      </div>
+
+      {/* Subnav Navigation Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', flexWrap: 'wrap' }}>
+        <Link to="/save2own/dashboard" style={tabInactiveStyles}>
+          📊 Dashboard
+        </Link>
+        <Link to="/save2own" style={tabInactiveStyles}>
+          🎯 All Goals
+        </Link>
+        <span style={tabActiveStyles}>
+          🏦 Contributions Verification ({totalCount})
+        </span>
+        <Link to="/save2own/participants" style={tabInactiveStyles}>
+          👥 Participants &amp; Identity
+        </Link>
+        <Link to="/save2own/refunds" style={tabInactiveStyles}>
+          💸 Refunds
+        </Link>
       </div>
 
       <ApiErrorMessage error={error} />
@@ -250,6 +303,27 @@ export default function Save2OwnContributionsPage() {
                       <code style={codeStyles}>
                         {c.transfer_reference || 'N/A'}
                       </code>
+                      {c.has_duplicate_reference && (
+                        <div style={{ marginTop: '4px' }}>
+                          <span
+                            title="Duplicate transfer reference detected! Multiple contributions share this reference code."
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              backgroundColor: '#fee2e2',
+                              color: '#b91c1c',
+                              border: '1px solid #fca5a5',
+                            }}
+                          >
+                            ⚠️ DUPLICATE REF ({c.duplicate_references_count || 2})
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     <td style={tableCellStyles}>
@@ -306,6 +380,16 @@ export default function Save2OwnContributionsPage() {
                               ✕ Reject
                             </button>
                           </>
+                        )}
+                        {c.status === 'CONFIRMED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReverse(c)}
+                            style={btnReverseStyles}
+                            title="Reverse confirmed payment and deduct from authoritative balance"
+                          >
+                            ↩ Reverse
+                          </button>
                         )}
                         <button
                           type="button"
@@ -561,6 +645,63 @@ export default function Save2OwnContributionsPage() {
           </div>
         </div>
       )}
+
+      {/* REVERSE MODAL */}
+      {showReverseModal && contribToReverse && (
+        <div style={modalBackdropStyles}>
+          <div style={modalContentStyles}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#dc2626' }}>
+                ↩ Reverse Confirmed Payment
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowReverseModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#9ca3af' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: '0 0 16px 0' }}>
+              You are reversing contribution <strong>{contribToReverse.transfer_reference}</strong> ({formatCurrency(contribToReverse.amount)}) for customer <strong>{contribToReverse.user_name}</strong>.
+              <br /><br />
+              <strong style={{ color: '#b91c1c' }}>Authoritative Action:</strong> This payment will transition to <code>REVERSED</code> and the amount will be immediately deducted from the goal's saved balance.
+            </p>
+
+            <form onSubmit={handleReverseSubmit}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={formLabelStyles}>Reversal Reason (Audit Log Required) *</label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="e.g. Bank chargeback / Bounced transfer / Double-counted reference..."
+                  value={reversalReason}
+                  onChange={(e) => setReversalReason(e.target.value)}
+                  style={{ ...formInputStyles, resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowReverseModal(false)}
+                  style={btnSecondaryModalStyles}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActionPending}
+                  style={{ ...btnRejectSubmitStyles, backgroundColor: '#dc2626' }}
+                >
+                  {isActionPending ? 'Reversing...' : 'Confirm Reversal & Deduct'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -782,6 +923,17 @@ const btnRejectStyles: React.CSSProperties = {
   backgroundColor: 'rgba(239, 68, 68, 0.1)',
   color: '#dc2626',
   border: '1px solid rgba(239, 68, 68, 0.3)',
+  cursor: 'pointer',
+};
+
+const btnReverseStyles: React.CSSProperties = {
+  padding: '5px 10px',
+  fontSize: '11px',
+  fontWeight: 700,
+  borderRadius: '4px',
+  backgroundColor: '#fef2f2',
+  color: '#991b1b',
+  border: '1px solid #f87171',
   cursor: 'pointer',
 };
 

@@ -80,23 +80,50 @@ export default function Save2OwnGoalsPage() {
             Monitor direct commerce Save2Own customer goals, installments, and fulfillment state.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <span style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 700, backgroundColor: '#ff7a00', color: '#ffffff' }}>
-            🎯 All Goals
-          </span>
-          <Link
-            to="/save2own/contributions"
-            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <a
+            href={adminApi.exportSave2OwnGoalsCsvUrl({
+              status: statusFilter || undefined,
+              q: searchTerm || undefined,
+            })}
+            target="_blank"
+            rel="noreferrer"
+            style={{ padding: '8px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#ffffff', color: '#4b5563', border: '1px solid #d1d5db', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            🏦 Contributions Verification
-          </Link>
-          <Link
-            to="/save2own/participants"
-            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
-          >
-            👥 Participants & Identity
-          </Link>
+            📥 Export CSV
+          </a>
         </div>
+      </div>
+
+      {/* Subnav Navigation Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', flexWrap: 'wrap' }}>
+        <Link
+          to="/save2own/dashboard"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          📊 Dashboard
+        </Link>
+        <span style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 700, backgroundColor: '#ff7a00', color: '#ffffff' }}>
+          🎯 All Goals
+        </span>
+        <Link
+          to="/save2own/contributions"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          🏦 Contributions Verification
+        </Link>
+        <Link
+          to="/save2own/participants"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          👥 Participants &amp; Identity
+        </Link>
+        <Link
+          to="/save2own/refunds"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          💸 Refunds
+        </Link>
       </div>
 
       <ApiErrorMessage error={error} />

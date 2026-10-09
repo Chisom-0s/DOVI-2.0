@@ -39,6 +39,12 @@ export default function Save2OwnGoalDetailPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
 
+  // Cancellation / Refund Destination State
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelBankName, setCancelBankName] = useState('');
+  const [cancelAccountNumber, setCancelAccountNumber] = useState('');
+  const [cancelAccountName, setCancelAccountName] = useState('');
+
   // Refund details
   const [refundStatus, setRefundStatus] = useState<any>(null);
 
@@ -173,11 +179,28 @@ export default function Save2OwnGoalDetailPage() {
   };
 
   const handleCancel = async () => {
-    if (!id) return;
+    if (!id || !goal) return;
+    const savedNum = parseFloat(String(goal.confirmed_balance ?? goal.saved_amount ?? 0));
+    const hasFunds = !isNaN(savedNum) && savedNum > 0;
+
+    if (hasFunds && (!cancelBankName.trim() || !cancelAccountNumber.trim() || !cancelAccountName.trim())) {
+      toast.error('Please enter your destination bank details so we can process your refund.');
+      return;
+    }
+
     setIsActionPending(true);
     try {
-      await save2ownApi.cancel(id);
-      toast.success('Goal cancelled successfully.');
+      await save2ownApi.cancel(id, {
+        reason: cancelReason.trim() || 'Goal cancelled by customer.',
+        customer_bank_name: cancelBankName.trim() || undefined,
+        customer_account_number: cancelAccountNumber.trim() || undefined,
+        customer_account_name: cancelAccountName.trim() || undefined,
+      });
+      toast.success(
+        hasFunds
+          ? 'Goal cancelled. Your refund has been submitted to the queue for admin approval & payout!'
+          : 'Goal cancelled successfully.'
+      );
       setShowCancelModal(false);
       await fetchGoalDetails(false);
     } catch (err: any) {
