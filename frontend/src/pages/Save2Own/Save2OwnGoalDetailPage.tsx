@@ -326,12 +326,20 @@ export default function Save2OwnGoalDetailPage() {
     if (!id || !goal) return;
     setIsActionPending(true);
     try {
-      const payload = {
-        variant_id: editVariant?.id || undefined,
-        quantity: editQuantity,
-      };
-      await save2ownApi.updateGoal(id, payload);
-      toast.success('Goal updated successfully.');
+      if (editVariant && editVariant.id !== goal.variant?.id && goal.status === 'ACTIVE') {
+        await save2ownApi.changeProduct(id, {
+          new_variant_id: editVariant.id,
+          reason: 'Variant target updated by customer.',
+        });
+        toast.success('Goal target variant updated successfully!');
+      } else {
+        const payload = {
+          variant_id: editVariant?.id || undefined,
+          quantity: editQuantity,
+        };
+        await save2ownApi.updateGoal(id, payload);
+        toast.success('Goal updated successfully.');
+      }
       setShowEditModal(false);
       await fetchGoalDetails(false);
     } catch (err: any) {
@@ -509,7 +517,7 @@ export default function Save2OwnGoalDetailPage() {
   }
 
   const formattedTarget = formatCurrency(goal.target_amount);
-  const formattedContributed = formatCurrency(goal.total_contributed);
+  const formattedContributed = formatCurrency(goal.confirmed_balance ?? goal.saved_amount ?? goal.total_contributed);
   const formattedRemaining = formatCurrency(goal.remaining_amount);
 
   return (
@@ -1249,17 +1257,75 @@ export default function Save2OwnGoalDetailPage() {
           ---------------------------------------------------------- */}
       {showCancelModal && (
         <div style={modalBackdropStyles}>
-          <div style={modalContentStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
             <h3 style={modalTitleStyles}>Cancel Goal</h3>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-4) 0' }}>
-              Are you sure you want to cancel this goal? Any contributions made will be queued for refund automatically. This action is irreversible.
-            </p>
+            {parseFloat(String(goal.confirmed_balance ?? goal.saved_amount ?? 0)) > 0 ? (
+              <>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-3) 0' }}>
+                  You currently have <strong>{formattedContributed}</strong> saved in this goal. Upon cancellation, this amount will be immediately queued for an administrative refund payout.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                  <div>
+                    <label style={modalLabelStyles}>Cancellation Reason</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Changed plans / Emergency"
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Bank Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. GTBank, Zenith Bank, Access Bank"
+                      value={cancelBankName}
+                      onChange={(e) => setCancelBankName(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Account Number *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 0123456789"
+                      value={cancelAccountNumber}
+                      onChange={(e) => setCancelAccountNumber(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={modalLabelStyles}>Destination Account Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Full legal account name"
+                      value={cancelAccountName}
+                      onChange={(e) => setCancelAccountName(e.target.value)}
+                      style={modalInputStyles}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5, margin: '0 0 var(--space-4) 0' }}>
+                Are you sure you want to cancel this goal? Since no verified funds have been contributed yet, this goal will be cancelled immediately without a refund request.
+              </p>
+            )}
+
             <div style={modalActionsStyles}>
               <button type="button" onClick={() => setShowCancelModal(false)} style={modalCancelBtnStyles}>
                 Go Back
               </button>
               <button type="button" onClick={handleCancel} disabled={isActionPending} style={modalDangerSubmitBtnStyles}>
-                Yes, Cancel Goal
+                {isActionPending ? 'Cancelling...' : 'Yes, Cancel Goal'}
               </button>
             </div>
           </div>

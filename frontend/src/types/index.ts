@@ -631,6 +631,8 @@ export interface Save2OwnGoal {
   status: Save2OwnGoalStatus;
   target_amount: string;
   total_contributed: string;
+  confirmed_balance?: string;
+  saved_amount?: string;
   remaining_amount: string;
   progress_percentage: number;
   contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
