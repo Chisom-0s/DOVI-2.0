@@ -27,10 +27,10 @@ export const notificationsApi = {
       // Fallback to local storage
       const newNotif: Notification = {
         id: `local-${Date.now()}-${Math.random()}`,
-        user_id: 'current-user',
         title,
         message,
         type: type as any,
+        action_url: null,
         is_read: false,
         created_at: new Date().toISOString(),
       };

@@ -22,6 +22,10 @@ import type {
   PaymentAccountType,
   AutoListing,
   AutoListingSummary,
+  AdminSave2OwnParticipant,
+  Save2OwnUnlockCode,
+  Save2OwnUnlockConfig,
+  Save2OwnIdentityAuditLog,
 } from '@/types';
 
 export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
@@ -86,9 +90,18 @@ function addAuditLogEntry(action: string, details?: string, targetId?: string, a
     const logs = getStoredAuditLogs();
     const newLog: AuditLog = {
       id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      actor: {
+        id: 'admin-1',
+        email: actorEmail,
+        first_name: 'Admin',
+        last_name: 'User',
+      },
       action,
       user: actorEmail,
+      entity_type: 'SYSTEM',
+      entity_id: targetId || 'system',
       ip_address: '127.0.0.1',
+      result: 'SUCCESS',
       path: '/admin/action',
       status_code: 200,
       details: details ? { message: details, target_id: targetId } : {},
@@ -276,6 +289,220 @@ function saveMockSections(sections: HomepageSection[]) {
 }
 
 export const adminApi = {
+// --- Homepage Banners CMS ---
+  listHomepageBanners: async (): Promise<HomepageBanner[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/homepage/banners/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  reorderHomepageBanners: async (ids: string[]): Promise<any> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/homepage/banners/reorder/', { ids });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  createHomepageBanner: async (payload: {
+    title: string;
+    subtitle?: string | null;
+    cta_text?: string | null;
+    cta_url?: string | null;
+    desktop_image_url: string;
+    mobile_image_url: string;
+    slide_interval_ms?: number;
+    start_date?: string | null;
+    end_date?: string | null;
+    is_active?: boolean;
+  }): Promise<HomepageBanner> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/homepage/banners/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateHomepageBanner: async (
+    id: string,
+    payload: {
+      title?: string;
+      subtitle?: string | null;
+      cta_text?: string | null;
+      cta_url?: string | null;
+      desktop_image_url?: string;
+      mobile_image_url?: string;
+      slide_interval_ms?: number;
+      start_date?: string | null;
+      end_date?: string | null;
+      is_active?: boolean;
+    }
+  ): Promise<HomepageBanner> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/admin/homepage/banners/${id}/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteHomepageBanner: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.delete(`/api/v1/admin/homepage/banners/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  activateHomepageBanner: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/homepage/banners/${id}/activate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deactivateHomepageBanner: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/homepage/banners/${id}/deactivate/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  // --- Homepage Sections CMS ---
+  listHomepageSections: async (): Promise<HomepageSection[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/homepage/sections/');
+      return data;
+    } catch (err) {
+      console.warn('Backend sections list failed, loading from LocalStorage mock database...', err);
+      return getMockSections();
+    }
+  },
+
+  reorderHomepageSections: async (ids: string[]): Promise<any> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/homepage/sections/reorder/', { ids });
+      return data;
+    } catch (err) {
+      console.warn('Backend section reordering failed, sorting Mock database...', err);
+      const mockList = getMockSections();
+      const updated = ids.map((id, index) => {
+        const matched = mockList.find((s) => s.id === id);
+        if (matched) {
+          matched.sort_order = index + 1;
+          matched.display_order = index + 1;
+        }
+        return matched;
+      }).filter(Boolean) as HomepageSection[];
+      saveMockSections(updated);
+      return { success: true };
+    }
+  },
+
+  updateHomepageSection: async (
+    id: string,
+    payload: Partial<HomepageSection>
+  ): Promise<HomepageSection> => {
+    try {
+      const { data } = await apiClient.patch(`/api/v1/admin/homepage/sections/${id}/`, payload);
+      return data;
+    } catch (err) {
+      console.warn(`Backend patch for section ${id} failed, writing mock database...`, err);
+      const mockList = getMockSections();
+      let updatedSection: HomepageSection | null = null;
+      const updated = mockList.map((s) => {
+        if (s.id === id) {
+          updatedSection = {
+            ...s,
+            ...payload,
+            visible: payload.is_active !== undefined ? payload.is_active : s.visible,
+            config: payload.configuration !== undefined ? payload.configuration : s.config,
+            updated_at: new Date().toISOString(),
+          };
+          return updatedSection;
+        }
+        return s;
+      });
+      if (!updatedSection) throw new Error('Section not found in mock database.');
+      saveMockSections(updated);
+      return updatedSection;
+    }
+  },
+
+  createHomepageSection: async (payload: Omit<HomepageSection, 'id' | 'sort_order' | 'display_order' | 'visible'>): Promise<HomepageSection> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/homepage/sections/', payload);
+      return data;
+    } catch (err) {
+      console.warn('Backend create section failed, writing to mock database...', err);
+      const mockList = getMockSections();
+      const nextSort = mockList.length + 1;
+      const newSection: HomepageSection = {
+        ...payload,
+        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
+        sort_order: nextSort,
+        display_order: nextSort,
+        visible: payload.is_active,
+        config: payload.configuration,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockList.push(newSection);
+      saveMockSections(mockList);
+      return newSection;
+    }
+  },
+
+  deleteHomepageSection: async (id: string): Promise<any> => {
+    try {
+      const { data } = await apiClient.delete(`/api/v1/admin/homepage/sections/${id}/`);
+      return data;
+    } catch (err) {
+      console.warn(`Backend delete section ${id} failed, removing from mock database...`, err);
+      const mockList = getMockSections();
+      const filtered = mockList.filter((s) => s.id !== id);
+      saveMockSections(filtered);
+      return { success: true };
+    }
+  },
+
+  duplicateHomepageSection: async (id: string): Promise<HomepageSection> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/homepage/sections/${id}/duplicate/`);
+      return data;
+    } catch (err) {
+      console.warn(`Backend duplicate section ${id} failed, copying in mock database...`, err);
+      const mockList = getMockSections();
+      const target = mockList.find((s) => s.id === id);
+      if (!target) throw new Error('Source section not found.');
+      const nextSort = mockList.length + 1;
+      const duplicate: HomepageSection = {
+        ...target,
+        id: `sec-${Math.random().toString(36).substr(2, 9)}`,
+        name: `${target.name} (Copy)`,
+        title: `${target.title} (Copy)`,
+        sort_order: nextSort,
+        display_order: nextSort,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockList.push(duplicate);
+      saveMockSections(mockList);
+      return duplicate;
+    }
+  },
+
+  
   // --- Dashboard Analytics ---
   getAnalyticsOverview: async (): Promise<any> => {
     try {
@@ -897,7 +1124,7 @@ export const adminApi = {
     status?: string;
     search?: string;
     goal_id?: string;
-  }): Promise<PaginatedResponse<Save2OwnContribution>> => {
+  }): Promise<PaginatedResponse<any>> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
       return data;
@@ -997,14 +1224,14 @@ export const adminApi = {
     }
   },
 
-  confirmSave2OwnContribution: async (id: string, notes?: string): Promise<Save2OwnContribution> => {
+  confirmSave2OwnContribution: async (id: string, notes?: string): Promise<any> => {
     try {
       const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/confirm/`, { notes });
       addAuditLogEntry('SAVE2OWN_CONTRIBUTION_CONFIRMED', `Confirmed contribution ${id}. Amount verified. Notes: ${notes || 'None'}`, id);
       return data;
     } catch {
       const list = getStoredGlobalContributions();
-      let updatedContrib: Save2OwnContribution | null = null;
+      let updatedContrib: any = null;
 
       const nextList = list.map((c) => {
         if (c.id === id) {
@@ -1045,14 +1272,14 @@ export const adminApi = {
     }
   },
 
-  rejectSave2OwnContribution: async (id: string, reason: string): Promise<Save2OwnContribution> => {
+  rejectSave2OwnContribution: async (id: string, reason: string): Promise<any> => {
     try {
       const { data } = await apiClient.post(`/api/v1/admin/save2own/contributions/${id}/reject/`, { reason });
       addAuditLogEntry('SAVE2OWN_CONTRIBUTION_REJECTED', `Rejected contribution ${id}. Reason: ${reason}`, id);
       return data;
     } catch {
       const list = getStoredGlobalContributions();
-      let updatedContrib: Save2OwnContribution | null = null;
+      let updatedContrib: any = null;
 
       const nextList = list.map((c) => {
         if (c.id === id) {
@@ -1119,6 +1346,109 @@ export const adminApi = {
     } catch (err) {
       throw normalizeApiError(err);
     }
+  },
+
+
+  // --- Save2Own Participants & Identity Administration ---
+  listSave2OwnParticipants: async (params?: {
+    page?: number;
+    q?: string;
+    status?: string;
+    identity_locked?: string;
+  }): Promise<PaginatedResponse<AdminSave2OwnParticipant>> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  lockSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/lock/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  unlockSave2OwnParticipant: async (id: string, hours = 24): Promise<AdminSave2OwnParticipant> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/save2own/participants/${id}/unlock/`, { hours });
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  generateSave2OwnUnlockCode: async (
+    id: string,
+    payload?: { fee_amount?: string | number; expires_hours?: number }
+  ): Promise<{ id: string; code: string; fee_amount: string; expires_at: string; participant_id: string; participant_name: string }> => {
+    try {
+      const { data } = await apiClient.post(
+        `/api/v1/admin/save2own/participants/${id}/generate-unlock-code/`,
+        payload || {}
+      );
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnParticipantHistory: async (id: string): Promise<{
+    participant_id: string;
+    full_name: string;
+    identity_locked: boolean;
+    audit_logs: Save2OwnIdentityAuditLog[];
+    unlock_codes: Save2OwnUnlockCode[];
+  }> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/admin/save2own/participants/${id}/history/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getSave2OwnUnlockFee: async (): Promise<Save2OwnUnlockConfig> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/unlock-fee/');
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  updateSave2OwnUnlockFee: async (payload: {
+    fee_amount: string | number;
+    reason?: string;
+  }): Promise<{ message: string; fee_amount: string; currency: string; updated_at: string; updated_by?: string }> => {
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/save2own/participants/unlock-fee/', payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  exportSave2OwnParticipantsCsvUrl: (params?: { q?: string; status?: string; identity_locked?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.append('q', params.q);
+    if (params?.status) query.append('status', params.status);
+    if (params?.identity_locked) query.append('identity_locked', params.identity_locked);
+    const qs = query.toString();
+    return `/api/v1/admin/save2own/participants/export-csv/${qs ? `?${qs}` : ''}`;
   },
 };
 

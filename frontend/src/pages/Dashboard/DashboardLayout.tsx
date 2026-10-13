@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import CorporateFooter from '@/components/common/CorporateFooter';
-import { WhatsAppSupportButton } from '@/components/common/WhatsAppSupportButton';
 
 interface NavItem {
   label: string;

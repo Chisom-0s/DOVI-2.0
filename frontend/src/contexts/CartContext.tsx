@@ -438,7 +438,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           try {
             await notificationsApi.create(
               'Item Added to Cart',
-              `${effectiveName} was added to your cart.`,
+              `${effName || 'Item'} was added to your cart.`,
               'INFO'
             );
           } catch (e) {}

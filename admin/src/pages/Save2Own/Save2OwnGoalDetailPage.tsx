@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import type { Save2OwnGoal, APIError } from '@/types';
@@ -305,11 +305,16 @@ export default function Save2OwnGoalDetailPage() {
         <div style={columnStyles}>
           {/* Timeline Table */}
           <div style={cardStyles}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={cardTitleStyles}>Bank Transfer & Contribution Timeline</h3>
-              <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>
-                {g.contributions ? g.contributions.length : 0} Total Records
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ ...cardTitleStyles, margin: 0 }}>Bank Transfer & Contribution Timeline</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>
+                  {g.contributions ? g.contributions.length : 0} Total Records
+                </span>
+                <Link to="/save2own/contributions" style={{ fontSize: '12px', color: '#ff7a00', textDecoration: 'none', fontWeight: 600 }}>
+                  Verification Queue →
+                </Link>
+              </div>
             </div>
             {g.contributions && g.contributions.length > 0 ? (
               <div style={tableWrapperStyles}>
@@ -333,8 +338,8 @@ export default function Save2OwnGoalDetailPage() {
                         c.status === 'under_review' ||
                         c.status === 'pending' ||
                         c.payment_status === 'PENDING';
-                      const isConfirmed = c.status === 'confirmed' || c.payment_status === 'SUCCESSFUL';
-                      const proofUrl = c.payment_proof_path || c.payment_proof_url;
+                      const isConfirmed = c.status === 'confirmed' || c.status === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL';
+                      const proofUrl = c.payment_proof_path || c.payment_proof_url || c.payment_proof;
                       const refCode = c.transfer_reference || c.payment_reference || c.id;
 
                       return (

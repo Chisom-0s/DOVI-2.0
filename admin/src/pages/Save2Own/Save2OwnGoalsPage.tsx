@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import type { Save2OwnGoal, Save2OwnContribution, APIError } from '@/types';
@@ -148,14 +148,30 @@ export default function Save2OwnGoalsPage() {
 
   return (
     <div style={containerStyles}>
-      <div style={titleHeaderStyles}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
         <div>
-          <h2 style={titleStyles}>Save2Own Admin Management</h2>
-          <p style={subtitleStyles}>
-            Manage savings goals and verify customer bank transfer deposits into dedicated Save2Own accounts.
+          <h2 style={{ ...titleStyles, margin: '0 0 4px 0' }}>Save2Own Goals Management</h2>
+          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+            Monitor direct commerce Save2Own customer goals, installments, and fulfillment state.
           </p>
         </div>
-        <span style={portalBadgeStyles}>Save2Own Management</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <span style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 700, backgroundColor: '#ff7a00', color: '#ffffff' }}>
+            🎯 All Goals
+          </span>
+          <Link
+            to="/save2own/contributions"
+            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+          >
+            🏦 Contributions Verification
+          </Link>
+          <Link
+            to="/save2own/participants"
+            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+          >
+            👥 Participants & Identity
+          </Link>
+        </div>
       </div>
 
       <ApiErrorMessage error={error} />
@@ -771,13 +787,6 @@ const containerStyles: React.CSSProperties = {
   gap: '20px',
 };
 
-const titleHeaderStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  flexWrap: 'wrap',
-  gap: '12px',
-};
 
 const titleStyles: React.CSSProperties = {
   fontSize: '22px',
@@ -786,22 +795,7 @@ const titleStyles: React.CSSProperties = {
   margin: 0,
 };
 
-const subtitleStyles: React.CSSProperties = {
-  fontSize: '13px',
-  color: '#6b7280',
-  margin: '4px 0 0 0',
-};
 
-const portalBadgeStyles: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 700,
-  backgroundColor: 'rgba(255, 122, 0, 0.1)',
-  color: '#ff7a00',
-  padding: '4px 10px',
-  borderRadius: '9999px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-};
 
 const complianceNoticeStyles: React.CSSProperties = {
   backgroundColor: '#eff6ff',

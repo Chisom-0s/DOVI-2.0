@@ -521,17 +521,18 @@ export interface NotificationUnreadCount {
 export type PaymentAccountType = 'marketplace' | 'save2own';
 
 export interface PaymentAccount {
-  id: string;
+  id: string | null;
   account_type: PaymentAccountType;
   bank_name: string;
   account_name: string;
   account_number: string;
   currency: string;
-  is_active: boolean;
-  instructions: string;
-  created_at: string;
-  updated_at: string;
+  is_active?: boolean;
+  instructions?: string;
+  created_at?: string;
+  updated_at?: string;
   updated_by?: string | null;
+  updated_by_email?: string;
 }
 
 // ----------------------------------------------------------
@@ -557,9 +558,16 @@ export type Save2OwnContributionStatus =
   | 'rejected'
   | 'reversed'
   | 'refunded'
-  | 'SUCCESSFUL'
   | 'PENDING'
-  | 'FAILED';
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'REVERSED'
+  | 'REFUNDED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SUCCESSFUL';
 
 export interface Save2OwnContribution {
   id: string;
@@ -567,14 +575,16 @@ export interface Save2OwnContribution {
   user_id?: string;
   amount: string;
   currency?: string;
+  status: Save2OwnContributionStatus;
+  payment_status?: PaymentStatus;
   payment_method?: 'bank_transfer' | string;
   payment_account_id?: string;
   transfer_reference?: string;
   payment_reference?: string;
+  payment_proof?: string | null;
   payment_proof_path?: string | null;
-  status: Save2OwnContributionStatus;
-  payment_status?: PaymentStatus;
-  submitted_at?: string;
+  payment_proof_url?: string | null;
+  submitted_at?: string | null;
   verified_at?: string | null;
   verified_by?: string | null;
   rejection_reason?: string | null;
@@ -596,8 +606,47 @@ export interface Save2OwnProductChange {
   changed_at: string;
 }
 
+export interface Save2OwnParticipant {
+  id: string;
+  user_id?: string;
+  goal_id?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  whatsapp_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  selfie_url?: string | null;
+  identity_locked: boolean;
+  identity_locked_at?: string | null;
+  identity_unlocked_at?: string | null;
+  identity_unlock_expires_at?: string | null;
+  terms_acknowledged?: boolean;
+  terms_acknowledged_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Save2OwnEligibilityResponse {
+  eligible: boolean;
+  can_create_goal: boolean;
+  message: string;
+  active_goal?: Save2OwnGoal | null;
+}
+
+export interface Save2OwnUnlockVerificationResponse {
+  success: boolean;
+  message: string;
+  identity_unlock_expires_at: string;
+  expires_in_minutes: number;
+  participant: Save2OwnParticipant;
+}
+
 export interface Save2OwnGoal {
   id: string;
+  reference_code?: string;
   product: ProductSummary;
   variant: ProductVariant | null;
   quantity: number;
@@ -609,6 +658,7 @@ export interface Save2OwnGoal {
   contribution_plan?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   installment_amount?: string;
   target_date: string | null;
+  participant?: Save2OwnParticipant | null;
   contributions: Save2OwnContribution[];
   product_changes: Save2OwnProductChange[];
   created_at: string;

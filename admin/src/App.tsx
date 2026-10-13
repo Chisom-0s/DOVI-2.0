@@ -19,6 +19,8 @@ import AuditLogsPage from '@/pages/AuditLogsPage';
 import HomepageManagerPage from '@/pages/Homepage/HomepageManagerPage';
 import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
+import Save2OwnContributionsPage from '@/pages/Save2Own/Save2OwnContributionsPage';
+import Save2OwnParticipantsPage from '@/pages/Save2Own/Save2OwnParticipantsPage';
 import PaymentAccountsPage from '@/pages/PaymentAccounts/PaymentAccountsPage';
 import AutoListingsPage from '@/pages/Auto/AutoListingsPage';
 
@@ -45,6 +47,8 @@ export default function App() {
               <Route index element={<DashboardOverviewPage />} />
               <Route path="homepage" element={<HomepageManagerPage />} />
               <Route path="save2own" element={<Save2OwnGoalsPage />} />
+              <Route path="save2own/contributions" element={<Save2OwnContributionsPage />} />
+              <Route path="save2own/participants" element={<Save2OwnParticipantsPage />} />
               <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
               <Route path="payment-accounts" element={<PaymentAccountsPage />} />
               <Route path="auto" element={<AutoListingsPage />} />
