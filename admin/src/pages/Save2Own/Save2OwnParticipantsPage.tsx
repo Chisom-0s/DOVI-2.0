@@ -267,7 +267,13 @@ export default function Save2OwnParticipantsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', flexWrap: 'wrap' }}>
+        <Link
+          to="/save2own/dashboard"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          📊 Dashboard
+        </Link>
         <Link
           to="/save2own"
           style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
@@ -283,6 +289,12 @@ export default function Save2OwnParticipantsPage() {
         <span style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 700, backgroundColor: '#ff7a00', color: '#ffffff' }}>
           👥 Participants &amp; Identity Ledger
         </span>
+        <Link
+          to="/save2own/refunds"
+          style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, backgroundColor: '#f3f4f6', color: '#4b5563', textDecoration: 'none' }}
+        >
+          💸 Refunds
+        </Link>
       </div>
 
       <ApiErrorMessage error={error} />

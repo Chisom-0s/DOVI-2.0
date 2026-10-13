@@ -38,6 +38,17 @@ export default function AdminLayout() {
       ),
     },
     {
+      label: 'Save2Own Dashboard',
+      path: '/save2own/dashboard',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+      ),
+    },
+    {
       label: 'Save2Own Goals',
       path: '/save2own',
       icon: (
@@ -45,6 +56,16 @@ export default function AdminLayout() {
           <circle cx="12" cy="12" r="10"></circle>
           <circle cx="12" cy="12" r="6"></circle>
           <circle cx="12" cy="12" r="2"></circle>
+        </svg>
+      ),
+    },
+    {
+      label: 'Save2Own Refunds',
+      path: '/save2own/refunds',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
         </svg>
       ),
     },
