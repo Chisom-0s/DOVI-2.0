@@ -19,6 +19,14 @@ export default function Save2OwnGoalDetailPage() {
   const [suspendReason, setSuspendReason] = useState('');
   const [isActionPending, setIsActionPending] = useState(false);
 
+  // Verification & Proof Modals
+  const [confirmingContrib, setConfirmingContrib] = useState<any | null>(null);
+  const [confirmNotes, setConfirmNotes] = useState('');
+  const [rejectingContrib, setRejectingContrib] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [viewingProof, setViewingProof] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const fetchGoalDetails = async (showSkeleton = true) => {
     if (!id) return;
     if (showSkeleton) setIsLoading(true);
@@ -37,6 +45,40 @@ export default function Save2OwnGoalDetailPage() {
   useEffect(() => {
     fetchGoalDetails();
   }, [id]);
+
+  const handleConfirmSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingContrib) return;
+    setIsVerifying(true);
+    try {
+      await adminApi.confirmSave2OwnContribution(confirmingContrib.id, confirmNotes);
+      toast.success(`Contribution of ${formatCurrency(confirmingContrib.amount)} confirmed! User balance credited.`);
+      setConfirmingContrib(null);
+      setConfirmNotes('');
+      await fetchGoalDetails(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to confirm contribution.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleRejectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectingContrib || !rejectionReason.trim()) return;
+    setIsVerifying(true);
+    try {
+      await adminApi.rejectSave2OwnContribution(rejectingContrib.id, rejectionReason.trim());
+      toast.error(`Contribution of ${formatCurrency(rejectingContrib.amount)} rejected.`);
+      setRejectingContrib(null);
+      setRejectionReason('');
+      await fetchGoalDetails(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reject contribution.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleSuspendSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,66 +306,149 @@ export default function Save2OwnGoalDetailPage() {
           {/* Timeline Table */}
           <div style={cardStyles}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ ...cardTitleStyles, margin: 0 }}>Contribution Payment Timeline</h3>
-              <Link to="/save2own/contributions" style={{ fontSize: '12px', color: '#ff7a00', textDecoration: 'none', fontWeight: 600 }}>
-                Verification Queue →
-              </Link>
+              <h3 style={{ ...cardTitleStyles, margin: 0 }}>Bank Transfer & Contribution Timeline</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>
+                  {g.contributions ? g.contributions.length : 0} Total Records
+                </span>
+                <Link to="/save2own/contributions" style={{ fontSize: '12px', color: '#ff7a00', textDecoration: 'none', fontWeight: 600 }}>
+                  Verification Queue →
+                </Link>
+              </div>
             </div>
             {g.contributions && g.contributions.length > 0 ? (
               <div style={tableWrapperStyles}>
                 <table style={tableStyles}>
                   <thead>
                     <tr style={tableHeaderRowStyles}>
-                      <th style={tableHeaderCellStyles}>Deposit Ref / Narration</th>
+                      <th style={tableHeaderCellStyles}>Transfer / Dep Ref</th>
                       <th style={tableHeaderCellStyles}>Amount</th>
-                      <th style={tableHeaderCellStyles}>Bank Snapshot</th>
-                      <th style={tableHeaderCellStyles}>Receipt</th>
+                      <th style={tableHeaderCellStyles}>Target Bank Snapshot</th>
+                      <th style={tableHeaderCellStyles}>Proof</th>
                       <th style={tableHeaderCellStyles}>Date</th>
                       <th style={tableHeaderCellStyles}>Status</th>
+                      <th style={{ ...tableHeaderCellStyles, textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {g.contributions.map((c: any) => {
-                      const isConfirmed = c.status === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL';
-                      const isRejected = c.status === 'REJECTED' || c.payment_status === 'FAILED';
+                      const isPending =
+                        c.status === 'pending_verification' ||
+                        c.status === 'submitted' ||
+                        c.status === 'under_review' ||
+                        c.status === 'pending' ||
+                        c.payment_status === 'PENDING';
+                      const isConfirmed = c.status === 'confirmed' || c.status === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL';
+                      const proofUrl = c.payment_proof_path || c.payment_proof_url || c.payment_proof;
+                      const refCode = c.transfer_reference || c.payment_reference || c.id;
+
                       return (
                         <tr key={c.id} style={tableRowStyles}>
                           <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                            <code>{c.transfer_reference || c.payment_reference || String(c.id || '').substring(0, 8)}</code>
+                            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#111827' }}>
+                              {String(refCode || 'N/A').substring(0, 16)}
+                            </span>
                           </td>
-                          <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                          <td style={{ ...tableCellStyles, fontWeight: 800, color: '#111827' }}>
                             {formatCurrency(c.amount)}
                           </td>
                           <td style={tableCellStyles}>
-                            {c.bank_name_snapshot ? (
-                              <span style={{ fontSize: '11px' }}>
-                                <strong>{c.bank_name_snapshot}</strong> ({c.account_number_snapshot})
+                            {c.bank_name_snapshot || c.account_number_snapshot ? (
+                              <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600, color: '#1f2937' }}>{c.bank_name_snapshot || 'Save2Own Bank'}</span>
+                                <span style={{ fontFamily: 'monospace', color: '#6b7280' }}>
+                                  {c.account_number_snapshot} {c.account_name_snapshot ? `(${c.account_name_snapshot})` : ''}
+                                </span>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                                Primary Save2Own Account
+                              </span>
+                            )}
+                          </td>
+                          <td style={tableCellStyles}>
+                            {proofUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => setViewingProof(proofUrl)}
+                                style={{
+                                  backgroundColor: '#f3f4f6',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '6px',
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  color: '#2563eb',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                📎 View Receipt
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>No proof</span>
+                            )}
+                          </td>
+                          <td style={tableCellStyles}>
+                            <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                              {c.created_at || c.submitted_at
+                                ? new Date(c.created_at || c.submitted_at).toLocaleDateString()
+                                : 'N/A'}
+                            </span>
+                          </td>
+                          <td style={tableCellStyles}>
+                            <span style={paymentStatusBadgeStyles(c.status || c.payment_status || 'submitted')}>
+                              {c.status || c.payment_status || 'submitted'}
+                            </span>
+                          </td>
+                          <td style={{ ...tableCellStyles, textAlign: 'right' }}>
+                            {isPending ? (
+                              <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setConfirmingContrib(c);
+                                    setConfirmNotes('');
+                                  }}
+                                  style={{
+                                    backgroundColor: '#10b981',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  ✓ Confirm
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingContrib(c);
+                                    setRejectionReason('');
+                                  }}
+                                  style={{
+                                    backgroundColor: '#fee2e2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fca5a5',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  ✕ Reject
+                                </button>
+                              </div>
+                            ) : isConfirmed ? (
+                              <span style={{ fontSize: '11px', color: '#059669', fontWeight: 600 }}>
+                                Verified by Admin
                               </span>
                             ) : (
-                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>Save2Own Account</span>
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>—</span>
                             )}
-                          </td>
-                          <td style={tableCellStyles}>
-                            {c.payment_proof ? (
-                              <a
-                                href={c.payment_proof}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ fontSize: '11px', color: '#ff7a00', textDecoration: 'underline' }}
-                              >
-                                View Receipt
-                              </a>
-                            ) : (
-                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>None</span>
-                            )}
-                          </td>
-                          <td style={tableCellStyles}>
-                            {c.created_at ? new Date(c.created_at).toLocaleDateString() : 'N/A'}
-                          </td>
-                          <td style={tableCellStyles}>
-                            <span style={paymentStatusBadgeStyles(isConfirmed ? 'SUCCESSFUL' : isRejected ? 'FAILED' : 'PENDING')}>
-                              {isConfirmed ? 'CONFIRMED' : isRejected ? 'REJECTED' : 'PENDING'}
-                            </span>
                           </td>
                         </tr>
                       );
@@ -379,6 +504,137 @@ export default function Save2OwnGoalDetailPage() {
         </div>
       </div>
 
+      {/* Confirmation Modal */}
+      {confirmingContrib && (
+        <div style={modalBackdropStyles}>
+          <div style={modalContentStyles}>
+            <h3 style={modalTitleStyles}>Confirm Save2Own Bank Deposit</h3>
+            <form onSubmit={handleConfirmSubmit} style={formStyles}>
+              <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
+                Are you sure you want to verify and confirm this transfer of{' '}
+                <strong style={{ color: '#059669' }}>{formatCurrency(confirmingContrib.amount)}</strong>?
+              </p>
+
+              <div style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div><strong>Ref:</strong> {confirmingContrib.transfer_reference || confirmingContrib.payment_reference || confirmingContrib.id}</div>
+                <div><strong>Destination Account:</strong> {confirmingContrib.bank_name_snapshot || 'Save2Own Account'} ({confirmingContrib.account_number_snapshot || 'N/A'})</div>
+              </div>
+
+              <div>
+                <label style={modalLabelStyles}>Internal Verification Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bank statement narration matched reference..."
+                  value={confirmNotes}
+                  onChange={(e) => setConfirmNotes(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }}
+                />
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingContrib(null)}
+                  style={modalCancelBtnStyles}
+                  disabled={isVerifying}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifying}
+                  style={{ ...modalDangerSubmitBtnStyles, backgroundColor: '#10b981' }}
+                >
+                  {isVerifying ? 'Confirming...' : 'Yes, Confirm & Credit User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {rejectingContrib && (
+        <div style={modalBackdropStyles}>
+          <div style={modalContentStyles}>
+            <h3 style={modalTitleStyles}>Reject Save2Own Bank Deposit</h3>
+            <form onSubmit={handleRejectSubmit} style={formStyles}>
+              <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, margin: 0 }}>
+                You are rejecting a reported deposit of{' '}
+                <strong style={{ color: '#dc2626' }}>{formatCurrency(rejectingContrib.amount)}</strong>.
+                The customer's Save2Own progress will NOT be increased.
+              </p>
+
+              <div>
+                <label style={modalLabelStyles}>Rejection Reason *</label>
+                <textarea
+                  required
+                  placeholder="Explain why the payment was rejected (e.g. Funds not received in Save2Own bank account, invalid proof, incorrect amount)..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  style={textareaStyles}
+                  rows={3}
+                />
+              </div>
+
+              <div style={modalActionsStyles}>
+                <button
+                  type="button"
+                  onClick={() => setRejectingContrib(null)}
+                  style={modalCancelBtnStyles}
+                  disabled={isVerifying}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifying || !rejectionReason.trim()}
+                  style={modalDangerSubmitBtnStyles}
+                >
+                  {isVerifying ? 'Rejecting...' : 'Confirm Rejection'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Proof Preview Modal */}
+      {viewingProof && (
+        <div style={modalBackdropStyles} onClick={() => setViewingProof(null)}>
+          <div
+            style={{ ...modalContentStyles, maxWidth: '560px', alignItems: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <h3 style={modalTitleStyles}>Payment Transfer Proof</h3>
+              <button
+                type="button"
+                onClick={() => setViewingProof(null)}
+                style={{ border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer', color: '#6b7280' }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ width: '100%', maxHeight: '400px', overflowY: 'auto', display: 'flex', justifyContent: 'center', backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <img
+                src={viewingProof}
+                alt="Payment proof receipt"
+                style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '6px' }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).alt = 'Document attached: ' + viewingProof;
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+              <button type="button" onClick={() => setViewingProof(null)} style={modalCancelBtnStyles}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Suspend Confirmation Reason Modal */}
       {showSuspendModal && (
         <div style={modalBackdropStyles}>
@@ -419,20 +675,34 @@ export default function Save2OwnGoalDetailPage() {
 const paymentStatusBadgeStyles = (status: string): React.CSSProperties => {
   let backgroundColor = '#fee2e2';
   let color = '#991b1b';
-  if (status === 'SUCCESSFUL' || status === 'CONFIRMED') {
+  const norm = (status || '').toLowerCase();
+
+  if (norm === 'confirmed' || norm === 'successful' || norm === 'completed') {
     backgroundColor = '#d1fae5';
     color = '#065f46';
-  } else if (status === 'PENDING' || status === 'SUBMITTED' || status === 'UNDER_REVIEW') {
+  } else if (
+    norm === 'pending_verification' ||
+    norm === 'submitted' ||
+    norm === 'under_review' ||
+    norm === 'pending'
+  ) {
     backgroundColor = '#fef3c7';
     color = '#92400e';
+  } else if (norm === 'rejected' || norm === 'failed') {
+    backgroundColor = '#fee2e2';
+    color = '#991b1b';
+  } else if (norm === 'reversed' || norm === 'refunded') {
+    backgroundColor = '#ede9fe';
+    color = '#5b21b6';
   }
   return {
     backgroundColor,
     color,
-    padding: '2px 8px',
+    padding: '3px 8px',
     borderRadius: '4px',
-    fontSize: '9px',
+    fontSize: '10px',
     fontWeight: 700,
+    textTransform: 'uppercase',
   };
 };
 

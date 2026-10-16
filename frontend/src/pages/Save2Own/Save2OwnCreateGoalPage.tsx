@@ -196,16 +196,29 @@ export default function Save2OwnCreateGoalPage() {
       return;
     }
 
+    const variantId = selectedVariant?.id || product.variants?.[0]?.id;
+    if (!variantId) {
+      toast.error('Please select a product variant before continuing.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       const formData = new FormData();
       formData.append('product_id', product.id);
-      if (selectedVariant?.id) {
-        formData.append('variant_id', selectedVariant.id);
-      }
+      formData.append('variant', variantId);
+      formData.append('variant_id', variantId);
       formData.append('quantity', String(quantity));
       formData.append('contribution_plan', plan);
+
+      // Shipping & Address Details
+      formData.append('shipping_address_line_1', address.trim());
+      formData.append('shipping_address_line_2', '');
+      formData.append('shipping_city', city.trim());
+      formData.append('shipping_state', state.trim());
+      formData.append('shipping_postal_code', '100001');
+      formData.append('shipping_country', country.trim() || 'Nigeria');
 
       // Participant Details
       formData.append('full_name', fullName.trim());
@@ -240,6 +253,17 @@ export default function Save2OwnCreateGoalPage() {
       navigate(`/save2own/goals/${result.id}`);
     } catch (err: any) {
       setError(err);
+
+      // If backend threw 500 or constraint error, verify if user already has an active goal
+      try {
+        const elig = await save2ownApi.checkEligibility();
+        if (!elig.can_create_goal && elig.active_goal) {
+          setEligibility(elig);
+          toast.error('You already have an active Save2Own goal. Only one active goal is permitted at a time.');
+          return;
+        }
+      } catch {}
+
       const apiErr = err as APIError;
       const errMsg = apiErr?.message || '';
 
@@ -261,6 +285,12 @@ export default function Save2OwnCreateGoalPage() {
 
       if (apiErr?.details && typeof apiErr.details === 'object' && 'active_goal' in apiErr.details) {
         toast.error('You already have an active Save2Own goal.');
+      } else if (
+        apiErr?.message?.toLowerCase().includes('server') ||
+        apiErr?.code === 'SERVER_ERROR' ||
+        apiErr?.code === 'INTERNAL_SERVER_ERROR'
+      ) {
+        toast.error('Could not create goal. You may already have an active Save2Own goal in progress.');
       } else {
         toast.error(apiErr?.message || 'Failed to register Save2Own goal.');
       }

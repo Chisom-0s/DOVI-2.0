@@ -503,13 +503,13 @@ export default function Save2OwnGoalDetailPage() {
       <div className="container" style={pageWrapperStyles}>
         <Link to="/dashboard/save2own" style={backLinkStyles}>&larr; Back to Goals</Link>
         <div style={{ textAlign: 'center', padding: 'var(--space-12) 0' }}>
-          <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>⚠️</div>
+          <div style={{ fontSize: '3rem', marginBottom: 'var(--space-2)' }}>ΓÜá∩╕Å</div>
           <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 'bold' }}>Couldn't fetch item</h3>
           <p style={{ color: 'var(--color-text-muted)', margin: 'var(--space-2) 0 var(--space-4) 0' }}>
             We couldn't retrieve this goal item from the database.
           </p>
           <button onClick={() => fetchGoalDetails(true)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-            🔄 Retry
+            ≡ƒöä Retry
           </button>
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function Save2OwnGoalDetailPage() {
       {/* Goal Status Message Banners */}
       {goal.status === 'PRODUCT_UNAVAILABLE' && (
         <div style={alertBannerStyles('var(--color-danger)')}>
-          <strong>⚠️ Product Unavailable:</strong> This product or variant is currently unavailable. Please select another variant or choose a new product for your goal.
+          <strong>ΓÜá∩╕Å Product Unavailable:</strong> This product or variant is currently unavailable. Please select another variant or choose a new product for your goal.
           <button type="button" onClick={openEditModal} style={alertBannerActionStyles}>
             Configure Goal &rarr;
           </button>
@@ -539,7 +539,7 @@ export default function Save2OwnGoalDetailPage() {
 
       {goal.status === 'PRICE_CHANGED' && (
         <div style={alertBannerStyles('var(--color-warning)')}>
-          <strong>⚠️ Target Price Changed:</strong> The vendor has updated the price of this item.
+          <strong>ΓÜá∩╕Å Target Price Changed:</strong> The vendor has updated the price of this item.
           <div style={{ marginTop: 'var(--space-2)', display: 'flex', gap: 'var(--space-4)', fontSize: 'var(--text-xs)' }}>
             <span>Original Target: <strong>{formattedTarget}</strong></span>
           </div>
@@ -577,7 +577,7 @@ export default function Save2OwnGoalDetailPage() {
 
       {goal.status === 'SUSPENDED' && (
         <div style={alertBannerStyles('var(--color-danger)')}>
-          <strong>🚫 Suspended Goal:</strong> This Save2Own goal has been suspended by administration. Contributions are blocked. Please contact support.
+          <strong>≡ƒÜ½ Suspended Goal:</strong> This Save2Own goal has been suspended by administration. Contributions are blocked. Please contact support.
         </div>
       )}
 
@@ -719,7 +719,7 @@ export default function Save2OwnGoalDetailPage() {
           <div style={cardStyles}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '18px' }}>🔒</span>
+                <span style={{ fontSize: '18px' }}>≡ƒöÆ</span>
                 <h3 style={{ ...cardTitleStyles, margin: 0 }}>Save2Own Participant Identity</h3>
               </div>
               <span
@@ -735,7 +735,7 @@ export default function Save2OwnGoalDetailPage() {
                   gap: '4px',
                 }}
               >
-                {goal.participant?.identity_locked ? '🔒 IDENTITY LOCKED' : '🔓 EDIT WINDOW OPEN'}
+                {goal.participant?.identity_locked ? '≡ƒöÆ IDENTITY LOCKED' : '≡ƒöô EDIT WINDOW OPEN'}
               </span>
             </div>
 
@@ -781,7 +781,7 @@ export default function Save2OwnGoalDetailPage() {
                     marginBottom: 'var(--space-3)',
                   }}
                 >
-                  🛡️ <strong>Save2Own information locked.</strong> You cannot edit your registered Save2Own information directly. If you need a legal correction, contact Dovi Support to request an authorized unlock code.
+                  ≡ƒ¢í∩╕Å <strong>Save2Own information locked.</strong> You cannot edit your registered Save2Own information directly. If you need a legal correction, contact Dovi Support to request an authorized unlock code.
                 </div>
                 <button
                   type="button"
@@ -802,7 +802,7 @@ export default function Save2OwnGoalDetailPage() {
                     gap: '6px',
                   }}
                 >
-                  🔑 Enter Save2Own Edit Code
+                  ≡ƒöæ Enter Save2Own Edit Code
                 </button>
               </div>
             ) : (
@@ -818,7 +818,7 @@ export default function Save2OwnGoalDetailPage() {
                     marginBottom: 'var(--space-3)',
                   }}
                 >
-                  ⏱️ <strong>Temporary Edit Window Active!</strong> Window expires at{' '}
+                  ΓÅ▒∩╕Å <strong>Temporary Edit Window Active!</strong> Window expires at{' '}
                   {goal.participant?.identity_unlock_expires_at
                     ? new Date(goal.participant.identity_unlock_expires_at).toLocaleTimeString()
                     : '30 minutes'}
@@ -839,7 +839,7 @@ export default function Save2OwnGoalDetailPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  ✏️ Edit Save2Own Identity Information
+                  Γ£Å∩╕Å Edit Save2Own Identity Information
                 </button>
               </div>
             )}
@@ -908,7 +908,7 @@ export default function Save2OwnGoalDetailPage() {
                               rel="noreferrer"
                               style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}
                             >
-                              📎 View Payment Receipt
+                              ≡ƒôÄ View Payment Receipt
                             </a>
                           </div>
                         )}
@@ -967,7 +967,7 @@ export default function Save2OwnGoalDetailPage() {
           <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>🏦</span>
+                <span style={{ fontSize: '24px' }}>≡ƒÅª</span>
                 <div>
                   <h3 style={{ ...modalTitleStyles, margin: 0, fontSize: '18px' }}>SAVE2OWN BANK TRANSFER</h3>
                   <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Dedicated Direct Commerce Account</span>
@@ -978,7 +978,7 @@ export default function Save2OwnGoalDetailPage() {
                 onClick={() => setShowContribModal(false)}
                 style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
               >
-                ✕
+                Γ£ò
               </button>
             </div>
 
@@ -1036,7 +1036,7 @@ export default function Save2OwnGoalDetailPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  {copiedField === 'Account Number' ? '✓ Copied' : 'Copy Number'}
+                  {copiedField === 'Account Number' ? 'Γ£ô Copied' : 'Copy Number'}
                 </button>
               </div>
 
@@ -1063,13 +1063,13 @@ export default function Save2OwnGoalDetailPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  {copiedField === 'Transfer Reference' ? '✓ Copied' : 'Copy Ref'}
+                  {copiedField === 'Transfer Reference' ? 'Γ£ô Copied' : 'Copy Ref'}
                 </button>
               </div>
 
               {bankAccount?.instructions && (
                 <div style={{ marginTop: 'var(--space-1)', padding: 'var(--space-2) var(--space-3)', backgroundColor: 'rgba(255, 159, 67, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  📌 <strong>Instructions:</strong> {bankAccount.instructions}
+                  ≡ƒôî <strong>Instructions:</strong> {bankAccount.instructions}
                 </div>
               )}
             </div>
@@ -1087,7 +1087,7 @@ export default function Save2OwnGoalDetailPage() {
                 marginBottom: 'var(--space-4)',
               }}
             >
-              <span style={{ fontSize: '18px', lineHeight: 1 }}>⚠️</span>
+              <span style={{ fontSize: '18px', lineHeight: 1 }}>ΓÜá∩╕Å</span>
               <div>
                 <h5 style={{ margin: '0 0 2px 0', fontSize: '11px', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
                   PAYMENT ACCOUNT NAME REQUIREMENT
@@ -1107,7 +1107,7 @@ export default function Save2OwnGoalDetailPage() {
                   <label style={modalLabelStyles}>Amount to Save (NGN) *</label>
                   {goal.installment_amount && (
                     <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>
-                      Schedule: ₦{parseFloat(goal.installment_amount).toLocaleString()}
+                      Schedule: Γéª{parseFloat(goal.installment_amount).toLocaleString()}
                     </span>
                   )}
                 </div>
@@ -1136,7 +1136,7 @@ export default function Save2OwnGoalDetailPage() {
                         fontWeight: 'var(--font-medium)',
                       }}
                     >
-                      ⚡ Scheduled: ₦{parseFloat(goal.installment_amount).toLocaleString()}
+                      ΓÜí Scheduled: Γéª{parseFloat(goal.installment_amount).toLocaleString()}
                     </button>
                   )}
                   {goal.remaining_amount && parseFloat(goal.remaining_amount) > 0 && (
@@ -1154,7 +1154,7 @@ export default function Save2OwnGoalDetailPage() {
                         fontWeight: 'var(--font-medium)',
                       }}
                     >
-                      Pay Full Remaining: ₦{parseFloat(goal.remaining_amount).toLocaleString()}
+                      Pay Full Remaining: Γéª{parseFloat(goal.remaining_amount).toLocaleString()}
                     </button>
                   )}
                 </div>
@@ -1195,7 +1195,7 @@ export default function Save2OwnGoalDetailPage() {
               </div>
 
               <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 'var(--radius-sm)', padding: '10px', fontSize: '11px', color: '#1d4ed8', lineHeight: 1.4 }}>
-                ℹ️ Status will be set to <strong>Pending Verification</strong> until our finance admin verifies the credit. Your goal balance will automatically update once confirmed.
+                Γä╣∩╕Å Status will be set to <strong>Pending Verification</strong> until our finance admin verifies the credit. Your goal balance will automatically update once confirmed.
               </div>
 
               <div style={modalActionsStyles}>
@@ -1406,7 +1406,7 @@ export default function Save2OwnGoalDetailPage() {
           <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>🔑</span>
+                <span style={{ fontSize: '20px' }}>≡ƒöæ</span>
                 <h3 style={{ ...modalTitleStyles, margin: 0 }}>Enter Save2Own Edit Code</h3>
               </div>
               <button
@@ -1414,7 +1414,7 @@ export default function Save2OwnGoalDetailPage() {
                 onClick={() => setShowUnlockModal(false)}
                 style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
               >
-                ✕
+                Γ£ò
               </button>
             </div>
 
@@ -1478,7 +1478,7 @@ export default function Save2OwnGoalDetailPage() {
           <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>✏️</span>
+                <span style={{ fontSize: '20px' }}>Γ£Å∩╕Å</span>
                 <h3 style={{ ...modalTitleStyles, margin: 0 }}>Authorized Identity Correction</h3>
               </div>
               <button
@@ -1486,7 +1486,7 @@ export default function Save2OwnGoalDetailPage() {
                 onClick={() => setShowEditIdentityModal(false)}
                 style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
               >
-                ✕
+                Γ£ò
               </button>
             </div>
 
@@ -1500,7 +1500,7 @@ export default function Save2OwnGoalDetailPage() {
               marginBottom: 'var(--space-4)',
               lineHeight: 1.45,
             }}>
-              ⚖️ <strong>Permanent Audit Trail:</strong> All changes made here are recorded in the permanent audit ledger with previous and new values, authorization reference (Code: <code>{verifiedCode}</code>), and timestamps. The record will immediately re-lock upon submission.
+              ΓÜû∩╕Å <strong>Permanent Audit Trail:</strong> All changes made here are recorded in the permanent audit ledger with previous and new values, authorization reference (Code: <code>{verifiedCode}</code>), and timestamps. The record will immediately re-lock upon submission.
             </div>
 
             <form onSubmit={handleUpdateIdentitySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
