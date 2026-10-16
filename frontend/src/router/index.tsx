@@ -186,7 +186,25 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'save2own/goals',
+        element: (
+          <RoleGuard role={['BUYER', 'ADMIN']}>
+            <div className="container" style={{ padding: 'var(--space-6) var(--space-4)', maxWidth: '1200px', margin: '0 auto', minHeight: '60vh' }}>
+              <Save2OwnGoalsPage />
+            </div>
+          </RoleGuard>
+        ),
+      },
+      {
         path: 'save2own/goals/:id',
+        element: (
+          <RoleGuard role={['BUYER', 'ADMIN']}>
+            <Save2OwnGoalDetailPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'save2own/:id',
         element: (
           <RoleGuard role={['BUYER', 'ADMIN']}>
             <Save2OwnGoalDetailPage />

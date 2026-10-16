@@ -23,7 +23,7 @@ import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnContributionsPage from '@/pages/Save2Own/Save2OwnContributionsPage';
 import Save2OwnParticipantsPage from '@/pages/Save2Own/Save2OwnParticipantsPage';
 import Save2OwnRefundsPage from '@/pages/Save2Own/Save2OwnRefundsPage';
-import PaymentAccountsPage from '@/pages/PaymentAccountsPage';
+import PaymentAccountsPage from '@/pages/PaymentAccounts/PaymentAccountsPage';
 import AutoListingsPage from '@/pages/Auto/AutoListingsPage';
 
 import ErrorBoundary from '@/components/common/ErrorBoundary';
