@@ -135,7 +135,6 @@ export default function HeroBannerCarousel() {
     touchEndX.current = null;
   };
 
-  const activeSlide = STATIC_SLIDES[currentIndex];
 
   const inlineStyles = `
     .hero-carousel-container {
