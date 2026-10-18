@@ -17,7 +17,6 @@ export default function RefundRequestPage() {
   const [customOrderRef, setCustomOrderRef] = useState(orderRef);
   const [isManualInput, setIsManualInput] = useState(!orderRef);
   const [userOrders, setUserOrders] = useState<OrderSummary[]>([]);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -32,22 +31,20 @@ export default function RefundRequestPage() {
       setIsManualInput(false);
     }
     const loadOrders = async () => {
-      setIsLoadingOrders(true);
       try {
         const resp = await ordersApi.list();
         const list = resp?.results || [];
         setUserOrders(list);
         if (!orderRef && list.length > 0) {
-          setSelectedOrderRef(list[0].order_reference);
-          setCustomOrderRef(list[0].order_reference);
+          const firstRef = list[0].reference || list[0].order_reference || '';
+          setSelectedOrderRef(firstRef);
+          setCustomOrderRef(firstRef);
           setIsManualInput(false);
         } else if (!orderRef) {
           setIsManualInput(true);
         }
       } catch {
         setIsManualInput(true);
-      } finally {
-        setIsLoadingOrders(false);
       }
     };
     loadOrders();
@@ -136,11 +133,14 @@ export default function RefundRequestPage() {
                 }}
                 style={selectStyles}
               >
-                {userOrders.map(o => (
-                  <option key={o.id || o.order_reference} value={o.order_reference}>
-                    #{o.order_reference} ({o.status}) - {new Date(o.created_at).toLocaleDateString()}
-                  </option>
-                ))}
+                {userOrders.map(o => {
+                  const ref = o.reference || o.order_reference || o.id;
+                  return (
+                    <option key={o.id || ref} value={ref}>
+                      #{ref} ({o.status}) - {new Date(o.created_at).toLocaleDateString()}
+                    </option>
+                  );
+                })}
                 <option value="__manual__">-- Enter a different order reference --</option>
               </select>
               {isManualInput && (
@@ -280,12 +280,6 @@ const titleStyles: React.CSSProperties = {
   fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
-};
-
-const orderRefStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--color-text-muted)',
-  margin: 0,
 };
 
 const formStyles: React.CSSProperties = {

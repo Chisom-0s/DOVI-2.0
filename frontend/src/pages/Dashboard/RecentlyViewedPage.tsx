@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import { recentlyViewedApi } from '@/api/recently-viewed';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';

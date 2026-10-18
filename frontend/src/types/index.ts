@@ -213,6 +213,7 @@ export interface Product {
 export interface ProductSummary {
   id: string;
   name: string;
+  slug?: string;
   price?: string;
   base_price?: string;
   compare_at_price?: string;
@@ -389,6 +390,7 @@ export interface Order {
 export interface OrderSummary {
   id: string;
   reference: string;
+  order_reference?: string;
   status: OrderStatus;
   item_count: number;
   total: string;

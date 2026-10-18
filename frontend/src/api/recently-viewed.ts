@@ -51,7 +51,8 @@ export const recentlyViewedApi = {
       const summary: ProductSummary = {
         id: product.id,
         name: product.name || 'Viewed Product',
-        slug: product.slug || product.id,
+        slug: (product as any).slug || product.id,
+        status: ((product as any).status || 'ACTIVE') as any,
         base_price: (product as any).base_price || (product as any).price || '0',
         price: (product as any).price || (product as any).base_price || '0',
         primary_image_url:
@@ -63,12 +64,9 @@ export const recentlyViewedApi = {
         average_rating: typeof (product as any).average_rating === 'number' ? (product as any).average_rating : 5.0,
         review_count: typeof (product as any).review_count === 'number' ? (product as any).review_count : 0,
         stock_quantity: typeof (product as any).stock_quantity === 'number' ? (product as any).stock_quantity : 10,
-        is_featured: Boolean((product as any).is_featured),
-        is_hero: Boolean((product as any).is_hero),
         condition: (product as any).condition || 'NEW',
         category: (product as any).category,
         created_at: (product as any).created_at || new Date().toISOString(),
-        updated_at: (product as any).updated_at || new Date().toISOString(),
       };
 
       list.unshift(summary);
