@@ -26,10 +26,24 @@ export default function LoginPage() {
       toast.success('Welcome back, Admin!');
       navigate(from, { replace: true });
     } catch (err: any) {
-      const isNetwork = err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
-      const errorPayload: APIError = isNetwork
-        ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
-        : { error: true, message: 'Wrong credentials', code: 'INVALID_CREDENTIALS' };
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      const isNetwork = err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal') || err?.message?.toLowerCase().includes('unable to connect');
+
+      let message = err?.message || 'Login failed';
+      if (isOffline) {
+        message = 'No internet signal';
+      } else if (isNetwork) {
+        message = 'Unable to connect to backend server. Please verify CORS authorization on Render.';
+      } else if (!err?.message || err?.code === 'INVALID_CREDENTIALS') {
+        message = 'Wrong credentials';
+      }
+
+      const errorPayload: APIError = {
+        error: true,
+        message,
+        code: isOffline || isNetwork ? 'NETWORK_ERROR' : (err?.code || 'INVALID_CREDENTIALS'),
+        details: err?.details,
+      };
 
       setError(errorPayload);
       toast.error(errorPayload.message);

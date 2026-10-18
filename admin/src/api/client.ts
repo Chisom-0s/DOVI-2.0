@@ -297,18 +297,22 @@ export function normalizeApiError(error: unknown): APIError {
         code: 'HTTP_ERROR',
       };
     } else if (error.request) {
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       return {
         error: true,
-        message: 'No internet signal',
+        message: isOffline
+          ? 'No internet signal'
+          : 'Unable to connect to backend server. Please verify network or CORS authorization.',
         code: 'NETWORK_ERROR',
       };
     }
   }
 
   // General JS exception
+  const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
   return {
     error: true,
-    message: error instanceof Error ? error.message : 'No internet signal',
+    message: isOffline ? 'No internet signal' : error instanceof Error ? error.message : 'Connection failed',
     code: 'NETWORK_ERROR',
   };
 }
