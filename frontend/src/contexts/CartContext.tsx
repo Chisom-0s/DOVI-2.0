@@ -3,7 +3,6 @@ import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
 import { notificationsApi } from '@/api/notifications';
-import { MOCK_PRODUCTS } from '@/api/homepage';
 import { useAuth } from './AuthContext';
 
 // Local storage key for guest users & cart metadata registry
@@ -83,21 +82,6 @@ export function findKnownProduct(variantId?: string, productName?: string, produ
       }
     }
   } catch {}
-
-  // 3. Check mock products
-  if (variantId) {
-    const byVar = MOCK_PRODUCTS.find(p => Array.isArray(p.variants) && p.variants.some(v => v.id === variantId));
-    if (byVar) return byVar;
-  }
-  if (productName) {
-    const norm = productName.toLowerCase().trim();
-    const byName = MOCK_PRODUCTS.find(p => p.name?.toLowerCase().trim() === norm);
-    if (byName) return byName;
-  }
-  if (productId) {
-    const byId = MOCK_PRODUCTS.find(p => p.id === productId);
-    if (byId) return byId;
-  }
 
   return null;
 }

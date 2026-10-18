@@ -146,294 +146,7 @@ const SEED_SECTIONS: HomepageSection[] = [
   }
 ];
 
-export const MOCK_PRODUCTS: ProductSummary[] = [
-  {
-    id: 'prod-iphone-15',
-    name: 'iPhone 15 Pro Max (256GB, Titanium)',
-    price: '1450000.00',
-    original_price: '1600000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400',
-    image_url: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400',
-    category: { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', icon_url: null },
-    vendor: { id: 'vend-slot', name: 'SLOT Nigeria', logo_url: null, rating: 4.8, review_count: 42, location: 'Lagos', slug: 'slot' },
-    average_rating: 4.8,
-    review_count: 42,
-    stock_quantity: 10,
-    status: 'ACTIVE',
-    discount_percentage: 10,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: true,
-    is_new_arrival: false,
-    created_at: '2026-08-01T10:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-macbook',
-    name: 'MacBook Pro 14" M3 Chip (16GB/512GB)',
-    price: '2800000.00',
-    original_price: '3000000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400',
-    image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400',
-    category: { id: 'cat-computers', name: 'Computers', slug: 'computers', icon_url: null },
-    vendor: { id: 'vend-apple', name: 'iConnect', logo_url: null, rating: 4.9, review_count: 18, location: 'Lekki, Lagos', slug: 'iconnect' },
-    average_rating: 4.9,
-    review_count: 18,
-    stock_quantity: 5,
-    status: 'ACTIVE',
-    discount_percentage: 6,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: true,
-    is_new_arrival: true,
-    created_at: '2026-08-05T12:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-airpods',
-    name: 'Apple AirPods Pro (2nd Generation)',
-    price: '340000.00',
-    original_price: '400000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1588449668365-d15e397f6787?w=400',
-    image_url: 'https://images.unsplash.com/photo-1588449668365-d15e397f6787?w=400',
-    category: { id: 'cat-audio', name: 'Audio & Video', slug: 'audio-video', icon_url: null },
-    vendor: { id: 'vend-slot', name: 'SLOT Nigeria', logo_url: null, rating: 4.8, review_count: 42, location: 'Lagos', slug: 'slot' },
-    average_rating: 4.7,
-    review_count: 56,
-    stock_quantity: 20,
-    status: 'ACTIVE',
-    discount_percentage: 15,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: false,
-    is_new_arrival: true,
-    created_at: '2026-08-07T08:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-ps5',
-    name: 'Sony PlayStation 5 Console (Slim Edition)',
-    price: '850000.00',
-    original_price: '950000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=400',
-    image_url: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=400',
-    category: { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon_url: null },
-    vendor: { id: 'vend-gaming', name: 'GameHouse', logo_url: null, rating: 4.9, review_count: 85, location: 'Lagos', slug: 'gamehouse' },
-    average_rating: 4.9,
-    review_count: 85,
-    stock_quantity: 8,
-    status: 'ACTIVE',
-    discount_percentage: 10,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: false,
-    is_new_arrival: false,
-    created_at: '2026-08-10T14:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-s24',
-    name: 'Samsung Galaxy S24 Ultra (512GB)',
-    price: '1350000.00',
-    original_price: '1450000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400',
-    image_url: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400',
-    category: { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', icon_url: null },
-    vendor: { id: 'vend-slot', name: 'SLOT Nigeria', logo_url: null, rating: 4.8, review_count: 42, location: 'Lagos', slug: 'slot' },
-    average_rating: 4.8,
-    review_count: 32,
-    stock_quantity: 12,
-    status: 'ACTIVE',
-    discount_percentage: 8,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: true,
-    is_new_arrival: true,
-    created_at: '2026-08-11T11:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-xm5',
-    name: 'Sony WH-1000XM5 Wireless Headphones',
-    price: '450000.00',
-    original_price: '450000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400',
-    image_url: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400',
-    category: { id: 'cat-audio', name: 'Audio & Video', slug: 'audio-video', icon_url: null },
-    vendor: { id: 'vend-apple', name: 'iConnect', logo_url: null, rating: 4.9, review_count: 18, location: 'Lekki, Lagos', slug: 'iconnect' },
-    average_rating: 4.7,
-    review_count: 22,
-    stock_quantity: 15,
-    status: 'ACTIVE',
-    discount_percentage: 0,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: false,
-    is_new_arrival: true,
-    created_at: '2026-08-12T16:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-switch',
-    name: 'Nintendo Switch OLED Model',
-    price: '390000.00',
-    original_price: '390000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400',
-    image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400',
-    category: { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', icon_url: null },
-    vendor: { id: 'vend-gaming', name: 'GameHouse', logo_url: null, rating: 4.9, review_count: 85, location: 'Lagos', slug: 'gamehouse' },
-    average_rating: 4.8,
-    review_count: 48,
-    stock_quantity: 14,
-    status: 'ACTIVE',
-    discount_percentage: 0,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: true,
-    is_new_arrival: false,
-    created_at: '2026-08-13T10:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-engine-oil',
-    name: 'Mobil 1 Full Synthetic Motor Oil 5W-30 (5L)',
-    price: '45000.00',
-    original_price: '55000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=400',
-    image_url: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=400',
-    category: { id: 'cat-auto-parts', name: 'Auto Parts', slug: 'auto-parts', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.8, review_count: 24, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.8,
-    review_count: 24,
-    stock_quantity: 15,
-    status: 'ACTIVE',
-    discount_percentage: 18,
-    is_flash_deal: true,
-    is_trending: false,
-    is_best_seller: true,
-    is_hot_sale: false,
-    is_new_arrival: false,
-    created_at: '2026-08-12T09:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-brake-pads',
-    name: 'Brembo Front Brake Pads Set',
-    price: '38000.00',
-    original_price: '38000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=400',
-    image_url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=400',
-    category: { id: 'cat-auto-parts', name: 'Auto Parts', slug: 'auto-parts', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.6, review_count: 14, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.6,
-    review_count: 14,
-    stock_quantity: 12,
-    status: 'ACTIVE',
-    discount_percentage: 0,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: false,
-    is_new_arrival: false,
-    created_at: '2026-08-14T11:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-dashcam',
-    name: '70mai Dash Cam Pro Plus+ A500S 2.7K',
-    price: '95000.00',
-    original_price: '120000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1563720223185-11003d516935?w=400',
-    image_url: 'https://images.unsplash.com/photo-1563720223185-11003d516935?w=400',
-    category: { id: 'cat-auto-acc', name: 'Auto Accessories', slug: 'auto-accessories', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.7, review_count: 31, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.7,
-    review_count: 31,
-    stock_quantity: 8,
-    status: 'ACTIVE',
-    discount_percentage: 20,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: false,
-    is_new_arrival: false,
-    created_at: '2026-08-15T15:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-camry-covers',
-    name: 'Toyota Camry Premium Leather Seat Covers',
-    price: '55000.00',
-    original_price: '55000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400',
-    image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400',
-    category: { id: 'cat-auto-acc', name: 'Auto Accessories', slug: 'auto-accessories', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.8, review_count: 10, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.5,
-    review_count: 10,
-    stock_quantity: 6,
-    status: 'ACTIVE',
-    discount_percentage: 0,
-    is_flash_deal: false,
-    is_trending: false,
-    is_best_seller: false,
-    is_hot_sale: false,
-    is_new_arrival: true,
-    created_at: '2026-08-16T12:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-benz-c300',
-    name: 'Mercedes-Benz C300 2021 (Sedan)',
-    price: '28000000.00',
-    original_price: '30000000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=400',
-    image_url: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=400',
-    category: { id: 'cat-auto-cars', name: 'Dovi Auto', slug: 'auto-cars', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.9, review_count: 5, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.9,
-    review_count: 5,
-    stock_quantity: 1,
-    status: 'ACTIVE',
-    discount_percentage: 6,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: false,
-    is_new_arrival: false,
-    created_at: '2026-08-17T09:00:00Z',
-    in_stock: true,
-  },
-  {
-    id: 'prod-lexus-rx',
-    name: 'Lexus RX350 2020 Luxury SUV',
-    price: '35000000.00',
-    original_price: '35000000.00',
-    primary_image_url: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=400',
-    image_url: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?w=400',
-    category: { id: 'cat-auto-cars', name: 'Dovi Auto', slug: 'auto-cars', icon_url: null },
-    vendor: { id: 'vend-lubes', name: 'Dovi Auto Hub', logo_url: null, rating: 4.8, review_count: 8, location: 'Enugu', slug: 'dovi-auto-hub' },
-    average_rating: 4.8,
-    review_count: 8,
-    stock_quantity: 2,
-    status: 'ACTIVE',
-    discount_percentage: 0,
-    is_flash_deal: false,
-    is_trending: true,
-    is_best_seller: false,
-    is_hot_sale: true,
-    is_new_arrival: true,
-    created_at: '2026-08-18T14:00:00Z',
-    in_stock: true,
-  }
-];
+export const MOCK_PRODUCTS: ProductSummary[] = [];
 
 /**
  * Normalizes a raw product from GET /api/v1/products/ into a typed ProductSummary.
@@ -575,7 +288,6 @@ function getMockSections(): HomepageSection[] {
 // Helper to filter and combine real products + mock products matching section config
 function populateProductsForSection(section: HomepageSection, realProducts: ProductSummary[] = []): ProductSummary[] {
   let matchingReal = [...realProducts];
-  let matchingMock = [...MOCK_PRODUCTS];
 
   const source = section.configuration?.source || 'AUTOMATIC';
   const sourceId = section.configuration?.source_id;
@@ -583,64 +295,47 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
   // 1. Source Filtering
   if (source === 'MANUAL' && section.configuration?.manual_product_ids) {
     matchingReal = matchingReal.filter(p => section.configuration.manual_product_ids?.includes(p.id));
-    matchingMock = matchingMock.filter(p => section.configuration.manual_product_ids?.includes(p.id));
   } else if (source === 'CATEGORY' && sourceId) {
     matchingReal = matchingReal.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
-    matchingMock = matchingMock.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
   } else if (source === 'VENDOR' && sourceId) {
     matchingReal = matchingReal.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
-    matchingMock = matchingMock.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
   }
 
   // 2. Automations Filter based on Section Type
   if (section.key === 'FLASH_DEALS') {
-    matchingMock = matchingMock.filter(p => p.is_flash_deal);
     matchingReal = matchingReal.filter(p => p.is_flash_deal);
   } else if (section.key === 'TRENDING_NOW') {
-    matchingMock = matchingMock.filter(p => p.is_trending);
     matchingReal = matchingReal.filter(p => p.is_trending);
   } else if (section.key === 'BEST_SELLERS') {
-    matchingMock = matchingMock.filter(p => p.is_best_seller);
     matchingReal = matchingReal.filter(p => p.is_best_seller);
   } else if (section.key === 'NEW_ARRIVALS') {
-    matchingMock = matchingMock.filter(p => p.is_new_arrival);
     matchingReal = matchingReal.filter(p => p.is_new_arrival);
   } else if (section.key === 'HOT_SALES') {
-    matchingMock = matchingMock.filter(p => p.is_hot_sale);
     matchingReal = matchingReal.filter(p => p.is_hot_sale);
   } else if (section.key === 'SAVE2OWN_FEATURED') {
-    matchingMock = matchingMock.filter(p => parsePriceNumber(p) >= 100000);
     matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= 10000);
   } else if (section.key === 'DOVI_AUTO') {
-    matchingMock = matchingMock.filter(p => p.category?.slug?.startsWith('auto') || p.id.includes('camry') || p.id.includes('c300') || p.id.includes('rx350'));
     matchingReal = matchingReal.filter(p => p.category?.slug?.startsWith('auto') || (p.category_name && /auto|car|brake|engine/i.test(p.category_name)));
   }
 
   // 3. Custom Filters
   const filters = section.configuration?.filters;
   if (filters) {
-    if (filters.min_discount) {
-      matchingMock = matchingMock.filter(p => (p.discount_percentage ?? 0) >= (filters.min_discount ?? 0));
-    }
     if (filters.min_rating) {
       matchingReal = matchingReal.filter(p => p.average_rating >= (filters.min_rating ?? 0));
-      matchingMock = matchingMock.filter(p => p.average_rating >= (filters.min_rating ?? 0));
     }
     if (filters.in_stock_only) {
       matchingReal = matchingReal.filter(p => p.stock_quantity > 0);
-      matchingMock = matchingMock.filter(p => p.stock_quantity > 0);
     }
     if (filters.price_min) {
       matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
-      matchingMock = matchingMock.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
     }
     if (filters.price_max) {
       matchingReal = matchingReal.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
-      matchingMock = matchingMock.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
     }
   }
 
-  // 4. Combine: If real products exist, show real products. Only fallback to mock inventory if zero real products exist.
+  // 4. Deduplicate real products
   const seenIds = new Set<string>();
   const combined: ProductSummary[] = [];
 
@@ -648,15 +343,6 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     if (!seenIds.has(p.id)) {
       seenIds.add(p.id);
       combined.push(p);
-    }
-  }
-
-  if (matchingReal.length === 0) {
-    for (const p of matchingMock) {
-      if (!seenIds.has(p.id)) {
-        seenIds.add(p.id);
-        combined.push(p);
-      }
     }
   }
 
@@ -829,14 +515,20 @@ export function getCachedHomepageSections(): HomepageSection[] {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter((s: HomepageSection) => s.is_active && !isExcluded(s));
+        return parsed
+          .filter((s: HomepageSection) => s.is_active && !isExcluded(s))
+          .map((s: HomepageSection) => ({
+            ...s,
+            products: (s.products || []).filter((p: any) => p && !String(p.id).startsWith('prod-')),
+          }));
       }
     }
   } catch {}
 
-  // 2. Immediate synchronous seed with cached real products if available, plus seed mocks
+  // 2. Immediate synchronous seed with cached real products if available
   try {
-    const cachedReal = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
+    const cachedReal = (JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]') as ProductSummary[])
+      .filter((p: any) => p && !String(p.id).startsWith('prod-'));
     const rawSections = getMockSections();
     return rawSections
       .filter(s => s.is_active && !isExcluded(s))

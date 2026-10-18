@@ -1,6 +1,6 @@
 // Products API — GET /api/v1/products/*
 import apiClient, { normalizeApiError } from './client';
-import { MOCK_PRODUCTS, normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
+import { normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
 import { normalizeUrl } from '@/utils/image';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
@@ -17,92 +17,7 @@ export interface ProductFilters {
   in_stock?: boolean;
 }
 
-const SEED_PRODUCT_REVIEWS: Record<string, Review[]> = {
-  'prod-iphone-15': [
-    {
-      id: 'rev-iph-1',
-      product_id: 'prod-iphone-15',
-      order_reference: 'ORD-2026-9812',
-      product_rating: 5,
-      vendor_rating: 5,
-      delivery_rating: 5,
-      title: 'Flawless condition and prompt delivery',
-      body: 'The Natural Titanium finish is gorgeous. Arrived sealed in authentic packaging within 24 hours in Lagos. Great vendor!',
-      is_verified_purchase: true,
-      created_at: '2026-08-14T10:30:00Z',
-      updated_at: '2026-08-14T10:30:00Z',
-    },
-    {
-      id: 'rev-iph-2',
-      product_id: 'prod-iphone-15',
-      order_reference: 'ORD-2026-8841',
-      product_rating: 5,
-      vendor_rating: 5,
-      delivery_rating: 4,
-      title: 'Battery life is exceptional',
-      body: 'Upgraded from an iPhone 12 and the battery life and camera upgrade are unbelievable. Clean transaction with escrow security.',
-      is_verified_purchase: true,
-      created_at: '2026-08-20T14:15:00Z',
-      updated_at: '2026-08-20T14:15:00Z',
-    },
-    {
-      id: 'rev-iph-3',
-      product_id: 'prod-iphone-15',
-      order_reference: 'ORD-2026-7732',
-      product_rating: 4,
-      vendor_rating: 4,
-      delivery_rating: 4,
-      title: 'Super fast phone, good packaging',
-      body: 'USB-C is a welcome change. Delivery took a little over 2 days to Abuja, but the product is 100% brand new and pristine.',
-      is_verified_purchase: true,
-      created_at: '2026-08-29T09:00:00Z',
-      updated_at: '2026-08-29T09:00:00Z',
-    }
-  ],
-  'prod-sony-xm5': [
-    {
-      id: 'rev-sony-1',
-      product_id: 'prod-sony-xm5',
-      order_reference: 'ORD-2026-6521',
-      product_rating: 5,
-      vendor_rating: 5,
-      delivery_rating: 5,
-      title: 'Best ANC headphones on the market',
-      body: 'Cuts out all engine rumble and office noise completely. Bass is punchy and microphone clarity on Zoom calls is stellar.',
-      is_verified_purchase: true,
-      created_at: '2026-08-18T16:20:00Z',
-      updated_at: '2026-08-18T16:20:00Z',
-    },
-    {
-      id: 'rev-sony-2',
-      product_id: 'prod-sony-xm5',
-      order_reference: 'ORD-2026-5419',
-      product_rating: 5,
-      vendor_rating: 4,
-      delivery_rating: 5,
-      title: 'Incredible comfort for long flights',
-      body: 'Wore these on an 8 hour flight with zero ear fatigue. Pair instantly with my laptop and phone simultaneously.',
-      is_verified_purchase: true,
-      created_at: '2026-08-25T11:45:00Z',
-      updated_at: '2026-08-25T11:45:00Z',
-    }
-  ],
-  'prod-macbook-pro-16': [
-    {
-      id: 'rev-mac-1',
-      product_id: 'prod-macbook-pro-16',
-      order_reference: 'ORD-2026-3101',
-      product_rating: 5,
-      vendor_rating: 5,
-      delivery_rating: 5,
-      title: 'Workstation powerhouse',
-      body: 'Compiles large codebases and renders 4K video with fans barely spinning. The Liquid Retina XDR screen is unmatched.',
-      is_verified_purchase: true,
-      created_at: '2026-08-12T11:00:00Z',
-      updated_at: '2026-08-12T11:00:00Z',
-    }
-  ]
-};
+const SEED_PRODUCT_REVIEWS: Record<string, Review[]> = {};
 
 function getFallbackReviews(productId: string, ratingFilter?: number, sort?: string): Review[] {
   let list = SEED_PRODUCT_REVIEWS[productId];
@@ -230,30 +145,28 @@ export const productsApi = {
   },
 
   getById: async (id: string): Promise<Product> => {
-    // 1. If not a mock product ID, try backend first
-    if (!id.startsWith('prod-')) {
-      try {
-        const { data } = await apiClient.get(`/api/v1/products/${id}/`);
-        const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
-        const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
-          if (!img) return img;
-          if (typeof img === 'string') return normalizeUrl(img) || img;
-          return {
-            ...img,
-            image_url: normalizeUrl(img.image_url) || img.image_url,
-            thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
-            url: normalizeUrl(img.url || img.image_url) || img.url,
-          };
-        });
+    // 1. Try backend first
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/`);
+      const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
+      const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
+        if (!img) return img;
+        if (typeof img === 'string') return normalizeUrl(img) || img;
         return {
-          ...data,
-          primary_image_url: normPrimary,
-          image_url: normPrimary || data.image_url,
-          images: normImages,
+          ...img,
+          image_url: normalizeUrl(img.image_url) || img.image_url,
+          thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
+          url: normalizeUrl(img.url || img.image_url) || img.url,
         };
-      } catch (err: any) {
-        console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
-      }
+      });
+      return {
+        ...data,
+        primary_image_url: normPrimary,
+        image_url: normPrimary || data.image_url,
+        images: normImages,
+      };
+    } catch (err: any) {
+      console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
     }
 
     // 2. Check local sessionStorage cache of real backend products
@@ -261,7 +174,7 @@ export const productsApi = {
       const cached = sessionStorage.getItem('dovi_real_products_cache');
       if (cached) {
         const list: ProductSummary[] = JSON.parse(cached);
-        const found = list.find((p: any) => p.id === id || p.slug === id);
+        const found = list.find((p: any) => (p.id === id || p.slug === id) && !String(p.id).startsWith('prod-'));
         if (found) {
           const normPrimary = normalizeUrl(found.primary_image_url) || found.primary_image_url;
           return {
@@ -285,40 +198,6 @@ export const productsApi = {
         }
       }
     } catch {}
-
-    // 3. Check mock products fallback
-    const mock = MOCK_PRODUCTS.find(p => p.id === id);
-    if (mock) {
-      const vendorName = typeof mock.vendor === 'object' ? mock.vendor.name : (mock.vendor_name || 'Verified Vendor');
-      const catName = typeof mock.category === 'object' ? mock.category?.name : (mock.category_name || 'General');
-      return {
-        id: mock.id,
-        name: mock.name,
-        description: `Premium authentic ${mock.name} supplied by verified merchant ${vendorName}. Includes full warranty and fast doorstep delivery.`,
-        base_price: mock.price || mock.base_price || '0',
-        price: mock.price || mock.base_price || '0',
-        status: 'PUBLISHED',
-        vendor: mock.vendor,
-        vendor_name: vendorName,
-        category: mock.category || 'General',
-        category_name: catName,
-        primary_image_url: mock.primary_image_url,
-        image_url: mock.image_url,
-        images: mock.primary_image_url ? [{ id: `img-${mock.id}`, image_url: mock.primary_image_url, is_primary: true }] : [],
-        variants: [
-          {
-            id: `var-${mock.id}`,
-            name: 'Standard Option',
-            sku: `SKU-${mock.id.toUpperCase()}`,
-            stock: mock.stock_quantity || 10,
-            reserved: 0,
-          },
-        ],
-        average_rating: mock.average_rating,
-        review_count: mock.review_count,
-        stock_quantity: mock.stock_quantity,
-      };
-    }
 
     throw new Error('Product not found');
   },
@@ -354,7 +233,7 @@ export const productsApi = {
       return data;
     } catch {
       const real = await fetchRealBackendProducts();
-      return real.length > 0 ? real : MOCK_PRODUCTS.slice(0, 6);
+      return real;
     }
   },
 
@@ -365,7 +244,7 @@ export const productsApi = {
     } catch {
       const real = await fetchRealBackendProducts();
       const matching = real.filter(r => r.is_trending);
-      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_trending);
+      return matching.length > 0 ? matching : real;
     }
   },
 
@@ -375,7 +254,7 @@ export const productsApi = {
       return data;
     } catch {
       const real = await fetchRealBackendProducts();
-      return real.length > 0 ? real : MOCK_PRODUCTS.filter(m => m.is_new_arrival);
+      return real;
     }
   },
 
@@ -386,7 +265,7 @@ export const productsApi = {
     } catch {
       const real = await fetchRealBackendProducts();
       const matching = real.filter(r => r.is_best_seller);
-      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_best_seller);
+      return matching.length > 0 ? matching : real;
     }
   },
 
@@ -397,7 +276,7 @@ export const productsApi = {
     } catch {
       const real = await fetchRealBackendProducts();
       const matching = real.filter(r => r.is_flash_deal);
-      return matching.length > 0 ? matching : MOCK_PRODUCTS.filter(m => m.is_flash_deal);
+      return matching.length > 0 ? matching : real;
     }
   },
 
@@ -407,7 +286,8 @@ export const productsApi = {
       return data;
     } catch {
       const real = await fetchRealBackendProducts();
-      return real.length > 0 ? real : MOCK_PRODUCTS.filter(m => m.is_hot_sale);
+      const matching = real.filter(r => r.is_hot_sale);
+      return matching.length > 0 ? matching : real;
     }
   },
 
@@ -417,7 +297,7 @@ export const productsApi = {
       return data;
     } catch {
       const real = await fetchRealBackendProducts();
-      return real.length > 0 ? real : MOCK_PRODUCTS;
+      return real;
     }
   },
 

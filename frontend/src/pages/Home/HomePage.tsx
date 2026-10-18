@@ -107,13 +107,16 @@ export default function HomePage() {
 
     // If section products are still loading, show individual skeletons matching layout
     if (products.length === 0 && layout !== 'BANNER') {
-      return (
-        <div className="marketplace-product-grid">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <ProductCardSkeleton key={idx} />
-          ))}
-        </div>
-      );
+      if (isLoading) {
+        return (
+          <div className="marketplace-product-grid">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <ProductCardSkeleton key={idx} />
+            ))}
+          </div>
+        );
+      }
+      return null;
     }
 
     switch (layout) {
@@ -186,7 +189,9 @@ export default function HomePage() {
             <SectionSkeleton layout="PRODUCT_GRID" title="Best Sellers" count={4} />
           </div>
         ) : sections.length > 0 ? (
-          sections.map((section, idx) => (
+          sections
+          .filter(section => section.configuration?.layout === 'BANNER' || (section.products && section.products.length > 0))
+          .map((section, idx) => (
             <LazySection key={section.id} priority={idx < 2}>
               <section style={sectionWrapperStyles}>
               {/* Section Header */}

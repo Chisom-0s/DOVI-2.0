@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import client from '@/api/client';
 import type { HomepageSection } from '@/types';
 
 interface SectionBuilderModalProps {
@@ -44,15 +45,7 @@ const SOURCE_STRATEGIES = [
   { value: 'QUERY', label: 'Custom Filtering Rules' }
 ];
 
-const MOCK_MEMBER_PRODUCTS = [
-  { id: 'prod-iphone-15', name: 'iPhone 15 Pro Max' },
-  { id: 'prod-macbook', name: 'MacBook Pro 14" M3' },
-  { id: 'prod-airpods', name: 'Apple AirPods Pro 2' },
-  { id: 'prod-ps5', name: 'Sony PlayStation 5' },
-  { id: 'prod-engine-oil', name: 'Mobil 1 Motor Oil 5W-30' },
-  { id: 'prod-brake-pads', name: 'Brembo Brake Pads' },
-  { id: 'prod-dashcam', name: '70mai Dash Cam Pro' }
-];
+
 
 export default function SectionBuilderModal({ section, onClose, onSave }: SectionBuilderModalProps) {
   const isEdit = !!section;
@@ -63,6 +56,19 @@ export default function SectionBuilderModal({ section, onClose, onSave }: Sectio
   const [subtitle, setSubtitle] = useState(section?.subtitle || '');
   const [icon, setIcon] = useState(section?.icon || '');
   const [key, setKey] = useState(section?.key || 'FLASH_DEALS');
+  const [productsList, setProductsList] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    client.get('/api/v1/products/', { params: { page_size: 100 } })
+      .then(res => {
+        if (!mounted) return;
+        const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        setProductsList(list.map((item: any) => ({ id: item.id, name: item.name })));
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   const [displayLimit, setDisplayLimit] = useState(section?.display_limit || 6);
   const [isActive, setIsActive] = useState(section?.is_active ?? true);
   const [startsAt, setStartsAt] = useState(section?.starts_at ? section.starts_at.substring(0, 10) : '');
@@ -300,18 +306,24 @@ export default function SectionBuilderModal({ section, onClose, onSave }: Sectio
               <div style={inputGroupStyles}>
                 <label style={labelStyles}>Select Curated Products Checklist</label>
                 <div style={checkboxGridStyles}>
-                  {MOCK_MEMBER_PRODUCTS.map(p => (
-                    <label key={p.id} style={checkboxLabelStyles}>
-                      <input
-                        type="checkbox"
-                        checked={selectedProductIds.includes(p.id)}
-                        onChange={() => handleProductToggle(p.id)}
-                        disabled={isSaving}
-                        style={{ marginRight: '6px' }}
-                      />
-                      {p.name}
-                    </label>
-                  ))}
+                  {productsList.length > 0 ? (
+                    productsList.map(p => (
+                      <label key={p.id} style={checkboxLabelStyles}>
+                        <input
+                          type="checkbox"
+                          checked={selectedProductIds.includes(p.id)}
+                          onChange={() => handleProductToggle(p.id)}
+                          disabled={isSaving}
+                          style={{ marginRight: '6px' }}
+                        />
+                        {p.name}
+                      </label>
+                    ))
+                  ) : (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>
+                      No products available yet. Add products to the catalog first.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
