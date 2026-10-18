@@ -291,9 +291,30 @@ export function normalizeApiError(error: unknown): APIError {
           code: 'SERVER_ERROR',
         };
       }
+      if (status === 404) {
+        return {
+          error: true,
+          message: 'Resource or endpoint unavailable.',
+          code: 'NOT_FOUND',
+        };
+      }
+      if (status === 403) {
+        return {
+          error: true,
+          message: 'Access denied. Administrator privileges required.',
+          code: 'FORBIDDEN',
+        };
+      }
+      if (status === 401) {
+        return {
+          error: true,
+          message: 'Session expired. Please log in again.',
+          code: 'UNAUTHORIZED',
+        };
+      }
       return {
         error: true,
-        message: `HTTP Error ${status}. Please try again.`,
+        message: `Request failed with status ${status}.`,
         code: 'HTTP_ERROR',
       };
     } else if (error.request) {

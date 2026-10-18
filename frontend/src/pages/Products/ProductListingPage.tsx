@@ -35,7 +35,13 @@ export default function ProductListingPage() {
         const cached = sessionStorage.getItem('dovi_real_products_cache');
         if (cached) {
           const list = JSON.parse(cached);
-          if (Array.isArray(list) && list.length > 0) return list;
+          if (Array.isArray(list) && list.length > 0) {
+            let deletedIds: string[] = [];
+            try {
+              deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+            } catch {}
+            return list.filter((p: any) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED');
+          }
         }
       } catch { }
     }

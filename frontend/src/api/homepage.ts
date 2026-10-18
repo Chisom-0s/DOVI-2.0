@@ -236,11 +236,24 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
  * Uses sessionStorage cache as immediate fallback for speed and offline stability.
  */
 export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
+  let deletedIds: string[] = [];
+  try {
+    deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+  } catch {}
+
   try {
     const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 50 } });
     const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
     if (rawList && rawList.length > 0) {
-      const normalized = rawList.map(p => normalizeBackendProductToSummary(p));
+      const normalized = rawList
+        .filter((p: any) => {
+          if (!p) return false;
+          if (deletedIds.includes(p.id)) return false;
+          if (p.status === 'ARCHIVED' || p.status === 'DELETED') return false;
+          return true;
+        })
+        .map((p) => normalizeBackendProductToSummary(p));
+
       try {
         sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
       } catch {}
@@ -254,7 +267,10 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
   try {
     const cached = sessionStorage.getItem('dovi_real_products_cache');
     if (cached) {
-      return JSON.parse(cached);
+      const parsed: ProductSummary[] = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED');
+      }
     }
   } catch {}
 

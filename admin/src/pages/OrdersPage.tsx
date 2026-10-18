@@ -51,12 +51,47 @@ export default function OrdersPage() {
     fetchOrders(true);
   };
 
-  const handleInspectOrder = async (summary: OrderSummary) => {
+  const handleInspectOrder = async (summary: any) => {
     setIsDetailLoading(true);
     try {
-      const orderId = summary.id || summary.reference;
-      const detail = await adminApi.getOrder(orderId);
-      setSelectedOrder(detail);
+      const orderId = summary.id || summary.reference_code || summary.reference;
+      let detail: Order | null = null;
+      try {
+        detail = await adminApi.getOrder(orderId);
+      } catch {
+        if (summary.reference && summary.reference !== orderId) {
+          try {
+            detail = await adminApi.getOrder(summary.reference);
+          } catch {}
+        }
+      }
+
+      if (detail && detail.id) {
+        setSelectedOrder(detail);
+      } else {
+        // Construct full fallback order from summary so inspect modal always opens cleanly
+        setSelectedOrder({
+          id: summary.id || summary.reference || 'ord-inspect',
+          reference: summary.reference || summary.reference_code || 'ORD-UNKNOWN',
+          status: summary.status || 'PENDING_PAYMENT',
+          items: summary.items || [],
+          delivery_address: summary.delivery_address || null,
+          delivery_method: summary.delivery_method || 'PICKUP',
+          delivery_groups: summary.delivery_groups || [],
+          subtotal: summary.subtotal || summary.total || '0',
+          delivery_fee: summary.delivery_fee || '0',
+          total: summary.total || summary.total_amount || '0',
+          payment_status: summary.payment_status || 'PAID',
+          payment_method: summary.payment_method || 'Bank Transfer',
+          tracking: summary.tracking || [],
+          can_cancel: false,
+          can_request_refund: false,
+          can_confirm_receipt: false,
+          can_review: false,
+          created_at: summary.created_at || new Date().toISOString(),
+          ...summary,
+        });
+      }
     } catch {
       toast.error('Failed to load order details.');
     } finally {

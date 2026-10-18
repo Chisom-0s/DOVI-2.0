@@ -47,7 +47,20 @@ export const productsApi = {
 
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
       const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
-      const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
+
+      let deletedIds: string[] = [];
+      try {
+        deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+      } catch {}
+
+      const realProducts = rawList
+        .filter((p: any) => {
+          if (!p) return false;
+          if (deletedIds.includes(p.id)) return false;
+          if (p.status === 'ARCHIVED' || p.status === 'DELETED') return false;
+          return true;
+        })
+        .map((p) => normalizeBackendProductToSummary(p));
 
       // Cache real products when viewing default listing (page 1, no filters)
       const isDefaultView = !filters?.category && !filters?.min_price && !filters?.max_price && !filters?.in_stock && !filters?.q && (filters?.page || 1) === 1;
@@ -58,7 +71,7 @@ export const productsApi = {
       }
 
       return {
-        count: data?.count ?? realProducts.length,
+        count: data?.count !== undefined ? realProducts.length : realProducts.length,
         next: data?.next || null,
         previous: data?.previous || null,
         results: realProducts,
@@ -71,11 +84,16 @@ export const productsApi = {
         if (cached) {
           const list: ProductSummary[] = JSON.parse(cached);
           if (Array.isArray(list) && list.length > 0) {
+            let deletedIds: string[] = [];
+            try {
+              deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+            } catch {}
+            const cleaned = list.filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED');
             return {
-              count: list.length,
+              count: cleaned.length,
               next: null,
               previous: null,
-              results: list,
+              results: cleaned,
             };
           }
         }

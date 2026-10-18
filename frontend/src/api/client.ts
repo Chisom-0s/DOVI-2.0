@@ -282,9 +282,30 @@ export function normalizeApiError(error: unknown): APIError {
           code: 'SERVER_ERROR',
         };
       }
+      if (status === 404) {
+        return {
+          error: true,
+          message: 'Item or endpoint not found.',
+          code: 'NOT_FOUND',
+        };
+      }
+      if (status === 403) {
+        return {
+          error: true,
+          message: 'Permission denied.',
+          code: 'FORBIDDEN',
+        };
+      }
+      if (status === 401) {
+        return {
+          error: true,
+          message: 'Please sign in to continue.',
+          code: 'UNAUTHORIZED',
+        };
+      }
       return {
         error: true,
-        message: `HTTP Error ${status}. Please try again.`,
+        message: `Request failed with status ${status}.`,
         code: 'HTTP_ERROR',
       };
     } else if (error.request || !navigator.onLine) {
