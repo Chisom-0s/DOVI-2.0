@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { productsApi } from '@/api/products';
+import { recentlyViewedApi } from '@/api/recently-viewed';
 import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
 import type { APIError, Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
@@ -68,6 +69,9 @@ export default function ProductDetailPage() {
   const productRef = useRef<Product | null>(product);
   useEffect(() => {
     productRef.current = product;
+    if (product) {
+      recentlyViewedApi.recordView(product);
+    }
   }, [product]);
 
   // Track the ID that was already fetched to completely avoid infinite re-render loops

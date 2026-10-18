@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { refundsApi } from '@/api/refunds';
+import { ordersApi } from '@/api/orders';
+import type { OrderSummary } from '@/types';
 
 // ----------------------------------------------------------
 // RefundRequestPage — Submit refund request via API
@@ -11,11 +13,45 @@ export default function RefundRequestPage() {
   const orderRef = searchParams.get('order') || '';
   const navigate = useNavigate();
 
+  const [selectedOrderRef, setSelectedOrderRef] = useState(orderRef);
+  const [customOrderRef, setCustomOrderRef] = useState(orderRef);
+  const [isManualInput, setIsManualInput] = useState(!orderRef);
+  const [userOrders, setUserOrders] = useState<OrderSummary[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [evidence, setEvidence] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (orderRef) {
+      setSelectedOrderRef(orderRef);
+      setCustomOrderRef(orderRef);
+      setIsManualInput(false);
+    }
+    const loadOrders = async () => {
+      setIsLoadingOrders(true);
+      try {
+        const resp = await ordersApi.list();
+        const list = resp?.results || [];
+        setUserOrders(list);
+        if (!orderRef && list.length > 0) {
+          setSelectedOrderRef(list[0].order_reference);
+          setCustomOrderRef(list[0].order_reference);
+          setIsManualInput(false);
+        } else if (!orderRef) {
+          setIsManualInput(true);
+        }
+      } catch {
+        setIsManualInput(true);
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    };
+    loadOrders();
+  }, [orderRef]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -25,8 +61,9 @@ export default function RefundRequestPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderRef) {
-      toast.error('Order reference is missing.');
+    const finalOrderRef = (isManualInput ? customOrderRef : selectedOrderRef).trim();
+    if (!finalOrderRef) {
+      toast.error('Please enter or select an order reference.');
       return;
     }
     if (!reason || !description) {
@@ -37,7 +74,7 @@ export default function RefundRequestPage() {
     try {
       // Submit refund request
       const refund = await refundsApi.submit({
-        order_reference: orderRef,
+        order_reference: finalOrderRef,
         reason,
         description,
         amount: amount || '0',
@@ -71,19 +108,72 @@ export default function RefundRequestPage() {
     'Other',
   ];
 
+  const currentRef = isManualInput ? customOrderRef : selectedOrderRef;
+
   return (
     <div className="container" style={pageStyles}>
-      <Link to={orderRef ? `/dashboard/orders/${orderRef}` : '/dashboard/orders'} style={backLinkStyles}>
-        ← Back to Order
+      <Link to={currentRef ? `/dashboard/orders/${currentRef}` : '/dashboard/orders'} style={backLinkStyles}>
+        ← Back to Orders
       </Link>
 
       <h1 style={titleStyles}>Request Refund</h1>
 
-      {orderRef && (
-        <p style={orderRefStyles}>For order <strong>#{orderRef}</strong></p>
-      )}
-
       <form onSubmit={handleSubmit} style={formStyles}>
+        {/* Order Reference Input / Selection */}
+        <div style={fieldStyles}>
+          <label style={labelStyles}>Order Reference *</label>
+          {userOrders.length > 0 && !orderRef ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <select
+                value={isManualInput ? '__manual__' : selectedOrderRef}
+                onChange={e => {
+                  if (e.target.value === '__manual__') {
+                    setIsManualInput(true);
+                  } else {
+                    setIsManualInput(false);
+                    setSelectedOrderRef(e.target.value);
+                  }
+                }}
+                style={selectStyles}
+              >
+                {userOrders.map(o => (
+                  <option key={o.id || o.order_reference} value={o.order_reference}>
+                    #{o.order_reference} ({o.status}) - {new Date(o.created_at).toLocaleDateString()}
+                  </option>
+                ))}
+                <option value="__manual__">-- Enter a different order reference --</option>
+              </select>
+              {isManualInput && (
+                <input
+                  type="text"
+                  placeholder="e.g. ORD-ABC12345"
+                  value={customOrderRef}
+                  onChange={e => setCustomOrderRef(e.target.value)}
+                  style={inputStyles}
+                  required
+                />
+              )}
+            </div>
+          ) : (
+            <div>
+              <input
+                type="text"
+                placeholder="e.g. ORD-ABC12345"
+                value={isManualInput ? customOrderRef : (selectedOrderRef || customOrderRef)}
+                onChange={e => {
+                  setCustomOrderRef(e.target.value);
+                  setSelectedOrderRef(e.target.value);
+                }}
+                style={inputStyles}
+                required
+              />
+              <span style={hintStyles}>
+                {orderRef ? `Pre-filled from order #${orderRef}` : 'Enter the Order Reference from your order receipt.'}
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Reason */}
         <div style={fieldStyles}>
           <label style={labelStyles}>Reason *</label>

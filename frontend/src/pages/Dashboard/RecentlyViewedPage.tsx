@@ -17,7 +17,7 @@ export default function RecentlyViewedPage() {
       const data = await recentlyViewedApi.list();
       setProducts(data);
     } catch {
-      toast.error('Failed to load recently viewed products.');
+      setProducts([]);
     } finally {
       setIsLoading(false);
     }

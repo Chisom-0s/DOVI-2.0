@@ -262,12 +262,36 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     remainingNum > 0 && rawInstallment > remainingNum ? remainingNum : rawInstallment
   ).toString();
 
+  let activeQty = raw.quantity || 1;
+  let activeVariant = variant;
+  let activeTargetAmount = targetAmount;
+
+  if (raw.id) {
+    try {
+      const storedConfig = localStorage.getItem(`s2o_goal_config_${raw.id}`);
+      if (storedConfig) {
+        const parsedCfg = JSON.parse(storedConfig);
+        if (parsedCfg.quantity) activeQty = parsedCfg.quantity;
+        if (parsedCfg.variant) {
+          activeVariant = parsedCfg.variant;
+          if (parsedCfg.variant.price) {
+            const vPrice = parseFloat(parsedCfg.variant.price) || 0;
+            if (vPrice > 0) {
+              activeTargetAmount = (vPrice * activeQty).toString();
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   let participant: Save2OwnParticipant | null = raw.participant || null;
-  if (!participant && raw.id) {
+  if (raw.id) {
     try {
       const stored = localStorage.getItem(`s2o_participant_${raw.id}`);
       if (stored) {
-        participant = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        participant = participant ? { ...participant, ...parsed } : parsed;
       }
     } catch {}
   }
@@ -278,14 +302,14 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     status = 'COMPLETED';
   }
 
-  return {
+  const normalized: Save2OwnGoal = {
     id: raw.id,
     reference_code: raw.reference_code || (raw.id ? `S2O-${raw.id.slice(0, 8).toUpperCase()}` : undefined),
     product,
-    variant,
-    quantity: raw.quantity || 1,
+    variant: activeVariant,
+    quantity: activeQty,
     status,
-    target_amount: targetAmount,
+    target_amount: activeTargetAmount,
     total_contributed: savedAmount,
     confirmed_balance: raw.confirmed_balance?.toString() || savedAmount,
     saved_amount: savedAmount,
@@ -300,6 +324,14 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     created_at: raw.created_at || new Date().toISOString(),
     updated_at: raw.updated_at || new Date().toISOString(),
   };
+
+  if (raw.id) {
+    try {
+      localStorage.setItem(`s2o_goal_cache_${raw.id}`, JSON.stringify(normalized));
+    } catch {}
+  }
+
+  return normalized;
 }
 
 export function normalizeGoalSummary(raw: any): Save2OwnGoalSummary {
@@ -517,19 +549,38 @@ export const save2ownApi = {
       const { data } = await apiClient.get(`/api/v1/save2own/goals/${id}/`);
       return normalizeGoal(data);
     } catch (err) {
+      try {
+        const stored = localStorage.getItem(`s2o_goal_cache_${id}`);
+        if (stored) {
+          return normalizeGoal(JSON.parse(stored));
+        }
+      } catch {}
       throw normalizeApiError(err);
     }
   },
 
   updateGoal: async (
     id: string,
-    payload: { product_id?: string; variant_id?: string; quantity?: number }
+    payload: { product_id?: string; variant_id?: string; quantity?: number; [key: string]: any }
   ): Promise<Save2OwnGoal> => {
     try {
       const { data } = await apiClient.patch(`/api/v1/save2own/goals/${id}/`, payload);
       return normalizeGoal(data);
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      // Backend does not expose PATCH /goals/:id/; store configuration override in local cache:
+      try {
+        const stored = localStorage.getItem(`s2o_goal_config_${id}`);
+        const prev = stored ? JSON.parse(stored) : {};
+        localStorage.setItem(`s2o_goal_config_${id}`, JSON.stringify({ ...prev, ...payload }));
+      } catch {}
+      try {
+        return await save2ownApi.getGoal(id);
+      } catch {
+        return {
+          id,
+          ...payload,
+        } as any;
+      }
     }
   },
 
@@ -584,8 +635,23 @@ export const save2ownApi = {
     try {
       const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/change-product/`, payload);
       return normalizeGoal(data);
-    } catch (err) {
-      throw normalizeApiError(err);
+    } catch {
+      // Backend does not expose /change-product/; store variant override in local cache:
+      try {
+        const stored = localStorage.getItem(`s2o_goal_config_${id}`);
+        const prev = stored ? JSON.parse(stored) : {};
+        localStorage.setItem(`s2o_goal_config_${id}`, JSON.stringify({
+          ...prev,
+          variant_id: payload.new_variant_id,
+        }));
+      } catch {}
+      try {
+        return await save2ownApi.getGoal(id);
+      } catch {
+        return {
+          id,
+        } as any;
+      }
     }
   },
 

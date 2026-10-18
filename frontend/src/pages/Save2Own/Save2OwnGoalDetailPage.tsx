@@ -69,10 +69,14 @@ export default function Save2OwnGoalDetailPage() {
     if (showSkeleton) setIsLoading(true);
     setError(null);
     try {
-      const [goalData, activeAccount] = await Promise.all([
+      const [goalData, activeAccount, participantData] = await Promise.all([
         save2ownApi.getGoal(id),
         save2ownApi.getActivePaymentAccount('save2own').catch(() => null),
+        save2ownApi.getParticipant(id).catch(() => null),
       ]);
+      if (participantData) {
+        goalData.participant = { ...(goalData.participant || {}), ...participantData } as any;
+      }
       setGoal(goalData);
       setBankAccount(activeAccount);
 
