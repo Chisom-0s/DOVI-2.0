@@ -349,7 +349,7 @@ export const save2ownApi = {
         active_goal: data.active_goal ? normalizeGoal(data.active_goal) : null,
       };
     } catch {
-      // Backend does not expose a dedicated /eligibility/ route. Fallback to inspecting active user goals:
+      // Fallback: Check existing goals via listGoals API since backend does not expose /eligibility/
       try {
         const res = await save2ownApi.listGoals();
         const goals = res?.results || [];
@@ -366,7 +366,7 @@ export const save2ownApi = {
           return {
             eligible: false,
             can_create_goal: false,
-            message: 'You already have an active Save2Own goal. Only one active goal is permitted at a time.',
+            message: 'You already have an active Save2Own goal in progress.',
             active_goal: fullGoal,
           };
         }
