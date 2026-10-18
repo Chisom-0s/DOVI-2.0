@@ -120,7 +120,9 @@ function getStoredGlobalContributions(): Save2OwnContribution[] {
     const raw = localStorage.getItem('dovi_global_s2o_contribs');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((c: any) => c && !String(c.id).includes('demo') && !String(c.user_id).includes('usr-') && !String(c.product_name).includes('iPhone 15') && !String(c.product_name).includes('Samsung Galaxy'));
+      }
     }
   } catch {}
   return [];
@@ -1132,59 +1134,8 @@ export const adminApi = {
       const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
       return data;
     } catch {
-      // Fallback: load global stored contributions and mock list
-      let list = getStoredGlobalContributions();
-
-      // If empty, initialize with some realistic pending seed contributions for testing
-      if (list.length === 0) {
-        list = [
-          {
-            id: 'contrib-s2o-demo-1',
-            goal_id: 'goal-demo-101',
-            goal_reference: 'S2O-DEMO-892',
-            user_id: 'usr-9281',
-            user_email: 'buyer@example.com',
-            user_name: 'Chioma Adebayo',
-            product_name: 'iPhone 15 Pro Max 256GB Titanium',
-            amount: '250000.00',
-            currency: 'NGN',
-            payment_method: 'bank_transfer',
-            payment_account_id: 'acc-s2o-default',
-            transfer_reference: 'S2O-DEMO-892-4821',
-            status: 'submitted',
-            payment_status: 'PENDING',
-            submitted_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-            bank_name_snapshot: 'Kuda Microfinance Bank',
-            account_name_snapshot: 'Dovi Save2Own Savings Trust',
-            account_number_snapshot: '2039485712',
-            created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-          },
-          {
-            id: 'contrib-s2o-demo-2',
-            goal_id: 'goal-demo-102',
-            goal_reference: 'S2O-S24U-102',
-            user_id: 'usr-4412',
-            user_email: 'emeka.okafor@gmail.com',
-            user_name: 'Emeka Okafor',
-            product_name: 'Samsung Galaxy S24 Ultra',
-            amount: '300000.00',
-            currency: 'NGN',
-            payment_method: 'bank_transfer',
-            payment_account_id: 'acc-s2o-default',
-            transfer_reference: 'S2O-S24U-102-7719',
-            status: 'confirmed',
-            payment_status: 'SUCCESSFUL',
-            submitted_at: new Date(Date.now() - 86400000).toISOString(),
-            verified_at: new Date(Date.now() - 80000000).toISOString(),
-            verified_by: 'admin@dovi.com',
-            bank_name_snapshot: 'Kuda Microfinance Bank',
-            account_name_snapshot: 'Dovi Save2Own Savings Trust',
-            account_number_snapshot: '2039485712',
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-          },
-        ];
-        saveStoredGlobalContributions(list);
-      }
+      // Fallback: load global stored contributions without any mock user seeds
+      const list = getStoredGlobalContributions();
 
       let filtered = [...list];
       if (params?.status) {

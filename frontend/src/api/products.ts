@@ -17,67 +17,8 @@ export interface ProductFilters {
   in_stock?: boolean;
 }
 
-const SEED_PRODUCT_REVIEWS: Record<string, Review[]> = {};
-
-function getFallbackReviews(productId: string, ratingFilter?: number, sort?: string): Review[] {
-  let list = SEED_PRODUCT_REVIEWS[productId];
-  if (!list || list.length === 0) {
-    list = [
-      {
-        id: `rev-${productId}-1`,
-        product_id: productId,
-        order_reference: 'ORD-2026-4102',
-        product_rating: 5,
-        vendor_rating: 5,
-        delivery_rating: 5,
-        title: 'Verified Genuine & Premium Quality',
-        body: 'Item arrived in brand new condition, exactly as described. Very pleased with DOVI escrow purchase guarantee.',
-        is_verified_purchase: true,
-        created_at: '2026-08-10T12:00:00Z',
-        updated_at: '2026-08-10T12:00:00Z',
-      },
-      {
-        id: `rev-${productId}-2`,
-        product_id: productId,
-        order_reference: 'ORD-2026-3918',
-        product_rating: 5,
-        vendor_rating: 4,
-        delivery_rating: 5,
-        title: 'Fast delivery and excellent customer support',
-        body: 'Vendor communicated throughout dispatch. Product works flawlessly. Definitely ordering again!',
-        is_verified_purchase: true,
-        created_at: '2026-08-22T15:30:00Z',
-        updated_at: '2026-08-22T15:30:00Z',
-      },
-      {
-        id: `rev-${productId}-3`,
-        product_id: productId,
-        order_reference: 'ORD-2026-2810',
-        product_rating: 4,
-        vendor_rating: 4,
-        delivery_rating: 4,
-        title: 'Great value for money',
-        body: 'Good experience overall. Well packed and delivered safely.',
-        is_verified_purchase: true,
-        created_at: '2026-08-28T09:15:00Z',
-        updated_at: '2026-08-28T09:15:00Z',
-      },
-    ];
-  }
-
-  if (ratingFilter) {
-    list = list.filter(r => r.product_rating === ratingFilter);
-  }
-
-  if (sort === 'highest') {
-    list = [...list].sort((a, b) => b.product_rating - a.product_rating);
-  } else if (sort === 'lowest') {
-    list = [...list].sort((a, b) => a.product_rating - b.product_rating);
-  } else {
-    list = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-
-  return list;
+function getFallbackReviews(): Review[] {
+  return [];
 }
 
 export const productsApi = {
