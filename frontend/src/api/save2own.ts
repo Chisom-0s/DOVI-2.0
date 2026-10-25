@@ -239,10 +239,15 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     targetNum > 0 ? Math.min(100, Math.round((savedNum / targetNum) * 100)) : 0;
 
   let storedPlan: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'WEEKLY';
+  let storedTargetDate: string | null = null;
   try {
     const local = localStorage.getItem(`s2o_plan_${raw.id}`);
     if (local === 'DAILY' || local === 'WEEKLY' || local === 'MONTHLY') {
       storedPlan = local;
+    }
+    const localDate = localStorage.getItem(`s2o_target_date_${raw.id}`);
+    if (localDate) {
+      storedTargetDate = localDate;
     }
   } catch {}
 
@@ -253,9 +258,24 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
       : null) ||
     storedPlan;
 
+  const targetDate: string | null = raw.target_date || storedTargetDate || null;
+
   let divisor = 10;
-  if (plan === 'DAILY') divisor = 30;
-  if (plan === 'MONTHLY') divisor = 4;
+  if (targetDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(targetDate);
+    target.setHours(0, 0, 0, 0);
+    const diffTime = target.getTime() - today.getTime();
+    const daysRemaining = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    if (plan === 'DAILY') divisor = daysRemaining;
+    else if (plan === 'WEEKLY') divisor = Math.max(1, Math.ceil(daysRemaining / 7));
+    else if (plan === 'MONTHLY') divisor = Math.max(1, Math.ceil(daysRemaining / 30));
+  } else {
+    if (plan === 'DAILY') divisor = 30;
+    if (plan === 'MONTHLY') divisor = 4;
+  }
 
   const rawInstallment = Math.ceil(targetNum / divisor);
   const installmentAmount = (
@@ -317,7 +337,7 @@ export function normalizeGoal(raw: any): Save2OwnGoal {
     progress_percentage: progressPercent,
     contribution_plan: plan,
     installment_amount: installmentAmount,
-    target_date: raw.target_date || null,
+    target_date: targetDate,
     participant,
     contributions,
     product_changes: productChanges,
@@ -427,6 +447,7 @@ export const save2ownApi = {
           variant_id?: string;
           quantity: number;
           contribution_plan?: string;
+          target_date?: string;
           full_name?: string;
           email?: string;
           phone?: string;
@@ -444,6 +465,7 @@ export const save2ownApi = {
       let variantId = '';
       let quantity = 1;
       let plan = 'WEEKLY';
+      let targetDate = '';
       let shippingAddress = 'Default Delivery Address';
       let shippingCity = 'Lagos';
       let shippingState = 'Lagos';
@@ -456,6 +478,7 @@ export const save2ownApi = {
         variantId = (payload.get('variant_id') as string) || '';
         quantity = parseInt((payload.get('quantity') as string) || '1', 10) || 1;
         plan = (payload.get('contribution_plan') as string) || 'WEEKLY';
+        targetDate = (payload.get('target_date') as string) || '';
         shippingAddress = (payload.get('residential_address') as string) || 'Default Delivery Address';
         shippingCity = (payload.get('city') as string) || 'Lagos';
         shippingState = (payload.get('state') as string) || 'Lagos';
@@ -486,6 +509,7 @@ export const save2ownApi = {
         variantId = payload.variant_id || '';
         quantity = payload.quantity || 1;
         plan = payload.contribution_plan || 'WEEKLY';
+        targetDate = payload.target_date || '';
         shippingAddress = payload.residential_address || 'Default Delivery Address';
         shippingCity = payload.city || 'Lagos';
         shippingState = payload.state || 'Lagos';
@@ -525,12 +549,25 @@ export const save2ownApi = {
       if (variantId) {
         cleanJsonPayload.variant_id = variantId;
       }
+      if (targetDate) {
+        cleanJsonPayload.target_date = targetDate;
+      }
 
       const { data } = await apiClient.post('/api/v1/save2own/goals/', cleanJsonPayload);
 
       if (data?.id) {
         try {
           localStorage.setItem(`s2o_plan_${data.id}`, plan);
+          if (targetDate) {
+            localStorage.setItem(`s2o_target_date_${data.id}`, targetDate);
+          }
+          const storedConfig = {
+            quantity,
+            contribution_plan: plan,
+            target_date: targetDate,
+            variant_id: variantId,
+          };
+          localStorage.setItem(`s2o_goal_config_${data.id}`, JSON.stringify(storedConfig));
           if (participantData) {
             participantData.goal_id = data.id;
             localStorage.setItem(`s2o_participant_${data.id}`, JSON.stringify(participantData));

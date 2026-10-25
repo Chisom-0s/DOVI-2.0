@@ -45,6 +45,22 @@ export default function Save2OwnCreateGoalPage() {
   const [termsAcknowledged, setTermsAcknowledged] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<ProductSummary[]>([]);
 
+  // Target Date Selection
+  const [targetDate, setTargetDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 60);
+    return d.toISOString().split('T')[0];
+  });
+
+  // Responsive Live Camera Modal State
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch catalog products for direct selection on Save2Own landing
@@ -163,6 +179,127 @@ export default function Save2OwnCreateGoalPage() {
     }
   };
 
+  // --- Live Camera Controller ---
+  const stopCameraStream = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const startCameraStream = async (mode: 'user' | 'environment') => {
+    stopCameraStream();
+    setIsCameraStarting(true);
+    setCameraError(null);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError('Camera is not supported on this device/browser. Please upload a photo file instead.');
+      setIsCameraStarting(false);
+      return;
+    }
+
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch {
+        // Fallback constraint
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('Camera stream error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission was denied. Please allow camera permissions in your browser or upload a photo from your files.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraError('No camera was detected on this device. Please upload a photo file instead.');
+      } else {
+        setCameraError('Unable to open camera stream. Please try again or upload a photo file.');
+      }
+    } finally {
+      setIsCameraStarting(false);
+    }
+  };
+
+  const handleFlipCamera = () => {
+    const next = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(next);
+    startCameraStream(next);
+  };
+
+  const handleOpenLiveCamera = () => {
+    setShowCameraModal(true);
+    startCameraStream(facingMode);
+  };
+
+  const handleCloseCameraModal = () => {
+    stopCameraStream();
+    setShowCameraModal(false);
+    setCameraError(null);
+  };
+
+  const handleCaptureSnapshot = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (facingMode === 'user') {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0, width, height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setSelfieFile(file);
+          const previewUrl = URL.createObjectURL(blob);
+          setSelfiePreview(previewUrl);
+          handleCloseCameraModal();
+          toast.success('Selfie captured successfully!');
+        } else {
+          toast.error('Failed to capture photo. Please try again.');
+        }
+      },
+      'image/jpeg',
+      0.92
+    );
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
   const handleCreateGoal = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!product) return;
@@ -208,6 +345,10 @@ export default function Save2OwnCreateGoalPage() {
       toast.error('Please enter your state.');
       return;
     }
+    if (!targetDate) {
+      toast.error('Please select your target date to complete your savings.');
+      return;
+    }
     if (!selfieFile) {
       toast.error('A selfie photograph is mandatory to register for Save2Own.');
       return;
@@ -232,6 +373,7 @@ export default function Save2OwnCreateGoalPage() {
       formData.append('variant_id', variantId);
       formData.append('quantity', String(quantity));
       formData.append('contribution_plan', plan);
+      formData.append('target_date', targetDate);
 
       // Shipping & Address Details
       formData.append('shipping_address_line_1', address.trim());
@@ -545,6 +687,63 @@ export default function Save2OwnCreateGoalPage() {
   const totalPriceVal = (parseFloat(activePrice) || 0) * quantity;
   const formattedTotal = formatCurrency(totalPriceVal);
 
+  // Target Date & Installment Calculations
+  const tomorrowStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  })();
+
+  const calculateDaysRemaining = (dateStr: string) => {
+    if (!dateStr) return 60;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+    const diff = target.getTime() - today.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return Math.max(1, days);
+  };
+
+  const daysRemaining = calculateDaysRemaining(targetDate);
+  const weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
+  const monthsRemaining = Math.max(1, Math.ceil(daysRemaining / 30));
+
+  const dailyInstallment = Math.ceil(totalPriceVal / daysRemaining);
+  const weeklyInstallment = Math.ceil(totalPriceVal / weeksRemaining);
+  const monthlyInstallment = Math.ceil(totalPriceVal / monthsRemaining);
+
+  const activeInstallment =
+    plan === 'DAILY'
+      ? dailyInstallment
+      : plan === 'WEEKLY'
+      ? weeklyInstallment
+      : monthlyInstallment;
+
+  const setTargetPresetDays = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setTargetDate(d.toISOString().split('T')[0]);
+  };
+
+  const formattedTargetDate = (() => {
+    try {
+      const parts = targetDate.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return d.toLocaleDateString(undefined, {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+      return targetDate;
+    } catch {
+      return targetDate;
+    }
+  })();
+
   const vendorName = product?.vendor
     ? (typeof product.vendor === 'object' ? product.vendor.name : (product.vendor_name || 'Dovi Partner'))
     : (product?.vendor_name || 'Dovi Partner');
@@ -649,27 +848,111 @@ export default function Save2OwnCreateGoalPage() {
               </div>
             </div>
 
+            {/* Target Completion Date */}
+            <div style={settingsRowStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
+                <span style={settingsLabelStyles}>Target Completion Date <span style={requiredAsteriskStyles}>*</span></span>
+                <span style={targetDaysBadgeStyles}>
+                  ⏳ {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} to target
+                </span>
+              </div>
+              <p style={{ margin: '0 0 var(--space-2) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                Choose the date you want to complete your savings and take delivery of your product. Your daily, weekly, or monthly savings are calculated from this date.
+              </p>
+
+              {/* Quick Duration Presets */}
+              <div style={targetPresetsRowStyles}>
+                {[
+                  { label: '30 Days (1 Mo)', days: 30 },
+                  { label: '60 Days (2 Mos)', days: 60 },
+                  { label: '90 Days (3 Mos)', days: 90 },
+                  { label: '180 Days (6 Mos)', days: 180 },
+                ].map((preset) => {
+                  const presetDate = new Date();
+                  presetDate.setDate(presetDate.getDate() + preset.days);
+                  const isSelected = targetDate === presetDate.toISOString().split('T')[0];
+                  return (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      onClick={() => setTargetPresetDays(preset.days)}
+                      style={{
+                        ...targetPresetBtnStyles,
+                        borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
+                        backgroundColor: isSelected ? 'rgba(255, 122, 0, 0.08)' : '#ffffff',
+                        color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                        fontWeight: isSelected ? 'var(--font-bold)' : 'normal',
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Date Input */}
+              <input
+                type="date"
+                required
+                min={tomorrowStr}
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                style={targetDateInputStyles}
+              />
+            </div>
+
             {/* Contribution Schedule */}
             <div style={settingsRowStyles}>
               <span style={settingsLabelStyles}>Contribution Frequency</span>
               <p style={{ margin: '0 0 var(--space-2) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                How often you plan to make bank transfer deposits.
+                How often you plan to make bank transfer deposits towards your target date.
               </p>
               <div style={planOptionsGridStyles}>
-                {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((opt) => (
+                {[
+                  {
+                    key: 'DAILY' as const,
+                    title: 'Daily',
+                    amount: dailyInstallment,
+                    unit: 'day',
+                    count: `${daysRemaining} deposits`,
+                  },
+                  {
+                    key: 'WEEKLY' as const,
+                    title: 'Weekly',
+                    amount: weeklyInstallment,
+                    unit: 'week',
+                    count: `${weeksRemaining} deposits`,
+                  },
+                  {
+                    key: 'MONTHLY' as const,
+                    title: 'Monthly',
+                    amount: monthlyInstallment,
+                    unit: 'month',
+                    count: `${monthsRemaining} deposits`,
+                  },
+                ].map((opt) => (
                   <button
-                    key={opt}
+                    key={opt.key}
                     type="button"
-                    onClick={() => setPlan(opt)}
+                    onClick={() => setPlan(opt.key)}
                     style={{
                       ...planOptBtnStyles,
-                      borderColor: plan === opt ? 'var(--color-primary)' : 'var(--color-border)',
-                      backgroundColor: plan === opt ? 'rgba(255, 122, 0, 0.06)' : '#ffffff',
-                      color: plan === opt ? 'var(--color-primary)' : 'var(--color-text)',
-                      fontWeight: plan === opt ? 'var(--font-bold)' : 'var(--font-medium)',
+                      borderColor: plan === opt.key ? 'var(--color-primary)' : 'var(--color-border)',
+                      backgroundColor: plan === opt.key ? 'rgba(255, 122, 0, 0.06)' : '#ffffff',
+                      color: plan === opt.key ? 'var(--color-primary)' : 'var(--color-text)',
+                      boxShadow: plan === opt.key ? '0 2px 8px rgba(255, 122, 0, 0.15)' : 'none',
                     }}
                   >
-                    {opt}
+                    <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xs)', textTransform: 'uppercase', marginBottom: '2px' }}>
+                      {opt.title}
+                    </div>
+                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: plan === opt.key ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                      {formatCurrency(opt.amount)}
+                      <span style={{ fontSize: '10px', fontWeight: 'normal', color: 'var(--color-text-muted)' }}> / {opt.unit}</span>
+                    </div>
+                    <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                      {opt.count}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -682,11 +965,23 @@ export default function Save2OwnCreateGoalPage() {
                 <span style={summaryValueStyles}>{formattedTotal}</span>
               </div>
               <div style={summaryRowStyles}>
-                <span style={summaryLabelStyles}>Estimated Installment:</span>
-                <span style={{ ...summaryValueStyles, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                  {plan === 'DAILY' && `${formatCurrency((totalPriceVal / 30).toFixed(2))} / day`}
-                  {plan === 'WEEKLY' && `${formatCurrency((totalPriceVal / 10).toFixed(2))} / week`}
-                  {plan === 'MONTHLY' && `${formatCurrency((totalPriceVal / 4).toFixed(2))} / month`}
+                <span style={summaryLabelStyles}>Target Completion Date:</span>
+                <span style={{ ...summaryValueStyles, fontSize: 'var(--text-xs)', color: 'var(--color-primary)' }}>
+                  {formattedTargetDate} ({daysRemaining}d)
+                </span>
+              </div>
+              <div style={summaryRowStyles}>
+                <span style={summaryLabelStyles}>Required Contribution:</span>
+                <span style={{ ...summaryValueStyles, fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
+                  {formatCurrency(activeInstallment)} / {plan === 'DAILY' ? 'day' : plan === 'WEEKLY' ? 'week' : 'month'}
+                </span>
+              </div>
+              <div style={summaryPlanNoticeStyles}>
+                <span>💡</span>
+                <span>
+                  Save <strong>{formatCurrency(activeInstallment)}</strong> every {plan.toLowerCase().replace('ly', '')} for approx.{' '}
+                  <strong>{plan === 'DAILY' ? `${daysRemaining} days` : plan === 'WEEKLY' ? `${weeksRemaining} weeks` : `${monthsRemaining} months`}</strong>{' '}
+                  to complete saving and own your product by {formattedTargetDate}.
                 </span>
               </div>
             </div>
@@ -837,16 +1132,20 @@ export default function Save2OwnCreateGoalPage() {
 
           {/* Card 4: Mandatory Selfie Photograph */}
           <div style={sectionCardStyles}>
-            <h3 style={settingsHeaderStyles}>3. Mandatory Selfie Photograph</h3>
-            <p style={{ margin: '0 0 var(--space-3) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-              A clear photo of your face is required for identity verification and fraud prevention. It is permanently stored and locked.
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={settingsHeaderStyles}>3. Mandatory Selfie Photograph <span style={requiredAsteriskStyles}>*</span></h3>
+              <span style={selfieStatusBadgeStyles}>
+                {selfiePreview ? '✓ Photo Ready' : 'Required for KYC'}
+              </span>
+            </div>
+            <p style={{ margin: '4px 0 var(--space-3) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              A clear live photo of your face is required for identity verification and anti-fraud protection. It is permanently locked to your agreement.
             </p>
 
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/*"
-              capture="user"
+              accept="image/png, image/jpeg, image/webp"
               onChange={handleSelfieChange}
               style={{ display: 'none' }}
             />
@@ -854,20 +1153,29 @@ export default function Save2OwnCreateGoalPage() {
             {selfiePreview ? (
               <div style={selfiePreviewBoxStyles}>
                 <img src={selfiePreview} alt="Selfie preview" style={selfieImgStyles} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-success)' }}>
-                    &#10003; Selfie Captured Successfully
-                  </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-success)' }}>
+                      ✓ Selfie Captured Successfully
+                    </span>
+                  </div>
                   <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                    {selfieFile?.name} ({((selfieFile?.size || 0) / 1024).toFixed(1)} KB)
+                    {selfieFile?.name || 'Live Camera Snapshot'} {selfieFile ? `(${((selfieFile.size || 0) / 1024).toFixed(1)} KB)` : ''}
                   </span>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleOpenLiveCamera}
+                      style={selfieRetakeBtnStyles}
+                    >
+                      📸 Retake with Camera
+                    </button>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      style={selfieRetakeBtnStyles}
+                      style={selfieUploadAltBtnStyles}
                     >
-                      Retake Photo
+                      📁 Upload Different Photo
                     </button>
                     <button
                       type="button"
@@ -880,20 +1188,51 @@ export default function Save2OwnCreateGoalPage() {
                 </div>
               </div>
             ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={selfieUploadDropzoneStyles}
-              >
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                  <circle cx="12" cy="13" r="4"></circle>
-                </svg>
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
-                  Take Selfie or Upload Photo
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  PNG, JPG up to 10MB. Must be a clear picture of your face.
-                </span>
+              <div style={selfieActionGridStyles}>
+                {/* Option A: Take Selfie with Camera */}
+                <button
+                  type="button"
+                  onClick={handleOpenLiveCamera}
+                  style={selfieCameraBtnStyles}
+                >
+                  <div style={cameraIconCircleStyles}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                      <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', color: '#ffffff' }}>
+                      Open Camera &amp; Take Selfie
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '2px' }}>
+                      Front &amp; back camera supported with live viewfinder
+                    </div>
+                  </div>
+                </button>
+
+                {/* Option B: Upload from files */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={selfieFileBtnStyles}
+                >
+                  <div style={fileIconCircleStyles}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                      Or Upload Photo File
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                      PNG, JPG up to 10MB from your device files
+                    </div>
+                  </div>
+                </button>
               </div>
             )}
           </div>
@@ -933,6 +1272,155 @@ export default function Save2OwnCreateGoalPage() {
           </div>
         </form>
       )}
+
+      {/* Responsive Live Camera Viewfinder Modal */}
+      {showCameraModal && (
+        <div
+          style={cameraModalBackdropStyles}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseCameraModal();
+          }}
+        >
+          <div style={cameraModalContainerStyles}>
+            {/* Modal Header */}
+            <div style={cameraModalHeaderStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={cameraHeaderIconStyles}>📸</span>
+                <div>
+                  <h3 style={cameraModalTitleStyles}>Take Live Selfie</h3>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                    {facingMode === 'user' ? 'Front Camera Active' : 'Back Camera Active'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseCameraModal}
+                style={cameraModalCloseBtnStyles}
+                aria-label="Close Camera"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Video Viewfinder */}
+            <div style={cameraViewfinderWrapperStyles}>
+              <video
+                ref={videoRef}
+                playsInline
+                autoPlay
+                muted
+                style={{
+                  ...cameraVideoStyles,
+                  transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                }}
+              />
+
+              {/* Biometric Face Outline Oval */}
+              <div style={cameraFaceOvalStyles}>
+                <div style={cameraFaceOvalDottedStyles} />
+                <span style={cameraFaceGuideTextStyles}>Align Face in Frame</span>
+              </div>
+
+              {/* Camera Starting Loader */}
+              {isCameraStarting && (
+                <div style={cameraLoadingOverlayStyles}>
+                  <div style={cameraSpinnerStyles} />
+                  <span style={{ fontSize: 'var(--text-xs)', color: '#ffffff', fontWeight: 'var(--font-medium)' }}>
+                    Starting camera...
+                  </span>
+                </div>
+              )}
+
+              {/* Camera Error Display */}
+              {cameraError && (
+                <div style={cameraErrorOverlayStyles}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚠️</div>
+                  <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: '#ffffff', marginBottom: '4px' }}>
+                    Camera Unavailable
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '0 0 var(--space-3) 0', lineHeight: 1.4 }}>
+                    {cameraError}
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => startCameraStream(facingMode)}
+                      style={cameraRetryBtnStyles}
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseCameraModal();
+                        fileInputRef.current?.click();
+                      }}
+                      style={cameraUploadFallbackBtnStyles}
+                    >
+                      Upload Photo Instead
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Controls Bar */}
+            <div style={cameraControlsBarStyles}>
+              {/* Flip Camera Button */}
+              <button
+                type="button"
+                onClick={handleFlipCamera}
+                disabled={isCameraStarting || !!cameraError}
+                style={cameraFlipBtnStyles}
+                title="Flip Front / Back Camera"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="4 20 8 16 12 20"></polyline>
+                  <path d="M4 8V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path>
+                  <polyline points="20 4 16 8 12 4"></polyline>
+                </svg>
+                <span style={{ fontSize: '10px', marginTop: '2px', fontWeight: 'var(--font-medium)' }}>
+                  {facingMode === 'user' ? 'Flip to Back' : 'Flip to Front'}
+                </span>
+              </button>
+
+              {/* Shutter Capture Button */}
+              <button
+                type="button"
+                onClick={handleCaptureSnapshot}
+                disabled={isCameraStarting || !!cameraError}
+                style={cameraShutterBtnStyles}
+                title="Capture Selfie"
+              >
+                <div style={cameraShutterInnerStyles} />
+              </button>
+
+              {/* Upload File Fallback */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleCloseCameraModal();
+                  fileInputRef.current?.click();
+                }}
+                style={cameraUploadFallbackSmallStyles}
+                title="Upload Photo File"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span style={{ fontSize: '10px', marginTop: '2px', fontWeight: 'var(--font-medium)' }}>
+                  File Upload
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 }
@@ -1417,21 +1905,6 @@ const inputHelpStyles: React.CSSProperties = {
   marginTop: '2px',
 };
 
-const selfieUploadDropzoneStyles: React.CSSProperties = {
-  border: '2px dashed var(--color-border)',
-  borderRadius: 'var(--radius-lg)',
-  padding: 'var(--space-4)',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '6px',
-  cursor: 'pointer',
-  backgroundColor: 'var(--color-bg-subtle)',
-  textAlign: 'center',
-  transition: 'border-color var(--transition-fast)',
-};
-
 const selfiePreviewBoxStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -1621,4 +2094,346 @@ const browseProductsSecondaryBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-xs)',
   textDecoration: 'none',
   padding: '8px',
+};
+
+// Target Date & Calculation Styles
+const targetDaysBadgeStyles: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  fontSize: '11px',
+  fontWeight: 'var(--font-bold)',
+  padding: '3px 8px',
+  borderRadius: 'var(--radius-full)',
+  backgroundColor: 'rgba(255, 122, 0, 0.1)',
+  color: 'var(--color-primary)',
+};
+
+const targetPresetsRowStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+  gap: 'var(--space-2)',
+  marginBottom: 'var(--space-2)',
+};
+
+const targetPresetBtnStyles: React.CSSProperties = {
+  padding: '8px 10px',
+  fontSize: '11px',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  cursor: 'pointer',
+  textAlign: 'center',
+  transition: 'all var(--transition-fast)',
+};
+
+const targetDateInputStyles: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  fontSize: 'var(--text-xs)',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  backgroundColor: '#ffffff',
+  color: 'var(--color-text)',
+  outline: 'none',
+};
+
+const summaryPlanNoticeStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '8px',
+  padding: '8px 10px',
+  backgroundColor: 'rgba(255, 122, 0, 0.08)',
+  borderRadius: 'var(--radius-md)',
+  fontSize: '11px',
+  color: 'var(--color-text)',
+  lineHeight: 1.45,
+  marginTop: '4px',
+};
+
+// Selfie & Camera Viewfinder Styles
+const selfieStatusBadgeStyles: React.CSSProperties = {
+  fontSize: '10px',
+  fontWeight: 'var(--font-bold)',
+  padding: '2px 8px',
+  borderRadius: 'var(--radius-full)',
+  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  color: 'var(--color-success)',
+};
+
+const selfieActionGridStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-3)',
+};
+
+const selfieCameraBtnStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  padding: 'var(--space-4)',
+  backgroundColor: 'var(--color-primary)',
+  color: '#ffffff',
+  borderRadius: 'var(--radius-lg)',
+  border: 'none',
+  cursor: 'pointer',
+  textAlign: 'left',
+  boxShadow: '0 4px 14px rgba(255, 122, 0, 0.25)',
+  transition: 'transform var(--transition-fast), box-shadow var(--transition-fast)',
+};
+
+const cameraIconCircleStyles: React.CSSProperties = {
+  width: '48px',
+  height: '48px',
+  borderRadius: 'var(--radius-full)',
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+};
+
+const selfieFileBtnStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--space-3)',
+  padding: '12px 14px',
+  backgroundColor: '#ffffff',
+  borderRadius: 'var(--radius-md)',
+  border: '1px dashed var(--color-border)',
+  cursor: 'pointer',
+};
+
+const fileIconCircleStyles: React.CSSProperties = {
+  width: '36px',
+  height: '36px',
+  borderRadius: 'var(--radius-full)',
+  backgroundColor: 'var(--color-bg-subtle)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  color: 'var(--color-text-muted)',
+};
+
+const selfieUploadAltBtnStyles: React.CSSProperties = {
+  padding: '4px 10px',
+  fontSize: '10px',
+  fontWeight: 'var(--font-bold)',
+  backgroundColor: '#ffffff',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer',
+  color: 'var(--color-text)',
+};
+
+const cameraModalBackdropStyles: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 9999,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  backdropFilter: 'blur(8px)',
+  padding: 'var(--space-4)',
+};
+
+const cameraModalContainerStyles: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '480px',
+  backgroundColor: '#0f172a',
+  color: '#ffffff',
+  borderRadius: '20px',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+};
+
+const cameraModalHeaderStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '14px 18px',
+  borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+};
+
+const cameraHeaderIconStyles: React.CSSProperties = {
+  fontSize: '20px',
+};
+
+const cameraModalTitleStyles: React.CSSProperties = {
+  margin: 0,
+  fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-bold)',
+  color: '#ffffff',
+};
+
+const cameraModalCloseBtnStyles: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#94a3b8',
+  fontSize: '18px',
+  cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: 'var(--radius-sm)',
+};
+
+const cameraViewfinderWrapperStyles: React.CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  height: '360px',
+  maxHeight: '55vh',
+  backgroundColor: '#000000',
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+const cameraVideoStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+};
+
+const cameraFaceOvalStyles: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  pointerEvents: 'none',
+};
+
+const cameraFaceOvalDottedStyles: React.CSSProperties = {
+  width: '190px',
+  height: '250px',
+  borderRadius: '50%',
+  border: '2px dashed rgba(255, 255, 255, 0.65)',
+  boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.25)',
+};
+
+const cameraFaceGuideTextStyles: React.CSSProperties = {
+  color: '#ffffff',
+  fontSize: '11px',
+  fontWeight: 'var(--font-semibold)',
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  padding: '2px 8px',
+  borderRadius: 'var(--radius-full)',
+  marginTop: '8px',
+  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+};
+
+const cameraLoadingOverlayStyles: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: 'rgba(15, 23, 42, 0.85)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '12px',
+  zIndex: 10,
+};
+
+const cameraSpinnerStyles: React.CSSProperties = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '50%',
+  border: '3px solid rgba(255, 255, 255, 0.2)',
+  borderTopColor: 'var(--color-primary)',
+};
+
+const cameraErrorOverlayStyles: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 'var(--space-4)',
+  textAlign: 'center',
+  zIndex: 10,
+};
+
+const cameraRetryBtnStyles: React.CSSProperties = {
+  backgroundColor: 'var(--color-primary)',
+  color: '#ffffff',
+  padding: '8px 16px',
+  borderRadius: 'var(--radius-full)',
+  fontSize: '11px',
+  fontWeight: 'var(--font-bold)',
+  border: 'none',
+  cursor: 'pointer',
+};
+
+const cameraUploadFallbackBtnStyles: React.CSSProperties = {
+  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  color: '#ffffff',
+  padding: '8px 16px',
+  borderRadius: 'var(--radius-full)',
+  fontSize: '11px',
+  fontWeight: 'var(--font-bold)',
+  border: 'none',
+  cursor: 'pointer',
+};
+
+const cameraControlsBarStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-around',
+  padding: '16px 20px',
+  backgroundColor: '#0f172a',
+};
+
+const cameraFlipBtnStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  color: '#e2e8f0',
+  cursor: 'pointer',
+  padding: '8px',
+  minWidth: '64px',
+};
+
+const cameraShutterBtnStyles: React.CSSProperties = {
+  width: '64px',
+  height: '64px',
+  borderRadius: '50%',
+  backgroundColor: 'transparent',
+  border: '4px solid #ffffff',
+  padding: '4px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  boxShadow: '0 0 16px rgba(255, 122, 0, 0.4)',
+  transition: 'transform var(--transition-fast)',
+};
+
+const cameraShutterInnerStyles: React.CSSProperties = {
+  width: '100%',
+  height: '100%',
+  borderRadius: '50%',
+  backgroundColor: 'var(--color-primary)',
+};
+
+const cameraUploadFallbackSmallStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  color: '#94a3b8',
+  cursor: 'pointer',
+  padding: '8px',
+  minWidth: '64px',
 };
