@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
@@ -21,37 +21,34 @@ export default function App() {
     return false;
   });
 
+  const handleSplashComplete = useCallback(() => {
+    try {
+      sessionStorage.setItem('dovi_splash_shown', 'true');
+    } catch {
+      // ignore storage errors
+    }
+    setShowSplash(false);
+  }, []);
+
   return (
     <ErrorBoundary>
       <AuthProvider>
         <PromptEngineProvider>
           <CartProvider>
-            {showSplash ? (
-              <DoviSplashScreen
-                onComplete={() => {
-                  try {
-                    sessionStorage.setItem('dovi_splash_shown', 'true');
-                  } catch {
-                    // ignore storage errors
-                  }
-                  setShowSplash(false);
-                }}
-              />
-            ) : (
-              <>
-                <AppRouter />
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    duration: 4000,
-                    style: {
-                      fontSize: '0.875rem',
-                      fontFamily: 'var(--font-sans)',
-                    },
-                  }}
-                />
-              </>
+            {showSplash && (
+              <DoviSplashScreen onComplete={handleSplashComplete} />
             )}
+            <AppRouter />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  fontSize: '0.875rem',
+                  fontFamily: 'var(--font-sans)',
+                },
+              }}
+            />
           </CartProvider>
         </PromptEngineProvider>
       </AuthProvider>

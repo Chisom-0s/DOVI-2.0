@@ -500,13 +500,14 @@ const priceStyles: React.CSSProperties = {
 };
 
 const inStockBadgeStyles: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   fontWeight: 'var(--font-bold)',
   color: '#ffffff',
   backgroundColor: 'var(--color-success)',
-  padding: '4px 10px',
+  padding: '4px 12px',
   borderRadius: 'var(--radius-full)',
   textTransform: 'uppercase',
+  letterSpacing: '0.4px',
 };
 
 const outOfStockBadgeStyles: React.CSSProperties = {
@@ -528,11 +529,11 @@ const qtyWrapperStyles: React.CSSProperties = {
   border: '2px solid var(--color-border)',
   borderRadius: 'var(--radius-md)',
   overflow: 'hidden',
-  height: '42px',
+  height: '48px',
 };
 
 const qtyBtnStyles: React.CSSProperties = {
-  width: '38px',
+  width: '42px',
   height: '100%',
   backgroundColor: 'var(--color-bg-subtle)',
   color: 'var(--color-text)',
@@ -544,39 +545,41 @@ const qtyBtnStyles: React.CSSProperties = {
 };
 
 const qtyValStyles: React.CSSProperties = {
-  paddingHorizontal: 'var(--space-3)',
-  minWidth: '32px',
+  paddingLeft: 'var(--space-3)',
+  paddingRight: 'var(--space-3)',
+  minWidth: '36px',
   textAlign: 'center',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
 };
 
 const cartBtnStyles: React.CSSProperties = {
   flex: '1',
-  height: '42px',
+  height: '48px',
   borderRadius: 'var(--radius-md)',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   border: 'none',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
-  transition: 'background-color var(--transition-fast)',
+  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
   minWidth: '180px',
+  boxShadow: '0 4px 14px rgba(255, 122, 0, 0.28)',
 };
 
 const save2ownBtnStyles: React.CSSProperties = {
   width: '100%',
-  height: '42px',
+  height: '48px',
   borderRadius: 'var(--radius-md)',
   backgroundColor: 'var(--color-success)',
   color: '#ffffff',
   border: 'none',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
-  transition: 'background-color var(--transition-fast)',
-  boxShadow: '0 4px 12px rgba(39, 174, 96, 0.15)',
+  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
+  boxShadow: '0 4px 14px rgba(39, 174, 96, 0.22)',
 };
 
 const tabsWrapperStyles: React.CSSProperties = {
@@ -617,8 +620,10 @@ const loadingWrapperStyles: React.CSSProperties = {
 
 const loadingHeaderGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 'var(--space-8)',
+  /* On mobile this will be single column via CSS override below.
+     ProductDetailPage responsive style inlined in JSX handles the breakpoint. */
+  gridTemplateColumns: '1fr',
+  gap: 'var(--space-6)',
 };
 
 const errorWrapperStyles: React.CSSProperties = {

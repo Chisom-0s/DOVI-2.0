@@ -141,7 +141,7 @@ export default function CartPage() {
             const productHref = targetProductId ? `/products/${targetProductId}` : '/products';
 
             return (
-              <div key={item.id} style={itemCardStyles}>
+              <div key={item.id} style={itemCardStyles} className="cart-item-row">
                 {/* Product Image */}
                 <Link to={productHref} style={{ display: 'block', textDecoration: 'none', flexShrink: 0 }}>
                   <img
@@ -180,39 +180,42 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                {/* Quantity Stepper */}
-                <div style={qtyColStyles}>
-                  <div style={qtyWrapperStyles}>
+                {/* Qty + Total: share one row on mobile, separate columns on desktop */}
+                <div className="cart-item-qty-total">
+                  {/* Quantity Stepper */}
+                  <div style={qtyColStyles} className="cart-item-qty">
+                    <div style={qtyWrapperStyles}>
+                      <button
+                        onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
+                        style={qtyBtnStyles}
+                        disabled={item.quantity <= 1 || isLoading}
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span style={qtyValueStyles}>{item.quantity}</span>
+                      <button
+                        onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
+                        style={qtyBtnStyles}
+                        disabled={isLoading}
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
                     <button
-                      onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
-                      style={qtyBtnStyles}
-                      disabled={item.quantity <= 1 || isLoading}
-                      aria-label="Decrease quantity"
-                    >
-                      −
-                    </button>
-                    <span style={qtyValueStyles}>{item.quantity}</span>
-                    <button
-                      onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
-                      style={qtyBtnStyles}
+                      onClick={() => handleRemoveItem(item.id)}
+                      style={removeBtnStyles}
                       disabled={isLoading}
-                      aria-label="Increase quantity"
                     >
-                      +
+                      Remove
                     </button>
                   </div>
-                  <button
-                    onClick={() => handleRemoveItem(item.id)}
-                    style={removeBtnStyles}
-                    disabled={isLoading}
-                  >
-                    Remove
-                  </button>
-                </div>
 
-                {/* Line Total */}
-                <div style={lineTotalStyles}>
-                  {formatPrice(lineTotal)}
+                  {/* Line Total */}
+                  <div style={lineTotalStyles} className="cart-item-total">
+                    {formatPrice(lineTotal)}
+                  </div>
                 </div>
               </div>
             );
@@ -265,6 +268,37 @@ export default function CartPage() {
           </Link>
         </div>
       </div>
+
+      {/* Responsive cart item layout: desktop gets full 4-column row */}
+      <style>{`
+        @media (min-width: 600px) {
+          .cart-item-row {
+            grid-template-columns: 80px 1fr auto auto !important;
+            grid-template-rows: auto !important;
+            align-items: center !important;
+            gap: var(--space-4) !important;
+            padding: var(--space-4) !important;
+          }
+          .cart-item-row .cart-item-qty {
+            grid-column: auto !important;
+            grid-row: auto !important;
+            align-items: center !important;
+          }
+          .cart-item-row .cart-item-total {
+            grid-column: auto !important;
+          }
+        }
+        /* Mobile: qty + total span full width in a flex row */
+        @media (max-width: 599px) {
+          .cart-item-qty-total {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -321,21 +355,26 @@ const itemsColStyles: React.CSSProperties = {
 
 const itemCardStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '80px 1fr auto auto',
-  gap: 'var(--space-4)',
-  alignItems: 'center',
+  /* Mobile: image + details stack side by side, qty and total wrap below */
+  gridTemplateColumns: '72px 1fr',
+  gridTemplateRows: 'auto auto',
+  gap: 'var(--space-3)',
+  alignItems: 'start',
   backgroundColor: 'var(--color-bg)',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-md)',
-  padding: 'var(--space-4)',
+  padding: 'var(--space-3)',
 };
 
+/* We add a global style override for desktop via a <style> tag in the JSX */
+
 const itemImageStyles: React.CSSProperties = {
-  width: '80px',
-  height: '80px',
+  width: '72px',
+  height: '72px',
   objectFit: 'cover',
   borderRadius: 'var(--radius-sm)',
   backgroundColor: 'var(--color-bg-subtle)',
+  /* Grid: row 1, col 1 on mobile */
 };
 
 const itemDetailsStyles: React.CSSProperties = {
@@ -384,22 +423,24 @@ const qtyWrapperStyles: React.CSSProperties = {
 };
 
 const qtyBtnStyles: React.CSSProperties = {
-  width: '28px',
-  height: '28px',
+  width: '34px',
+  height: '34px',
   background: 'var(--color-bg-subtle)',
   border: 'none',
   cursor: 'pointer',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  color: 'var(--color-text)',
+  transition: 'background-color var(--transition-fast)',
 };
 
 const qtyValueStyles: React.CSSProperties = {
   padding: '0 var(--space-3)',
   fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-medium)',
-  minWidth: '24px',
+  fontWeight: 'var(--font-semibold)',
+  minWidth: '28px',
   textAlign: 'center',
 };
 
@@ -407,27 +448,32 @@ const removeBtnStyles: React.CSSProperties = {
   background: 'none',
   border: 'none',
   color: 'var(--color-text-muted)',
-  fontSize: 'var(--text-xs)',
+  fontSize: '12px',
+  fontWeight: 'var(--font-medium)',
   cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: 'var(--radius-sm)',
+  transition: 'color var(--transition-fast)',
 };
 
 const lineTotalStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-lg)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
-  minWidth: '90px',
   textAlign: 'right',
+  whiteSpace: 'nowrap',
 };
 
 const summaryCardStyles: React.CSSProperties = {
   backgroundColor: 'var(--color-bg)',
   border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
+  borderRadius: 'var(--radius-lg, 12px)',
   padding: 'var(--space-6)',
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-4)',
   height: 'fit-content',
+  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
 };
 
 const summaryTitleStyles: React.CSSProperties = {
@@ -456,14 +502,17 @@ const dividerStyles: React.CSSProperties = {
 
 const checkoutBtnStyles: React.CSSProperties = {
   width: '100%',
-  padding: 'var(--space-3)',
+  padding: '14px var(--space-4)',
+  minHeight: '48px',
   backgroundColor: 'var(--color-primary)',
   color: 'white',
   border: 'none',
   borderRadius: 'var(--radius-md)',
   fontSize: 'var(--text-base)',
-  fontWeight: 'var(--font-semibold)',
-  transition: 'opacity var(--transition-fast)',
+  fontWeight: 'var(--font-bold)',
+  cursor: 'pointer',
+  boxShadow: '0 4px 14px rgba(255, 122, 0, 0.3)',
+  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
 };
 
 const continueShoppingStyles: React.CSSProperties = {

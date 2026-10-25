@@ -1130,11 +1130,11 @@ export const adminApi = {
       } catch {}
       if (list.length > 0) return list;
       return [
-        { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', parent: null, icon_url: '' },
-        { id: 'cat-computers', name: 'Computers', slug: 'computers', parent: null, icon_url: '' },
-        { id: 'cat-audio', name: 'Audio & Music', slug: 'audio-video', parent: null, icon_url: '' },
-        { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', parent: null, icon_url: '' },
-        { id: 'cat-auto', name: 'Dovi Auto (Cars)', slug: 'auto-cars', parent: null, icon_url: '' },
+        { id: 'cat-phones', name: 'Phones & Tablets', slug: 'phones-tablets', parent: null, icon_url: '', children: [], product_count: 0 },
+        { id: 'cat-computers', name: 'Computers', slug: 'computers', parent: null, icon_url: '', children: [], product_count: 0 },
+        { id: 'cat-audio', name: 'Audio & Music', slug: 'audio-video', parent: null, icon_url: '', children: [], product_count: 0 },
+        { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', parent: null, icon_url: '', children: [], product_count: 0 },
+        { id: 'cat-auto', name: 'Dovi Auto (Cars)', slug: 'auto-cars', parent: null, icon_url: '', children: [], product_count: 0 },
       ];
     }
   },
@@ -1150,6 +1150,8 @@ export const adminApi = {
         slug: payload.slug,
         parent: payload.parent || null,
         icon_url: payload.icon_url || '',
+        children: [],
+        product_count: 0,
       };
       try {
         const list = await adminApi.listCategories();
@@ -1171,6 +1173,8 @@ export const adminApi = {
         slug: payload.slug || '',
         parent: payload.parent || null,
         icon_url: payload.icon_url || '',
+        children: [],
+        product_count: 0,
       };
       try {
         const list = await adminApi.listCategories();

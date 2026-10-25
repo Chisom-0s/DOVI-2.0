@@ -95,26 +95,27 @@ const emojiStyles: React.CSSProperties = {
 };
 
 const paragraphStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  fontSize: '13px',
   color: 'var(--color-text)',
-  lineHeight: '1.45',
+  lineHeight: '1.5',
   margin: 0,
   fontWeight: 'var(--font-normal)',
 };
 
 const actionWrapperStyles: React.CSSProperties = {
   display: 'flex',
-  gap: 'var(--space-2)',
+  gap: 'var(--space-3)',
   justifyContent: 'flex-end',
 };
 
 const declineBtnStyles: React.CSSProperties = {
-  padding: '8px 16px',
+  padding: '10px 18px',
+  minHeight: '40px',
   borderRadius: 'var(--radius-full)',
   border: '1px solid var(--color-border)',
   backgroundColor: '#ffffff',
   color: 'var(--color-text-muted)',
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-semibold)',
   cursor: 'pointer',
   transition: 'all var(--transition-fast)',
@@ -123,16 +124,17 @@ const declineBtnStyles: React.CSSProperties = {
 };
 
 const acceptBtnStyles: React.CSSProperties = {
-  padding: '8px 16px',
+  padding: '10px 18px',
+  minHeight: '40px',
   borderRadius: 'var(--radius-full)',
   border: 'none',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
   transition: 'background-color var(--transition-fast)',
   flex: 1,
   textAlign: 'center',
-  boxShadow: '0 2px 4px rgba(255, 122, 0, 0.2)',
+  boxShadow: '0 2px 8px rgba(255, 122, 0, 0.28)',
 };

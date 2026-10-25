@@ -107,12 +107,14 @@ const drawerStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
   borderTopLeftRadius: '24px',
   borderTopRightRadius: '24px',
-  padding: '24px 20px calc(24px + window.safeAreaInsetsBottom || 16px) 20px',
+  padding: '24px 20px 40px 20px', /* fallback; env(safe-area-inset-bottom) applied via CSS */
+  paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 0px))',
   zIndex: 401,
   boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.15)',
   display: 'flex', flexDirection: 'column',
   transition: 'transform 350ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease',
-  maxWidth: '400px',
+  maxWidth: '420px',
+  width: '100%',
   margin: '0 auto',
   boxSizing: 'border-box',
 };

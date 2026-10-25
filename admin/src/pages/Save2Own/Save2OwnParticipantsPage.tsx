@@ -435,7 +435,7 @@ export default function Save2OwnParticipantsPage() {
                       <strong style={{ color: '#ff7a00' }}>{p.progress_percent}%</strong>
                     </div>
                     <div style={progressBarTrackStyles}>
-                      <div style={{ ...progressBarFillStyles, width: `${Math.min(100, p.progress_percent)}%` }} />
+                      <div style={{ ...progressBarFillStyles, width: `${Math.min(100, p.progress_percent ?? 0)}%` }} />
                     </div>
                     <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
                       Target: {formatCurrency(p.target_amount)}

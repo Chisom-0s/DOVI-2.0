@@ -195,20 +195,22 @@ const imgContainerStyles: React.CSSProperties = {
 
 const wishlistBtnStyles: React.CSSProperties = {
   position: 'absolute',
-  top: '6px',
-  right: '6px',
-  width: '28px',
-  height: '28px',
+  top: '8px',
+  right: '8px',
+  width: '34px',
+  height: '34px',
   borderRadius: '50%',
-  backgroundColor: 'rgba(255,255,255,0.9)',
+  backgroundColor: 'rgba(255,255,255,0.92)',
+  backdropFilter: 'blur(4px)',
+  WebkitBackdropFilter: 'blur(4px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
   color: 'var(--color-text-muted)',
   border: 'none',
   cursor: 'pointer',
-  transition: 'transform var(--transition-fast)',
+  transition: 'transform var(--transition-fast), background-color var(--transition-fast)',
   zIndex: 2,
 };
 
@@ -216,57 +218,63 @@ const stockBadgeStyles: React.CSSProperties = {
   position: 'absolute',
   bottom: '8px',
   left: '8px',
-  backgroundColor: 'rgba(239, 68, 68, 0.9)',
-  color: 'white',
-  padding: 'var(--space-1) var(--space-2)',
-  borderRadius: 'var(--radius-sm)',
-  fontSize: '10px',
+  backgroundColor: 'rgba(239, 68, 68, 0.95)',
+  color: '#ffffff',
+  padding: '3px 8px',
+  borderRadius: 'var(--radius-sm, 4px)',
+  fontSize: '11px',
   fontWeight: 'var(--font-bold)',
   textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
 };
 
 const detailsStyles: React.CSSProperties = {
-  padding: 'var(--space-2)',
+  padding: 'var(--space-3)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-1)',
+  gap: '4px',
   flex: 1,
 };
 
 const vendorStyles: React.CSSProperties = {
-  fontSize: '10px',
+  fontSize: '11px',
   textTransform: 'uppercase',
   color: 'var(--color-text-muted)',
   fontWeight: 'var(--font-semibold)',
-  letterSpacing: '0.5px',
+  letterSpacing: '0.6px',
+  lineHeight: 1.2,
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-medium)',
-  lineHeight: 1.3,
+  lineHeight: 1.38,
+  color: 'var(--color-text)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   display: '-webkit-box',
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
-  height: '32px',
+  minHeight: '2.76em',
 };
 
 const ratingStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-1)',
-  fontSize: 'var(--text-xs)',
+  gap: '4px',
+  fontSize: '12px',
+  marginTop: '2px',
 };
 
 const starsStyles: React.CSSProperties = {
-  color: 'var(--color-warning)',
+  color: '#f59e0b',
   fontWeight: 'var(--font-semibold)',
 };
 
 const countStyles: React.CSSProperties = {
   color: 'var(--color-text-muted)',
+  fontSize: '11px',
 };
 
 const footerStyles: React.CSSProperties = {
@@ -275,18 +283,20 @@ const footerStyles: React.CSSProperties = {
   justifyContent: 'space-between',
   marginTop: 'auto',
   paddingTop: 'var(--space-2)',
+  gap: '8px',
 };
 
 const priceStyles: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
+  fontSize: 'clamp(0.95rem, 2.5vw, 1.1rem)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-primary)',
+  lineHeight: 1.2,
 };
 
 const cartBtnStyles: React.CSSProperties = {
-  width: '26px',
-  height: '26px',
-  borderRadius: 'var(--radius-sm)',
+  width: '36px',
+  height: '36px',
+  borderRadius: 'var(--radius-md, 8px)',
   backgroundColor: 'var(--color-primary)',
   color: 'white',
   display: 'flex',
@@ -294,7 +304,9 @@ const cartBtnStyles: React.CSSProperties = {
   justifyContent: 'center',
   border: 'none',
   cursor: 'pointer',
-  transition: 'background-color var(--transition-fast)',
+  flexShrink: 0,
+  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
+  boxShadow: '0 2px 6px rgba(255, 122, 0, 0.28)',
 };
 
 const disabledCartBtnStyles: React.CSSProperties = {
@@ -302,4 +314,5 @@ const disabledCartBtnStyles: React.CSSProperties = {
   backgroundColor: 'var(--color-border)',
   color: 'var(--color-text-muted)',
   cursor: 'not-allowed',
+  boxShadow: 'none',
 };

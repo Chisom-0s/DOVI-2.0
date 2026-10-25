@@ -46,13 +46,15 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  phone: string | null;
+  phone?: string | null;
   role: UserRole;
-  status: AccountStatus;
-  avatar_url: string | null;
+  status?: AccountStatus;
+  avatar_url?: string | null;
   is_email_verified: boolean;
+  is_active?: boolean;
+  is_staff?: boolean;
   date_joined: string;
-  last_login: string | null;
+  last_login?: string | null;
   profile?: UserProfile;
   vendor_status?: string;
 }
@@ -364,7 +366,7 @@ export interface OrderSummary {
 // ----------------------------------------------------------
 // PAYMENTS
 // ----------------------------------------------------------
-export type PaymentStatus = 'PENDING' | 'SUCCESSFUL' | 'FAILED' | 'REFUNDED';
+export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'SUCCESSFUL' | 'FAILED' | 'REFUNDED';
 export type PaymentProvider = 'FLUTTERWAVE' | 'OPAY';
 
 export interface PaymentMethod {
@@ -377,16 +379,18 @@ export interface PaymentMethod {
 
 export interface Payment {
   id: string;
-  reference: string;
-  order_reference: string;
+  reference?: string;
+  payment_reference?: string;
+  order_id?: string;
+  order_reference?: string;
   provider: PaymentProvider;
   status: PaymentStatus;
   amount: string;
   currency: string;
-  payment_link: string | null;
-  provider_reference: string | null;
+  payment_link?: string | null;
+  provider_reference?: string | null;
   created_at: string;
-  verified_at: string | null;
+  verified_at?: string | null;
 }
 
 export interface PaymentInitResponse {
@@ -584,6 +588,7 @@ export interface Save2OwnProductChange {
 
 export interface Save2OwnGoal {
   id: string;
+  reference?: string;
   reference_code?: string;
   product: ProductSummary;
   product_name?: string;
@@ -959,10 +964,13 @@ export type Save2OwnRefundStatus = 'PENDING' | 'APPROVED' | 'PROCESSED' | 'REJEC
 
 export interface Save2OwnRefund {
   id: string;
-  goal: string;
+  goal?: string;
+  goal_id?: string;
   goal_reference: string;
   contribution?: string | null;
   product_name?: string;
+  participant_name?: string;
+  participant_email?: string;
   buyer_email?: string;
   buyer_name?: string;
   amount: string;
@@ -970,6 +978,9 @@ export interface Save2OwnRefund {
   status: Save2OwnRefundStatus;
   refund_reference: string;
   reason?: string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
   destination_bank_name?: string;
   destination_account_name?: string;
   destination_account_number?: string;
@@ -1020,23 +1031,24 @@ export interface Save2OwnIdentityAuditLog {
 export interface AdminSave2OwnParticipant {
   id: string;
   user_id: string;
-  user_email: string;
+  user_email?: string;
   goal_id: string;
-  goal_reference: string;
-  product_name: string;
+  goal_reference?: string;
+  product_name?: string;
   target_amount: string;
   saved_amount: string;
-  remaining_amount: string;
-  progress_percent: number;
+  remaining_amount?: string;
+  progress_percent?: number;
   goal_status: Save2OwnGoalStatus;
   full_name: string;
   email: string;
-  phone: string;
-  whatsapp_number: string;
-  address: string;
-  city: string;
-  state: string;
-  country: string;
+  phone?: string;
+  phone_number?: string | null;
+  whatsapp_number?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
   selfie_url?: string | null;
   identity_locked: boolean;
   identity_locked_at?: string | null;
@@ -1059,6 +1071,8 @@ export interface Save2OwnUnlockFeeHistory {
 }
 
 export interface Save2OwnUnlockConfig {
+  id?: string;
+  is_active?: boolean;
   fee_amount: string;
   currency: string;
   updated_at: string;

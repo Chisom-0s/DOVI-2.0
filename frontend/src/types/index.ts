@@ -57,6 +57,7 @@ export interface User {
   date_joined: string;
   last_login: string | null;
   profile?: UserProfile;
+  vendor_store?: { id?: string; store_name?: string; [key: string]: any };
 }
 
 export interface AuthTokens {
@@ -114,6 +115,8 @@ export interface VendorPayoutAccount {
   bank_name: string;
   bank_code: string;
   is_primary: boolean;
+  updated_at?: string;
+  created_at?: string;
 }
 
 export interface Vendor extends VendorSummary {
@@ -147,7 +150,7 @@ export interface CategorySummary {
 // ----------------------------------------------------------
 // PRODUCTS
 // ----------------------------------------------------------
-export type ProductStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+export type ProductStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'DELETED';
 
 export interface ProductImage {
   id: string;

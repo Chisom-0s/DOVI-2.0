@@ -408,34 +408,44 @@ export default function ProductListingPage() {
         )}
       </div>
       <style>{`
-        /* Mobile Floating Filter/Sort Bar */
+        /* Mobile Floating Filter/Sort Bar.
+           Phones: sits directly above the fixed bottom nav.
+           Tablets (nav hidden): sits on the bottom edge, above the home indicator. */
         .mobile-floating-bar {
           position: fixed;
-          bottom: 0;
+          bottom: var(--bottom-nav-total);
           left: 0;
           right: 0;
-          height: 60px;
+          height: 52px;
           background-color: #ffffff;
           box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
           display: flex;
           align-items: center;
-          z-index: 100;
+          z-index: 190;
           border-top: 1px solid var(--color-border);
+        }
+
+        @media (min-width: 768px) {
+          .mobile-floating-bar {
+            bottom: 0;
+            height: calc(52px + var(--safe-bottom));
+            padding-bottom: var(--safe-bottom);
+          }
         }
         
         .floating-action-btn {
           flex: 1;
           height: 100%;
+          min-width: 0;
           display: flex;
           align-items: center;
-          justifyContent: center;
           justify-content: center;
           gap: 8px;
           background: none;
           border: none;
           color: var(--color-text);
           font-weight: 600;
-          font-size: 14px;
+          font-size: var(--text-sm);
           cursor: pointer;
           position: relative;
         }
@@ -479,7 +489,9 @@ export default function ProductListingPage() {
           width: 100%;
           border-top-left-radius: 16px;
           border-top-right-radius: 16px;
-          padding: 20px;
+          padding: 20px 20px calc(20px + var(--safe-bottom)) 20px;
+          max-height: 85vh;
+          overflow-y: auto;
           animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -492,7 +504,7 @@ export default function ProductListingPage() {
 
         .mobile-sort-header h3 {
           margin: 0;
-          font-size: 16px;
+          font-size: var(--text-lg);
           font-weight: 700;
         }
 
@@ -514,10 +526,11 @@ export default function ProductListingPage() {
           align-items: center;
           justify-content: space-between;
           padding: 16px 0;
+          min-height: var(--tap-min);
           background: none;
           border: none;
           border-bottom: 1px solid var(--color-border);
-          font-size: 15px;
+          font-size: var(--text-base);
           color: var(--color-text);
           cursor: pointer;
         }
@@ -561,9 +574,10 @@ export default function ProductListingPage() {
           .mobile-floating-bar.hide-desktop {
             display: flex !important;
           }
-          /* Add bottom padding to container to prevent content hiding behind floating bar */
+          /* Keep the last row of products clear of the floating bar.
+             (.main-content-area already reserves room for the bottom nav on phones.) */
           .product-listing-layout {
-            padding-bottom: 80px;
+            padding-bottom: calc(52px + var(--safe-bottom) + var(--space-6));
           }
         }
       `}</style>
@@ -575,13 +589,10 @@ export default function ProductListingPage() {
 // Styling Tokens
 // ----------------------------------------------------------
 
-const sidebarStyles: React.CSSProperties = {
-  width: '240px',
-  flexShrink: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-6)',
-};
+// Sidebar visibility / width / stacking is controlled by `.product-listing__sidebar`
+// in global.css (hidden on small screens until opened, fixed-width column on desktop).
+const sidebarStyles: React.CSSProperties = {};
+
 
 const sidebarTitleStyles: React.CSSProperties = {
   fontSize: 'var(--text-lg)',
@@ -612,7 +623,8 @@ const filterBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   border: 'none',
   background: 'none',
-  padding: 0,
+  padding: '6px 0',
+  minHeight: '36px',
   cursor: 'pointer',
   textAlign: 'left',
 };
@@ -625,9 +637,11 @@ const priceInputsStyles: React.CSSProperties = {
 
 const priceInputStyles: React.CSSProperties = {
   width: '100%',
-  padding: 'var(--space-2)',
+  minWidth: 0,
+  minHeight: '44px',
+  padding: 'var(--space-2) var(--space-3)',
   border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
+  borderRadius: 'var(--radius-md)',
   fontSize: 'var(--text-sm)',
   outline: 'none',
 };
@@ -642,6 +656,7 @@ const checkboxLabelStyles: React.CSSProperties = {
 
 const mainContentStyles: React.CSSProperties = {
   flex: 1,
+  minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-6)',
@@ -651,8 +666,11 @@ const resultsHeaderStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: 'var(--space-2) var(--space-4)',
   borderBottom: '1px solid var(--color-border)',
   paddingBottom: 'var(--space-3)',
+  minWidth: 0,
 };
 
 const resultsCountStyles: React.CSSProperties = {
@@ -685,24 +703,26 @@ const paginationStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  flexWrap: 'wrap',
   gap: 'var(--space-2)',
   marginTop: 'var(--space-8)',
 };
 
 const pageBtnStyles: React.CSSProperties = {
   padding: 'var(--space-2) var(--space-4)',
+  minHeight: '40px',
   border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
+  borderRadius: 'var(--radius-md)',
   fontSize: 'var(--text-sm)',
   backgroundColor: 'var(--color-bg)',
   cursor: 'pointer',
 };
 
 const pageNumberBtnStyles: React.CSSProperties = {
-  width: '36px',
-  height: '36px',
+  width: '40px',
+  height: '40px',
   border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
+  borderRadius: 'var(--radius-md)',
   fontSize: 'var(--text-sm)',
   cursor: 'pointer',
   display: 'flex',

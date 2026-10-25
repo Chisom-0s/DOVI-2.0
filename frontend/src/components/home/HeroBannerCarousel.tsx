@@ -147,19 +147,19 @@ export default function HeroBannerCarousel() {
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
       border: 1px solid rgba(0, 0, 0, 0.05);
       /* Balanced height for hero banners */
-      height: clamp(230px, 28vw, 360px);
+      height: clamp(260px, 30vw, 400px);
     }
 
     @media (max-width: 1024px) {
       .hero-carousel-container {
-        height: clamp(200px, 30vw, 290px);
+        height: clamp(220px, 32vw, 310px);
       }
     }
 
     @media (max-width: 767px) {
       .hero-carousel-container {
-        height: clamp(165px, 48vw, 220px);
-        border-radius: var(--radius-md, 12px);
+        height: clamp(185px, 52vw, 240px);
+        border-radius: var(--radius-lg, 12px);
       }
       .hero-nav-btn {
         display: none !important;
@@ -328,24 +328,30 @@ export default function HeroBannerCarousel() {
         right: 12px;
         bottom: 12px;
         max-width: calc(100% - 24px);
-        padding: 8px 12px;
-        border-radius: 10px;
-        gap: 3px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        gap: 4px;
       }
       .hero-slide-title {
-        font-size: 0.95rem;
+        font-size: clamp(0.95rem, 3.8vw, 1.15rem);
       }
       .hero-slide-desc {
-        display: none;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.76rem;
+        line-height: 1.3;
       }
       .hero-tag-badge {
-        font-size: 0.62rem;
-        padding: 1px 6px;
+        font-size: 0.68rem;
+        padding: 2px 7px;
       }
       .hero-cta-btn {
-        font-size: 0.72rem;
-        padding: 5px 12px;
+        font-size: 0.8rem;
+        padding: 6px 14px;
         margin-top: 2px;
+        min-height: 32px;
       }
     }
 

@@ -233,11 +233,11 @@ export default function HomePage() {
 // ----------------------------------------------------------
 const pageStyles: React.CSSProperties = {
   backgroundColor: 'var(--color-bg)',
-  paddingTop: 'var(--space-6)',
+  paddingTop: 'var(--space-4)',
   paddingBottom: 'var(--space-12)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-4)',
+  gap: 'var(--space-3)',
 };
 
 const topBannerWrapperStyles: React.CSSProperties = {
@@ -265,23 +265,26 @@ const sectionHeaderStyles: React.CSSProperties = {
 };
 
 const sectionTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-lg)',
+  fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
   margin: 0,
+  lineHeight: 'var(--leading-tight)',
 };
 
 const sectionSubtitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   margin: '4px 0 0 0',
+  lineHeight: 'var(--leading-normal)',
 };
 
 const seeAllStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
+  fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-semibold)',
   color: 'var(--color-primary)',
   textDecoration: 'none',
+  whiteSpace: 'nowrap',
 };
 
 
@@ -300,16 +303,18 @@ const bannerContentStyles: React.CSSProperties = {
 };
 
 const bannerTitleStyles: React.CSSProperties = {
-  fontSize: '20px',
+  fontSize: 'clamp(1.1rem, 2.5vw, 1.375rem)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
   margin: 0,
+  lineHeight: 'var(--leading-tight)',
 };
 
 const bannerSubtitleStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   marginTop: '8px',
+  lineHeight: 'var(--leading-normal)',
 };
 
 const bannerCtaStyles: React.CSSProperties = {

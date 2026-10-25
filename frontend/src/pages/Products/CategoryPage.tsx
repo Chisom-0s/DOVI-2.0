@@ -112,8 +112,9 @@ const wrapperStyles: React.CSSProperties = {
 const breadcrumbStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: 'var(--space-2)',
-  fontSize: 'var(--text-xs)',
+  fontSize: '13px',
 };
 
 const breadcrumbLinkStyles: React.CSSProperties = {

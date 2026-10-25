@@ -148,10 +148,10 @@ export default function Header() {
               {isOpen && (
                 <div style={dropdownStyles}>
                   <div style={dropdownHeaderStyles}>
-                    <strong style={{ fontSize: 'var(--text-xs)' }}>Notifications</strong>
+                    <strong style={{ fontSize: 'var(--text-sm)' }}>Notifications</strong>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {unreadCount > 0 && (
-                        <button onClick={handleMarkAllRead} style={headerActionBtnStyles}>
+                        <button onClick={handleMarkAllRead} style={headerActionBtnStyles} className="dovi-notif-header-btn">
                           Mark all read
                         </button>
                       )}
@@ -159,6 +159,7 @@ export default function Header() {
                         to="/dashboard/notifications"
                         onClick={() => setIsOpen(false)}
                         style={headerActionLinkStyles}
+                        className="dovi-notif-header-btn"
                       >
                         View all
                       </Link>
@@ -428,7 +429,7 @@ const headerActionBtnStyles: React.CSSProperties = {
   background: 'transparent',
   border: 'none',
   color: 'var(--color-primary)',
-  fontSize: '9px',
+  fontSize: '11px',
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
   textDecoration: 'underline',
@@ -436,7 +437,7 @@ const headerActionBtnStyles: React.CSSProperties = {
 
 const headerActionLinkStyles: React.CSSProperties = {
   color: 'var(--color-text-muted)',
-  fontSize: '9px',
+  fontSize: '11px',
   fontWeight: 'var(--font-semibold)',
   textDecoration: 'none',
 };
@@ -460,9 +461,9 @@ const dropdownItemStyles: React.CSSProperties = {
 
 const dropdownItemBodyStyles: React.CSSProperties = {
   margin: 0,
-  fontSize: '10px',
+  fontSize: 'var(--text-xs)',
   color: 'var(--color-text-muted)',
-  lineHeight: 1.3,
+  lineHeight: 1.4,
 };
 
 const unreadDotStyles: React.CSSProperties = {

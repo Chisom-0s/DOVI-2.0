@@ -96,5 +96,6 @@ const listStyles: React.CSSProperties = {
 };
 
 const cardWrapperStyles: React.CSSProperties = {
-  width: '150px',
+  width: 'clamp(185px, 46vw, 225px)',
+  flexShrink: 0,
 };

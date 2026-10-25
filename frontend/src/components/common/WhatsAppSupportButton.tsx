@@ -64,7 +64,7 @@ export function WhatsAppSupportButton({
           __html: `
           @media (max-width: 768px) {
             .whatsapp-support-floating-wrapper {
-              bottom: 80px !important;
+              bottom: calc(var(--bottom-nav-total, 64px) + 16px) !important;
               right: 16px !important;
             }
           }

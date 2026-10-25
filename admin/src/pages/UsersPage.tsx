@@ -359,7 +359,7 @@ export default function UsersPage() {
       email: user.email || '',
       phone: user.phone || user.profile?.phone_number || '',
       role: user.role,
-      status: user.status,
+      status: user.status || 'ACTIVE',
       is_email_verified: !!user.is_email_verified,
     });
     setShowEditModal(true);

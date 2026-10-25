@@ -17,7 +17,7 @@ export interface ProductFilters {
   in_stock?: boolean;
 }
 
-function getFallbackReviews(): Review[] {
+function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Review[] {
   return [];
 }
 

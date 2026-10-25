@@ -14,15 +14,15 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
       setIsAnimated(true);
     }, 100);
 
-    // 2. Splash screen duration set to a minimum of 5000ms (5 seconds)
+    // 2. Splash screen duration
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
-    }, 5000);
+    }, 2200);
 
     // 3. Complete callback triggers after fade-out transition concludes (500ms transition)
     const completeTimer = setTimeout(() => {
       onComplete();
-    }, 5500);
+    }, 2700);
 
     return () => {
       clearTimeout(animTimer);
@@ -50,6 +50,7 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
     overflow: 'hidden',
     transition: 'opacity 500ms ease-in-out',
     opacity: isFadingOut ? 0 : 1,
+    pointerEvents: isFadingOut ? 'none' : 'auto',
     padding: '24px',
     boxSizing: 'border-box',
   };
@@ -116,9 +117,9 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
           <div className="dovi-dot" />
           <div className="dovi-dot" />
         </div>
-        
+
         <div style={{ marginTop: '24px', fontSize: '12px', color: '#9ca3af', opacity: isAnimated ? 1 : 0, transition: 'opacity 1000ms ease-out' }}>
-          offered by Malc Nexus Technologies LTD
+          powered by Malc Nexus Technologies LTD
         </div>
       </div>
     </div>
