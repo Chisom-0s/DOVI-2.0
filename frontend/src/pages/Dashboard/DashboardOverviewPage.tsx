@@ -46,9 +46,24 @@ export default function DashboardOverviewPage() {
   return (
     <div style={pageStyles}>
       {/* Welcome Banner */}
-      <div style={welcomeBannerStyles}>
-        <h2 style={welcomeTitleStyles}>Hello, {user?.first_name || 'Buyer'}!</h2>
-        <p style={welcomeSubStyles}>Manage your account, track active orders, or set up saving goals.</p>
+      <div style={welcomeBannerStyles} className="dashboard-welcome-banner">
+        <div style={{ flex: '1 1 auto', minWidth: '220px' }}>
+          <h2 style={welcomeTitleStyles}>Hello, {user?.first_name || 'Buyer'}!</h2>
+          <p style={welcomeSubStyles}>Manage your account, track active orders, or set up saving goals.</p>
+        </div>
+        <a
+          href="https://wa.me/2347014109517?text=Hello%20Dovi%20Support%2C%20I%20need%20assistance%20with%20my%20account."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="dashboard-greeting-whatsapp-btn"
+          aria-label="Chat with Dovi Support on WhatsApp"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.811.922 3.145.922 3.18 0 5.767-2.587 5.767-5.766 0-3.181-2.587-5.764-5.763-5.764zM16.1 14.153c-.157.447-.905.867-1.285.932-.38.065-.898.114-2.868-.696-2.359-.968-3.874-3.376-3.99-3.532-.116-.156-.954-1.272-.954-2.428 0-1.156.602-1.725.815-1.947.213-.222.463-.278.618-.278.155 0 .31.002.449.009.146.007.342-.058.524.382.182.44.622 1.52.678 1.636.056.116.094.252.016.408-.078.156-.118.252-.234.389-.116.136-.245.292-.35.402-.116.116-.238.243-.105.474.133.23.593.979 1.277 1.594.88.793 1.611 1.042 1.838 1.157.227.116.36.097.494-.056.134-.153.58-675.722-.82.143-.146.338-.119.531-.016l3.35 1.593c.22.106.367.159.421.248.054.089.054.517-.103.964z" />
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 1.761.455 3.424 1.267 4.908L2 22l5.228-1.185A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zM12 20.301c-1.42 0-2.812-.358-4.053-1.03l-.291-.157-3.003.681.693-2.905-.175-.29A8.324 8.324 0 013.699 12C3.699 7.424 7.424 3.699 12 3.699S20.301 7.424 20.301 12 16.576 20.301 12 20.301z" />
+          </svg>
+          <span>WhatsApp Support</span>
+        </a>
       </div>
 
       <div style={gridStyles}>
@@ -187,6 +202,11 @@ const welcomeBannerStyles: React.CSSProperties = {
   borderRadius: 'var(--radius-lg)',
   background: 'linear-gradient(135deg, rgba(255, 122, 0, 0.05) 0%, rgba(255, 122, 0, 0.12) 100%)',
   border: '1px solid rgba(255, 122, 0, 0.1)',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 'var(--space-4)',
 };
 
 const welcomeTitleStyles: React.CSSProperties = {

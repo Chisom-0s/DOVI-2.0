@@ -928,34 +928,75 @@ h5, h6 { font-size: var(--text-base); }
   width: 100%;
 }
 
+/* ----------------------------------------------------------
+   Slowly Sliding Marketplace Categories Track
+   ---------------------------------------------------------- */
+@keyframes doviCategorySlide {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
 .site-header__categories-container {
   grid-column: 1 / -1;
   grid-row: 3;
   width: 100%;
   position: relative;
   overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
 }
 
-.site-header__categories-container::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 24px;
-  background: linear-gradient(to right, transparent, var(--color-bg));
-  pointer-events: none;
-}
-
-.site-header__categories {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  white-space: nowrap;
-  padding: 4px 0 6px 0;
+.dovi-category-slider-wrapper {
   width: 100%;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dovi-category-slider-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.dovi-category-track {
+  display: flex;
+  width: max-content;
+  gap: var(--space-2);
+  padding: 4px 0 6px 0;
+  animation: doviCategorySlide 52s linear infinite;
+  will-change: transform;
+}
+
+.dovi-category-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Pause sliding on hover or tap/focus */
+.site-header__categories-container:hover .dovi-category-track,
+.dovi-category-slider-wrapper:active .dovi-category-track,
+.dovi-category-slider-wrapper:focus-within .dovi-category-track {
+  animation-play-state: paused;
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .dovi-category-track {
+    animation: none !important;
+  }
+}
+
+.header-category-link.active-category {
+  background-color: var(--color-primary-dark, #e06900) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 2px var(--color-primary), 0 2px 6px rgba(255, 122, 0, 0.4) !important;
+  transform: translateY(-1px);
 }
 
 /* Tablet & Desktop Header Layout */
@@ -1513,3 +1554,53 @@ html, body {
   width: 100%;
   max-width: 100%;
 }
+
+/* ----------------------------------------------------------
+   Dashboard Profile Greeting Card — WhatsApp Support Button
+   ---------------------------------------------------------- */
+.dashboard-welcome-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  position: relative;
+}
+
+.dashboard-greeting-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #25D366;
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 18px;
+  border-radius: var(--radius-full, 9999px);
+  text-decoration: none !important;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+  transition: transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dashboard-greeting-whatsapp-btn:hover {
+  background-color: #20ba5a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+}
+
+.dashboard-greeting-whatsapp-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 600px) {
+  .dashboard-greeting-whatsapp-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 16px;
+    font-size: 13.5px;
+    margin-top: 4px;
+  }
+}
+

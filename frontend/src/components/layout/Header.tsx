@@ -5,12 +5,35 @@ import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
 
+const MARKETPLACE_CATEGORIES = [
+  { name: 'Electronics', slug: 'electronics', icon: '💻' },
+  { name: 'Gadgets', slug: 'gadgets', icon: '🔌' },
+  { name: 'Phones & Tablets', slug: 'phones-tablets', icon: '📱' },
+  { name: 'Computers', slug: 'computers', icon: '🖥️' },
+  { name: 'Audio & Video', slug: 'audio-video', icon: '🎧' },
+  { name: 'Gaming', slug: 'gaming', icon: '🎮' },
+  { name: 'Smart Home', slug: 'smart-home', icon: '🏠' },
+  { name: 'Fashion & Apparel', slug: 'fashion', icon: '👗' },
+  { name: 'Shoes', slug: 'shoes', icon: '👟' },
+  { name: 'Books & Media', slug: 'books', icon: '📚' },
+  { name: 'Home & Kitchen', slug: 'home-kitchen', icon: '🍳' },
+  { name: 'Beauty & Health', slug: 'beauty-health', icon: '💄' },
+  { name: 'Sports & Outdoors', slug: 'sports-outdoors', icon: '⚽' },
+  { name: 'Automotive', slug: 'automotive', icon: '🚗' },
+  { name: 'Groceries', slug: 'groceries', icon: '🍎' },
+  { name: 'Toys & Games', slug: 'toys-games', icon: '🧸' },
+];
+
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
+
+  // Active category detection from query or pathname
+  const currentCategory = new URLSearchParams(location.search).get('category') ||
+    (location.pathname.startsWith('/categories/') ? location.pathname.replace('/categories/', '') : '');
 
   // Hide Searchbar and Categories on: Cart page and Profile/Dashboard pages
   const shouldHideSearchAndCategories = isCartPage || isProfilePage;
@@ -261,32 +284,44 @@ export default function Header() {
           </div>
         )}
 
-        {/* Category Pills Row (Row 3 on mobile, Row 2 spanning across on desktop) */}
+        {/* Category Pills Row (Row 3 on mobile, Row 2 spanning across on desktop) - Slowly sliding continuous marquee */}
         {!shouldHideSearchAndCategories && (
-          <div className="site-header__categories-container">
-            <div style={categoryLinksStyles} className="site-header__categories no-scrollbar">
-              {/* Page links – visible on mobile only (desktop has them in the top nav) */}
-              <Link to="/products" className="header-category-link page-link hide-desktop">🛍️ Marketplace</Link>
-              <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
-              <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
+          <div className="site-header__categories-container" title="Browse categories (hover to pause)">
+            <div className="dovi-category-slider-wrapper">
+              <div className="dovi-category-track">
+                {/* Primary Category Track */}
+                <div className="dovi-category-group">
+                  <Link to="/products" className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
+                  <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
+                  <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
+                  {MARKETPLACE_CATEGORIES.map(cat => (
+                    <Link
+                      key={cat.slug}
+                      to={`/products?category=${cat.slug}`}
+                      className={`header-category-link ${currentCategory === cat.slug ? 'active-category' : ''}`}
+                    >
+                      <span>{cat.icon}</span> {cat.name}
+                    </Link>
+                  ))}
+                </div>
 
-              {/* Extensive categories */}
-              <Link to="/categories/electronics" className="header-category-link">💻 Electronics</Link>
-              <Link to="/categories/gadgets" className="header-category-link">🔌 Gadgets</Link>
-              <Link to="/categories/phones-tablets" className="header-category-link">📱 Phones & Tablets</Link>
-              <Link to="/categories/computers" className="header-category-link">🖥️ Computers</Link>
-              <Link to="/categories/audio-video" className="header-category-link">🎧 Audio & Video</Link>
-              <Link to="/categories/gaming" className="header-category-link">🎮 Gaming</Link>
-              <Link to="/categories/smart-home" className="header-category-link">🏠 Smart Home</Link>
-              <Link to="/categories/fashion" className="header-category-link">👗 Fashion & Apparel</Link>
-              <Link to="/categories/shoes" className="header-category-link">👟 Shoes</Link>
-              <Link to="/categories/books" className="header-category-link">📚 Books & Media</Link>
-              <Link to="/categories/home-kitchen" className="header-category-link">🍳 Home & Kitchen</Link>
-              <Link to="/categories/beauty-health" className="header-category-link">💄 Beauty & Health</Link>
-              <Link to="/categories/sports-outdoors" className="header-category-link">⚽ Sports & Outdoors</Link>
-              <Link to="/categories/automotive" className="header-category-link">🚗 Automotive</Link>
-              <Link to="/categories/groceries" className="header-category-link">🍎 Groceries</Link>
-              <Link to="/categories/toys-games" className="header-category-link">🧸 Toys & Games</Link>
+                {/* Secondary Cloned Group for Seamless Gapless Infinite Sliding */}
+                <div className="dovi-category-group" aria-hidden="true">
+                  <Link to="/products" tabIndex={-1} className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
+                  <Link to="/auto" tabIndex={-1} className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
+                  <Link to="/save2own" tabIndex={-1} className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
+                  {MARKETPLACE_CATEGORIES.map(cat => (
+                    <Link
+                      key={`clone-${cat.slug}`}
+                      to={`/products?category=${cat.slug}`}
+                      tabIndex={-1}
+                      className={`header-category-link ${currentCategory === cat.slug ? 'active-category' : ''}`}
+                    >
+                      <span>{cat.icon}</span> {cat.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -359,15 +394,6 @@ const logoutBtnStyles: React.CSSProperties = {
   backgroundColor: 'transparent',
   border: 'none',
   cursor: 'pointer',
-};
-
-const categoryLinksStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: 'var(--space-2)',
-  overflowX: 'auto',
-  whiteSpace: 'nowrap',
-  padding: '4px 0 8px 0',
-  width: '100%',
 };
 
 const bellBtnStyles: React.CSSProperties = {

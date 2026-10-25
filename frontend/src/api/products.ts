@@ -13,6 +13,7 @@ export interface ProductFilters {
   sort?: 'price_asc' | 'price_desc' | 'newest' | 'rating';
   min_price?: number;
   max_price?: number;
+  min_rating?: number;
   vendor?: string;
   in_stock?: boolean;
 }
@@ -31,6 +32,7 @@ export const productsApi = {
       if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
       if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
       if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
+      if (filters?.min_rating !== undefined) queryParams.min_rating = filters.min_rating;
       if (filters?.q) {
         queryParams.search = filters.q;
       } else if (filters?.search) {
@@ -53,7 +55,7 @@ export const productsApi = {
         deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
       } catch {}
 
-      const realProducts = rawList
+      let realProducts = rawList
         .filter((p: any) => {
           if (!p) return false;
           if (deletedIds.includes(p.id)) return false;
@@ -62,16 +64,26 @@ export const productsApi = {
         })
         .map((p) => normalizeBackendProductToSummary(p));
 
+      // Apply client-side filters if backend doesn't support them directly
+      if (filters?.min_rating) {
+        realProducts = realProducts.filter(p => (p.average_rating || 0) >= filters.min_rating!);
+      }
+      if (filters?.sort === 'rating') {
+        realProducts = [...realProducts].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+      }
+
       // Cache real products when viewing default listing (page 1, no filters)
-      const isDefaultView = !filters?.category && !filters?.min_price && !filters?.max_price && !filters?.in_stock && !filters?.q && (filters?.page || 1) === 1;
+      const isDefaultView = !filters?.category && !filters?.min_price && !filters?.max_price && !filters?.in_stock && !filters?.min_rating && !filters?.q && (filters?.page || 1) === 1;
       if (isDefaultView && realProducts.length > 0) {
         try {
           sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
         } catch {}
       }
 
+      const totalCount = typeof data?.count === 'number' ? data.count : realProducts.length;
+
       return {
-        count: data?.count !== undefined ? realProducts.length : realProducts.length,
+        count: totalCount,
         next: data?.next || null,
         previous: data?.previous || null,
         results: realProducts,
