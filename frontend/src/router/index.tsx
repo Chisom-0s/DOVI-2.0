@@ -179,11 +179,7 @@ const router = createBrowserRouter([
       // ---- Save2Own (Phase 6) ----
       {
         path: 'save2own',
-        element: (
-          <RoleGuard role={['BUYER', 'ADMIN']}>
-            <Save2OwnCreateGoalPage />
-          </RoleGuard>
-        ),
+        element: <Save2OwnCreateGoalPage />,
       },
       {
         path: 'save2own/goals',

@@ -7,9 +7,7 @@ import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartConte
 import type { APIError, Product, ProductVariant, ProductSummary } from '@/types';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
-import ProductSpecs from '@/components/product/ProductSpecs';
 import ProductDescription from '@/components/product/ProductDescription';
-import CustomerReviews from '@/components/product/CustomerReviews';
 import ShareButtons from '@/components/product/ShareButtons';
 import ProductRow from '@/components/product/ProductRow';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -58,9 +56,9 @@ export default function ProductDetailPage() {
     return null;
   });
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [isLoading, setIsLoading] = useState(() => !initialProduct);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<ProductSummary[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [fetchError, setFetchError] = useState<APIError | null>(null);
@@ -172,6 +170,26 @@ export default function ProductDetailPage() {
       toast.error('Could not add to cart. Please try again.');
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!product || isOutOfStock) return;
+    setIsBuying(true);
+
+    try {
+      await addToCart(product, quantity, {
+        variantId: selectedVariant ? selectedVariant.id : undefined,
+        variantName: selectedVariant?.name,
+        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
+        imageUrl: product.primary_image_url || product.image_url || undefined,
+      });
+      navigate('/checkout');
+    } catch (err) {
+      console.error('Failed to buy item:', err);
+      toast.error('Could not initiate checkout. Please try again.');
+    } finally {
+      setIsBuying(false);
     }
   };
 
@@ -326,14 +344,26 @@ export default function ProductDetailPage() {
 
             <button
               onClick={handleAddToCart}
-              disabled={isOutOfStock || isAddingToCart}
+              disabled={isOutOfStock || isAddingToCart || isBuying}
               style={{
                 ...cartBtnStyles,
-                opacity: (isOutOfStock || isAddingToCart) ? 0.6 : 1,
-                cursor: (isOutOfStock || isAddingToCart) ? 'not-allowed' : 'pointer',
+                opacity: (isOutOfStock || isAddingToCart || isBuying) ? 0.6 : 1,
+                cursor: (isOutOfStock || isAddingToCart || isBuying) ? 'not-allowed' : 'pointer',
               }}
             >
               {isAddingToCart ? 'Adding to Cart...' : '🛒 Add to Cart'}
+            </button>
+
+            <button
+              onClick={handleBuyNow}
+              disabled={isOutOfStock || isBuying || isAddingToCart}
+              style={{
+                ...buyBtnStyles,
+                opacity: (isOutOfStock || isBuying || isAddingToCart) ? 0.6 : 1,
+                cursor: (isOutOfStock || isBuying || isAddingToCart) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isBuying ? 'Opening Checkout...' : '⚡ Buy Now'}
             </button>
           </div>
 
@@ -348,57 +378,10 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Tabs (Description, Technical Specs, Reviews) */}
-      <div style={tabsWrapperStyles}>
-        <div style={tabHeadersStyles}>
-          <button
-            onClick={() => setActiveTab('description')}
-            style={{
-              ...tabBtnStyles,
-              color: activeTab === 'description' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              borderBottomColor: activeTab === 'description' ? 'var(--color-primary)' : 'transparent',
-            }}
-          >
-            Description
-          </button>
-          <button
-            onClick={() => setActiveTab('specs')}
-            style={{
-              ...tabBtnStyles,
-              color: activeTab === 'specs' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              borderBottomColor: activeTab === 'specs' ? 'var(--color-primary)' : 'transparent',
-            }}
-          >
-            Specifications
-          </button>
-          <button
-            onClick={() => setActiveTab('reviews')}
-            style={{
-              ...tabBtnStyles,
-              color: activeTab === 'reviews' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-              borderBottomColor: activeTab === 'reviews' ? 'var(--color-primary)' : 'transparent',
-            }}
-          >
-            Reviews ({reviewCount})
-          </button>
-        </div>
-
-        {/* Lazy load tabs depending on active selections */}
-        <div style={tabContentStyles}>
-          {activeTab === 'description' && (
-            <ProductDescription description={product.description} />
-          )}
-          {activeTab === 'specs' && (
-            <ProductSpecs product={product} />
-          )}
-          {activeTab === 'reviews' && (
-            <CustomerReviews
-              productId={product.id}
-              averageRating={avgRating}
-              reviewCount={reviewCount}
-            />
-          )}
-        </div>
+      {/* Product Description */}
+      <div style={descriptionSectionStyles}>
+        <h2 style={descriptionHeadingStyles}>Product Description</h2>
+        <ProductDescription description={product.description} />
       </div>
 
       {/* Related Category Recommendations Carousel */}
@@ -582,32 +565,42 @@ const save2ownBtnStyles: React.CSSProperties = {
   boxShadow: '0 4px 14px rgba(39, 174, 96, 0.22)',
 };
 
-const tabsWrapperStyles: React.CSSProperties = {
+const buyBtnStyles: React.CSSProperties = {
+  flex: '1',
+  height: '48px',
+  borderRadius: 'var(--radius-md)',
+  backgroundColor: '#111827',
+  color: '#ffffff',
+  border: 'none',
+  fontSize: 'var(--text-base)',
+  fontWeight: 'var(--font-bold)',
+  cursor: 'pointer',
+  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
+  minWidth: '160px',
+  boxShadow: '0 4px 14px rgba(17, 24, 39, 0.2)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '6px',
+};
+
+const descriptionSectionStyles: React.CSSProperties = {
   marginTop: 'var(--space-8)',
   width: '100%',
+  backgroundColor: '#ffffff',
+  borderRadius: 'var(--radius-lg)',
+  border: '1px solid var(--color-border)',
+  padding: 'var(--space-6)',
+  boxShadow: 'var(--shadow-sm)',
 };
 
-const tabHeadersStyles: React.CSSProperties = {
-  display: 'flex',
-  borderBottom: '2px solid var(--color-border)',
-  gap: 'var(--space-6)',
-  overflowX: 'auto',
-};
-
-const tabBtnStyles: React.CSSProperties = {
-  paddingBottom: 'var(--space-3)',
-  borderBottom: '3px solid transparent',
-  backgroundColor: 'transparent',
+const descriptionHeadingStyles: React.CSSProperties = {
+  fontSize: 'var(--text-lg)',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
-  cursor: 'pointer',
-  transition: 'all var(--transition-fast)',
-  whiteSpace: 'nowrap',
-};
-
-const tabContentStyles: React.CSSProperties = {
-  paddingTop: 'var(--space-4)',
-  width: '100%',
+  margin: '0 0 var(--space-4) 0',
+  paddingBottom: 'var(--space-3)',
+  borderBottom: '1px solid var(--color-border)',
+  color: 'var(--color-text)',
 };
 
 const loadingWrapperStyles: React.CSSProperties = {

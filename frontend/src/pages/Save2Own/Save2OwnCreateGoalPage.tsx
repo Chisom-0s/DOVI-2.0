@@ -6,7 +6,7 @@ import { save2ownApi } from '@/api/save2own';
 import { notificationsApi } from '@/api/notifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
-import type { Product, ProductVariant, APIError, Save2OwnEligibilityResponse } from '@/types';
+import type { Product, ProductVariant, APIError, Save2OwnEligibilityResponse, ProductSummary } from '@/types';
 import VariantSelector from '@/components/product/VariantSelector';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -43,8 +43,23 @@ export default function Save2OwnCreateGoalPage() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [termsAcknowledged, setTermsAcknowledged] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<ProductSummary[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch catalog products for direct selection on Save2Own landing
+  useEffect(() => {
+    if (productId) return;
+    const fetchCatalog = async () => {
+      try {
+        const res = await productsApi.list({ page_size: 6 });
+        setCatalogProducts(res.results || []);
+      } catch (err) {
+        console.warn('Could not load catalog for Save2Own landing:', err);
+      }
+    };
+    fetchCatalog();
+  }, [productId]);
 
   // Prefill default user contact details if available
   useEffect(() => {
@@ -151,6 +166,12 @@ export default function Save2OwnCreateGoalPage() {
   const handleCreateGoal = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!product) return;
+
+    if (!isAuthenticated) {
+      toast.error('Please log in or register to confirm your Save2Own goal.');
+      navigate('/login', { state: { from: `/save2own?${searchParams.toString()}` } });
+      return;
+    }
 
     // Check Active Goal Block
     if (eligibility && !eligibility.can_create_goal) {
@@ -307,34 +328,32 @@ export default function Save2OwnCreateGoalPage() {
       <div style={landingWrapperStyles}>
         {/* Hero Section */}
         <section style={heroSectionStyles}>
-          <div style={heroTextWrapperStyles}>
-            <span style={pillBadgeStyles}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
-                <circle cx="12" cy="12" r="10"></circle>
-                <circle cx="12" cy="12" r="6"></circle>
-                <circle cx="12" cy="12" r="2"></circle>
-              </svg>
-              <span>Interest-Free Purchase Option</span>
-            </span>
-            <h1 style={heroTitleStyles}>Save2Own with Zero Stress</h1>
-            <p style={heroSubStyles}>
-              Don't let budget boundaries stop you. Lock down price security on your favorite items, save over time at your own pace, and own them once your goal is reached.
-            </p>
-            <div style={ctaRowStyles}>
-              <Link to="/products" style={primaryCtaStyles}>Browse Marketplace Products</Link>
-              <Link to="/save2own/goals" style={secondaryCtaStyles}>View My Save2Own Goals</Link>
-            </div>
+          <span style={pillBadgeStyles}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="6"></circle>
+              <circle cx="12" cy="12" r="2"></circle>
+            </svg>
+            <span>Interest-Free Purchase Option</span>
+          </span>
+          <h1 style={heroTitleStyles}>Save2Own with Zero Stress</h1>
+          <p style={heroSubStyles}>
+            Don't let budget boundaries stop you. Lock down price security on your favorite items, save over time at your own pace, and own them once your goal is reached.
+          </p>
+
+          <div style={ctaRowStyles}>
+            <Link to="/products" style={primaryCtaStyles}>Browse Marketplace Products</Link>
+            <Link to="/save2own/goals" style={secondaryCtaStyles}>View My Save2Own Goals</Link>
           </div>
-          <div style={heroImageWrapperStyles}>
-            <div style={graphicCardStyles}>
-              <div style={graphicProgressWrapperStyles}>
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-primary)' }}>PROGRESS TRACKER</span>
-                <span style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)' }}>75% Saved</span>
-                <div style={landingBarBgStyles}>
-                  <div style={{ ...landingBarFillStyles, width: '75%' }} />
-                </div>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Only ₦15,000 remaining to own!</span>
+
+          <div style={graphicCardStyles}>
+            <div style={graphicProgressWrapperStyles}>
+              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-primary)' }}>PROGRESS TRACKER</span>
+              <span style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)' }}>75% Saved</span>
+              <div style={landingBarBgStyles}>
+                <div style={{ ...landingBarFillStyles, width: '75%' }} />
               </div>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Only ₦15,000 remaining to own!</span>
             </div>
           </div>
         </section>
@@ -365,6 +384,41 @@ export default function Save2OwnCreateGoalPage() {
             </div>
           </div>
         </section>
+
+        {/* Marketplace Selection */}
+        {catalogProducts.length > 0 && (
+          <section style={{ marginTop: 'var(--space-12)', width: '100%' }}>
+            <h2 style={sectionHeadingStyles}>Choose an Item to Start Save2Own</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginTop: 'var(--space-6)' }}>
+              {catalogProducts.map((p) => (
+                <div key={p.id} style={catalogCardStyles}>
+                  <img
+                    src={getProductImageUrl(p) || getProductFallbackImage(p)}
+                    alt={p.name}
+                    style={catalogImgStyles}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getProductFallbackImage(p);
+                    }}
+                  />
+                  <div style={{ padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>{p.name}</h4>
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)', fontWeight: 'var(--font-bold)' }}>
+                        {formatCurrency(p.base_price || p.price || 0)}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/save2own?productId=${p.id}`}
+                      style={selectProductBtnStyles}
+                    >
+                      Start Save2Own &rarr;
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
@@ -376,9 +430,10 @@ export default function Save2OwnCreateGoalPage() {
     return (
       <div className="container" style={formPageWrapperStyles}>
         <Skeleton width="180px" height="24px" />
-        <div style={splitLayoutStyles}>
-          <Skeleton width="100%" height="320px" borderRadius="var(--radius-lg)" />
-          <Skeleton width="100%" height="450px" borderRadius="var(--radius-lg)" />
+        <div style={singleColumnLayoutStyles}>
+          <Skeleton width="100%" height="120px" borderRadius="var(--radius-lg)" />
+          <Skeleton width="100%" height="240px" borderRadius="var(--radius-lg)" />
+          <Skeleton width="100%" height="380px" borderRadius="var(--radius-lg)" />
         </div>
       </div>
     );
@@ -521,365 +576,360 @@ export default function Save2OwnCreateGoalPage() {
       )}
 
       {product && (
-        <form onSubmit={handleCreateGoal} style={splitLayoutStyles}>
-          {/* Left Column: Product Summary & Goal Settings */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <div style={leftColCardStyles}>
-              <img
-                src={primaryImage}
-                alt={product.name}
-                style={previewImgStyles}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = fallbackImg;
-                }}
-              />
-              <div style={previewTextStyles}>
-                <span style={vendorTagStyles}>Vendor: {vendorName}</span>
-                <h2 style={previewTitleStyles}>{product.name}</h2>
-                {selectedVariant && (
-                  <div style={activeVariantBadgeStyles}>
-                    {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' ? (
-                      Object.entries(selectedVariant.attributes).map(([k, v]) => (
-                        <span key={k} style={{ textTransform: 'capitalize' }}>
-                          <strong>{k}:</strong> {v}
-                        </span>
-                      ))
-                    ) : (
-                      <span>{selectedVariant.name}</span>
-                    )}
-                  </div>
-                )}
-                <div style={priceContainerStyles}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Unit Price</span>
-                  <span style={previewPriceStyles}>{formatCurrency(activePrice)}</span>
+        <form onSubmit={handleCreateGoal} style={singleColumnLayoutStyles}>
+          {/* Card 1: Selected Product Overview */}
+          <div style={productCardStyles}>
+            <img
+              src={primaryImage}
+              alt={product.name}
+              style={productCardImgStyles}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = fallbackImg;
+              }}
+            />
+            <div style={productCardTextStyles}>
+              <span style={vendorTagStyles}>Vendor: {vendorName}</span>
+              <h2 style={previewTitleStyles}>{product.name}</h2>
+              {selectedVariant && (
+                <div style={activeVariantBadgeStyles}>
+                  {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' ? (
+                    Object.entries(selectedVariant.attributes).map(([k, v]) => (
+                      <span key={k} style={{ textTransform: 'capitalize' }}>
+                        <strong>{k}:</strong> {v}
+                      </span>
+                    ))
+                  ) : (
+                    <span>{selectedVariant.name}</span>
+                  )}
+                </div>
+              )}
+              <div style={priceContainerStyles}>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Unit Price</span>
+                <span style={previewPriceStyles}>{formatCurrency(activePrice)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Savings Goal Configuration */}
+          <div style={sectionCardStyles}>
+            <h3 style={settingsHeaderStyles}>1. Savings Goal Configuration</h3>
+
+            {/* Variant Selector */}
+            {product.variants && product.variants.length > 0 && (
+              <div style={settingsRowStyles}>
+                <span style={settingsLabelStyles}>Select Variant / Option</span>
+                <VariantSelector
+                  variants={product.variants}
+                  selectedVariant={selectedVariant}
+                  onVariantChange={setSelectedVariant}
+                />
+              </div>
+            )}
+
+            {/* Quantity Selector */}
+            <div style={settingsRowStyles}>
+              <span style={settingsLabelStyles}>Quantity</span>
+              <div style={qtyStepperStyles}>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  style={stepperBtnStyles}
+                  disabled={quantity <= 1}
+                >
+                  -
+                </button>
+                <span style={qtyValStyles}>{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => prev + 1)}
+                  style={stepperBtnStyles}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Contribution Schedule */}
+            <div style={settingsRowStyles}>
+              <span style={settingsLabelStyles}>Contribution Frequency</span>
+              <p style={{ margin: '0 0 var(--space-2) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                How often you plan to make bank transfer deposits.
+              </p>
+              <div style={planOptionsGridStyles}>
+                {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setPlan(opt)}
+                    style={{
+                      ...planOptBtnStyles,
+                      borderColor: plan === opt ? 'var(--color-primary)' : 'var(--color-border)',
+                      backgroundColor: plan === opt ? 'rgba(255, 122, 0, 0.06)' : '#ffffff',
+                      color: plan === opt ? 'var(--color-primary)' : 'var(--color-text)',
+                      fontWeight: plan === opt ? 'var(--font-bold)' : 'var(--font-medium)',
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary Details */}
+            <div style={goalSummaryCardStyles}>
+              <div style={summaryRowStyles}>
+                <span style={summaryLabelStyles}>Target Goal Amount:</span>
+                <span style={summaryValueStyles}>{formattedTotal}</span>
+              </div>
+              <div style={summaryRowStyles}>
+                <span style={summaryLabelStyles}>Estimated Installment:</span>
+                <span style={{ ...summaryValueStyles, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                  {plan === 'DAILY' && `${formatCurrency((totalPriceVal / 30).toFixed(2))} / day`}
+                  {plan === 'WEEKLY' && `${formatCurrency((totalPriceVal / 10).toFixed(2))} / week`}
+                  {plan === 'MONTHLY' && `${formatCurrency((totalPriceVal / 4).toFixed(2))} / month`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Customer Identity Information */}
+          <div style={sectionCardStyles}>
+            <h3 style={settingsHeaderStyles}>2. Customer Identity Information</h3>
+            <p style={{ margin: '0 0 var(--space-4) 0', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+              All fields are required. This information is legally tied to your Save2Own purchase agreement.
+            </p>
+
+            {/* Real Name Warning Banner */}
+            <div style={realNameWarningBannerStyles}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
+                    REAL LEGAL NAME &amp; IDENTITY LOCK NOTICE
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
+                    <strong>Use your real legal name.</strong> The name and details registered for Save2Own are <strong>locked after registration</strong> and cannot normally be changed without administrative authorization and processing fees.
+                  </p>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
+                    <strong>Bank Account Match:</strong> The name on the bank account used for your Save2Own contributions should match the name registered on your Save2Own account. Transfers from an account with a different name may require additional verification.
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Goal Plan Controls */}
-            <div style={rightColCardStyles}>
-              <h3 style={settingsHeaderStyles}>1. Savings Goal Configuration</h3>
+            {/* Form Fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <label style={fieldLabelStyles}>
+                  Full Legal Name <span style={requiredAsteriskStyles}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. Chisom Victor Okoye"
+                  style={textInputStyles}
+                />
+                <span style={inputHelpStyles}>Enter your legal name as it appears on your bank account &amp; valid ID.</span>
+              </div>
 
-              {/* Variant Selector */}
-              {product.variants && product.variants.length > 0 && (
-                <div style={settingsRowStyles}>
-                  <span style={settingsLabelStyles}>Select Variant / Option</span>
-                  <VariantSelector
-                    variants={product.variants}
-                    selectedVariant={selectedVariant}
-                    onVariantChange={setSelectedVariant}
+              <div style={formRowTwoColStyles}>
+                <div>
+                  <label style={fieldLabelStyles}>
+                    Email Address <span style={requiredAsteriskStyles}>*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. victor@example.com"
+                    style={textInputStyles}
                   />
                 </div>
-              )}
-
-              {/* Quantity Selector */}
-              <div style={settingsRowStyles}>
-                <span style={settingsLabelStyles}>Quantity</span>
-                <div style={qtyStepperStyles}>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    style={stepperBtnStyles}
-                    disabled={quantity <= 1}
-                  >
-                    -
-                  </button>
-                  <span style={qtyValStyles}>{quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => prev + 1)}
-                    style={stepperBtnStyles}
-                  >
-                    +
-                  </button>
+                <div>
+                  <label style={fieldLabelStyles}>
+                    Phone Number <span style={requiredAsteriskStyles}>*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. +234 801 234 5678"
+                    style={textInputStyles}
+                  />
                 </div>
               </div>
 
-              {/* Contribution Schedule */}
-              <div style={settingsRowStyles}>
-                <span style={settingsLabelStyles}>Contribution Frequency</span>
-                <p style={{ margin: '0 0 var(--space-2) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  How often you plan to make bank transfer deposits.
-                </p>
-                <div style={planOptionsGridStyles}>
-                  {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setPlan(opt)}
-                      style={{
-                        ...planOptBtnStyles,
-                        borderColor: plan === opt ? 'var(--color-primary)' : 'var(--color-border)',
-                        backgroundColor: plan === opt ? 'rgba(255, 122, 0, 0.06)' : '#ffffff',
-                        color: plan === opt ? 'var(--color-primary)' : 'var(--color-text)',
-                        fontWeight: plan === opt ? 'var(--font-bold)' : 'var(--font-medium)',
-                      }}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
+              <div>
+                <label style={fieldLabelStyles}>
+                  WhatsApp Number <span style={requiredAsteriskStyles}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="e.g. +234 801 234 5678"
+                  style={textInputStyles}
+                />
+                <span style={inputHelpStyles}>Used for instant payment receipt alerts and shipment delivery coordination.</span>
               </div>
 
-              {/* Summary Details */}
-              <div style={goalSummaryCardStyles}>
-                <div style={summaryRowStyles}>
-                  <span style={summaryLabelStyles}>Target Goal Amount:</span>
-                  <span style={summaryValueStyles}>{formattedTotal}</span>
+              <div>
+                <label style={fieldLabelStyles}>
+                  Residential Address <span style={requiredAsteriskStyles}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="e.g. Flat 4B, 15 Marina Boulevard, Victoria Island"
+                  style={textInputStyles}
+                />
+              </div>
+
+              <div style={formRowThreeColStyles}>
+                <div>
+                  <label style={fieldLabelStyles}>
+                    City <span style={requiredAsteriskStyles}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    style={textInputStyles}
+                  />
                 </div>
-                <div style={summaryRowStyles}>
-                  <span style={summaryLabelStyles}>Estimated Installment:</span>
-                  <span style={{ ...summaryValueStyles, fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                    {plan === 'DAILY' && `${formatCurrency((totalPriceVal / 30).toFixed(2))} / day`}
-                    {plan === 'WEEKLY' && `${formatCurrency((totalPriceVal / 10).toFixed(2))} / week`}
-                    {plan === 'MONTHLY' && `${formatCurrency((totalPriceVal / 4).toFixed(2))} / month`}
-                  </span>
+                <div>
+                  <label style={fieldLabelStyles}>
+                    State <span style={requiredAsteriskStyles}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    style={textInputStyles}
+                  />
+                </div>
+                <div>
+                  <label style={fieldLabelStyles}>
+                    Country <span style={requiredAsteriskStyles}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    style={textInputStyles}
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Customer Information & Identity Lock */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <div style={rightColCardStyles}>
-              <h3 style={settingsHeaderStyles}>2. Customer Identity Information</h3>
-              <p style={{ margin: '0 0 var(--space-4) 0', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                All fields are required. This information is legally tied to your Save2Own purchase agreement.
-              </p>
+          {/* Card 4: Mandatory Selfie Photograph */}
+          <div style={sectionCardStyles}>
+            <h3 style={settingsHeaderStyles}>3. Mandatory Selfie Photograph</h3>
+            <p style={{ margin: '0 0 var(--space-3) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              A clear photo of your face is required for identity verification and fraud prevention. It is permanently stored and locked.
+            </p>
 
-              {/* Real Name Warning Banner */}
-              <div style={realNameWarningBannerStyles}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                  </svg>
-                  <div>
-                    <h4 style={{ margin: '0 0 4px 0', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
-                      REAL LEGAL NAME &amp; IDENTITY LOCK NOTICE
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
-                      <strong>Use your real legal name.</strong> The name and details registered for Save2Own are <strong>locked after registration</strong> and cannot normally be changed without administrative authorization and processing fees.
-                    </p>
-                    <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
-                      <strong>Bank Account Match:</strong> The name on the bank account used for your Save2Own contributions should match the name registered on your Save2Own account. Transfers from an account with a different name may require additional verification.
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              capture="user"
+              onChange={handleSelfieChange}
+              style={{ display: 'none' }}
+            />
 
-              {/* Form Fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-3)' }}>
-                <div>
-                  <label style={fieldLabelStyles}>
-                    Full Legal Name <span style={requiredAsteriskStyles}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Chisom Victor Okoye"
-                    style={textInputStyles}
-                  />
-                  <span style={inputHelpStyles}>Enter your legal name as it appears on your bank account &amp; valid ID.</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                  <div>
-                    <label style={fieldLabelStyles}>
-                      Email Address <span style={requiredAsteriskStyles}>*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. victor@example.com"
-                      style={textInputStyles}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabelStyles}>
-                      Phone Number <span style={requiredAsteriskStyles}>*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="e.g. +234 801 234 5678"
-                      style={textInputStyles}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={fieldLabelStyles}>
-                    WhatsApp Number <span style={requiredAsteriskStyles}>*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    placeholder="e.g. +234 801 234 5678"
-                    style={textInputStyles}
-                  />
-                  <span style={inputHelpStyles}>Used for instant payment receipt alerts and shipment delivery coordination.</span>
-                </div>
-
-                <div>
-                  <label style={fieldLabelStyles}>
-                    Residential Address <span style={requiredAsteriskStyles}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Flat 4B, 15 Marina Boulevard, Victoria Island"
-                    style={textInputStyles}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-2)' }}>
-                  <div>
-                    <label style={fieldLabelStyles}>
-                      City <span style={requiredAsteriskStyles}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      style={textInputStyles}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabelStyles}>
-                      State <span style={requiredAsteriskStyles}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={state}
-                      onChange={(e) => setState(e.target.value)}
-                      style={textInputStyles}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabelStyles}>
-                      Country <span style={requiredAsteriskStyles}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      style={textInputStyles}
-                    />
-                  </div>
-                </div>
-
-                {/* Mandatory Selfie Photograph */}
-                <div style={{ marginTop: 'var(--space-2)' }}>
-                  <label style={fieldLabelStyles}>
-                    Selfie Photograph <span style={requiredAsteriskStyles}>* (MANDATORY)</span>
-                  </label>
-                  <p style={{ margin: '0 0 var(--space-2) 0', fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                    A clear photo of your face is required for identity verification and fraud prevention. It is permanently stored and locked.
-                  </p>
-
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    capture="user"
-                    onChange={handleSelfieChange}
-                    style={{ display: 'none' }}
-                  />
-
-                  {selfiePreview ? (
-                    <div style={selfiePreviewBoxStyles}>
-                      <img src={selfiePreview} alt="Selfie preview" style={selfieImgStyles} />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-success)' }}>
-                          &#10003; Selfie Captured Successfully
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                          {selfieFile?.name} ({( (selfieFile?.size || 0) / 1024).toFixed(1)} KB)
-                        </span>
-                        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '4px' }}>
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            style={selfieRetakeBtnStyles}
-                          >
-                            Retake Photo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleRemoveSelfie}
-                            style={selfieRemoveBtnStyles}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
+            {selfiePreview ? (
+              <div style={selfiePreviewBoxStyles}>
+                <img src={selfiePreview} alt="Selfie preview" style={selfieImgStyles} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-success)' }}>
+                    &#10003; Selfie Captured Successfully
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                    {selfieFile?.name} ({((selfieFile?.size || 0) / 1024).toFixed(1)} KB)
+                  </span>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '4px' }}>
+                    <button
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      style={selfieUploadDropzoneStyles}
+                      style={selfieRetakeBtnStyles}
                     >
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                        <circle cx="12" cy="13" r="4"></circle>
-                      </svg>
-                      <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
-                        Take Selfie or Upload Photo
-                      </span>
-                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                        PNG, JPG up to 10MB. Must be a clear picture of your face.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Identity Lock Acknowledgment Checkbox */}
-                <div style={acknowledgementBoxStyles}>
-                  <label style={acknowledgementLabelStyles}>
-                    <input
-                      type="checkbox"
-                      required
-                      checked={termsAcknowledged}
-                      onChange={(e) => setTermsAcknowledged(e.target.checked)}
-                      style={checkboxStyles}
-                    />
-                    <span style={{ fontSize: '11px', color: 'var(--color-text)', lineHeight: 1.45 }}>
-                      <strong>I confirm and acknowledge that:</strong>
-                      <br />• The information provided above is my true, accurate legal identity.
-                      <br />• I am using my real name, which will match the bank account used for payments.
-                      <br />• My registered Save2Own identity information will be <strong>permanently locked</strong> upon registration and cannot be edited without admin authorization.
-                    </span>
-                  </label>
+                      Retake Photo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveSelfie}
+                      style={selfieRemoveBtnStyles}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isSubmitting || !termsAcknowledged || !selfieFile}
-                style={{
-                  ...submitBtnStyles,
-                  marginTop: 'var(--space-4)',
-                  opacity: isSubmitting || !termsAcknowledged || !selfieFile ? 0.6 : 1,
-                  cursor: isSubmitting || !termsAcknowledged || !selfieFile ? 'not-allowed' : 'pointer',
-                }}
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={selfieUploadDropzoneStyles}
               >
-                {isSubmitting ? 'Registering & Locking Identity...' : 'Confirm Identity & Start Save2Own Goal'}
-              </button>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                  <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                  Take Selfie or Upload Photo
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                  PNG, JPG up to 10MB. Must be a clear picture of your face.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Card 5: Terms Acknowledgment & Submit */}
+          <div style={sectionCardStyles}>
+            <div style={acknowledgementBoxStyles}>
+              <label style={acknowledgementLabelStyles}>
+                <input
+                  type="checkbox"
+                  required
+                  checked={termsAcknowledged}
+                  onChange={(e) => setTermsAcknowledged(e.target.checked)}
+                  style={checkboxStyles}
+                />
+                <span style={{ fontSize: '12px', color: 'var(--color-text)', lineHeight: 1.5 }}>
+                  <strong>I confirm and acknowledge that:</strong>
+                  <br />• The information provided above is my true, accurate legal identity.
+                  <br />• I am using my real name, which will match the bank account used for payments.
+                  <br />• My registered Save2Own identity information will be <strong>permanently locked</strong> upon registration and cannot be edited without admin authorization.
+                </span>
+              </label>
             </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !termsAcknowledged || !selfieFile}
+              style={{
+                ...submitBtnStyles,
+                marginTop: 'var(--space-4)',
+                opacity: isSubmitting || !termsAcknowledged || !selfieFile ? 0.6 : 1,
+                cursor: isSubmitting || !termsAcknowledged || !selfieFile ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSubmitting ? 'Registering & Locking Identity...' : 'Confirm Identity & Start Save2Own Goal'}
+            </button>
           </div>
         </form>
       )}
@@ -891,22 +941,24 @@ export default function Save2OwnCreateGoalPage() {
 // Styling Tokens
 // ----------------------------------------------------------
 const landingWrapperStyles: React.CSSProperties = {
-  paddingTop: 'var(--space-8)',
+  paddingTop: 'var(--space-6)',
   paddingBottom: 'var(--space-16)',
+  maxWidth: '780px',
+  margin: '0 auto',
+  width: '100%',
+  paddingLeft: 'var(--space-4)',
+  paddingRight: 'var(--space-4)',
+  boxSizing: 'border-box',
 };
 
 const heroSectionStyles: React.CSSProperties = {
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 'var(--space-8)',
-  marginBottom: 'var(--space-16)',
-  flexWrap: 'wrap',
-};
-
-const heroTextWrapperStyles: React.CSSProperties = {
-  flex: '1 1 450px',
-  maxWidth: '600px',
+  textAlign: 'center',
+  gap: 'var(--space-4)',
+  marginBottom: 'var(--space-10)',
+  width: '100%',
 };
 
 const pillBadgeStyles: React.CSSProperties = {
@@ -918,39 +970,42 @@ const pillBadgeStyles: React.CSSProperties = {
   color: 'var(--color-primary)',
   fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-bold)',
-  marginBottom: 'var(--space-4)',
+  marginBottom: 'var(--space-2)',
 };
 
 const heroTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-4xl)',
+  fontSize: 'var(--text-3xl)',
   fontWeight: 'var(--font-extrabold)',
-  lineHeight: 1.15,
-  marginBottom: 'var(--space-4)',
+  lineHeight: 1.2,
+  margin: '0 0 var(--space-2) 0',
   letterSpacing: '-0.02em',
 };
 
 const heroSubStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   lineHeight: 1.6,
-  marginBottom: 'var(--space-6)',
+  marginBottom: 'var(--space-4)',
+  maxWidth: '560px',
 };
 
 const ctaRowStyles: React.CSSProperties = {
   display: 'flex',
   gap: 'var(--space-3)',
   flexWrap: 'wrap',
+  justifyContent: 'center',
+  marginBottom: 'var(--space-4)',
 };
 
 const primaryCtaStyles: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  padding: '12px 24px',
+  padding: '10px 20px',
   borderRadius: 'var(--radius-full)',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-xs)',
   textDecoration: 'none',
   transition: 'background-color var(--transition-fast)',
 };
@@ -958,30 +1013,24 @@ const primaryCtaStyles: React.CSSProperties = {
 const secondaryCtaStyles: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  padding: '12px 24px',
+  padding: '10px 20px',
   borderRadius: 'var(--radius-full)',
   backgroundColor: 'var(--color-bg-subtle)',
   color: 'var(--color-text)',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-xs)',
   textDecoration: 'none',
   border: '1px solid var(--color-border)',
 };
 
-const heroImageWrapperStyles: React.CSSProperties = {
-  flex: '1 1 320px',
-  display: 'flex',
-  justifyContent: 'center',
-};
-
 const graphicCardStyles: React.CSSProperties = {
-  padding: 'var(--space-6)',
+  padding: 'var(--space-5)',
   backgroundColor: '#ffffff',
   borderRadius: 'var(--radius-xl)',
   border: '1px solid var(--color-border)',
-  boxShadow: 'var(--shadow-lg)',
+  boxShadow: 'var(--shadow-md)',
   width: '100%',
-  maxWidth: '380px',
+  maxWidth: '360px',
 };
 
 const graphicProgressWrapperStyles: React.CSSProperties = {
@@ -1005,51 +1054,54 @@ const landingBarFillStyles: React.CSSProperties = {
 
 const stepsSectionStyles: React.CSSProperties = {
   borderTop: '1px solid var(--color-border)',
-  paddingTop: 'var(--space-12)',
+  paddingTop: 'var(--space-10)',
+  width: '100%',
 };
 
 const sectionHeadingStyles: React.CSSProperties = {
-  fontSize: 'var(--text-2xl)',
+  fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-bold)',
   textAlign: 'center',
-  marginBottom: 'var(--space-8)',
+  marginBottom: 'var(--space-6)',
 };
 
 const stepsGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: 'var(--space-6)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gap: 'var(--space-4)',
+  width: '100%',
 };
 
 const stepCardStyles: React.CSSProperties = {
-  padding: 'var(--space-6)',
+  padding: 'var(--space-5)',
   borderRadius: 'var(--radius-lg)',
-  backgroundColor: 'var(--color-bg-subtle)',
+  backgroundColor: '#ffffff',
   border: '1px solid var(--color-border)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   textAlign: 'center',
+  boxShadow: 'var(--shadow-sm)',
 };
 
 const stepCircleStyles: React.CSSProperties = {
-  width: '40px',
-  height: '40px',
+  width: '36px',
+  height: '36px',
   borderRadius: 'var(--radius-full)',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-sm)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  marginBottom: 'var(--space-3)',
+  marginBottom: 'var(--space-2)',
 };
 
 const stepTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-bold)',
-  marginBottom: 'var(--space-2)',
+  marginBottom: 'var(--space-1)',
 };
 
 const stepTextStyles: React.CSSProperties = {
@@ -1058,9 +1110,44 @@ const stepTextStyles: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
+const catalogCardStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  boxShadow: 'var(--shadow-sm)',
+};
+
+const catalogImgStyles: React.CSSProperties = {
+  width: '100%',
+  height: '150px',
+  objectFit: 'cover',
+};
+
+const selectProductBtnStyles: React.CSSProperties = {
+  display: 'block',
+  marginTop: 'var(--space-2)',
+  padding: '8px 14px',
+  backgroundColor: 'var(--color-primary)',
+  color: '#ffffff',
+  textAlign: 'center',
+  borderRadius: 'var(--radius-full)',
+  fontWeight: 'var(--font-bold)',
+  fontSize: 'var(--text-xs)',
+  textDecoration: 'none',
+};
+
 const formPageWrapperStyles: React.CSSProperties = {
   paddingTop: 'var(--space-6)',
   paddingBottom: 'var(--space-16)',
+  maxWidth: '740px',
+  margin: '0 auto',
+  width: '100%',
+  paddingLeft: 'var(--space-4)',
+  paddingRight: 'var(--space-4)',
+  boxSizing: 'border-box',
 };
 
 const backLinkStyles: React.CSSProperties = {
@@ -1096,32 +1183,59 @@ const eligibilityDotStyles: React.CSSProperties = {
   backgroundColor: '#10b981',
 };
 
-const splitLayoutStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(300px, 380px) 1fr',
-  gap: 'var(--space-6)',
-  alignItems: 'start',
+const singleColumnLayoutStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 'var(--space-5)',
+  width: '100%',
 };
 
-const leftColCardStyles: React.CSSProperties = {
+const productCardStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
   borderRadius: 'var(--radius-lg)',
   border: '1px solid var(--color-border)',
-  overflow: 'hidden',
+  padding: 'var(--space-4)',
+  boxShadow: 'var(--shadow-sm)',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 'var(--space-4)',
+  alignItems: 'center',
+};
+
+const productCardImgStyles: React.CSSProperties = {
+  width: '100px',
+  height: '100px',
+  objectFit: 'cover',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  flexShrink: 0,
+};
+
+const productCardTextStyles: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  flex: '1 1 200px',
+};
+
+const sectionCardStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  borderRadius: 'var(--radius-lg)',
+  border: '1px solid var(--color-border)',
+  padding: 'var(--space-5)',
   boxShadow: 'var(--shadow-sm)',
 };
 
-const previewImgStyles: React.CSSProperties = {
-  width: '100%',
-  height: '220px',
-  objectFit: 'cover',
+const formRowTwoColStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: 'var(--space-3)',
 };
 
-const previewTextStyles: React.CSSProperties = {
-  padding: 'var(--space-4)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-2)',
+const formRowThreeColStyles: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+  gap: 'var(--space-3)',
 };
 
 const vendorTagStyles: React.CSSProperties = {
@@ -1158,14 +1272,6 @@ const previewPriceStyles: React.CSSProperties = {
   fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-extrabold)',
   color: 'var(--color-text)',
-};
-
-const rightColCardStyles: React.CSSProperties = {
-  backgroundColor: '#ffffff',
-  borderRadius: 'var(--radius-lg)',
-  border: '1px solid var(--color-border)',
-  padding: 'var(--space-6)',
-  boxShadow: 'var(--shadow-sm)',
 };
 
 const settingsHeaderStyles: React.CSSProperties = {

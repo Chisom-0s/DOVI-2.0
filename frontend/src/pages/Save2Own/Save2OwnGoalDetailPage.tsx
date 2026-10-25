@@ -1621,6 +1621,12 @@ export default function Save2OwnGoalDetailPage() {
 const pageWrapperStyles: React.CSSProperties = {
   paddingTop: 'var(--space-4)',
   paddingBottom: 'var(--space-12)',
+  maxWidth: '780px',
+  margin: '0 auto',
+  width: '100%',
+  paddingLeft: 'var(--space-4)',
+  paddingRight: 'var(--space-4)',
+  boxSizing: 'border-box',
 };
 
 const topNavRowStyles: React.CSSProperties = {
@@ -1665,22 +1671,24 @@ const alertBannerActionStyles: React.CSSProperties = {
 };
 
 const gridWrapperStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+  display: 'flex',
+  flexDirection: 'column',
   gap: 'var(--space-6)',
-  alignItems: 'start',
+  width: '100%',
 };
 
 const leftColStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-6)',
+  width: '100%',
 };
 
 const rightColStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-6)',
+  width: '100%',
 };
 
 const cardStyles: React.CSSProperties = {
@@ -1743,7 +1751,7 @@ const remainingAmountLabelStyles: React.CSSProperties = {
 
 const financialDetailsGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
   gap: 'var(--space-2)',
   paddingTop: 'var(--space-2)',
   borderTop: '1px solid var(--color-border)',
