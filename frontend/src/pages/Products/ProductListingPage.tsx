@@ -7,17 +7,7 @@ import ProductCard from '@/components/product/ProductCard';
 import { SkeletonCard } from '@/components/common/Skeleton';
 import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
-const DEFAULT_LISTING_CATEGORIES = [
-  { name: 'Phones & Tablets', slug: 'phones-tablets' },
-  { name: 'Computers', slug: 'computers' },
-  { name: 'Audio & Music', slug: 'audio-video' },
-  { name: 'Gaming', slug: 'gaming' },
-  { name: 'Smart Home', slug: 'smart-home' },
-  { name: 'Fashion & Apparel', slug: 'fashion' },
-  { name: 'Shoes', slug: 'shoes' },
-  { name: 'Books & Media', slug: 'books' },
-  { name: 'Dovi Auto (Cars)', slug: 'auto-cars' },
-];
+import { HOME_CATEGORIES, type CategoryItem } from '@/utils/categories';
 
 const PRICE_PRESETS = [
   { label: 'Under ₦10k', min: '', max: '10000' },
@@ -59,11 +49,11 @@ export default function ProductListingPage() {
   });
 
   const [totalCount, setTotalCount] = useState<number>(() => products.length);
+  const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [page, setPage] = useState<number>(1);
-  const [categories, setCategories] = useState<Array<{ name: string; slug: string }>>(DEFAULT_LISTING_CATEGORIES);
+  const [categories, setCategories] = useState<CategoryItem[]>(HOME_CATEGORIES);
   const [fetchError, setFetchError] = useState<APIError | null>(null);
 
   // Filter Drawer & Sort Drawer States
@@ -93,17 +83,28 @@ export default function ProductListingPage() {
     setIsFilterDrawerOpen(false);
   };
 
-  // Fetch categories list for filters
+  // Fetch categories list for filters (preserves all home page categories)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const { data } = await apiClient.get('/api/v1/categories/');
         const list = Array.isArray(data) ? data : (data?.results ?? []);
         if (list.length > 0) {
-          setCategories(list);
+          const map = new Map<string, CategoryItem>();
+          HOME_CATEGORIES.forEach(c => map.set(c.slug, c));
+          list.forEach((c: any) => {
+            const slug = c.slug || c.id;
+            const existing = map.get(slug);
+            map.set(slug, {
+              name: c.name || existing?.name || slug,
+              slug,
+              icon: existing?.icon || '📦',
+            });
+          });
+          setCategories(Array.from(map.values()));
         }
       } catch (err) {
-        console.error('Failed to fetch categories:', err);
+        console.warn('Using default home categories for product listing:', err);
       }
     };
     fetchCategories();
@@ -318,19 +319,26 @@ export default function ProductListingPage() {
             >
               All Categories
             </button>
-            {categories.map(cat => (
-              <button
-                key={cat.slug}
-                onClick={() => updateFilters({ category: cat.slug })}
-                style={{
-                  ...filterBtnStyles,
-                  fontWeight: categoryParam === cat.slug ? 'var(--font-bold)' : 'var(--font-normal)',
-                  color: categoryParam === cat.slug ? 'var(--color-primary)' : 'var(--color-text)',
-                }}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {categories.map(cat => {
+              const isSelected = categoryParam === cat.slug;
+              return (
+                <button
+                  key={cat.slug}
+                  onClick={() => updateFilters({ category: isSelected ? null : cat.slug })}
+                  style={{
+                    ...filterBtnStyles,
+                    fontWeight: isSelected ? 'var(--font-bold)' : 'var(--font-normal)',
+                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {cat.icon && <span style={{ fontSize: '14px' }}>{cat.icon}</span>}
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -418,6 +426,43 @@ export default function ProductListingPage() {
 
       {/* Main Listing Content */}
       <div style={mainContentStyles}>
+        {/* Horizontal Category Quick-Bar Matching Home Page */}
+        <div style={categoryQuickBarWrapperStyles} className="category-quick-bar">
+          <button
+            type="button"
+            onClick={() => updateFilters({ category: null })}
+            style={{
+              ...categoryQuickPillStyles,
+              backgroundColor: !categoryParam ? 'var(--color-primary)' : '#ffffff',
+              color: !categoryParam ? '#ffffff' : 'var(--color-text)',
+              borderColor: !categoryParam ? 'var(--color-primary)' : 'var(--color-border)',
+              fontWeight: !categoryParam ? 700 : 500,
+            }}
+          >
+            🛍️ All Categories
+          </button>
+          {categories.map(cat => {
+            const isSelected = categoryParam === cat.slug;
+            return (
+              <button
+                key={cat.slug}
+                type="button"
+                onClick={() => updateFilters({ category: isSelected ? null : cat.slug })}
+                style={{
+                  ...categoryQuickPillStyles,
+                  backgroundColor: isSelected ? 'var(--color-primary)' : '#ffffff',
+                  color: isSelected ? '#ffffff' : 'var(--color-text)',
+                  borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
+                  fontWeight: isSelected ? 700 : 500,
+                }}
+              >
+                {cat.icon && <span style={{ marginRight: '6px' }}>{cat.icon}</span>}
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Results Header Info & Active Filters Bar */}
         <div style={resultsHeaderStyles}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -616,9 +661,13 @@ export default function ProductListingPage() {
                           color: isSelected ? '#ffffff' : 'var(--color-text)',
                           borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
                           fontWeight: isSelected ? 700 : 500,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
                         }}
                       >
-                        {cat.name}
+                        {cat.icon && <span>{cat.icon}</span>}
+                        <span>{cat.name}</span>
                       </button>
                     );
                   })}
@@ -1351,4 +1400,29 @@ const emptyStyles: React.CSSProperties = {
   textAlign: 'center',
   padding: 'var(--space-16) 0',
   color: 'var(--color-text-muted)',
+};
+
+const categoryQuickBarWrapperStyles: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  overflowX: 'auto',
+  paddingBottom: '10px',
+  marginBottom: 'var(--space-4)',
+  scrollbarWidth: 'none',
+  msOverflowStyle: 'none',
+  WebkitOverflowScrolling: 'touch',
+};
+
+const categoryQuickPillStyles: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  whiteSpace: 'nowrap',
+  padding: '7px 14px',
+  borderRadius: 'var(--radius-full)',
+  border: '1px solid',
+  fontSize: 'var(--text-xs)',
+  cursor: 'pointer',
+  transition: 'all var(--transition-fast)',
+  flexShrink: 0,
 };

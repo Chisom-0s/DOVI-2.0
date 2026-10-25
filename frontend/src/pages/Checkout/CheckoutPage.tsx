@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/api/auth';
 import { checkoutApi } from '@/api/checkout';
 import type { Address, CartItem, DeliveryMethodType, VendorDeliverySelection } from '@/types';
@@ -18,7 +19,13 @@ interface VendorGroup {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { cart, isLoading: cartLoading } = useCart();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const { cart, isLoading: cartLoading, addToCart } = useCart();
+
+  const directProduct = location.state?.product;
+  const directQuantity = location.state?.quantity || 1;
+  const directVariant = location.state?.variant;
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -42,13 +49,40 @@ export default function CheckoutPage() {
     is_default: false,
   });
 
+  // Construct direct buy item if user clicked "Buy Now"
+  const directCartItem: CartItem | null = useMemo(() => {
+    if (!directProduct) return null;
+    const price = directVariant?.price ?? directProduct.price ?? 0;
+    const total = Number(price) * directQuantity;
+    return {
+      id: 'direct-buy-item',
+      product_id: directProduct.id,
+      product: directProduct,
+      variant: directVariant,
+      quantity: directQuantity,
+      unit_price: String(price),
+      line_total: String(total),
+    };
+  }, [directProduct, directQuantity, directVariant]);
+
+  // Combine cart items or direct buy item
+  const effectiveItems: CartItem[] = useMemo(() => {
+    if (cart?.items && cart.items.length > 0) {
+      return cart.items;
+    }
+    if (directCartItem) {
+      return [directCartItem];
+    }
+    return [];
+  }, [cart?.items, directCartItem]);
+
   // Group items by vendor
   const vendorGroups: VendorGroup[] = useMemo(() => {
-    if (!cart?.items) return [];
+    if (effectiveItems.length === 0) return [];
     const map = new Map<string, VendorGroup>();
-    cart.items.forEach((item) => {
+    effectiveItems.forEach((item) => {
       const prod = item.product || (item as any);
-      const vId = prod.vendor?.id || 'vendor_store';
+      const vId = prod.vendor?.id || prod.vendor_id || 'vendor_store';
       const vName = prod.vendor?.name || prod.vendor_name || 'Vendor Store';
       if (!map.has(vId)) {
         map.set(vId, {
@@ -60,7 +94,7 @@ export default function CheckoutPage() {
       map.get(vId)!.items.push(item);
     });
     return Array.from(map.values());
-  }, [cart]);
+  }, [effectiveItems]);
 
   // Set default selection per vendor
   useEffect(() => {
@@ -79,6 +113,11 @@ export default function CheckoutPage() {
 
   // Fetch addresses
   const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoadingData(false);
+      setShowAddForm(true);
+      return;
+    }
     setIsLoadingData(true);
     try {
       const addrs = await authApi.getAddresses();
@@ -90,11 +129,12 @@ export default function CheckoutPage() {
         setShowAddForm(true);
       }
     } catch {
-      toast.error('Could not load checkout addresses. Please try again.');
+      // Graceful fallback for unauthenticated or network issue
+      setShowAddForm(true);
     } finally {
       setIsLoadingData(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     fetchData();
@@ -103,6 +143,29 @@ export default function CheckoutPage() {
   // Add Address Handler
   const handleAddAddress = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      // For guest users, save address locally in state
+      const localId = `addr_${Date.now()}`;
+      const guestAddr: Address = {
+        id: localId,
+        label: addrForm.label || 'Home',
+        full_name: addrForm.full_name,
+        phone: addrForm.phone,
+        address_line_1: addrForm.address_line_1,
+        address_line_2: addrForm.address_line_2 || null,
+        city: addrForm.city,
+        state: addrForm.state,
+        country: addrForm.country,
+        postal_code: addrForm.postal_code || null,
+        is_default: true,
+      };
+      setAddresses((prev) => [...prev, guestAddr]);
+      setSelectedAddressId(localId);
+      setShowAddForm(false);
+      toast.success('Address saved for this order!');
+      return;
+    }
+
     setAddingAddr(true);
     try {
       const newAddr = await authApi.addAddress({
@@ -154,20 +217,42 @@ export default function CheckoutPage() {
 
   // Handle proceed to payment session
   const handleProceed = async () => {
-    if (requiresDeliveryAddress && !selectedAddressId) {
-      toast.error('Please select a delivery address for vendor-arranged delivery items.');
+    if (!isAuthenticated) {
+      toast('Please sign in or create an account to finalize payment.', { icon: '🔐' });
+      navigate('/login', {
+        state: {
+          from: '/checkout',
+          directBuy: true,
+          product: directProduct,
+          quantity: directQuantity,
+          variant: directVariant,
+        },
+      });
       return;
     }
 
-    const vendorSelections: VendorDeliverySelection[] = vendorGroups.map((g) => ({
-      vendor_id: g.vendor_id,
-      method: vendorDeliveryMethods[g.vendor_id] || 'VENDOR_ARRANGED',
-      delivery_address_id:
-        vendorDeliveryMethods[g.vendor_id] === 'VENDOR_ARRANGED' ? selectedAddressId : undefined,
-    }));
+    if (requiresDeliveryAddress && !selectedAddressId) {
+      toast.error('Please select or add a delivery address for vendor-arranged delivery items.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      if (directProduct && (!cart?.items || cart.items.length === 0)) {
+        try {
+          await addToCart(directProduct.id, directQuantity, directVariant?.id);
+        } catch {
+          // ignore and continue
+        }
+      }
+
+      const vendorSelections: VendorDeliverySelection[] = vendorGroups.map((g) => ({
+        vendor_id: g.vendor_id,
+        method: vendorDeliveryMethods[g.vendor_id] || 'VENDOR_ARRANGED',
+        delivery_address_id:
+          vendorDeliveryMethods[g.vendor_id] === 'VENDOR_ARRANGED' ? selectedAddressId : undefined,
+      }));
+
       const session = await checkoutApi.initializeSession({
         delivery_address_id: selectedAddressId || undefined,
         vendor_delivery_selections: vendorSelections,
@@ -189,12 +274,33 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!cartLoading && (!cart || cart.items.length === 0)) {
+  // Subtotal & Item Count calculation
+  const totalItemCount = useMemo(() => {
+    if (effectiveItems.length > 0) {
+      return effectiveItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
+    }
+    return cart?.item_count || 0;
+  }, [effectiveItems, cart]);
+
+  const computedSubtotal = useMemo(() => {
+    if (cart?.subtotal && Number(cart.subtotal) > 0 && cart.items.length > 0) {
+      return Number(cart.subtotal);
+    }
+    return effectiveItems.reduce((acc, it) => {
+      const lineTot = Number(it.line_total || (Number(it.unit_price || 0) * (it.quantity || 1)));
+      return acc + lineTot;
+    }, 0);
+  }, [cart, effectiveItems]);
+
+  if (!cartLoading && effectiveItems.length === 0) {
     return (
       <div className="container" style={pageStyles}>
         <div style={emptyStyles}>
           <span style={{ fontSize: '3rem' }}>🛒</span>
           <h3 style={emptyTitleStyles}>Your cart is empty</h3>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>
+            Find products and add them to your cart or click Buy Now to checkout directly.
+          </p>
           <Link to="/products" style={primaryBtnStyles}>Browse Products</Link>
         </div>
       </div>
@@ -407,45 +513,41 @@ export default function CheckoutPage() {
         <div style={summaryCardStyles}>
           <h3 style={summaryTitleStyles}>Order Summary</h3>
 
-          {cart && (
-            <>
-              <div style={summaryRowStyles}>
-                <span>Subtotal ({cart.item_count} items)</span>
-                <span style={summaryValStyles}>{formatCurrency(cart.subtotal)}</span>
-              </div>
+          <div style={summaryRowStyles}>
+            <span>Subtotal ({totalItemCount} {totalItemCount === 1 ? 'item' : 'items'})</span>
+            <span style={summaryValStyles}>{formatCurrency(computedSubtotal)}</span>
+          </div>
 
-              {/* Vendor Delivery Summary Breakdown */}
-              <div style={{ margin: 'var(--space-3) 0', padding: 'var(--space-3)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'var(--font-bold)', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  Fulfillment Breakdown
-                </span>
-                {vendorGroups.map((g) => {
-                  const m = vendorDeliveryMethods[g.vendor_id] || 'VENDOR_ARRANGED';
-                  return (
-                    <div key={g.vendor_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '4px' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>{g.vendor_name} ({m === 'PICKUP' ? 'Pickup' : 'Vendor Delivery'}):</span>
-                      <span style={{ fontWeight: 'var(--font-semibold)' }}>{m === 'PICKUP' ? 'Free' : 'Calculated'}</span>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Vendor Delivery Summary Breakdown */}
+          <div style={{ margin: 'var(--space-3) 0', padding: 'var(--space-3)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 'var(--font-bold)', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+              Fulfillment Breakdown
+            </span>
+            {vendorGroups.map((g) => {
+              const m = vendorDeliveryMethods[g.vendor_id] || 'VENDOR_ARRANGED';
+              return (
+                <div key={g.vendor_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '4px' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{g.vendor_name} ({m === 'PICKUP' ? 'Pickup' : 'Vendor Delivery'}):</span>
+                  <span style={{ fontWeight: 'var(--font-semibold)' }}>{m === 'PICKUP' ? 'Free' : 'Calculated'}</span>
+                </div>
+              );
+            })}
+          </div>
 
-              <hr style={dividerStyles} />
+          <hr style={dividerStyles} />
 
-              <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
-                <span>Total Amount</span>
-                <span style={{ color: 'var(--color-primary)' }}>{formatCurrency(cart.subtotal)}</span>
-              </div>
+          <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
+            <span>Total Amount</span>
+            <span style={{ color: 'var(--color-primary)' }}>{formatCurrency(computedSubtotal)}</span>
+          </div>
 
-              <button
-                onClick={handleProceed}
-                disabled={isSubmitting || (requiresDeliveryAddress && !selectedAddressId)}
-                style={{ ...proceedBtnStyles, opacity: isSubmitting || (requiresDeliveryAddress && !selectedAddressId) ? 0.6 : 1 }}
-              >
-                {isSubmitting ? 'Initializing Checkout...' : 'Proceed to Review & Pay'}
-              </button>
-            </>
-          )}
+          <button
+            onClick={handleProceed}
+            disabled={isSubmitting || (requiresDeliveryAddress && !selectedAddressId)}
+            style={{ ...proceedBtnStyles, opacity: isSubmitting || (requiresDeliveryAddress && !selectedAddressId) ? 0.6 : 1 }}
+          >
+            {isSubmitting ? 'Initializing Checkout...' : 'Proceed to Review & Pay'}
+          </button>
         </div>
       </div>
     </div>

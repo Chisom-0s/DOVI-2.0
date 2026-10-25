@@ -4,25 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
-
-const MARKETPLACE_CATEGORIES = [
-  { name: 'Electronics', slug: 'electronics', icon: '💻' },
-  { name: 'Gadgets', slug: 'gadgets', icon: '🔌' },
-  { name: 'Phones & Tablets', slug: 'phones-tablets', icon: '📱' },
-  { name: 'Computers', slug: 'computers', icon: '🖥️' },
-  { name: 'Audio & Video', slug: 'audio-video', icon: '🎧' },
-  { name: 'Gaming', slug: 'gaming', icon: '🎮' },
-  { name: 'Smart Home', slug: 'smart-home', icon: '🏠' },
-  { name: 'Fashion & Apparel', slug: 'fashion', icon: '👗' },
-  { name: 'Shoes', slug: 'shoes', icon: '👟' },
-  { name: 'Books & Media', slug: 'books', icon: '📚' },
-  { name: 'Home & Kitchen', slug: 'home-kitchen', icon: '🍳' },
-  { name: 'Beauty & Health', slug: 'beauty-health', icon: '💄' },
-  { name: 'Sports & Outdoors', slug: 'sports-outdoors', icon: '⚽' },
-  { name: 'Automotive', slug: 'automotive', icon: '🚗' },
-  { name: 'Groceries', slug: 'groceries', icon: '🍎' },
-  { name: 'Toys & Games', slug: 'toys-games', icon: '🧸' },
-];
+import { HOME_CATEGORIES as MARKETPLACE_CATEGORIES } from '@/utils/categories';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();

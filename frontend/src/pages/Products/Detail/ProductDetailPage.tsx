@@ -184,10 +184,24 @@ export default function ProductDetailPage() {
         price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
         imageUrl: product.primary_image_url || product.image_url || undefined,
       });
-      navigate('/checkout');
+      navigate('/checkout', {
+        state: {
+          directBuy: true,
+          product,
+          quantity,
+          variant: selectedVariant,
+        },
+      });
     } catch (err) {
       console.error('Failed to buy item:', err);
-      toast.error('Could not initiate checkout. Please try again.');
+      navigate('/checkout', {
+        state: {
+          directBuy: true,
+          product,
+          quantity,
+          variant: selectedVariant,
+        },
+      });
     } finally {
       setIsBuying(false);
     }
