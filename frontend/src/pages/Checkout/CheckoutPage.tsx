@@ -316,7 +316,7 @@ export default function CheckoutPage() {
     <div className="container" style={pageStyles}>
       <h1 style={pageTitleStyles}>Checkout</h1>
 
-      <div className="checkout-layout-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 'var(--space-6)' }}>
+      <div className="checkout-layout-grid">
         {/* Main Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {/* STEP 1: Delivery Method per Vendor */}
@@ -360,7 +360,7 @@ export default function CheckoutPage() {
                     </div>
 
                     {/* Method Radio Options */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                       {/* Pick Up */}
                       <label
                         style={{
@@ -687,7 +687,7 @@ const addFormStyles: React.CSSProperties = {
 
 const formGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
   gap: 'var(--space-2)',
 };
 
