@@ -7,7 +7,23 @@ import {
   cacheLocalProductImage,
 } from '@/utils/image';
 import { formatPrice, parsePriceNumber } from '@/utils/currency';
-import type { ProductSummary, Category, APIError } from '@/types';
+import {
+  PARCEL_CLASSIFICATION_LABELS,
+  PARCEL_CLASSIFICATION_DESCRIPTIONS,
+  syncDeliveryStoreFromServer,
+  getProductDeliveryAttributes,
+  saveProductDeliveryAttributes,
+  serializeProductDescriptionWithDelivery,
+  stripDeliveryMetadataFromDescription,
+  suggestParcelClassificationForAdmin,
+} from '@/services/deliveryPricingService';
+import type {
+  ProductSummary,
+  Category,
+  APIError,
+  ParcelClassification,
+  ProductDeliveryAttributes,
+} from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -100,6 +116,17 @@ export default function ProductsPage() {
     status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED' | 'PAUSED',
   });
 
+  // Delivery Classification & Parcel Attributes State
+  const [deliveryForm, setDeliveryForm] = useState<ProductDeliveryAttributes>({
+    delivery_classification: 'SMALL_PARCEL',
+    weight_kg: null,
+    dimensions_cm: '',
+    requires_special_handling: false,
+    can_consolidate_with_furniture: false,
+    max_items_per_shipment: null,
+    delivery_notes: '',
+  });
+
   // Stock Units & Color Variants
   const [baseUnits, setBaseUnits] = useState<string>('10');
   const [colors, setColors] = useState<ColorVariantItem[]>([]);
@@ -134,6 +161,7 @@ export default function ProductsPage() {
     if (showSkeleton) setIsLoading(true);
     setError(null);
     try {
+      await syncDeliveryStoreFromServer();
       const res = await adminApi.listProducts({
         page,
         q: searchTerm || undefined,
@@ -185,6 +213,15 @@ export default function ProductsPage() {
       description: '',
       status: 'PUBLISHED',
     });
+    setDeliveryForm({
+      delivery_classification: 'SMALL_PARCEL',
+      weight_kg: null,
+      dimensions_cm: '',
+      requires_special_handling: false,
+      can_consolidate_with_furniture: false,
+      max_items_per_shipment: null,
+      delivery_notes: '',
+    });
     setBaseUnits('10');
     setColors([]);
     setShowColorSection(false);
@@ -212,7 +249,25 @@ export default function ProductsPage() {
       const fullProd = await adminApi.getProduct(prodSummary.id);
       setEditingProduct(fullProd);
 
-      let cleanDesc = fullProd.description || '';
+      // Extract delivery attributes
+      const existingDelivery = getProductDeliveryAttributes(fullProd) || getProductDeliveryAttributes(prodSummary);
+      const suggestedClassification = suggestParcelClassificationForAdmin({
+        name: fullProd.name,
+        category_name: typeof fullProd.category === 'object' ? fullProd.category?.name : undefined,
+        description: fullProd.description,
+      });
+
+      setDeliveryForm({
+        delivery_classification: existingDelivery?.delivery_classification || suggestedClassification,
+        weight_kg: existingDelivery?.weight_kg ?? null,
+        dimensions_cm: existingDelivery?.dimensions_cm || '',
+        requires_special_handling: existingDelivery?.requires_special_handling ?? false,
+        can_consolidate_with_furniture: existingDelivery?.can_consolidate_with_furniture ?? false,
+        max_items_per_shipment: existingDelivery?.max_items_per_shipment ?? null,
+        delivery_notes: existingDelivery?.delivery_notes || '',
+      });
+
+      let cleanDesc = stripDeliveryMetadataFromDescription(fullProd.description || '');
       const parsedSpecs: SpecificationItem[] = [];
 
       if (cleanDesc) {
@@ -422,7 +477,7 @@ export default function ProductsPage() {
     ]);
   };
 
-  // Submit Handler: Zero Vendor Inputs!
+  // Submit Handler
   const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -452,6 +507,9 @@ export default function ProductsPage() {
       formattedDescription = `${formattedDescription}\n\n<!-- DOVI_SPECS: ${JSON.stringify(specsObj)} -->`.trim();
     }
 
+    // Delivery Classification & Attributes metadata embedding
+    formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
+
     // Build variants payload
     const productPrefix = form.name.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'DOV';
     const variantsPayload =
@@ -480,7 +538,7 @@ export default function ProductsPage() {
     try {
       if (editingProduct) {
         // --- EDIT MODE ---
-        setUploadStatusText('Saving product updates...');
+        setUploadStatusText('Saving product & delivery attributes...');
         await adminApi.updateProduct(editingProduct.id, {
           name: form.name.trim(),
           category: form.category,
@@ -488,6 +546,8 @@ export default function ProductsPage() {
           description: formattedDescription,
           status: form.status,
         });
+
+        saveProductDeliveryAttributes(editingProduct.id, deliveryForm);
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
@@ -514,7 +574,7 @@ export default function ProductsPage() {
         handleCloseModal();
         await fetchProducts(false);
       } else {
-        // --- CREATE MODE (ZERO VENDOR FIELDS - BACKEND AUTO DEFAULTS TO INTERNAL STORE) ---
+        // --- CREATE MODE ---
         setUploadStatusText('Creating product listing...');
         const createdProduct = await adminApi.createProduct({
           name: form.name.trim(),
@@ -531,6 +591,10 @@ export default function ProductsPage() {
           createdProduct?.data?.id ||
           createdProduct?.data?.uuid ||
           createdProduct?.product?.id;
+
+        if (targetProductId) {
+          saveProductDeliveryAttributes(String(targetProductId), deliveryForm);
+        }
 
         // Upload Images defensively
         if (selectedImages.length > 0 && targetProductId) {
@@ -562,7 +626,7 @@ export default function ProductsPage() {
           }
 
           if (uploadErrors === 0) {
-            toast.success('Product created with photos!');
+            toast.success('Product created with photos & delivery classification!');
           } else {
             toast.error(
               `Product created, but ${uploadErrors} photo(s) failed to upload: ${lastErrorMessage}`
@@ -626,7 +690,9 @@ export default function ProductsPage() {
       <div style={headerActionRowStyles}>
         <div>
           <h2 style={titleStyles}>Product Directory</h2>
-          <p style={subtitleStyles}>Manage platform retail catalog, stock levels, and pricing.</p>
+          <p style={subtitleStyles}>
+            Manage platform retail catalog, stock levels, pricing, and Onitsha Hub parcel classifications.
+          </p>
         </div>
         <button
           type="button"
@@ -653,7 +719,7 @@ export default function ProductsPage() {
         </form>
       </div>
 
-      {/* Products Table (Vendor column removed) */}
+      {/* Products Table */}
       {products.length === 0 ? (
         <EmptyState
           icon="📦"
@@ -667,6 +733,7 @@ export default function ProductsPage() {
               <thead>
                 <tr style={tableHeaderRowStyles}>
                   <th style={tableHeaderCellStyles}>Product Details</th>
+                  <th style={tableHeaderCellStyles}>Parcel Classification</th>
                   <th style={tableHeaderCellStyles}>Base Price</th>
                   <th style={tableHeaderCellStyles}>Stock Qty</th>
                   <th style={tableHeaderCellStyles}>Status</th>
@@ -674,51 +741,74 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} style={tableRowStyles}>
-                    <td style={tableCellStyles}>
-                      <div style={productInfoRowStyles}>
-                        <img
-                          src={getProductImageUrl(p)}
-                          alt={p.name}
-                          style={productImgStyles}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = getProductFallbackImage(p);
-                          }}
-                        />
-                        <div>
-                          <strong style={productNameStyles}>{p.name}</strong>
-                          <span style={productIdStyles}>ID: {p.id}</span>
+                {products.map((p) => {
+                  const delivAttrs = getProductDeliveryAttributes(p);
+                  const cls = delivAttrs?.delivery_classification;
+                  return (
+                    <tr key={p.id} style={tableRowStyles}>
+                      <td style={tableCellStyles}>
+                        <div style={productInfoRowStyles}>
+                          <img
+                            src={getProductImageUrl(p)}
+                            alt={p.name}
+                            style={productImgStyles}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = getProductFallbackImage(p);
+                            }}
+                          />
+                          <div>
+                            <strong style={productNameStyles}>{p.name}</strong>
+                            <span style={productIdStyles}>ID: {p.id}</span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>
-                      {formatPrice(p.price || (p as any).base_price)}
-                    </td>
-                    <td style={tableCellStyles}>{p.stock_quantity ?? 0} available</td>
-                    <td style={tableCellStyles}>
-                      <span style={statusBadgeStyles(p.status)}>{p.status}</span>
-                    </td>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(p)}
-                          style={editBtnStyles}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProductToArchive(p)}
-                          style={archiveBtnStyles}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={tableCellStyles}>
+                        {cls ? (
+                          <div>
+                            <span style={parcelBadgeStyles(cls)}>
+                              {PARCEL_CLASSIFICATION_LABELS[cls]}
+                            </span>
+                            {(delivAttrs?.weight_kg != null || delivAttrs?.requires_special_handling) && (
+                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px' }}>
+                                {delivAttrs?.weight_kg != null ? `${delivAttrs.weight_kg} kg` : ''}
+                                {delivAttrs?.requires_special_handling ? ' • Special Handling' : ''}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 600 }}>
+                            Unassigned (Click Edit)
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                        {formatPrice(p.price || (p as any).base_price)}
+                      </td>
+                      <td style={tableCellStyles}>{p.stock_quantity ?? 0} available</td>
+                      <td style={tableCellStyles}>
+                        <span style={statusBadgeStyles(p.status)}>{p.status}</span>
+                      </td>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(p)}
+                            style={editBtnStyles}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProductToArchive(p)}
+                            style={archiveBtnStyles}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -755,11 +845,11 @@ export default function ProductsPage() {
             <div style={modalHeaderStyles}>
               <div>
                 <h3 style={modalTitleStyles}>
-                  {editingProduct ? 'Edit Product' : 'Add New Retail Product'}
+                  {editingProduct ? 'Edit Product & Delivery Classification' : 'Add New Retail Product'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
                   {editingProduct
-                    ? `Update listing parameters for "${editingProduct.name}".`
+                    ? `Update listing parameters and Onitsha Hub parcel classification for "${editingProduct.name}".`
                     : 'List a new item directly in the Dovi Official Store catalog.'}
                 </p>
               </div>
@@ -855,14 +945,136 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* SECTION 2: SPECIFICATIONS (COLLAPSIBLE) */}
+              {/* SECTION 2: DELIVERY CLASSIFICATION & ONITSHA HUB PACKAGING ATTRIBUTES */}
+              <div
+                style={{
+                  ...formSectionStyles,
+                  backgroundColor: '#fff7ed',
+                  borderColor: '#fed7aa',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <h4 style={{ ...sectionHeaderStyles, color: '#9a3412' }}>
+                      2. Delivery Classification & Onitsha Hub Consolidation Attributes
+                    </h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#c2410c' }}>
+                      Used by DOVI's Order Consolidation Engine to calculate combined delivery fees from Onitsha Hub.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={inputGridStyles}>
+                  <div style={{ ...inputGroupStyles, gridColumn: '1 / -1' }}>
+                    <label style={labelStyles}>Delivery Parcel Classification *</label>
+                    <select
+                      value={deliveryForm.delivery_classification}
+                      onChange={(e) =>
+                        setDeliveryForm((prev) => ({
+                          ...prev,
+                          delivery_classification: e.target.value as ParcelClassification,
+                        }))
+                      }
+                      style={selectInputStyles}
+                    >
+                      {(Object.keys(PARCEL_CLASSIFICATION_LABELS) as ParcelClassification[]).map((cls) => (
+                        <option key={cls} value={cls}>
+                          {PARCEL_CLASSIFICATION_LABELS[cls]} — {PARCEL_CLASSIFICATION_DESCRIPTIONS[cls]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={inputGroupStyles}>
+                    <label style={labelStyles}>Weight (kg)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      placeholder="e.g. 1.2"
+                      value={deliveryForm.weight_kg ?? ''}
+                      onChange={(e) =>
+                        setDeliveryForm((prev) => ({
+                          ...prev,
+                          weight_kg: e.target.value === '' ? null : Number(e.target.value),
+                        }))
+                      }
+                      style={textInputStyles}
+                    />
+                  </div>
+
+                  <div style={inputGroupStyles}>
+                    <label style={labelStyles}>Dimensions (L × W × H cm)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 60x50x90 cm"
+                      value={deliveryForm.dimensions_cm || ''}
+                      onChange={(e) =>
+                        setDeliveryForm((prev) => ({
+                          ...prev,
+                          dimensions_cm: e.target.value,
+                        }))
+                      }
+                      style={textInputStyles}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#374151' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(deliveryForm.requires_special_handling)}
+                      onChange={(e) =>
+                        setDeliveryForm((prev) => ({
+                          ...prev,
+                          requires_special_handling: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span>Requires Special Handling (fragile / protective crating at Onitsha Hub)</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#374151' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(deliveryForm.can_consolidate_with_furniture)}
+                      onChange={(e) =>
+                        setDeliveryForm((prev) => ({
+                          ...prev,
+                          can_consolidate_with_furniture: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span>Can travel together inside Furniture / Bulky shipment when route allows</span>
+                  </label>
+                </div>
+
+                <div style={{ ...inputGroupStyles, marginTop: '12px' }}>
+                  <label style={labelStyles}>Delivery & Packaging Notes</label>
+                  <input
+                    type="text"
+                    placeholder="Optional handling or consolidation instructions for Onitsha Hub dispatch..."
+                    value={deliveryForm.delivery_notes || ''}
+                    onChange={(e) =>
+                      setDeliveryForm((prev) => ({
+                        ...prev,
+                        delivery_notes: e.target.value,
+                      }))
+                    }
+                    style={textInputStyles}
+                  />
+                </div>
+              </div>
+
+              {/* SECTION 3: SPECIFICATIONS (COLLAPSIBLE) */}
               <div style={formSectionStyles}>
                 <div
                   onClick={() => setShowSpecsSection((prev) => !prev)}
                   style={collapsibleHeaderStyles}
                 >
                   <h4 style={sectionHeaderStyles}>
-                    2. Technical Specifications ({specifications.filter((s) => s.value.trim()).length} set)
+                    3. Technical Specifications ({specifications.filter((s) => s.value.trim()).length} set)
                   </h4>
                   <span style={toggleExpandStyles}>
                     {showSpecsSection ? '− Collapse' : '+ Expand Specifications'}
@@ -928,7 +1140,7 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              {/* SECTION 3: VARIANTS & INVENTORY (COLLAPSIBLE) */}
+              {/* SECTION 4: VARIANTS & INVENTORY (COLLAPSIBLE) */}
               <div style={formSectionStyles}>
                 <div
                   onClick={() => setShowColorSection((prev) => !prev)}
@@ -936,7 +1148,7 @@ export default function ProductsPage() {
                 >
                   <div>
                     <h4 style={sectionHeaderStyles}>
-                      3. Variants & Stock ({calculatedTotalUnits} total units in inventory)
+                      4. Variants & Stock ({calculatedTotalUnits} total units in inventory)
                     </h4>
                     <span style={{ fontSize: '12px', color: '#6b7280' }}>
                       {colors.length > 0
@@ -1102,9 +1314,9 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              {/* SECTION 4: PRODUCT IMAGES */}
+              {/* SECTION 5: PRODUCT IMAGES */}
               <div style={formSectionStyles}>
-                <h4 style={sectionHeaderStyles}>4. Product Photos & Media</h4>
+                <h4 style={sectionHeaderStyles}>5. Product Photos & Media</h4>
                 <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#6b7280' }}>
                   Upload high-resolution photos. Select one as primary to be featured as the main listing thumbnail.
                 </p>
@@ -1295,6 +1507,37 @@ const statusBadgeStyles = (status: string): React.CSSProperties => {
   };
 };
 
+const parcelBadgeStyles = (cls: ParcelClassification): React.CSSProperties => {
+  let backgroundColor = '#ecfdf5';
+  let color = '#047857';
+  let border = '1px solid #a7f3d0';
+
+  if (cls === 'HEAVY_PARCEL') {
+    backgroundColor = '#eff6ff';
+    color = '#1d4ed8';
+    border = '1px solid #bfdbfe';
+  } else if (cls === 'FURNITURE_BULKY') {
+    backgroundColor = '#fff7ed';
+    color = '#c2410c';
+    border = '1px solid #fed7aa';
+  } else if (cls === 'SPECIAL_MANUAL_QUOTE') {
+    backgroundColor = '#fef2f2';
+    color = '#b91c1c';
+    border = '1px solid #fecaca';
+  }
+
+  return {
+    backgroundColor,
+    color,
+    border,
+    padding: '3px 9px',
+    borderRadius: '999px',
+    fontSize: '11px',
+    fontWeight: 700,
+    display: 'inline-block',
+  };
+};
+
 // ----------------------------------------------------------
 // Styling Tokens
 // ----------------------------------------------------------
@@ -1463,8 +1706,6 @@ const archiveBtnStyles: React.CSSProperties = {
   backgroundColor: 'transparent',
   cursor: 'pointer',
 };
-
-
 
 const paginationStyles: React.CSSProperties = {
   display: 'flex',

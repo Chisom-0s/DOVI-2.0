@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders';
+import {
+  SHIPMENT_STATUS_LABELS,
+  PARCEL_CLASSIFICATION_LABELS,
+} from '@/services/deliveryPricingService';
 import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
-import type { Order } from '@/types';
+import type { Order, ShipmentFulfillmentStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
 // ----------------------------------------------------------
 // OrderConfirmationPage — /orders/:ref
-// Fetches the order from API by reference.
+// Fetches the order from API by reference and displays consolidated shipment summary.
 // ----------------------------------------------------------
 export default function OrderConfirmationPage() {
   const { ref } = useParams<{ ref: string }>();
@@ -31,8 +35,16 @@ export default function OrderConfirmationPage() {
     fetchOrder();
   }, [ref]);
 
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
+  const formatCurrency = (val: string | number | null | undefined) => {
+    if (val === null || val === undefined || val === '') return 'Manual Quote Pending';
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return 'Manual Quote Pending';
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
 
   if (isLoading) {
     return (
@@ -59,14 +71,34 @@ export default function OrderConfirmationPage() {
     );
   }
 
+  const shipments = order.shipments || [];
+  const isAwaitingManualQuote =
+    String(order.status) === 'AWAITING_DELIVERY_CONFIRMATION' ||
+    order.requires_manual_quote ||
+    shipments.some((s) => s.requires_manual_quote && s.manual_quote_status === 'PENDING_ADMIN_QUOTE');
+
   return (
     <div className="container" style={pageStyles}>
       <div style={centerStyles}>
-        <div style={successCircleStyles}>✓</div>
+        <div style={isAwaitingManualQuote ? iconCircleStyles : successCircleStyles}>
+          {isAwaitingManualQuote ? '⏳' : '✓'}
+        </div>
 
-        <h2 style={headingStyles}>Order Confirmed!</h2>
+        <h2 style={headingStyles}>
+          {isAwaitingManualQuote
+            ? 'Order Received — Awaiting Delivery Confirmation'
+            : 'Order Confirmed!'}
+        </h2>
         <p style={subTextStyles}>
-          Your order <strong>#{order.reference}</strong> has been placed successfully.
+          {isAwaitingManualQuote ? (
+            <>
+              Your order <strong>#{order.reference}</strong> has been received at our Onitsha Hub. Our logistics desk is calculating your manual delivery quotation and will notify you to review & accept before payment.
+            </>
+          ) : (
+            <>
+              Your order <strong>#{order.reference}</strong> has been placed and is being prepared for consolidated dispatch from our <strong>Onitsha Hub</strong>.
+            </>
+          )}
         </p>
 
         {/* Order Summary Card */}
@@ -76,39 +108,91 @@ export default function OrderConfirmationPage() {
             <span style={cardValueStyles}>{order.reference}</span>
           </div>
           <div style={cardRowStyles}>
-            <span style={cardLabelStyles}>Status</span>
+            <span style={cardLabelStyles}>Fulfillment Status</span>
             <span
               className="status-badge"
               style={{
                 backgroundColor: statusColor(order.status).bg,
                 color: statusColor(order.status).text,
+                padding: '2px 8px',
+                borderRadius: '999px',
+                fontWeight: 700,
               }}
             >
-              {order.status.replace(/_/g, ' ')}
+              {SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] ||
+                order.status.replace(/_/g, ' ')}
             </span>
           </div>
           <div style={cardRowStyles}>
-            <span style={cardLabelStyles}>Items</span>
-            <span style={cardValueStyles}>{order.items.length}</span>
+            <span style={cardLabelStyles}>Dispatch Origin</span>
+            <span style={cardValueStyles}>Onitsha Hub</span>
+          </div>
+          <div style={cardRowStyles}>
+            <span style={cardLabelStyles}>Shipments</span>
+            <span style={cardValueStyles}>
+              {shipments.length || 1}{' '}
+              {(shipments.length || 1) === 1 ? 'Consolidated Shipment' : 'Separate Shipments'}
+            </span>
           </div>
 
           <hr style={dividerStyles} />
 
           <div style={cardRowStyles}>
-            <span style={cardLabelStyles}>Subtotal</span>
+            <span style={cardLabelStyles}>Product Subtotal</span>
             <span style={cardValueStyles}>{formatCurrency(order.subtotal)}</span>
           </div>
           <div style={cardRowStyles}>
-            <span style={cardLabelStyles}>Delivery</span>
-            <span style={cardValueStyles}>{formatCurrency(order.delivery_fee)}</span>
+            <span style={cardLabelStyles}>Consolidated Delivery Fee</span>
+            <span style={cardValueStyles}>
+              {isAwaitingManualQuote
+                ? 'Manual Quote Pending'
+                : formatCurrency(order.delivery_fee)}
+            </span>
           </div>
           <div style={{ ...cardRowStyles, fontWeight: 'var(--font-bold)' }}>
-            <span>Total</span>
+            <span>Total Payable</span>
             <span style={{ color: 'var(--color-primary)', fontSize: 'var(--text-base)' }}>
-              {formatCurrency(order.total)}
+              {isAwaitingManualQuote
+                ? `${formatCurrency(order.subtotal)} + Delivery Quote`
+                : formatCurrency(order.total)}
             </span>
           </div>
         </div>
+
+        {/* Shipment Summary Cards if available */}
+        {shipments.length > 0 && (
+          <div style={itemsCardStyles}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textAlign: 'left', textTransform: 'uppercase' }}>
+              Consolidated Shipment Breakdown ({shipments.length})
+            </div>
+            {shipments.map((s, idx) => (
+              <div
+                key={s.id}
+                style={{
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--color-bg-subtle)',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                  <span>
+                    Shipment #{idx + 1}: {PARCEL_CLASSIFICATION_LABELS[s.shipment_classification]}
+                  </span>
+                  <span>
+                    {s.requires_manual_quote && s.delivery_fee === null
+                      ? 'Manual Quote'
+                      : formatCurrency(s.delivery_fee)}
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                  {s.transport_arrangement} · {s.items.length} item(s)
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Items List */}
         <div style={itemsCardStyles}>
@@ -118,9 +202,11 @@ export default function OrderConfirmationPage() {
                 src={getProductImageUrl(item.product)}
                 alt={item.product.name}
                 style={itemImgStyles}
-                onError={e => { (e.target as HTMLImageElement).src = getProductFallbackImage(item.product); }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = getProductFallbackImage(item.product);
+                }}
               />
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, textAlign: 'left' }}>
                 <p style={itemNameStyles}>{item.product.name}</p>
                 {item.variant && <p style={itemSubStyles}>{item.variant.name}</p>}
                 <p style={itemSubStyles}>Qty: {item.quantity}</p>
@@ -132,7 +218,7 @@ export default function OrderConfirmationPage() {
 
         <div style={actionRowStyles}>
           <Link to={`/dashboard/orders/${order.reference}`} style={primaryBtnStyles}>
-            Track Order
+            Track Order & Shipments
           </Link>
           <Link to="/products" style={secondaryBtnStyles}>
             Continue Shopping
@@ -155,9 +241,10 @@ function statusColor(status: string) {
       return { bg: 'rgba(231, 76, 60, 0.12)', text: 'var(--color-danger)' };
     case 'PENDING_PAYMENT':
     case 'PROCESSING':
+    case 'AWAITING_DELIVERY_CONFIRMATION':
       return { bg: 'rgba(255, 165, 2, 0.12)', text: 'var(--color-warning)' };
     default:
-      return { bg: 'rgba(103, 58, 183, 0.08)', text: 'var(--color-primary)' };
+      return { bg: 'rgba(255, 122, 0, 0.12)', text: 'var(--color-primary)' };
   }
 }
 
@@ -172,7 +259,7 @@ const centerStyles: React.CSSProperties = {
   flexDirection: 'column',
   alignItems: 'center',
   gap: 'var(--space-4)',
-  maxWidth: '480px',
+  maxWidth: '520px',
   margin: '0 auto',
   textAlign: 'center',
   padding: 'var(--space-6) 0',
@@ -210,6 +297,7 @@ const subTextStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   color: 'var(--color-text-muted)',
   margin: 0,
+  lineHeight: 1.5,
 };
 
 const cardStyles: React.CSSProperties = {
@@ -292,6 +380,8 @@ const actionRowStyles: React.CSSProperties = {
   display: 'flex',
   gap: 'var(--space-3)',
   marginTop: 'var(--space-2)',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
 };
 
 const primaryBtnStyles: React.CSSProperties = {

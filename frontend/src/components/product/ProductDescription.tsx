@@ -8,7 +8,10 @@ export default function ProductDescription({ description }: ProductDescriptionPr
   }
 
   // Strip internal metadata comments if present
-  const cleanDescription = description.replace(/<!-- DOVI_SPECS: [\s\S]*? -->/g, '').trim();
+  const cleanDescription = description
+    .replace(/<!-- DOVI_SPECS: [\s\S]*? -->/g, '')
+    .replace(/<!-- DOVI_DELIVERY: [\s\S]*? -->/g, '')
+    .trim();
 
   if (!cleanDescription) {
     return <div style={emptyDescStyles}>No description available for this product.</div>;
@@ -31,7 +34,7 @@ export default function ProductDescription({ description }: ProductDescriptionPr
           </p>
         ))
       ) : (
-        <p style={paraStyles}>{description}</p>
+        <p style={paraStyles}>{cleanDescription}</p>
       )}
     </div>
   );

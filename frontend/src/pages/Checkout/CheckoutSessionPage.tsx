@@ -3,13 +3,14 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { checkoutApi } from '@/api/checkout';
 import { paymentsApi } from '@/api/payments';
+import { PARCEL_CLASSIFICATION_LABELS } from '@/services/deliveryPricingService';
 import { normalizeUrl, getProductFallbackImage } from '@/utils/image';
 import type { CheckoutSession, PaymentMethod } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
 // ----------------------------------------------------------
 // CheckoutSessionPage — Step 2: Review + Payment
-// Fetches the session + payment methods from API.
+// Displays Consolidated Shipment Breakdown + Re-verifies delivery pricing before payment.
 // ----------------------------------------------------------
 export default function CheckoutSessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,14 @@ export default function CheckoutSessionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  // Rate-change review alert state (Section 7 / Edge Case 7)
+  const [rateChangeAlert, setRateChangeAlert] = useState<{
+    previousFee: string;
+    newFee: string;
+    newTotal: string;
+    acknowledged: boolean;
+  } | null>(null);
+
   const fetchSession = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
@@ -29,12 +38,26 @@ export default function CheckoutSessionPage() {
         checkoutApi.getSession(id),
         paymentsApi.getMethods(),
       ]);
-      setSession(sess);
-      setPaymentMethods(methods.filter(m => m.is_active));
+
+      // Check if delivery rates changed since session was created
+      const reverify = await checkoutApi.reverifySessionDeliveryPricing(sess);
+      if (reverify.changed) {
+        setSession(reverify.updatedSession);
+        setRateChangeAlert({
+          previousFee: reverify.previousFee,
+          newFee: reverify.newFee,
+          newTotal: reverify.updatedSession.total,
+          acknowledged: false,
+        });
+      } else {
+        setSession(sess);
+      }
+
+      setPaymentMethods(methods.filter((m) => m.is_active));
       if (sess.payment_method) {
         setSelectedProvider(sess.payment_method);
       } else if (methods.length > 0) {
-        const active = methods.find(m => m.is_active);
+        const active = methods.find((m) => m.is_active);
         if (active) setSelectedProvider(active.id);
       }
     } catch {
@@ -50,12 +73,35 @@ export default function CheckoutSessionPage() {
   }, [fetchSession]);
 
   const handleConfirm = async () => {
-    if (!id || !selectedProvider) {
+    if (!id || !session || !selectedProvider) {
       toast.error('Please select a payment method.');
       return;
     }
+
+    if (rateChangeAlert && !rateChangeAlert.acknowledged) {
+      toast.error('Please review and accept the updated delivery total before proceeding.');
+      return;
+    }
+
     setIsConfirming(true);
     try {
+      // Final pre-payment check to ensure delivery rates did not change right before payment
+      const latestCheck = await checkoutApi.reverifySessionDeliveryPricing(session);
+      if (latestCheck.changed) {
+        setSession(latestCheck.updatedSession);
+        setRateChangeAlert({
+          previousFee: latestCheck.previousFee,
+          newFee: latestCheck.newFee,
+          newTotal: latestCheck.updatedSession.total,
+          acknowledged: false,
+        });
+        toast.error(
+          'Delivery rates were updated by the administrator. Please review the updated total before paying.'
+        );
+        setIsConfirming(false);
+        return;
+      }
+
       const result = await checkoutApi.confirmSession(id, { payment_provider: selectedProvider });
 
       // After confirmation, initialize payment with the provider
@@ -96,21 +142,85 @@ export default function CheckoutSessionPage() {
 
   if (!session) return null;
 
-  const formatCurrency = (val: string) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(parseFloat(val));
+  const formatCurrency = (val: string | number | null | undefined) => {
+    if (val === null || val === undefined || val === '') return 'Manual Quote';
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return 'Manual Quote';
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
+
+  const deliveryCalc = session.delivery_calculation;
+  const shipmentCount = session.shipment_count ?? deliveryCalc?.shipment_count ?? 1;
 
   return (
     <div className="container" style={pageStyles}>
-      <h1 style={pageTitleStyles}>Review & Pay</h1>
+      <h1 style={pageTitleStyles}>Review Order, Consolidated Delivery & Pay</h1>
+
+      {/* Pre-payment Delivery Rate Change Alert Banner (Section 7 / Edge Case 7) */}
+      {rateChangeAlert && !rateChangeAlert.acknowledged && (
+        <div
+          style={{
+            backgroundColor: '#fffbeb',
+            border: '2px solid #f59e0b',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#92400e' }}>
+            ⚠️ Delivery Rate Updated Before Payment — Please Review Updated Total
+          </div>
+          <p style={{ margin: 0, fontSize: '13px', color: '#78350f', lineHeight: 1.5 }}>
+            Transport rates for your route were updated before payment was completed. DOVI never silently increases delivery charges. Please review the updated delivery fee and total below before proceeding:
+          </p>
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '13px', color: '#78350f' }}>
+            <span>
+              Previous Delivery Fee: <strong>{formatCurrency(rateChangeAlert.previousFee)}</strong>
+            </span>
+            <span>
+              Updated Delivery Fee: <strong>{formatCurrency(rateChangeAlert.newFee)}</strong>
+            </span>
+            <span>
+              Updated Total Payable: <strong>{formatCurrency(rateChangeAlert.newTotal)}</strong>
+            </span>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() =>
+                setRateChangeAlert((prev) => (prev ? { ...prev, acknowledged: true } : null))
+              }
+              style={{
+                backgroundColor: '#d97706',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                padding: '8px 16px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ✓ I Have Reviewed & Accept the Updated Total ({formatCurrency(rateChangeAlert.newTotal)})
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="checkout-layout-grid">
         {/* Main Column */}
         <div style={mainColStyles}>
-          {/* Order Review */}
+          {/* Order & Shipment Review */}
           <section style={sectionStyles}>
             <h2 style={sectionTitleStyles}>
               <span style={stepNumberStyles}>3</span>
-              Order Review
+              Order & Onitsha Hub Shipment Review
             </h2>
 
             {/* Delivery Info */}
@@ -118,7 +228,7 @@ export default function CheckoutSessionPage() {
               <div style={infoCardStyles}>
                 <span style={labelStyles}>Deliver to:</span>
                 <span style={valueStyles}>
-                  {session.delivery_address.full_name}, {session.delivery_address.address_line_1},
+                  {session.delivery_address.full_name}, {session.delivery_address.address_line_1},{' '}
                   {session.delivery_address.city}, {session.delivery_address.state}
                 </span>
               </div>
@@ -126,12 +236,83 @@ export default function CheckoutSessionPage() {
 
             {session.delivery_method && (
               <div style={infoCardStyles}>
-                <span style={labelStyles}>Shipping:</span>
+                <span style={labelStyles}>Dispatch & Shipping:</span>
                 <span style={valueStyles}>
-                  {session.delivery_method.name} ({session.delivery_method.estimated_days})
+                  Origin: Onitsha Hub · {session.delivery_method.name} ({session.delivery_method.estimated_days})
                 </span>
               </div>
             )}
+
+            {/* Consolidation Explanation */}
+            {deliveryCalc && (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: shipmentCount === 1 ? '#f0fdf4' : '#eff6ff',
+                  border: `1px solid ${shipmentCount === 1 ? '#bbf7d0' : '#bfdbfe'}`,
+                  fontSize: '12px',
+                  color: shipmentCount === 1 ? '#166534' : '#1e40af',
+                }}
+              >
+                <strong>
+                  {shipmentCount === 1
+                    ? '✓ Consolidated Single Shipment:'
+                    : `${shipmentCount} Separate Shipments:`}
+                </strong>{' '}
+                {deliveryCalc.consolidation_summary}
+              </div>
+            )}
+
+            {/* Shipment Groups Breakdown */}
+            {deliveryCalc && deliveryCalc.shipment_groups.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+                {deliveryCalc.shipment_groups.map((grp) => (
+                  <div
+                    key={grp.group_index}
+                    style={{
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '12px',
+                      backgroundColor: '#fafafa',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '6px',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '13px' }}>Shipment #{grp.group_index}</strong>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '999px',
+                            backgroundColor: '#ffedd5',
+                            color: '#9a3412',
+                          }}
+                        >
+                          {PARCEL_CLASSIFICATION_LABELS[grp.shipment_classification]}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                        Delivery Fee: {formatCurrency(grp.delivery_fee)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                      Transport: {grp.transport_arrangement} · {grp.separation_reason}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {/* Items snapshot */}
             <div style={itemsContainerStyles}>
@@ -182,7 +363,7 @@ export default function CheckoutSessionPage() {
                   style={{
                     ...pmCardStyles,
                     borderColor: selectedProvider === pm.id ? 'var(--color-primary)' : 'var(--color-border)',
-                    backgroundColor: selectedProvider === pm.id ? 'rgba(103, 58, 183, 0.04)' : '#ffffff',
+                    backgroundColor: selectedProvider === pm.id ? 'rgba(255, 122, 0, 0.04)' : '#ffffff',
                   }}
                 >
                   <input
@@ -216,19 +397,37 @@ export default function CheckoutSessionPage() {
           <h3 style={summaryTitleStyles}>Payment Summary</h3>
 
           <div style={summaryRowStyles}>
-            <span>Subtotal</span>
+            <span>Product Subtotal</span>
             <span style={summaryValStyles}>{formatCurrency(session.subtotal)}</span>
           </div>
 
           <div style={summaryRowStyles}>
-            <span>Delivery</span>
+            <span>Shipments</span>
+            <span style={summaryValStyles}>
+              {shipmentCount} {shipmentCount === 1 ? 'Consolidated Shipment' : 'Shipments'}
+            </span>
+          </div>
+
+          {deliveryCalc && deliveryCalc.shipment_count > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+              {deliveryCalc.shipment_groups.map((g) => (
+                <div key={g.group_index} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-muted)' }}>
+                  <span>Shipment #{g.group_index} Fee:</span>
+                  <span>{formatCurrency(g.delivery_fee)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={summaryRowStyles}>
+            <span>Total Delivery Fee</span>
             <span style={summaryValStyles}>{formatCurrency(session.delivery_fee)}</span>
           </div>
 
           <hr style={dividerStyles} />
 
           <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)' }}>
-            <span>Total</span>
+            <span>Total Payable</span>
             <span style={{ ...summaryValStyles, color: 'var(--color-primary)', fontSize: 'var(--text-lg)' }}>
               {formatCurrency(session.total)}
             </span>
@@ -241,18 +440,24 @@ export default function CheckoutSessionPage() {
 
           <button
             onClick={handleConfirm}
-            disabled={isConfirming || !selectedProvider}
+            disabled={isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)}
             style={{
               ...confirmBtnStyles,
-              opacity: (isConfirming || !selectedProvider) ? 0.6 : 1,
-              cursor: (isConfirming || !selectedProvider) ? 'not-allowed' : 'pointer',
+              opacity:
+                isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
+                  ? 0.6
+                  : 1,
+              cursor:
+                isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
+                  ? 'not-allowed'
+                  : 'pointer',
             }}
           >
             {isConfirming ? 'Processing...' : `Pay ${formatCurrency(session.total)}`}
           </button>
 
           <Link to="/checkout" style={backLinkStyles}>
-            ← Change Address / Method
+            ← Change Destination / Address
           </Link>
         </div>
       </div>

@@ -11,6 +11,7 @@ import UsersPage from '@/pages/UsersPage';
 import ProductsPage from '@/pages/ProductsPage';
 import CategoriesPage from '@/pages/CategoriesPage';
 import OrdersPage from '@/pages/OrdersPage';
+import DeliveryManagementPage from '@/pages/DeliveryManagementPage';
 import PaymentsPage from '@/pages/PaymentsPage';
 import RefundsPage from '@/pages/RefundsPage';
 import ReviewsPage from '@/pages/ReviewsPage';
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="products" element={<ProductsPage />} />
               <Route path="categories" element={<CategoriesPage />} />
               <Route path="orders" element={<OrdersPage />} />
+              <Route path="delivery" element={<DeliveryManagementPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="refunds" element={<RefundsPage />} />
               <Route path="reviews" element={<ReviewsPage />} />

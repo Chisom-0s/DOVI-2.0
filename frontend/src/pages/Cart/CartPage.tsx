@@ -6,6 +6,11 @@ import { useCart } from '@/contexts/CartContext';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage, normalizeUrl } from '@/utils/image';
 import type { CartItem } from '@/types';
+import {
+  syncDeliveryStoreFromServer,
+  resolveProductDeliveryAttributes,
+  PARCEL_CLASSIFICATION_LABELS,
+} from '@/services/deliveryPricingService';
 import { Skeleton } from '@/components/common/Skeleton';
 
 export default function CartPage() {
@@ -14,8 +19,9 @@ export default function CartPage() {
   const { cart, isLoading, updateQty, removeItem, clearCart, validateCart } = useCart();
   const [validating, setValidating] = useState(false);
 
-  // Validate cart on mount to get fresh stock status if logged in
+  // Sync shared delivery classifications and validate cart on mount
   useEffect(() => {
+    syncDeliveryStoreFromServer().catch(() => {});
     if (isAuthenticated) {
       validateCart().catch(() => {});
     }
@@ -114,6 +120,26 @@ export default function CartPage() {
         </button>
       </div>
 
+      {/* DOVI Onitsha Hub Order Consolidation Info Banner */}
+      <div
+        style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 16px',
+          fontSize: '13px',
+          color: '#1e3a8a',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+        }}
+      >
+        <span style={{ fontSize: '18px', lineHeight: 1 }}>📦</span>
+        <div>
+          <strong>DOVI Onitsha Hub Order Consolidation:</strong> You can mix products from any category in a single cart. All items are inspected, consolidated, and packaged together at our <strong>Onitsha Hub</strong> so you pay a single consolidated shipment fee whenever your items can travel together.
+        </div>
+      </div>
+
       {/* Validation errors from API */}
       {cart.validation_errors && cart.validation_errors.length > 0 && (
         <div style={validationBannerStyles}>
@@ -139,6 +165,12 @@ export default function CartPage() {
               item.variant_sku;
             const targetProductId = (prod.id && prod.id !== item.id) ? prod.id : (item.product_id && item.product_id !== item.id ? item.product_id : '');
             const productHref = targetProductId ? `/products/${targetProductId}` : '/products';
+
+            const deliveryAttrs = resolveProductDeliveryAttributes({
+              ...prod,
+              id: targetProductId || item.id,
+              name: displayName,
+            });
 
             return (
               <div key={item.id} style={itemCardStyles} className="cart-item-row">
@@ -168,6 +200,42 @@ export default function CartPage() {
                       Option: {variantText}
                     </span>
                   )}
+
+                  {/* Parcel Classification Badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        backgroundColor:
+                          deliveryAttrs.delivery_classification === 'FURNITURE_BULKY'
+                            ? '#fef3c7'
+                            : deliveryAttrs.delivery_classification === 'HEAVY_PARCEL'
+                            ? '#e0e7ff'
+                            : deliveryAttrs.delivery_classification === 'SPECIAL_MANUAL_QUOTE'
+                            ? '#fee2e2'
+                            : '#dcfce7',
+                        color:
+                          deliveryAttrs.delivery_classification === 'FURNITURE_BULKY'
+                            ? '#92400e'
+                            : deliveryAttrs.delivery_classification === 'HEAVY_PARCEL'
+                            ? '#3730a3'
+                            : deliveryAttrs.delivery_classification === 'SPECIAL_MANUAL_QUOTE'
+                            ? '#991b1b'
+                            : '#166534',
+                      }}
+                    >
+                      {PARCEL_CLASSIFICATION_LABELS[deliveryAttrs.delivery_classification]}
+                    </span>
+                    {deliveryAttrs.weight_kg && (
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                        {deliveryAttrs.weight_kg} kg
+                      </span>
+                    )}
+                  </div>
 
                   {/* Out of Stock Badge */}
                   {item.is_in_stock === false && (
@@ -227,27 +295,25 @@ export default function CartPage() {
           <h3 style={summaryTitleStyles}>Order Summary</h3>
 
           <div style={summaryRowStyles}>
-            <span>Subtotal</span>
+            <span>Product Subtotal</span>
             <span style={summaryValueStyles}>
               {formatPrice(cart.subtotal)}
             </span>
           </div>
 
-          {cart.delivery_estimate && (
-            <div style={summaryRowStyles}>
-              <span>Estimated Delivery</span>
-              <span style={summaryValueStyles}>
-                {formatPrice(cart.delivery_estimate)}
-              </span>
-            </div>
-          )}
+          <div style={summaryRowStyles}>
+            <span>Consolidated Delivery</span>
+            <span style={{ ...summaryValueStyles, fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              Calculated at checkout by destination
+            </span>
+          </div>
 
           <hr style={dividerStyles} />
 
           <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)' }}>
-            <span>Total</span>
+            <span>Subtotal</span>
             <span style={{ ...summaryValueStyles, color: 'var(--color-primary)', fontSize: 'var(--text-lg)' }}>
-              {formatPrice(cart.total)}
+              {formatPrice(cart.subtotal)}
             </span>
           </div>
 
@@ -355,7 +421,6 @@ const itemsColStyles: React.CSSProperties = {
 
 const itemCardStyles: React.CSSProperties = {
   display: 'grid',
-  /* Mobile: image + details stack side by side, qty and total wrap below */
   gridTemplateColumns: '72px 1fr',
   gridTemplateRows: 'auto auto',
   gap: 'var(--space-3)',
@@ -366,15 +431,12 @@ const itemCardStyles: React.CSSProperties = {
   padding: 'var(--space-3)',
 };
 
-/* We add a global style override for desktop via a <style> tag in the JSX */
-
 const itemImageStyles: React.CSSProperties = {
   width: '72px',
   height: '72px',
   objectFit: 'cover',
   borderRadius: 'var(--radius-sm)',
   backgroundColor: 'var(--color-bg-subtle)',
-  /* Grid: row 1, col 1 on mobile */
 };
 
 const itemDetailsStyles: React.CSSProperties = {

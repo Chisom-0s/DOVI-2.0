@@ -38,6 +38,48 @@ export default function AdminLayout() {
       ),
     },
     {
+      label: 'Delivery & Rates',
+      path: '/delivery',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="1" y="3" width="15" height="13"></rect>
+          <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+          <circle cx="5.5" cy="18.5" r="2.5"></circle>
+          <circle cx="18.5" cy="18.5" r="2.5"></circle>
+        </svg>
+      ),
+    },
+    {
+      label: 'Orders & Hub',
+      path: '/orders',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+      ),
+    },
+    {
+      label: 'Products',
+      path: '/products',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+          <line x1="7" y1="7" x2="7.01" y2="7"></line>
+        </svg>
+      ),
+    },
+    {
+      label: 'Categories',
+      path: '/categories',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+      ),
+    },
+    {
       label: 'Save2Own Dashboard',
       path: '/save2own/dashboard',
       icon: (
@@ -108,16 +150,6 @@ export default function AdminLayout() {
       ),
     },
     {
-      label: 'Products',
-      path: '/products',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-          <line x1="7" y1="7" x2="7.01" y2="7"></line>
-        </svg>
-      ),
-    },
-    {
       label: 'Auto Listings',
       path: '/auto',
       icon: (
@@ -126,26 +158,6 @@ export default function AdminLayout() {
           <circle cx="7" cy="17" r="2"></circle>
           <path d="M9 17h6"></path>
           <circle cx="17" cy="17" r="2"></circle>
-        </svg>
-      ),
-    },
-    {
-      label: 'Categories',
-      path: '/categories',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
-      ),
-    },
-    {
-      label: 'Orders',
-      path: '/orders',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="9" cy="21" r="1"></circle>
-          <circle cx="20" cy="21" r="1"></circle>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
         </svg>
       ),
     },
@@ -159,22 +171,6 @@ export default function AdminLayout() {
         </svg>
       ),
       isViewOnly: true,
-    },
-    {
-      label: 'Payment Accounts',
-      path: '/payment-accounts',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 21h18"></path>
-          <path d="M3 10h18"></path>
-          <path d="M5 6l7-3 7 3"></path>
-          <path d="M4 10v11"></path>
-          <path d="M20 10v11"></path>
-          <path d="M8 14v4"></path>
-          <path d="M12 14v4"></path>
-          <path d="M16 14v4"></path>
-        </svg>
-      ),
     },
     {
       label: 'Refunds',
@@ -344,7 +340,7 @@ const hamburgerStyles: React.CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
-  display: 'none', // Overridden in global media queries
+  display: 'none',
 };
 
 const userInfoStyles: React.CSSProperties = {

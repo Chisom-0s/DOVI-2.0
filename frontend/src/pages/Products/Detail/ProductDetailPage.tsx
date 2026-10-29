@@ -5,6 +5,10 @@ import { productsApi } from '@/api/products';
 import { recentlyViewedApi } from '@/api/recently-viewed';
 import { useCart, findKnownProduct, getCartItemMeta } from '@/contexts/CartContext';
 import type { APIError, Product, ProductVariant, ProductSummary } from '@/types';
+import {
+  resolveProductDeliveryAttributes,
+  PARCEL_CLASSIFICATION_LABELS,
+} from '@/services/deliveryPricingService';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
 import ProductDescription from '@/components/product/ProductDescription';
@@ -279,6 +283,8 @@ export default function ProductDetailPage() {
     ? product.review_count
     : (parseInt(String(product.review_count || 0), 10) || 0);
 
+  const deliveryAttrs = resolveProductDeliveryAttributes(product);
+
   return (
     <div className="container" style={pageWrapperStyles}>
       {/* Breadcrumbs */}
@@ -323,6 +329,45 @@ export default function ProductDetailPage() {
             <span style={isOutOfStock ? outOfStockBadgeStyles : inStockBadgeStyles}>
               {isOutOfStock ? 'Out of Stock' : 'In Stock'}
             </span>
+          </div>
+
+          {/* DOVI Onitsha Hub Delivery Classification & Consolidation Banner */}
+          <div
+            style={{
+              backgroundColor: '#fff7ed',
+              border: '1px solid #fed7aa',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: '#7c2d12',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+              <span style={{ fontWeight: 700 }}>
+                🚚 DOVI Onitsha Hub Consolidated Dispatch
+              </span>
+              <span
+                style={{
+                  backgroundColor: '#ffedd5',
+                  color: '#9a3412',
+                  border: '1px solid #fdba74',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                }}
+              >
+                {PARCEL_CLASSIFICATION_LABELS[deliveryAttrs.delivery_classification]}
+              </span>
+            </div>
+            <div style={{ color: '#9a3412', lineHeight: 1.4 }}>
+              Inspected & packaged at our Onitsha Hub. Combine multiple products across categories in your cart for a single consolidated shipment fee whenever practical.
+              {deliveryAttrs.weight_kg ? ` · Est. Weight: ${deliveryAttrs.weight_kg} kg` : ''}
+              {deliveryAttrs.dimensions_cm ? ` · Dimensions: ${deliveryAttrs.dimensions_cm} cm` : ''}
+            </div>
           </div>
 
           {/* Product variants choice selectors */}
@@ -627,8 +672,6 @@ const loadingWrapperStyles: React.CSSProperties = {
 
 const loadingHeaderGridStyles: React.CSSProperties = {
   display: 'grid',
-  /* On mobile this will be single column via CSS override below.
-     ProductDetailPage responsive style inlined in JSX handles the breakpoint. */
   gridTemplateColumns: '1fr',
   gap: 'var(--space-6)',
 };

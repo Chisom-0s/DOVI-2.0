@@ -2,6 +2,7 @@
 import apiClient from './client';
 import { parsePriceNumber } from '@/utils/currency';
 import { normalizeUrl } from '@/utils/image';
+import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -122,14 +123,14 @@ const SEED_SECTIONS: HomepageSection[] = [
     display_order: 7,
     display_limit: 4,
     configuration: {
-      layout: 'LARGE_PRODUCT_CARDS',
+      layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
     },
     config: {},
   },
   {
     id: 'sec-dovi-auto',
-    name: 'Featured Cars',
+    name: 'Dovi Auto',
     key: 'DOVI_AUTO',
     title: 'Dovi Auto Hub',
     subtitle: 'Premium car deals and accessories',
@@ -143,51 +144,55 @@ const SEED_SECTIONS: HomepageSection[] = [
       source: 'AUTOMATIC',
     },
     config: {},
-  }
+  },
 ];
 
 export const MOCK_PRODUCTS: ProductSummary[] = [];
 
 /**
- * Normalizes a raw product from GET /api/v1/products/ into a typed ProductSummary.
+ * Normalizes a raw product from GET /api/v1/products/ into a typed ProductSummary
+ * and enriches it with configured DOVI parcel classification & delivery attributes.
  */
 export function normalizeBackendProductToSummary(p: any): ProductSummary {
-  const stock = Array.isArray(p.variants) && p.variants.length > 0
-    ? p.variants.reduce((sum: number, v: any) => sum + (Number(v.stock ?? v.quantity) || 0), 0)
-    : (Number(p.stock_quantity ?? p.stock) || 10);
+  const stock =
+    Array.isArray(p.variants) && p.variants.length > 0
+      ? p.variants.reduce((sum: number, v: any) => sum + (Number(v.stock ?? v.quantity) || 0), 0)
+      : Number(p.stock_quantity ?? p.stock) || 10;
 
   const priceStr = String(p.base_price ?? p.price ?? '0');
-  
-  // Resolve primary image or first available image thumbnail/url
+
   let primaryImg: string | null = p.primary_image_url || null;
   if (!primaryImg && Array.isArray(p.images) && p.images.length > 0) {
     const prim = p.images.find((img: any) => img.is_primary);
-    primaryImg = prim?.thumbnail_url || prim?.image_url || p.images[0]?.thumbnail_url || p.images[0]?.image_url || null;
+    primaryImg =
+      prim?.thumbnail_url || prim?.image_url || p.images[0]?.thumbnail_url || p.images[0]?.image_url || null;
   }
   const resolvedPrimary = normalizeUrl(primaryImg) || primaryImg;
 
   const vendorName = p.vendor_name || (typeof p.vendor === 'object' ? p.vendor?.name : 'Verified Vendor');
-  const vendorObj = typeof p.vendor === 'object' && p.vendor !== null
-    ? p.vendor
-    : {
-        id: String(p.vendor || 'vend-real'),
-        name: vendorName,
-        logo_url: null,
-        rating: 4.9,
-        review_count: 14,
-        location: 'Lagos, Nigeria',
-        slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
-      };
+  const vendorObj =
+    typeof p.vendor === 'object' && p.vendor !== null
+      ? p.vendor
+      : {
+          id: String(p.vendor || 'vend-real'),
+          name: vendorName,
+          logo_url: null,
+          rating: 4.9,
+          review_count: 14,
+          location: 'Lagos, Nigeria',
+          slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
+        };
 
   const categoryName = p.category_name || (typeof p.category === 'object' ? p.category?.name : 'General');
-  const categoryObj = typeof p.category === 'object' && p.category !== null
-    ? p.category
-    : {
-        id: String(p.category || 'cat-real'),
-        name: categoryName,
-        slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
-        icon_url: null,
-      };
+  const categoryObj =
+    typeof p.category === 'object' && p.category !== null
+      ? p.category
+      : {
+          id: String(p.category || 'cat-real'),
+          name: categoryName,
+          slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
+          icon_url: null,
+        };
 
   const normalizedImages = (Array.isArray(p.images) ? p.images : []).map((img: any) => {
     if (!img) return img;
@@ -202,9 +207,10 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     };
   });
 
-  return {
+  const summary: ProductSummary = {
     id: p.id,
     name: p.name,
+    description: p.description || '',
     price: priceStr,
     base_price: priceStr,
     original_price: p.original_price ?? null,
@@ -228,7 +234,16 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     is_new_arrival: true,
     created_at: p.created_at || new Date().toISOString(),
     in_stock: stock > 0,
+    delivery_classification: p.delivery_classification,
+    weight_kg: p.weight_kg,
+    dimensions_cm: p.dimensions_cm,
+    requires_special_handling: p.requires_special_handling,
+    can_consolidate_with_furniture: p.can_consolidate_with_furniture,
+    max_items_per_shipment: p.max_items_per_shipment,
+    delivery_notes: p.delivery_notes,
   };
+
+  return enrichProductWithDelivery(summary);
 }
 
 /**
@@ -243,7 +258,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
 
   try {
     const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 50 } });
-    const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+    const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
     if (rawList && rawList.length > 0) {
       const normalized = rawList
         .filter((p: any) => {
@@ -269,7 +284,9 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
     if (cached) {
       const parsed: ProductSummary[] = JSON.parse(cached);
       if (Array.isArray(parsed)) {
-        return parsed.filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED');
+        return parsed
+          .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
+          .map((p) => enrichProductWithDelivery(p));
       }
     }
   } catch {}
@@ -290,14 +307,15 @@ function getMockSections(): HomepageSection[] {
       sections = SEED_SECTIONS;
     }
   }
-  return sections.filter(s =>
-    s.key !== 'FEATURED_CATEGORIES' &&
-    s.key !== 'TOP_VENDORS' &&
-    s.configuration?.layout !== 'VENDOR_GRID' &&
-    s.configuration?.layout !== 'CATEGORY_GRID' &&
-    s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
-    s.configuration?.layout !== 'CATEGORY_PILLS' &&
-    s.configuration?.layout !== 'BRAND_GRID'
+  return sections.filter(
+    (s) =>
+      s.key !== 'FEATURED_CATEGORIES' &&
+      s.key !== 'TOP_VENDORS' &&
+      s.configuration?.layout !== 'VENDOR_GRID' &&
+      s.configuration?.layout !== 'CATEGORY_GRID' &&
+      s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
+      s.configuration?.layout !== 'CATEGORY_PILLS' &&
+      s.configuration?.layout !== 'BRAND_GRID'
   );
 }
 
@@ -310,44 +328,48 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 
   // 1. Source Filtering
   if (source === 'MANUAL' && section.configuration?.manual_product_ids) {
-    matchingReal = matchingReal.filter(p => section.configuration.manual_product_ids?.includes(p.id));
+    matchingReal = matchingReal.filter((p) => section.configuration.manual_product_ids?.includes(p.id));
   } else if (source === 'CATEGORY' && sourceId) {
-    matchingReal = matchingReal.filter(p => p.category?.id === sourceId || p.category?.slug === sourceId);
+    matchingReal = matchingReal.filter((p) => p.category?.id === sourceId || p.category?.slug === sourceId);
   } else if (source === 'VENDOR' && sourceId) {
-    matchingReal = matchingReal.filter(p => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
+    matchingReal = matchingReal.filter((p) => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
   }
 
   // 2. Automations Filter based on Section Type
   if (section.key === 'FLASH_DEALS') {
-    matchingReal = matchingReal.filter(p => p.is_flash_deal);
+    matchingReal = matchingReal.filter((p) => p.is_flash_deal);
   } else if (section.key === 'TRENDING_NOW') {
-    matchingReal = matchingReal.filter(p => p.is_trending);
+    matchingReal = matchingReal.filter((p) => p.is_trending);
   } else if (section.key === 'BEST_SELLERS') {
-    matchingReal = matchingReal.filter(p => p.is_best_seller);
+    matchingReal = matchingReal.filter((p) => p.is_best_seller);
   } else if (section.key === 'NEW_ARRIVALS') {
-    matchingReal = matchingReal.filter(p => p.is_new_arrival);
+    matchingReal = matchingReal.filter((p) => p.is_new_arrival);
   } else if (section.key === 'HOT_SALES') {
-    matchingReal = matchingReal.filter(p => p.is_hot_sale);
+    matchingReal = matchingReal.filter((p) => p.is_hot_sale);
   } else if (section.key === 'SAVE2OWN_FEATURED') {
-    matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= 10000);
+    matchingReal = matchingReal.filter((p) => parsePriceNumber(p) >= 10000);
   } else if (section.key === 'DOVI_AUTO') {
-    matchingReal = matchingReal.filter(p => p.category?.slug?.startsWith('auto') || (p.category_name && /auto|car|brake|engine/i.test(p.category_name)));
+    matchingReal = matchingReal.filter(
+      (p) =>
+        p.category?.slug?.startsWith('auto') ||
+        (p.category_name && /auto|car|brake|engine/i.test(p.category_name))
+    );
   }
 
   // 3. Custom Filters
   const filters = section.configuration?.filters;
   if (filters) {
     if (filters.min_rating) {
-      matchingReal = matchingReal.filter(p => p.average_rating >= (filters.min_rating ?? 0));
+      matchingReal = matchingReal.filter((p) => p.average_rating >= (filters.min_rating ?? 0));
     }
     if (filters.in_stock_only) {
-      matchingReal = matchingReal.filter(p => p.stock_quantity > 0);
+      matchingReal = matchingReal.filter((p) => p.stock_quantity > 0);
     }
     if (filters.price_min) {
-      matchingReal = matchingReal.filter(p => parsePriceNumber(p) >= (filters.price_min ?? 0));
+      matchingReal = matchingReal.filter((p) => parsePriceNumber(p) >= (filters.price_min ?? 0));
     }
     if (filters.price_max) {
-      matchingReal = matchingReal.filter(p => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
+      matchingReal = matchingReal.filter((p) => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
     }
   }
 
@@ -374,7 +396,6 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     combined.sort((a, b) => (b.discount_percentage ?? 0) - (a.discount_percentage ?? 0));
   }
 
-  // Ensure all real products are shown up to at least display limit
   const baseLimit = section.display_limit || 10;
   const effectiveLimit = Math.max(baseLimit, matchingReal.length);
   return combined.slice(0, effectiveLimit);
@@ -382,10 +403,8 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 
 export const homepageApi = {
   getData: async (): Promise<HomepageData> => {
-    // 1. Always fetch authoritative real products from the backend
     const realProducts = await fetchRealBackendProducts();
 
-    // 2. Attempt backend homepage API if implemented
     try {
       const { data } = await apiClient.get('/api/v1/homepage/');
       if (data && data.sections && data.sections.length > 0) {
@@ -395,21 +414,19 @@ export const homepageApi = {
       // Expected when backend has no dedicated /homepage/ endpoint
     }
 
-    // 3. Construct homepage with real products prioritized alongside seed sections
     const rawSections = getMockSections();
     const sections = rawSections
-      .filter(s => s.is_active)
+      .filter((s) => s.is_active)
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map(s => {
+      .map((s) => {
         const populatedProducts = populateProductsForSection(s, realProducts);
 
-        // For TOP_VENDORS, extract real vendor listings
         let vendors = s.vendors;
         if (s.key === 'TOP_VENDORS' && realProducts.length > 0) {
           const realVendorsMap = new Map<string, any>();
-          realProducts.forEach(rp => {
+          realProducts.forEach((rp) => {
             if (rp.vendor_name && rp.vendor_name !== 'Verified Vendor') {
-              const vId = typeof rp.vendor === 'object' ? rp.vendor.id : (rp.vendor || rp.vendor_name);
+              const vId = typeof rp.vendor === 'object' ? rp.vendor.id : rp.vendor || rp.vendor_name;
               if (!realVendorsMap.has(vId)) {
                 realVendorsMap.set(vId, {
                   id: vId,
@@ -431,7 +448,6 @@ export const homepageApi = {
         };
       });
 
-    // Cache computed sections locally for instant 0ms rendering on subsequent visits
     try {
       localStorage.setItem('dovi_cached_homepage_sections', JSON.stringify(sections));
     } catch {}
@@ -457,8 +473,8 @@ export const homepageApi = {
     try {
       const { data } = await apiClient.get('/api/v1/homepage/sections/');
       return data;
-    } catch (err) {
-      return getMockSections().map(s => ({
+    } catch {
+      return getMockSections().map((s) => ({
         ...s,
         products: populateProductsForSection(s, realProducts),
       }));
@@ -511,10 +527,6 @@ export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
   },
 ];
 
-/**
- * Returns immediate synchronous sections (frame 0) so the homepage mounts instantly
- * with zero waiting, before live background revalidation finishes.
- */
 export function getCachedHomepageSections(): HomepageSection[] {
   const isExcluded = (s: HomepageSection) =>
     s.key === 'FEATURED_CATEGORIES' ||
@@ -525,7 +537,6 @@ export function getCachedHomepageSections(): HomepageSection[] {
     s.configuration?.layout === 'CATEGORY_PILLS' ||
     s.configuration?.layout === 'BRAND_GRID';
 
-  // 1. Try previously cached sections from localStorage (stale-while-revalidate)
   try {
     const cached = localStorage.getItem('dovi_cached_homepage_sections');
     if (cached) {
@@ -541,15 +552,14 @@ export function getCachedHomepageSections(): HomepageSection[] {
     }
   } catch {}
 
-  // 2. Immediate synchronous seed with cached real products if available
   try {
     const cachedReal = (JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]') as ProductSummary[])
       .filter((p: any) => p && !String(p.id).startsWith('prod-'));
     const rawSections = getMockSections();
     return rawSections
-      .filter(s => s.is_active && !isExcluded(s))
+      .filter((s) => s.is_active && !isExcluded(s))
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map(s => ({
+      .map((s) => ({
         ...s,
         products: populateProductsForSection(s, cachedReal),
       }));

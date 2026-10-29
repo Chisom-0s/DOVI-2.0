@@ -899,3 +899,246 @@ export interface CheckoutSession {
   total: string;
   expires_at: string;
 }
+
+
+// ----------------------------------------------------------
+// DOVI DELIVERY PRICING, CONSOLIDATION & ONITSHA HUB FULFILLMENT
+// ----------------------------------------------------------
+export type ParcelClassification =
+  | 'SMALL_PARCEL'
+  | 'HEAVY_PARCEL'
+  | 'FURNITURE_BULKY'
+  | 'SPECIAL_MANUAL_QUOTE';
+
+export interface ProductDeliveryAttributes {
+  delivery_classification: ParcelClassification;
+  weight_kg?: number | null;
+  dimensions_cm?: string | null;
+  requires_special_handling?: boolean;
+  can_consolidate_with_furniture?: boolean;
+  max_items_per_shipment?: number | null;
+  delivery_notes?: string | null;
+}
+
+export interface DeliveryRoute {
+  id: string;
+  dispatch_origin: string;
+  destination_state: string;
+  destination_city: string;
+  small_parcel_rate: number | null;
+  heavy_parcel_rate: number | null;
+  furniture_bulky_rate: number | null;
+  combined_furniture_rate: number | null;
+  special_handling_surcharge: number | null;
+  allows_furniture_small_consolidation: boolean;
+  max_furniture_items_consolidated: number;
+  max_small_parcel_weight_kg: number;
+  max_heavy_parcel_weight_kg: number;
+  special_delivery_requirements?: string | null;
+  estimated_delivery_days?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by_id?: string | null;
+  updated_by_email?: string | null;
+  updated_by_name?: string | null;
+}
+
+export interface DeliveryRateChangeRecord {
+  id: string;
+  route_id: string;
+  dispatch_origin: string;
+  destination: string;
+  delivery_classification: string;
+  previous_rate: number | null;
+  new_rate: number | null;
+  changed_by_id?: string | null;
+  changed_by_email: string;
+  changed_by_name?: string | null;
+  reason?: string | null;
+  changed_at: string;
+}
+
+export type ShipmentFulfillmentStatus =
+  | 'ORDER_PLACED'
+  | 'AWAITING_DELIVERY_CONFIRMATION'
+  | 'DELIVERY_FEE_CONFIRMED'
+  | 'SOURCING_PRODUCTS'
+  | 'AWAITING_PRODUCTS_AT_HUB'
+  | 'PRODUCTS_RECEIVED'
+  | 'QUALITY_CHECK'
+  | 'READY_FOR_PACKAGING'
+  | 'PACKAGED'
+  | 'READY_FOR_DISPATCH'
+  | 'DISPATCHED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED';
+
+export type DeliveryConfirmationStatus =
+  | 'NOT_REQUIRED'
+  | 'PENDING_ADMIN_QUOTE'
+  | 'QUOTED_AWAITING_CUSTOMER'
+  | 'CUSTOMER_ACCEPTED'
+  | 'CUSTOMER_DECLINED';
+
+export interface ShipmentItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  variant_id?: string | null;
+  variant_name?: string | null;
+  quantity: number;
+  unit_price: number;
+  delivery_classification: ParcelClassification;
+  weight_kg?: number | null;
+  dimensions_cm?: string | null;
+  requires_special_handling?: boolean;
+  hub_received: boolean;
+  hub_received_at?: string | null;
+  quality_checked: boolean;
+  quality_checked_at?: string | null;
+  packaged: boolean;
+  packaged_at?: string | null;
+  image_url?: string | null;
+}
+
+export interface OrderShipment {
+  id: string;
+  shipment_reference: string;
+  order_id: string;
+  order_reference: string;
+  dispatch_origin: string;
+  destination_state: string;
+  destination_city: string;
+  destination_address?: string | null;
+  shipment_classification: ParcelClassification;
+  items: ShipmentItem[];
+  combined_weight_kg?: number | null;
+  combined_dimensions_cm?: string | null;
+  delivery_fee: number | null;
+  special_handling_fee: number;
+  requires_manual_quote: boolean;
+  manual_quote_reason?: string | null;
+  status: ShipmentFulfillmentStatus;
+  transport_arrangement: string;
+  separation_reason?: string | null;
+  delivery_notes?: string | null;
+  tracking_reference?: string | null;
+  hub_received_confirmed: boolean;
+  hub_inspected_confirmed: boolean;
+  hub_packaged_confirmed: boolean;
+  created_at: string;
+  updated_at: string;
+  dispatched_at?: string | null;
+  delivered_at?: string | null;
+}
+
+export interface DeliveryCalculationShipmentGroup {
+  group_index: number;
+  shipment_classification: ParcelClassification;
+  classification_label: string;
+  dispatch_origin: string;
+  destination_state: string;
+  destination_city: string;
+  items: ShipmentItem[];
+  total_item_quantity: number;
+  combined_weight_kg: number | null;
+  combined_dimensions_cm: string | null;
+  base_delivery_fee: number | null;
+  special_handling_fee: number;
+  delivery_fee: number | null;
+  requires_manual_quote: boolean;
+  manual_quote_reason?: string | null;
+  transport_arrangement: string;
+  consolidation_explanation: string;
+  separation_reason?: string | null;
+  delivery_notes?: string | null;
+}
+
+export interface DeliveryCalculationResult {
+  dispatch_origin: string;
+  destination_state: string;
+  destination_city: string;
+  route_id: string | null;
+  route_found: boolean;
+  route_updated_at?: string | null;
+  shipment_count: number;
+  is_consolidated: boolean;
+  requires_manual_quote: boolean;
+  manual_quote_reasons: string[];
+  product_subtotal: number;
+  base_delivery_total: number | null;
+  special_handling_total: number;
+  total_delivery_fee: number | null;
+  total_payable: number | null;
+  overall_explanation: string;
+  shipments: DeliveryCalculationShipmentGroup[];
+  calculated_at: string;
+}
+
+export interface Product {
+  delivery_classification?: ParcelClassification;
+  weight_kg?: number | null;
+  dimensions_cm?: string | null;
+  requires_special_handling?: boolean;
+  can_consolidate_with_furniture?: boolean;
+  max_items_per_shipment?: number | null;
+  delivery_notes?: string | null;
+  delivery_attributes?: ProductDeliveryAttributes;
+}
+
+export interface ProductSummary {
+  description?: string;
+  delivery_classification?: ParcelClassification;
+  weight_kg?: number | null;
+  dimensions_cm?: string | null;
+  requires_special_handling?: boolean;
+  can_consolidate_with_furniture?: boolean;
+  max_items_per_shipment?: number | null;
+  delivery_notes?: string | null;
+  delivery_attributes?: ProductDeliveryAttributes;
+}
+
+export interface Order {
+  shipments?: OrderShipment[];
+  shipment_count?: number;
+  delivery_calculation?: DeliveryCalculationResult;
+  requires_delivery_confirmation?: boolean;
+  delivery_confirmation_status?: DeliveryConfirmationStatus;
+  confirmed_delivery_fee?: string | null;
+  hub_fulfillment_status?: ShipmentFulfillmentStatus;
+  allow_partial_split_delivery?: boolean;
+  dispatch_origin?: string;
+}
+
+export interface CheckoutSession {
+  shipments?: OrderShipment[];
+  shipment_count?: number;
+  delivery_calculation?: DeliveryCalculationResult;
+  requires_delivery_confirmation?: boolean;
+  delivery_confirmation_status?: DeliveryConfirmationStatus;
+  route_updated_at_snapshot?: string | null;
+}
+
+
+// Additional interface extensions for Delivery Consolidation & Manual Quotes
+export interface User {
+  phone_number?: string | null;
+}
+
+export interface OrderShipment {
+  manual_quote_status?: DeliveryConfirmationStatus;
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+}
+
+export interface DeliveryCalculationResult {
+  consolidation_summary?: string;
+  manual_quote_reason?: string | null;
+  shipment_groups: DeliveryCalculationShipmentGroup[];
+  special_handling_fee: number;
+}
+
+export interface Order {
+  requires_manual_quote?: boolean;
+}

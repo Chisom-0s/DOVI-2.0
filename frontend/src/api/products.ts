@@ -2,6 +2,7 @@
 import apiClient, { normalizeApiError } from './client';
 import { normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
 import { normalizeUrl } from '@/utils/image';
+import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
 export interface ProductFilters {
@@ -39,7 +40,6 @@ export const productsApi = {
         queryParams.search = filters.search;
       }
 
-      // Map frontend sort to Django DRF ordering parameter
       if (filters?.sort) {
         if (filters.sort === 'price_asc') queryParams.ordering = 'base_price';
         else if (filters.sort === 'price_desc') queryParams.ordering = '-base_price';
@@ -48,7 +48,7 @@ export const productsApi = {
       }
 
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
-      const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+      const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
 
       let deletedIds: string[] = [];
       try {
@@ -64,16 +64,21 @@ export const productsApi = {
         })
         .map((p) => normalizeBackendProductToSummary(p));
 
-      // Apply client-side filters if backend doesn't support them directly
       if (filters?.min_rating) {
-        realProducts = realProducts.filter(p => (p.average_rating || 0) >= filters.min_rating!);
+        realProducts = realProducts.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
       }
       if (filters?.sort === 'rating') {
         realProducts = [...realProducts].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
       }
 
-      // Cache real products when viewing default listing (page 1, no filters)
-      const isDefaultView = !filters?.category && !filters?.min_price && !filters?.max_price && !filters?.in_stock && !filters?.min_rating && !filters?.q && (filters?.page || 1) === 1;
+      const isDefaultView =
+        !filters?.category &&
+        !filters?.min_price &&
+        !filters?.max_price &&
+        !filters?.in_stock &&
+        !filters?.min_rating &&
+        !filters?.q &&
+        (filters?.page || 1) === 1;
       if (isDefaultView && realProducts.length > 0) {
         try {
           sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
@@ -90,7 +95,6 @@ export const productsApi = {
       };
     } catch (err: any) {
       console.warn('Backend products list fetch failed:', err?.message || err);
-      // If offline or network error, attempt to return cached real products
       try {
         const cached = sessionStorage.getItem('dovi_real_products_cache');
         if (cached) {
@@ -100,7 +104,9 @@ export const productsApi = {
             try {
               deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
             } catch {}
-            const cleaned = list.filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED');
+            const cleaned = list
+              .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
+              .map((p) => enrichProductWithDelivery(p));
             return {
               count: cleaned.length,
               next: null,
@@ -130,12 +136,12 @@ export const productsApi = {
           url: normalizeUrl(img.url || img.image_url) || img.url,
         };
       });
-      return {
+      return enrichProductWithDelivery({
         ...data,
         primary_image_url: normPrimary,
         image_url: normPrimary || data.image_url,
         images: normImages,
-      };
+      } as any) as Product;
     } catch (err: any) {
       console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
     }
@@ -148,36 +154,47 @@ export const productsApi = {
         const found = list.find((p: any) => (p.id === id || p.slug === id) && !String(p.id).startsWith('prod-'));
         if (found) {
           const normPrimary = normalizeUrl(found.primary_image_url) || found.primary_image_url;
-          return {
+          return enrichProductWithDelivery({
             ...found,
             category: found.category || 'General',
-            description: (found as any).description || `Premium authentic ${found.name} available at Dovi Official Store.`,
+            description:
+              (found as any).description ||
+              `Premium authentic ${found.name} available at Dovi Official Store.`,
             status: found.status || 'PUBLISHED',
             primary_image_url: normPrimary,
             image_url: normPrimary || found.image_url,
-            images: found.images && found.images.length > 0 ? found.images : (normPrimary ? [{ id: `img-${found.id}`, image_url: normPrimary, is_primary: true }] : []),
-            variants: found.variants && found.variants.length > 0 ? found.variants : [
-              {
-                id: `var-${found.id}`,
-                name: 'Standard Option',
-                sku: `SKU-${found.id.substring(0, 8).toUpperCase()}`,
-                stock: found.stock_quantity || 10,
-                reserved: 0,
-              },
-            ],
-          };
+            images:
+              found.images && found.images.length > 0
+                ? found.images
+                : normPrimary
+                ? [{ id: `img-${found.id}`, image_url: normPrimary, is_primary: true }]
+                : [],
+            variants:
+              found.variants && found.variants.length > 0
+                ? found.variants
+                : [
+                    {
+                      id: `var-${found.id}`,
+                      name: 'Standard Option',
+                      sku: `SKU-${found.id.substring(0, 8).toUpperCase()}`,
+                      stock: found.stock_quantity || 10,
+                      reserved: 0,
+                    },
+                  ],
+          } as any) as Product;
         }
       }
     } catch {}
 
     // Resilient fallback product for offline resilience
-    return {
+    return enrichProductWithDelivery({
       id,
       name: 'Smart 4K UHD Television (55-Inch)',
       base_price: '450000',
       price: '450000',
       description: 'Ultra HD 4K Smart Television with HDR10, Voice Control, and Save2Own purchase option.',
-      primary_image_url: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
+      primary_image_url:
+        'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
       image_url: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
       vendor: {
         id: 'vendor-1',
@@ -202,7 +219,7 @@ export const productsApi = {
       review_count: 12,
       status: 'PUBLISHED',
       created_at: new Date().toISOString(),
-    } as any;
+    } as any) as Product;
   },
 
   search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
@@ -210,8 +227,8 @@ export const productsApi = {
       const queryParams: Record<string, any> = { search: q, ...filters };
       delete queryParams.q;
       const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
-      const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
-      const realProducts = rawList.map(p => normalizeBackendProductToSummary(p));
+      const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
+      const realProducts = rawList.map((p) => normalizeBackendProductToSummary(p));
 
       return {
         count: data?.count ?? realProducts.length,
@@ -233,7 +250,7 @@ export const productsApi = {
   featured: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/featured/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
       return real;
@@ -243,10 +260,10 @@ export const productsApi = {
   trending: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/trending/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
-      const matching = real.filter(r => r.is_trending);
+      const matching = real.filter((r) => r.is_trending);
       return matching.length > 0 ? matching : real;
     }
   },
@@ -254,7 +271,7 @@ export const productsApi = {
   newArrivals: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/new-arrivals/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
       return real;
@@ -264,10 +281,10 @@ export const productsApi = {
   bestSellers: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/best-sellers/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
-      const matching = real.filter(r => r.is_best_seller);
+      const matching = real.filter((r) => r.is_best_seller);
       return matching.length > 0 ? matching : real;
     }
   },
@@ -275,10 +292,10 @@ export const productsApi = {
   flashDeals: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/flash-deals/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
-      const matching = real.filter(r => r.is_flash_deal);
+      const matching = real.filter((r) => r.is_flash_deal);
       return matching.length > 0 ? matching : real;
     }
   },
@@ -286,10 +303,10 @@ export const productsApi = {
   budgetDeals: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/budget-deals/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
-      const matching = real.filter(r => r.is_hot_sale);
+      const matching = real.filter((r) => r.is_hot_sale);
       return matching.length > 0 ? matching : real;
     }
   },
@@ -297,7 +314,7 @@ export const productsApi = {
   topRated: async (): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/products/top-rated/');
-      return data;
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
     } catch {
       const real = await fetchRealBackendProducts();
       return real;
@@ -313,7 +330,10 @@ export const productsApi = {
     }
   },
 
-  getReviews: async (id: string, params?: { page?: number; rating?: number; sort?: string }): Promise<PaginatedResponse<Review>> => {
+  getReviews: async (
+    id: string,
+    params?: { page?: number; rating?: number; sort?: string }
+  ): Promise<PaginatedResponse<Review>> => {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     if (!isUuid) {
       const results = getFallbackReviews(id, params?.rating, params?.sort);
@@ -329,7 +349,6 @@ export const productsApi = {
       const { data } = await apiClient.get(`/api/v1/products/${id}/reviews/`, { params });
       return data;
     } catch (err: any) {
-      // If endpoint returns 404 or fails for any reason, provide verified customer reviews
       if (err?.response?.status === 404 || !err?.response) {
         const results = getFallbackReviews(id, params?.rating, params?.sort);
         return {
@@ -355,13 +374,11 @@ export const productsApi = {
   getRelated: async (id: string): Promise<ProductSummary[]> => {
     try {
       const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
-      return Array.isArray(data) ? data : (data?.results ?? []);
+      return Array.isArray(data) ? data : data?.results ?? [];
     } catch (err: unknown) {
-      // Degrade gracefully ONLY if the endpoint does not exist on backend (404 Not Found)
       if ((err as { response?: { status?: number } })?.response?.status === 404) {
         return [];
       }
-      // Re-throw genuine server errors (500s), network failures, and auth errors
       throw normalizeApiError(err);
     }
   },
@@ -382,13 +399,10 @@ export const productsApi = {
     try {
       const formData = new FormData();
       formData.append('image', imageFile, imageFile.name);
-      formData.append('file', imageFile, imageFile.name); // Compatibility alias
+      formData.append('file', imageFile, imageFile.name);
       formData.append('is_primary', isPrimary ? 'true' : 'false');
 
-      const { data } = await apiClient.post(
-        `/api/v1/products/${productId}/images/`,
-        formData
-      );
+      const { data } = await apiClient.post(`/api/v1/products/${productId}/images/`, formData);
       return {
         ...data,
         image_url: normalizeUrl(data.image_url) || data.image_url,
