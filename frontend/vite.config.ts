@@ -10,7 +10,7 @@ function doviSharedDeliveryDbPlugin() {
       if (fs.existsSync(storePath)) {
         return JSON.parse(fs.readFileSync(storePath, 'utf-8'));
       }
-    } catch {}
+    } catch { }
     return {
       routes: [],
       rateHistory: [],
@@ -25,7 +25,7 @@ function doviSharedDeliveryDbPlugin() {
     try {
       fs.mkdirSync(path.dirname(storePath), { recursive: true });
       fs.writeFileSync(storePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch {}
+    } catch { }
   };
   const handler = (req: any, res: any, next: any) => {
     if (!req.url || !req.url.startsWith('/__dovi_delivery_db__')) return next();

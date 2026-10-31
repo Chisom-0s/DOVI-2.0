@@ -599,12 +599,30 @@ export default function ProductsPage() {
     setIsSubmitting(true);
 
     try {
+      setUploadStatusText('Verifying category database record...');
+      let categoryDatabaseUuid: string;
+      try {
+        categoryDatabaseUuid = await adminApi.ensureDatabaseCategoryUuid(
+          catValidation.mainCategory.uuid ||
+            catValidation.mainCategory.database_id ||
+            catValidation.mainCategory.id ||
+            form.category,
+          catValidation.mainCategory.name,
+          catValidation.mainCategory.description || undefined
+        );
+      } catch (uuidErr: any) {
+        toast.error(uuidErr.message || 'Failed to resolve category database ID.');
+        setIsSubmitting(false);
+        setUploadStatusText('');
+        return;
+      }
+
       if (editingProduct) {
         // --- EDIT MODE ---
         setUploadStatusText('Saving product, category & delivery attributes...');
         await adminApi.updateProduct(editingProduct.id, {
           name: form.name.trim(),
-          category: catValidation.mainCategory.id,
+          category: categoryDatabaseUuid,
           base_price: priceNum,
           description: formattedDescription,
           status: form.status,
@@ -645,7 +663,7 @@ export default function ProductsPage() {
         setUploadStatusText('Creating product listing...');
         const createdProduct = await adminApi.createProduct({
           name: form.name.trim(),
-          category: catValidation.mainCategory.id,
+          category: categoryDatabaseUuid,
           base_price: priceNum,
           description: formattedDescription,
           status: form.status,

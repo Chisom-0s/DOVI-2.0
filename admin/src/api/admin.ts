@@ -1,4 +1,4 @@
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
 import { normalizeUrl } from '@/utils/image';
 import {
   listMainCategories,
@@ -12,7 +12,13 @@ import {
   deleteMainCategory,
   findMainCategory,
   findSubcategory,
+  mapCategoryToDatabaseUuid,
+  isCategoryUuid,
+  setCachedBackendCategories,
+  getCachedBackendCategories,
+  slugifyCategoryName,
 } from '@/services/categoryService';
+import type { DatabaseCategoryRecord } from '@/services/categoryService';
 import type {
   PaginatedResponse,
   User,
@@ -1028,7 +1034,11 @@ export const adminApi = {
     }>;
   }): Promise<any> => {
     try {
-      const { data } = await apiClient.post('/api/v1/products/', payload);
+      const resolvedCategory = await adminApi.ensureDatabaseCategoryUuid(payload.category);
+      const { data } = await apiClient.post('/api/v1/products/', {
+        ...payload,
+        category: resolvedCategory,
+      });
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -1046,7 +1056,11 @@ export const adminApi = {
     }
   ): Promise<any> => {
     try {
-      const { data } = await apiClient.patch(`/api/v1/products/${id}/`, payload);
+      let finalPayload = { ...payload };
+      if (payload.category) {
+        finalPayload.category = await adminApi.ensureDatabaseCategoryUuid(payload.category);
+      }
+      const { data } = await apiClient.patch(`/api/v1/products/${id}/`, finalPayload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);
@@ -1134,10 +1148,118 @@ export const adminApi = {
     }
   },
 
-  // --- Category Management ---
+  // --- Category Management & UUID Synchronization ---
+  syncBackendCategories: async (): Promise<DatabaseCategoryRecord[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/categories/');
+      const list: DatabaseCategoryRecord[] = Array.isArray(data) ? data : (data?.results || []);
+      if (Array.isArray(list) && list.length > 0) {
+        setCachedBackendCategories(list);
+        return list;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch backend categories from /api/v1/categories/:', err);
+    }
+    return getCachedBackendCategories();
+  },
+
+  ensureDatabaseCategoryUuid: async (
+    categoryIdOrSlugOrName: string,
+    categoryNameHint?: string,
+    categoryDescHint?: string
+  ): Promise<string> => {
+    const rawInput = (categoryIdOrSlugOrName || '').trim();
+    if (!rawInput) {
+      throw new Error('A category must be selected for the product.');
+    }
+
+    // 1. If it's already a valid UUID, return it directly
+    if (isCategoryUuid(rawInput)) {
+      return rawInput;
+    }
+
+    // 2. Fetch or retrieve backend categories from cache or API
+    let backendCats = getCachedBackendCategories();
+    if (backendCats.length === 0) {
+      try {
+        backendCats = await adminApi.syncBackendCategories();
+      } catch {}
+    }
+
+    // 3. Resolve the target DOVI main category if possible
+    const targetMainCat = findMainCategory(rawInput);
+    const desiredName = targetMainCat?.name || categoryNameHint || rawInput;
+    const desiredSlug = targetMainCat?.slug || slugifyCategoryName(desiredName);
+    const desiredDesc = targetMainCat?.description || categoryDescHint || '';
+
+    // Check if any existing backend category has this exact slug, id, or name
+    const existingExact = backendCats.find(
+      (c) =>
+        c.id.toLowerCase() === rawInput.toLowerCase() ||
+        c.slug?.toLowerCase() === desiredSlug.toLowerCase() ||
+        c.name.trim().toLowerCase() === desiredName.trim().toLowerCase()
+    );
+
+    if (existingExact && isCategoryUuid(existingExact.id)) {
+      return existingExact.id;
+    }
+
+    // 4. If not found in backend categories, attempt to create it in Supabase backend if authenticated
+    const token = tokenStore.get();
+    if (token) {
+      try {
+        const { data: createdCat } = await apiClient.post('/api/v1/categories/', {
+          name: desiredName,
+          slug: desiredSlug,
+          description: desiredDesc,
+          is_active: true,
+        });
+
+        if (createdCat?.id && isCategoryUuid(createdCat.id)) {
+          const updatedList = [...backendCats.filter((c) => c.id !== createdCat.id), createdCat];
+          setCachedBackendCategories(updatedList);
+          return createdCat.id;
+        }
+      } catch (err: any) {
+        console.warn(
+          `Could not create category "${desiredName}" on backend (may already exist or insufficient role):`,
+          err?.response?.data || err?.message || err
+        );
+        // If creation failed (e.g. unique constraint on slug/name), re-fetch and re-check
+        try {
+          const refreshed = await adminApi.syncBackendCategories();
+          const matchAgain = refreshed.find(
+            (c) =>
+              c.slug?.toLowerCase() === desiredSlug.toLowerCase() ||
+              c.name.trim().toLowerCase() === desiredName.trim().toLowerCase()
+          );
+          if (matchAgain && isCategoryUuid(matchAgain.id)) {
+            return matchAgain.id;
+          }
+        } catch {}
+      }
+    }
+
+    // 5. Fallback to mapCategoryToDatabaseUuid (guaranteed to return a valid foreign key UUID)
+    const fallbackUuid = mapCategoryToDatabaseUuid(rawInput, backendCats);
+    if (fallbackUuid && isCategoryUuid(fallbackUuid)) {
+      return fallbackUuid;
+    }
+
+    throw new Error(`Unable to resolve category "${rawInput}" to a valid database UUID.`);
+  },
+
   listCategories: async (allProducts?: any[]): Promise<Category[]> => {
+    let backendCategories: DatabaseCategoryRecord[] = [];
+    try {
+      backendCategories = await adminApi.syncBackendCategories();
+    } catch {}
     await syncCategoriesFromSharedDb().catch(() => {});
-    return listMainCategories({ includeInactive: true, products: allProducts });
+    return listMainCategories({
+      includeInactive: true,
+      products: allProducts,
+      backendCategories: backendCategories.length > 0 ? backendCategories : undefined,
+    });
   },
 
   listLegacyCategoriesUnused: async (): Promise<Category[]> => {

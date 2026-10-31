@@ -1343,6 +1343,8 @@ export interface Subcategory {
 }
 
 export interface Category {
+  database_id?: string;
+  uuid?: string;
   description?: string | null;
   icon?: string | null;
   display_order?: number;
@@ -1353,6 +1355,8 @@ export interface Category {
 }
 
 export interface CategorySummary {
+  database_id?: string;
+  uuid?: string;
   description?: string | null;
   icon?: string | null;
   display_order?: number;

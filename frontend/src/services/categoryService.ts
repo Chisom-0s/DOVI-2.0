@@ -302,10 +302,113 @@ export const LEGACY_CATEGORY_MAP: Record<
   bags: { categoryId: 'cat-travel-bags', categorySlug: 'travel-bags' },
 };
 
+// ============================================================================
+// SUPABASE / POSTGRESQL DATABASE CATEGORY UUID SUPPORT (SECTIONS 1-8)
+// ============================================================================
+
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isCategoryUuid(value?: string | null): boolean {
+  if (!value) return false;
+  return UUID_REGEX.test(String(value).trim());
+}
+
+export interface DatabaseCategoryRecord {
+  id: string; // UUID from Supabase
+  name: string;
+  slug: string;
+  description?: string | null;
+  parent?: string | null;
+  subcategories?: any[];
+}
+
 const STORAGE_KEYS = {
   CATEGORIES: 'dovi_categories_v2_store',
   PRODUCT_CATEGORY_ASSIGNMENTS: 'dovi_product_category_assignments_v2',
+  BACKEND_DATABASE_CATEGORIES: 'dovi_backend_database_categories_v1',
 };
+
+export function setCachedBackendCategories(backendList: DatabaseCategoryRecord[]): void {
+  if (Array.isArray(backendList) && backendList.length > 0) {
+    writeLocal(STORAGE_KEYS.BACKEND_DATABASE_CATEGORIES, backendList);
+  }
+}
+
+export function getCachedBackendCategories(): DatabaseCategoryRecord[] {
+  return readLocal<DatabaseCategoryRecord[]>(STORAGE_KEYS.BACKEND_DATABASE_CATEGORIES, []);
+}
+
+/**
+ * Maps a category identifier (ID, slug, or name) to the corresponding Supabase database UUID.
+ * Ensures the foreign key constraint is satisfied on the database.
+ */
+export function mapCategoryToDatabaseUuid(
+  categoryIdOrSlugOrName: string | null | undefined,
+  backendCategoriesList?: DatabaseCategoryRecord[]
+): string | null {
+  if (!categoryIdOrSlugOrName) return null;
+  const raw = String(categoryIdOrSlugOrName).trim();
+  if (isCategoryUuid(raw)) return raw;
+
+  const dbList = (backendCategoriesList && backendCategoriesList.length > 0)
+    ? backendCategoriesList
+    : getCachedBackendCategories();
+
+  if (!dbList || dbList.length === 0) return null;
+
+  const targetKey = raw.toLowerCase();
+
+  // 1. Direct match on database category id, slug, or name
+  const direct = dbList.find((c) =>
+    c.id.toLowerCase() === targetKey ||
+    c.slug.toLowerCase() === targetKey ||
+    c.name.trim().toLowerCase() === targetKey
+  );
+  if (direct && isCategoryUuid(direct.id)) return direct.id;
+
+  // 2. Find our main category to get its canonical slug & name
+  const mainCat = findMainCategory(raw);
+  if (mainCat) {
+    const byMain = dbList.find((c) =>
+      c.slug.toLowerCase() === mainCat.slug.toLowerCase() ||
+      c.name.trim().toLowerCase() === mainCat.name.trim().toLowerCase()
+    );
+    if (byMain && isCategoryUuid(byMain.id)) return byMain.id;
+  }
+
+  // 3. Keyword / semantic mapping for the 12 categories
+  const aliasSlug = mainCat?.slug || targetKey;
+  const matched = dbList.find((c) => {
+    const dbSlug = (c.slug || '').toLowerCase();
+    const dbName = (c.name || '').toLowerCase();
+
+    if (aliasSlug.includes('furniture') && (dbSlug.includes('furniture') || dbName.includes('furniture'))) return true;
+    if (aliasSlug.includes('phone') || aliasSlug.includes('electronic')) {
+      if (dbSlug.includes('electronic') || dbName.includes('electronic')) return true;
+      if (dbSlug.includes('smartphones') || dbName.includes('smartphones')) return true;
+      if (dbSlug.includes('computing') || dbName.includes('computing')) return true;
+    }
+    if (aliasSlug.includes('fashion') || aliasSlug.includes('clothing') || aliasSlug.includes('shoe')) {
+      if (dbSlug.includes('fashion') || dbName.includes('fashion') || dbSlug.includes('apparel')) return true;
+    }
+    if (aliasSlug.includes('beauty') && (dbSlug.includes('beauty') || dbName.includes('beauty'))) return true;
+    if (aliasSlug.includes('kitchen') && (dbSlug.includes('kitchen') || dbName.includes('kitchen') || dbSlug.includes('home'))) return true;
+    if (aliasSlug.includes('watch') && (dbSlug.includes('watch') || dbName.includes('watch') || dbSlug.includes('accessories'))) return true;
+    if (aliasSlug.includes('sport') && (dbSlug.includes('sport') || dbName.includes('sport'))) return true;
+    if (aliasSlug.includes('auto') && (dbSlug.includes('auto') || dbName.includes('auto') || dbSlug.includes('car'))) return true;
+    if (aliasSlug.includes('book') && (dbSlug.includes('book') || dbName.includes('book'))) return true;
+    if (aliasSlug.includes('baby') && (dbSlug.includes('baby') || dbName.includes('baby') || dbSlug.includes('kid'))) return true;
+    if (aliasSlug.includes('travel') && (dbSlug.includes('travel') || dbName.includes('travel') || dbSlug.includes('bag'))) return true;
+    return false;
+  });
+  if (matched && isCategoryUuid(matched.id)) return matched.id;
+
+  // 4. Fallback to any valid UUID in database to guarantee valid foreign key
+  const firstWithUuid = dbList.find((c) => isCategoryUuid(c.id));
+  if (firstWithUuid) return firstWithUuid.id;
+
+  return null;
+}
 
 export interface CategoryAdminActor {
   id?: string | null;
@@ -547,6 +650,7 @@ function normalizeCategoryTree(rawTree: Category[]): Category[] {
 export function listMainCategories(options?: {
   includeInactive?: boolean;
   products?: Array<Partial<Product & ProductSummary>>;
+  backendCategories?: DatabaseCategoryRecord[];
 }): Category[] {
   const includeInactive = options?.includeInactive ?? false;
   const tree = ensureCategoriesInitialized();
@@ -572,6 +676,8 @@ export function listMainCategories(options?: {
       }
     }
   }
+
+  const backendList = options?.backendCategories || getCachedBackendCategories();
 
   return tree
     .filter((cat) => includeInactive || cat.is_active !== false)
@@ -603,8 +709,16 @@ export function listMainCategories(options?: {
         ? productCountsByCat.get(cat.id)!
         : cat.product_count;
 
+      const resolvedDbUuid =
+        mapCategoryToDatabaseUuid(cat.id, backendList) ||
+        mapCategoryToDatabaseUuid(cat.slug, backendList) ||
+        cat.uuid ||
+        cat.database_id;
+
       return {
         ...cat,
+        uuid: resolvedDbUuid || undefined,
+        database_id: resolvedDbUuid || undefined,
         children: filteredChildren,
         subcategories: filteredSubcategories,
         subcategory_count: filteredChildren.length,
@@ -620,16 +734,41 @@ export function findMainCategory(idOrSlugOrName?: string | null): Category | nul
 
   const tree = ensureCategoriesInitialized();
 
-  // 1. Direct match by id, slug, or exact name
+  // 1. Direct match by id, slug, uuid, database_id, or exact name
   const direct = tree.find(
     (c) =>
       c.id.toLowerCase() === key ||
       c.slug.toLowerCase() === key ||
+      (c.uuid && c.uuid.toLowerCase() === key) ||
+      (c.database_id && c.database_id.toLowerCase() === key) ||
       c.name.trim().toLowerCase() === key
   );
   if (direct) return direct;
 
-  // 2. Match via legacy category alias map
+  // 2. If key is a UUID, check cached backend categories
+  if (isCategoryUuid(key)) {
+    const dbList = getCachedBackendCategories();
+    const dbHit = dbList.find((c) => c.id.toLowerCase() === key);
+    if (dbHit) {
+      const matchByDbSlugOrName = tree.find(
+        (c) =>
+          c.slug.toLowerCase() === dbHit.slug.toLowerCase() ||
+          c.name.trim().toLowerCase() === dbHit.name.trim().toLowerCase()
+      );
+      if (matchByDbSlugOrName) return matchByDbSlugOrName;
+
+      // Check legacy map for dbHit.slug or dbHit.name
+      const leg =
+        LEGACY_CATEGORY_MAP[dbHit.slug.toLowerCase()] ||
+        LEGACY_CATEGORY_MAP[dbHit.name.toLowerCase()];
+      if (leg) {
+        const matchLeg = tree.find((c) => c.id === leg.categoryId || c.slug === leg.categorySlug);
+        if (matchLeg) return matchLeg;
+      }
+    }
+  }
+
+  // 3. Match via legacy category alias map
   const legacy = LEGACY_CATEGORY_MAP[key];
   if (legacy) {
     return tree.find((c) => c.id === legacy.categoryId || c.slug === legacy.categorySlug) || null;
