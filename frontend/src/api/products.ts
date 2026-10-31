@@ -3,12 +3,18 @@ import apiClient, { normalizeApiError } from './client';
 import { normalizeBackendProductToSummary, fetchRealBackendProducts } from './homepage';
 import { normalizeUrl } from '@/utils/image';
 import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
+import {
+  enrichProductWithCategory,
+  doesProductMatchCategoryFilter,
+  syncCategoriesFromServer,
+} from '@/services/categoryService';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
 export interface ProductFilters {
   page?: number;
   page_size?: number;
   category?: string;
+  subcategory?: string;
   q?: string;
   search?: string;
   sort?: 'price_asc' | 'price_desc' | 'newest' | 'rating';
@@ -26,10 +32,10 @@ function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Rev
 export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
+      await syncCategoriesFromServer();
       const queryParams: Record<string, any> = {};
-      if (filters?.page) queryParams.page = filters.page;
-      if (filters?.page_size) queryParams.page_size = filters.page_size;
-      if (filters?.category) queryParams.category = filters.category;
+      if (filters?.page && !filters?.category && !filters?.subcategory) queryParams.page = filters.page;
+      if (filters?.page_size && !filters?.category && !filters?.subcategory) queryParams.page_size = filters.page_size;
       if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
       if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
       if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
@@ -64,6 +70,12 @@ export const productsApi = {
         })
         .map((p) => normalizeBackendProductToSummary(p));
 
+      if (filters?.category || filters?.subcategory) {
+        realProducts = realProducts.filter((p) =>
+          doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+        );
+      }
+
       if (filters?.min_rating) {
         realProducts = realProducts.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
       }
@@ -73,6 +85,7 @@ export const productsApi = {
 
       const isDefaultView =
         !filters?.category &&
+        !filters?.subcategory &&
         !filters?.min_price &&
         !filters?.max_price &&
         !filters?.in_stock &&
@@ -85,12 +98,17 @@ export const productsApi = {
         } catch {}
       }
 
-      const totalCount = typeof data?.count === 'number' ? data.count : realProducts.length;
+      const totalCount =
+        filters?.category || filters?.subcategory
+          ? realProducts.length
+          : typeof data?.count === 'number'
+          ? data.count
+          : realProducts.length;
 
       return {
         count: totalCount,
-        next: data?.next || null,
-        previous: data?.previous || null,
+        next: filters?.category || filters?.subcategory ? null : data?.next || null,
+        previous: filters?.category || filters?.subcategory ? null : data?.previous || null,
         results: realProducts,
       };
     } catch (err: any) {
@@ -104,9 +122,14 @@ export const productsApi = {
             try {
               deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
             } catch {}
-            const cleaned = list
+            let cleaned = list
               .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
-              .map((p) => enrichProductWithDelivery(p));
+              .map((p) => enrichProductWithCategory(enrichProductWithDelivery(p)));
+            if (filters?.category || filters?.subcategory) {
+              cleaned = cleaned.filter((p) =>
+                doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+              );
+            }
             return {
               count: cleaned.length,
               next: null,
@@ -124,6 +147,7 @@ export const productsApi = {
   getById: async (id: string): Promise<Product> => {
     // 1. Try backend first
     try {
+      await syncCategoriesFromServer();
       const { data } = await apiClient.get(`/api/v1/products/${id}/`);
       const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
       const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
@@ -136,12 +160,14 @@ export const productsApi = {
           url: normalizeUrl(img.url || img.image_url) || img.url,
         };
       });
-      return enrichProductWithDelivery({
-        ...data,
-        primary_image_url: normPrimary,
-        image_url: normPrimary || data.image_url,
-        images: normImages,
-      } as any) as Product;
+      return enrichProductWithCategory(
+        enrichProductWithDelivery({
+          ...data,
+          primary_image_url: normPrimary,
+          image_url: normPrimary || data.image_url,
+          images: normImages,
+        } as any)
+      ) as Product;
     } catch (err: any) {
       console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
     }

@@ -4,7 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import SearchBar from '@/components/home/SearchBar';
 import { notificationsApi } from '@/api/notifications';
 import type { Notification } from '@/types';
-import { HOME_CATEGORIES as MARKETPLACE_CATEGORIES } from '@/utils/categories';
+import {
+  HOME_CATEGORIES as MARKETPLACE_CATEGORIES,
+  getActiveStorefrontCategories,
+  type CategoryItem,
+} from '@/utils/categories';
+import { syncCategoriesFromServer } from '@/services/categoryService';
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -12,6 +17,21 @@ export default function Header() {
   const location = useLocation();
   const isCartPage = location.pathname === '/cart' || location.pathname.startsWith('/cart');
   const isProfilePage = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/vendor/dashboard');
+
+  const [activeCategories, setActiveCategories] = useState<CategoryItem[]>(() => {
+    const list = getActiveStorefrontCategories();
+    return list.length > 0 ? list : MARKETPLACE_CATEGORIES;
+  });
+
+  useEffect(() => {
+    const refresh = () => {
+      const list = getActiveStorefrontCategories();
+      if (list.length > 0) setActiveCategories(list);
+    };
+    void syncCategoriesFromServer().then(refresh);
+    window.addEventListener('dovi-categories-updated', refresh);
+    return () => window.removeEventListener('dovi-categories-updated', refresh);
+  }, []);
 
   // Active category detection from query or pathname
   const currentCategory = new URLSearchParams(location.search).get('category') ||
@@ -276,7 +296,7 @@ export default function Header() {
                   <Link to="/products" className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
                   <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
                   <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
-                  {MARKETPLACE_CATEGORIES.map(cat => (
+                  {activeCategories.map(cat => (
                     <Link
                       key={cat.slug}
                       to={`/products?category=${cat.slug}`}
@@ -292,7 +312,7 @@ export default function Header() {
                   <Link to="/products" tabIndex={-1} className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
                   <Link to="/auto" tabIndex={-1} className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
                   <Link to="/save2own" tabIndex={-1} className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
-                  {MARKETPLACE_CATEGORIES.map(cat => (
+                  {activeCategories.map(cat => (
                     <Link
                       key={`clone-${cat.slug}`}
                       to={`/products?category=${cat.slug}`}

@@ -11,6 +11,7 @@ export default function ProductDescription({ description }: ProductDescriptionPr
   const cleanDescription = description
     .replace(/<!-- DOVI_SPECS: [\s\S]*? -->/g, '')
     .replace(/<!-- DOVI_DELIVERY: [\s\S]*? -->/g, '')
+    .replace(/<!-- DOVI_CATEGORY: [\s\S]*? -->/g, '')
     .trim();
 
   if (!cleanDescription) {

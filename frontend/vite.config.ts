@@ -11,7 +11,15 @@ function doviSharedDeliveryDbPlugin() {
         return JSON.parse(fs.readFileSync(storePath, 'utf-8'));
       }
     } catch {}
-    return { routes: [], rateHistory: [], productAttributes: {}, orderShipments: {}, manualQuoteOrders: {} };
+    return {
+      routes: [],
+      rateHistory: [],
+      productAttributes: {},
+      orderShipments: {},
+      manualQuoteOrders: {},
+      categories: null,
+      productCategoryAssignments: {},
+    };
   };
   const writeStore = (data: unknown) => {
     try {
@@ -55,6 +63,10 @@ function doviSharedDeliveryDbPlugin() {
             manualQuoteOrders: incoming.manualQuoteOrders !== undefined
               ? { ...current.manualQuoteOrders, ...incoming.manualQuoteOrders }
               : current.manualQuoteOrders,
+            categories: incoming.categories !== undefined ? incoming.categories : current.categories,
+            productCategoryAssignments: incoming.productCategoryAssignments !== undefined
+              ? { ...current.productCategoryAssignments, ...incoming.productCategoryAssignments }
+              : current.productCategoryAssignments,
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

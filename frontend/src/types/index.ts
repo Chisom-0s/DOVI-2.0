@@ -1142,3 +1142,81 @@ export interface DeliveryCalculationResult {
 export interface Order {
   requires_manual_quote?: boolean;
 }
+
+// ----------------------------------------------------------
+// DOVI CATEGORY & SUBCATEGORY MANAGEMENT EXTENSIONS
+// ----------------------------------------------------------
+export interface Subcategory {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string;
+  parent_category_id?: string;
+  parent_name?: string;
+  parent_slug?: string;
+  description?: string | null;
+  display_order: number;
+  is_active: boolean;
+  product_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Category {
+  description?: string | null;
+  icon?: string | null;
+  display_order?: number;
+  is_active?: boolean;
+  subcategory_count?: number;
+  subcategories?: Subcategory[];
+  updated_at?: string;
+}
+
+export interface CategorySummary {
+  description?: string | null;
+  icon?: string | null;
+  display_order?: number;
+  is_active?: boolean;
+  parent_id?: string | null;
+  parent_category_id?: string | null;
+}
+
+export interface ProductCategoryAssignment {
+  product_id: string;
+  category_id: string;
+  category_name: string;
+  category_slug: string;
+  subcategory_id: string | null;
+  subcategory_name: string | null;
+  subcategory_slug: string | null;
+  needs_category_review: boolean;
+  needsReview?: boolean;
+  category?: CategorySummary;
+  subcategory?: Subcategory | null;
+  legacy_category_name?: string | null;
+  updated_at: string;
+}
+
+export interface Product {
+  category_id?: string;
+  category_name?: string;
+  category_slug?: string;
+  subcategory?: CategorySummary | string | null;
+  subcategory_id?: string | null;
+  subcategory_name?: string | null;
+  subcategory_slug?: string | null;
+  needs_category_review?: boolean;
+  legacy_category_name?: string | null;
+}
+
+export interface ProductSummary {
+  category_id?: string;
+  category_name?: string;
+  category_slug?: string;
+  subcategory?: CategorySummary | string | null;
+  subcategory_id?: string | null;
+  subcategory_name?: string | null;
+  subcategory_slug?: string | null;
+  needs_category_review?: boolean;
+  legacy_category_name?: string | null;
+}

@@ -17,9 +17,19 @@ import {
   stripDeliveryMetadataFromDescription,
   suggestParcelClassificationForAdmin,
 } from '@/services/deliveryPricingService';
+import {
+  syncCategoriesFromSharedDb,
+  getSubcategoriesForCategory,
+  resolveProductCategoryAndSubcategory,
+  validateProductCategorySelection,
+  saveProductCategoryAssignment,
+  serializeProductDescriptionWithCategory,
+  stripCategoryMetadataFromDescription,
+} from '@/services/categoryService';
 import type {
   ProductSummary,
   Category,
+  Subcategory,
   APIError,
   ParcelClassification,
   ProductDeliveryAttributes,
@@ -111,6 +121,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState({
     name: '',
     category: '',
+    subcategory: '',
     base_price: '',
     description: '',
     status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED' | 'PAUSED',
@@ -161,7 +172,10 @@ export default function ProductsPage() {
     if (showSkeleton) setIsLoading(true);
     setError(null);
     try {
-      await syncDeliveryStoreFromServer();
+      await Promise.all([
+        syncDeliveryStoreFromServer(),
+        syncCategoriesFromSharedDb(),
+      ]);
       const res = await adminApi.listProducts({
         page,
         q: searchTerm || undefined,
@@ -206,9 +220,13 @@ export default function ProductsPage() {
   const handleOpenCreateModal = () => {
     cleanupImagePreviews();
     setEditingProduct(null);
+    const activeCats = categories.filter((c) => c.is_active !== false);
+    const defaultCat = activeCats[0] || categories[0];
+    const defaultSubs = defaultCat ? getSubcategoriesForCategory(defaultCat.id) : [];
     setForm({
       name: '',
-      category: categories[0]?.id || '',
+      category: defaultCat?.id || '',
+      subcategory: defaultSubs[0]?.id || '',
       base_price: '',
       description: '',
       status: 'PUBLISHED',
@@ -268,6 +286,7 @@ export default function ProductsPage() {
       });
 
       let cleanDesc = stripDeliveryMetadataFromDescription(fullProd.description || '');
+      cleanDesc = stripCategoryMetadataFromDescription(cleanDesc);
       const parsedSpecs: SpecificationItem[] = [];
 
       if (cleanDesc) {
@@ -291,12 +310,21 @@ export default function ProductsPage() {
         }
       }
 
+      const resolvedCat = resolveProductCategoryAndSubcategory(fullProd);
+      const fallbackCatId =
+        resolvedCat.category_id ||
+        (typeof fullProd.category === 'object' ? fullProd.category?.id : fullProd.category) ||
+        categories[0]?.id ||
+        '';
+      const fallbackSubId =
+        resolvedCat.subcategory_id ||
+        fullProd.subcategory_id ||
+        '';
+
       setForm({
         name: fullProd.name || '',
-        category:
-          typeof fullProd.category === 'object'
-            ? fullProd.category?.id || ''
-            : fullProd.category || categories[0]?.id || '',
+        category: fallbackCatId,
+        subcategory: fallbackSubId,
         base_price: fullProd.base_price?.toString() || fullProd.price?.toString() || '',
         description: cleanDesc,
         status: fullProd.status || 'PUBLISHED',
@@ -486,7 +514,29 @@ export default function ProductsPage() {
       return;
     }
     if (!form.category) {
-      toast.error('Please select a category.');
+      toast.error('Please select a Main Category.');
+      return;
+    }
+
+    // Validate Main Category & Subcategory parent-child relationship & active status
+    const currentEditingCatId = editingProduct
+      ? resolveProductCategoryAndSubcategory(editingProduct).category_id
+      : undefined;
+    const currentEditingSubId = editingProduct
+      ? resolveProductCategoryAndSubcategory(editingProduct).subcategory_id
+      : undefined;
+
+    let catValidation: { mainCategory: Category; subcategory: Subcategory | null };
+    try {
+      catValidation = validateProductCategorySelection({
+        categoryIdOrSlug: form.category,
+        subcategoryIdOrSlug: form.subcategory || null,
+        isNewProduct: !editingProduct,
+        previousCategoryId: currentEditingCatId,
+        previousSubcategoryId: currentEditingSubId,
+      });
+    } catch (valErr: any) {
+      toast.error(valErr.message || 'Invalid category or subcategory selection.');
       return;
     }
 
@@ -507,7 +557,20 @@ export default function ProductsPage() {
       formattedDescription = `${formattedDescription}\n\n<!-- DOVI_SPECS: ${JSON.stringify(specsObj)} -->`.trim();
     }
 
-    // Delivery Classification & Attributes metadata embedding
+    // Category & Subcategory metadata embedding
+    formattedDescription = serializeProductDescriptionWithCategory(
+      formattedDescription,
+      {
+        category_id: catValidation.mainCategory.id,
+        category_name: catValidation.mainCategory.name,
+        category_slug: catValidation.mainCategory.slug,
+        subcategory_id: catValidation.subcategory?.id || null,
+        subcategory_name: catValidation.subcategory?.name || null,
+        subcategory_slug: catValidation.subcategory?.slug || null,
+      }
+    );
+
+    // Delivery Classification & Attributes metadata embedding (kept separate from product category)
     formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
 
     // Build variants payload
@@ -538,15 +601,19 @@ export default function ProductsPage() {
     try {
       if (editingProduct) {
         // --- EDIT MODE ---
-        setUploadStatusText('Saving product & delivery attributes...');
+        setUploadStatusText('Saving product, category & delivery attributes...');
         await adminApi.updateProduct(editingProduct.id, {
           name: form.name.trim(),
-          category: form.category,
+          category: catValidation.mainCategory.id,
           base_price: priceNum,
           description: formattedDescription,
           status: form.status,
         });
 
+        saveProductCategoryAssignment(editingProduct.id, {
+          categoryIdOrSlug: catValidation.mainCategory.id,
+          subcategoryIdOrSlug: catValidation.subcategory?.id || null,
+        });
         saveProductDeliveryAttributes(editingProduct.id, deliveryForm);
 
         // Upload any newly selected images
@@ -578,7 +645,7 @@ export default function ProductsPage() {
         setUploadStatusText('Creating product listing...');
         const createdProduct = await adminApi.createProduct({
           name: form.name.trim(),
-          category: form.category,
+          category: catValidation.mainCategory.id,
           base_price: priceNum,
           description: formattedDescription,
           status: form.status,
@@ -593,6 +660,10 @@ export default function ProductsPage() {
           createdProduct?.product?.id;
 
         if (targetProductId) {
+          saveProductCategoryAssignment(String(targetProductId), {
+            categoryIdOrSlug: catValidation.mainCategory.id,
+            subcategoryIdOrSlug: catValidation.subcategory?.id || null,
+          });
           saveProductDeliveryAttributes(String(targetProductId), deliveryForm);
         }
 
@@ -626,7 +697,7 @@ export default function ProductsPage() {
           }
 
           if (uploadErrors === 0) {
-            toast.success('Product created with photos & delivery classification!');
+            toast.success('Product created with photos, category & delivery classification!');
           } else {
             toast.error(
               `Product created, but ${uploadErrors} photo(s) failed to upload: ${lastErrorMessage}`
@@ -684,6 +755,16 @@ export default function ProductsPage() {
     );
   }
 
+  const availableSubcategoriesForForm = form.category
+    ? getSubcategoriesForCategory(form.category, {
+        includeInactive: Boolean(editingProduct),
+      }).filter(
+        (sub) =>
+          sub.is_active !== false ||
+          (editingProduct && sub.id === form.subcategory)
+      )
+    : [];
+
   return (
     <div style={containerStyles}>
       {/* Top Header & Actions Bar */}
@@ -691,7 +772,7 @@ export default function ProductsPage() {
         <div>
           <h2 style={titleStyles}>Product Directory</h2>
           <p style={subtitleStyles}>
-            Manage platform retail catalog, stock levels, pricing, and Onitsha Hub parcel classifications.
+            Manage platform retail catalog, categories &amp; subcategories, stock levels, pricing, and Onitsha Hub parcel classifications.
           </p>
         </div>
         <button
@@ -733,6 +814,7 @@ export default function ProductsPage() {
               <thead>
                 <tr style={tableHeaderRowStyles}>
                   <th style={tableHeaderCellStyles}>Product Details</th>
+                  <th style={tableHeaderCellStyles}>Category &amp; Subcategory</th>
                   <th style={tableHeaderCellStyles}>Parcel Classification</th>
                   <th style={tableHeaderCellStyles}>Base Price</th>
                   <th style={tableHeaderCellStyles}>Stock Qty</th>
@@ -744,6 +826,7 @@ export default function ProductsPage() {
                 {products.map((p) => {
                   const delivAttrs = getProductDeliveryAttributes(p);
                   const cls = delivAttrs?.delivery_classification;
+                  const resolvedCat = resolveProductCategoryAndSubcategory(p);
                   return (
                     <tr key={p.id} style={tableRowStyles}>
                       <td style={tableCellStyles}>
@@ -761,6 +844,55 @@ export default function ProductsPage() {
                             <span style={productIdStyles}>ID: {p.id}</span>
                           </div>
                         </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        {resolvedCat.category_name ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#111827' }}>
+                              {resolvedCat.category_name}
+                            </span>
+                            {resolvedCat.subcategory_name ? (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  alignSelf: 'flex-start',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  backgroundColor: '#f3f4f6',
+                                  color: '#4b5563',
+                                  padding: '1px 8px',
+                                  borderRadius: '999px',
+                                }}
+                              >
+                                {resolvedCat.subcategory_name}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                                No subcategory selected
+                              </span>
+                            )}
+                            {resolvedCat.needs_category_review && (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  alignSelf: 'flex-start',
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  backgroundColor: '#fef3c7',
+                                  color: '#b45309',
+                                  padding: '1px 7px',
+                                  borderRadius: '999px',
+                                }}
+                              >
+                                Review Needed
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11.5px', color: '#b45309', fontWeight: 600 }}>
+                            ⚠️ Needs Category Review
+                          </span>
+                        )}
                       </td>
                       <td style={tableCellStyles}>
                         {cls ? (
@@ -845,11 +977,11 @@ export default function ProductsPage() {
             <div style={modalHeaderStyles}>
               <div>
                 <h3 style={modalTitleStyles}>
-                  {editingProduct ? 'Edit Product & Delivery Classification' : 'Add New Retail Product'}
+                  {editingProduct ? 'Edit Product, Category & Delivery Classification' : 'Add New Retail Product'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
                   {editingProduct
-                    ? `Update listing parameters and Onitsha Hub parcel classification for "${editingProduct.name}".`
+                    ? `Update listing parameters, category/subcategory, and Onitsha Hub parcel classification for "${editingProduct.name}".`
                     : 'List a new item directly in the Dovi Official Store catalog.'}
                 </p>
               </div>
@@ -864,11 +996,11 @@ export default function ProductsPage() {
             </div>
 
             <form onSubmit={handleSubmitProduct} style={formScrollContainerStyles}>
-              {/* SECTION 1: BASIC DETAILS */}
+              {/* SECTION 1: BASIC DETAILS & CATEGORY / SUBCATEGORY */}
               <div style={formSectionStyles}>
-                <h4 style={sectionHeaderStyles}>1. Basic Information</h4>
+                <h4 style={sectionHeaderStyles}>1. Basic Information &amp; Storefront Categorization</h4>
                 <div style={inputGridStyles}>
-                  <div style={inputGroupStyles}>
+                  <div style={{ ...inputGroupStyles, gridColumn: '1 / -1' }}>
                     <label style={labelStyles}>Product Name *</label>
                     <input
                       type="text"
@@ -881,17 +1013,63 @@ export default function ProductsPage() {
                   </div>
 
                   <div style={inputGroupStyles}>
-                    <label style={labelStyles}>Category *</label>
+                    <label style={labelStyles}>Main Category *</label>
                     <select
                       value={form.category}
-                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                      onChange={(e) => {
+                        const nextCategory = e.target.value;
+                        const nextSubs = getSubcategoriesForCategory(nextCategory);
+                        // Automatically update subcategory options and reset subcategory when main category changes
+                        // Note: Delivery classification is intentionally kept separate and never auto-overwritten here
+                        setForm((prev) => ({
+                          ...prev,
+                          category: nextCategory,
+                          subcategory: nextSubs[0]?.id || '',
+                        }));
+                      }}
                       required
                       style={selectInputStyles}
                     >
-                      <option value="" disabled>Select category...</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
+                      <option value="" disabled>Select Main Category...</option>
+                      {categories
+                        .filter(
+                          (cat) =>
+                            cat.is_active !== false ||
+                            (editingProduct && (cat.id === form.category || cat.slug === form.category))
+                        )
+                        .map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                            {cat.is_active === false ? ' (Inactive)' : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div style={inputGroupStyles}>
+                    <label style={labelStyles}>Subcategory *</label>
+                    <select
+                      value={form.subcategory}
+                      disabled={!form.category || availableSubcategoriesForForm.length === 0}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          subcategory: e.target.value,
+                        }))
+                      }
+                      style={selectInputStyles}
+                    >
+                      <option value="">
+                        {!form.category
+                          ? 'Select a Main Category first...'
+                          : availableSubcategoriesForForm.length === 0
+                          ? 'No active subcategories available'
+                          : 'Select Subcategory...'}
+                      </option>
+                      {availableSubcategoriesForForm.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                          {sub.is_active === false ? ' (Inactive)' : ''}
                         </option>
                       ))}
                     </select>

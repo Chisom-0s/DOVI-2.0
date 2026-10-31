@@ -1,5 +1,18 @@
 import apiClient, { normalizeApiError } from './client';
 import { normalizeUrl } from '@/utils/image';
+import {
+  listMainCategories,
+  syncCategoriesFromSharedDb,
+  enrichProductWithCategory,
+  doesProductMatchCategoryFilter,
+  createSubcategory,
+  updateMainCategory,
+  updateSubcategory,
+  deleteSubcategory,
+  deleteMainCategory,
+  findMainCategory,
+  findSubcategory,
+} from '@/services/categoryService';
 import type {
   PaginatedResponse,
   User,
@@ -978,10 +991,14 @@ export const adminApi = {
       });
 
       return {
-        count: data?.count !== undefined ? filtered.length : filtered.length,
+        count: filtered
+          .map((p: any) => enrichProductWithCategory(p))
+          .filter((p: any) => !params?.category || doesProductMatchCategoryFilter(p, params.category)).length,
         next: data?.next || null,
         previous: data?.previous || null,
-        results: filtered,
+        results: filtered
+          .map((p: any) => enrichProductWithCategory(p))
+          .filter((p: any) => !params?.category || doesProductMatchCategoryFilter(p, params.category)),
       };
     } catch (err) {
       throw normalizeApiError(err);
@@ -991,7 +1008,7 @@ export const adminApi = {
   getProduct: async (id: string): Promise<any> => {
     try {
       const { data } = await apiClient.get(`/api/v1/products/${id}/`);
-      return data;
+      return enrichProductWithCategory(data);
     } catch (err) {
       throw normalizeApiError(err);
     }
@@ -1118,7 +1135,12 @@ export const adminApi = {
   },
 
   // --- Category Management ---
-  listCategories: async (): Promise<Category[]> => {
+  listCategories: async (allProducts?: any[]): Promise<Category[]> => {
+    await syncCategoriesFromSharedDb().catch(() => {});
+    return listMainCategories({ includeInactive: true, products: allProducts });
+  },
+
+  listLegacyCategoriesUnused: async (): Promise<Category[]> => {
     try {
       const { data } = await apiClient.get('/api/v1/categories/');
       return Array.isArray(data) ? data : (data?.results || []);
@@ -1139,7 +1161,33 @@ export const adminApi = {
     }
   },
 
-  createCategory: async (payload: { name: string; slug: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
+  createCategory: async (payload: { name: string; slug: string; parent?: string | null; icon_url?: string; description?: string; is_active?: boolean; display_order?: number }): Promise<Category> => {
+    if (!payload.parent) {
+      throw new Error('New categories must be created as subcategories under one of the 12 main DOVI categories.');
+    }
+    const sub = createSubcategory({
+      name: payload.name,
+      slug: payload.slug,
+      parent_category_id: payload.parent,
+      description: payload.description,
+      is_active: payload.is_active,
+      display_order: payload.display_order,
+    });
+    return {
+      id: sub.id,
+      name: sub.name,
+      slug: sub.slug,
+      parent: sub.parent_category_id || sub.parent_id,
+      icon_url: payload.icon_url || '',
+      description: sub.description || '',
+      is_active: sub.is_active,
+      display_order: sub.display_order,
+      children: [],
+      product_count: sub.product_count ?? 0,
+    };
+  },
+
+  createLegacyCategoryUnused: async (payload: { name: string; slug: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
     try {
       const { data } = await apiClient.post('/api/v1/categories/', payload);
       return data;
@@ -1162,7 +1210,40 @@ export const adminApi = {
     }
   },
 
-  updateCategory: async (id: string, payload: { name?: string; slug?: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
+  updateCategory: async (id: string, payload: { name?: string; slug?: string; parent?: string | null; icon_url?: string; description?: string; is_active?: boolean; display_order?: number }): Promise<Category> => {
+    const isMain = Boolean(findMainCategory(id));
+    if (isMain) {
+      return updateMainCategory(id, {
+        name: payload.name,
+        description: payload.description,
+        is_active: payload.is_active,
+        display_order: payload.display_order,
+        icon_url: payload.icon_url,
+      });
+    }
+    const sub = updateSubcategory(id, {
+      name: payload.name,
+      slug: payload.slug,
+      parent_category_id: payload.parent || undefined,
+      description: payload.description,
+      is_active: payload.is_active,
+      display_order: payload.display_order,
+    });
+    return {
+      id: sub.id,
+      name: sub.name,
+      slug: sub.slug,
+      parent: sub.parent_category_id || sub.parent_id,
+      icon_url: payload.icon_url || '',
+      description: sub.description || '',
+      is_active: sub.is_active,
+      display_order: sub.display_order,
+      children: [],
+      product_count: sub.product_count ?? 0,
+    };
+  },
+
+  updateLegacyCategoryUnused: async (id: string, payload: { name?: string; slug?: string; parent?: string | null; icon_url?: string }): Promise<Category> => {
     try {
       const { data } = await apiClient.put(`/api/v1/categories/${id}/`, payload);
       return data;
@@ -1185,7 +1266,21 @@ export const adminApi = {
     }
   },
 
-  deleteCategory: async (id: string): Promise<any> => {
+  deleteCategory: async (id: string, options?: { reassignToCategoryId?: string; reassignToSubcategoryId?: string; confirmed?: boolean }): Promise<any> => {
+    const isSub = Boolean(findSubcategory(id));
+    if (isSub) {
+      return deleteSubcategory(id, {
+        reassignToSubcategoryId: options?.reassignToSubcategoryId,
+        confirmed: options?.confirmed,
+      });
+    }
+    return deleteMainCategory(id, {
+      reassignToCategoryId: options?.reassignToCategoryId,
+      confirmed: options?.confirmed,
+    });
+  },
+
+  deleteLegacyCategoryUnused: async (id: string): Promise<any> => {
     try {
       const { data } = await apiClient.delete(`/api/v1/categories/${id}/`);
       return data;

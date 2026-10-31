@@ -9,6 +9,7 @@ import {
   resolveProductDeliveryAttributes,
   PARCEL_CLASSIFICATION_LABELS,
 } from '@/services/deliveryPricingService';
+import { resolveProductCategoryAndSubcategory } from '@/services/categoryService';
 import ProductImageGallery from '@/components/product/ProductImageGallery';
 import VariantSelector from '@/components/product/VariantSelector';
 import ProductDescription from '@/components/product/ProductDescription';
@@ -284,14 +285,31 @@ export default function ProductDetailPage() {
     : (parseInt(String(product.review_count || 0), 10) || 0);
 
   const deliveryAttrs = resolveProductDeliveryAttributes(product);
+  const resolvedCat = resolveProductCategoryAndSubcategory(product);
 
   return (
     <div className="container" style={pageWrapperStyles}>
       {/* Breadcrumbs */}
-      <div style={breadcrumbsStyles}>
+      <div style={{ ...breadcrumbsStyles, flexWrap: 'wrap' }}>
         <Link to="/">Home</Link>
         <span>/</span>
         <Link to="/products">Marketplace</Link>
+        {resolvedCat.category_name && (
+          <>
+            <span>/</span>
+            <Link to={`/products?category=${resolvedCat.category_slug}`}>
+              {resolvedCat.category_name}
+            </Link>
+          </>
+        )}
+        {resolvedCat.subcategory_name && resolvedCat.category_slug && (
+          <>
+            <span>/</span>
+            <Link to={`/products?category=${resolvedCat.category_slug}&subcategory=${resolvedCat.subcategory_slug}`}>
+              {resolvedCat.subcategory_name}
+            </Link>
+          </>
+        )}
         <span>/</span>
         <span style={activeBreadcrumbStyles}>{product.name}</span>
       </div>
@@ -306,6 +324,41 @@ export default function ProductDetailPage() {
 
         {/* Right Column: Pricing, Variations and Primary CTAs */}
         <div style={rightColStyles}>
+          {resolvedCat.category_name && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <Link
+                to={`/products?category=${resolvedCat.category_slug}`}
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: 'var(--color-primary)',
+                  backgroundColor: 'rgba(255, 122, 0, 0.08)',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  textDecoration: 'none',
+                }}
+              >
+                {resolvedCat.category_name}
+              </Link>
+              {resolvedCat.subcategory_name && (
+                <Link
+                  to={`/products?category=${resolvedCat.category_slug}&subcategory=${resolvedCat.subcategory_slug}`}
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'var(--color-text-muted)',
+                    backgroundColor: 'var(--color-bg-subtle)',
+                    border: '1px solid var(--color-border)',
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {resolvedCat.subcategory_name}
+                </Link>
+              )}
+            </div>
+          )}
           <h1 style={titleStyles}>{product.name}</h1>
           
           {/* Rating aggregate display banner */}

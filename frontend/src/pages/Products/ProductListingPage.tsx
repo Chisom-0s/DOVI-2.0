@@ -1,13 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import apiClient from '@/api/client';
 import { productsApi } from '@/api/products';
 import type { APIError, ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
 import { SkeletonCard } from '@/components/common/Skeleton';
 import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
-import { HOME_CATEGORIES, type CategoryItem } from '@/utils/categories';
+import { getActiveStorefrontCategories, type CategoryItem } from '@/utils/categories';
+import {
+  getSubcategoriesForCategory,
+  findMainCategory,
+  findSubcategory,
+  syncCategoriesFromSharedDb,
+} from '@/services/categoryService';
 
 const PRICE_PRESETS = [
   { label: 'Under ₦10k', min: '', max: '10000' },
@@ -21,6 +26,7 @@ export default function ProductListingPage() {
 
   // Extract query filters from URL search params
   const categoryParam = searchParams.get('category') ?? '';
+  const subcategoryParam = searchParams.get('subcategory') ?? '';
   const sortParam = searchParams.get('sort') ?? 'newest';
   const minPriceParam = searchParams.get('min_price') ?? '';
   const maxPriceParam = searchParams.get('max_price') ?? '';
@@ -30,7 +36,7 @@ export default function ProductListingPage() {
 
   // Synchronous cache seed for instant 0ms mount
   const [products, setProducts] = useState<ProductSummary[]>(() => {
-    if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam) {
+    if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam) {
       try {
         const cached = sessionStorage.getItem('dovi_real_products_cache');
         if (cached) {
@@ -53,7 +59,7 @@ export default function ProductListingPage() {
   const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [categories, setCategories] = useState<CategoryItem[]>(HOME_CATEGORIES);
+  const [categories, setCategories] = useState<CategoryItem[]>(() => getActiveStorefrontCategories());
   const [fetchError, setFetchError] = useState<APIError | null>(null);
 
   // Filter Drawer & Sort Drawer States
@@ -62,6 +68,7 @@ export default function ProductListingPage() {
 
   // Draft Filter States inside Drawer
   const [draftCategory, setDraftCategory] = useState(categoryParam);
+  const [draftSubcategory, setDraftSubcategory] = useState(subcategoryParam);
   const [draftMinPrice, setDraftMinPrice] = useState(minPriceParam);
   const [draftMaxPrice, setDraftMaxPrice] = useState(maxPriceParam);
   const [draftMinRating, setDraftMinRating] = useState(minRatingParam);
@@ -72,6 +79,7 @@ export default function ProductListingPage() {
   // Sync draft states whenever drawer opens
   const openFilterDrawer = () => {
     setDraftCategory(categoryParam);
+    setDraftSubcategory(subcategoryParam);
     setDraftMinPrice(minPriceParam);
     setDraftMaxPrice(maxPriceParam);
     setDraftMinRating(minRatingParam);
@@ -83,31 +91,20 @@ export default function ProductListingPage() {
     setIsFilterDrawerOpen(false);
   };
 
-  // Fetch categories list for filters (preserves all home page categories)
+  // Load and stay synchronized with active main categories
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await apiClient.get('/api/v1/categories/');
-        const list = Array.isArray(data) ? data : (data?.results ?? []);
-        if (list.length > 0) {
-          const map = new Map<string, CategoryItem>();
-          HOME_CATEGORIES.forEach(c => map.set(c.slug, c));
-          list.forEach((c: any) => {
-            const slug = c.slug || c.id;
-            const existing = map.get(slug);
-            map.set(slug, {
-              name: c.name || existing?.name || slug,
-              slug,
-              icon: existing?.icon || '📦',
-            });
-          });
-          setCategories(Array.from(map.values()));
-        }
-      } catch (err) {
-        console.warn('Using default home categories for product listing:', err);
-      }
+    const refreshCategories = () => {
+      setCategories(getActiveStorefrontCategories());
     };
-    fetchCategories();
+    refreshCategories();
+    syncCategoriesFromSharedDb().then(refreshCategories).catch(() => {});
+
+    window.addEventListener('dovi-categories-updated', refreshCategories);
+    window.addEventListener('storage', refreshCategories);
+    return () => {
+      window.removeEventListener('dovi-categories-updated', refreshCategories);
+      window.removeEventListener('storage', refreshCategories);
+    };
   }, []);
 
   // Update URL search parameters
@@ -134,6 +131,7 @@ export default function ProductListingPage() {
         page: 1,
         page_size: 24,
         category: categoryParam || undefined,
+        subcategory: subcategoryParam || undefined,
         sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
         min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
         max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
@@ -147,7 +145,7 @@ export default function ProductListingPage() {
       setPage(1);
       setHasMore(response.results.length < response.count && Boolean(response.next));
 
-      if (!categoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && response.results.length > 0) {
+      if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && response.results.length > 0) {
         try {
           sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(response.results));
         } catch {}
@@ -166,7 +164,7 @@ export default function ProductListingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [categoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
+  }, [categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
 
   useEffect(() => {
     fetchProducts();
@@ -182,6 +180,7 @@ export default function ProductListingPage() {
         page: nextPage,
         page_size: 24,
         category: categoryParam || undefined,
+        subcategory: subcategoryParam || undefined,
         sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
         min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
         max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
@@ -204,7 +203,7 @@ export default function ProductListingPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoading, isLoadingMore, hasMore, page, categoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
+  }, [isLoading, isLoadingMore, hasMore, page, categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
 
   // IntersectionObserver to auto-load next batch when sentinel enters viewport
   useEffect(() => {
@@ -225,6 +224,7 @@ export default function ProductListingPage() {
   const handleApplyDraftFilters = () => {
     updateFilters({
       category: draftCategory || null,
+      subcategory: draftCategory && draftSubcategory ? draftSubcategory : null,
       min_price: draftMinPrice || null,
       max_price: draftMaxPrice || null,
       min_rating: draftMinRating || null,
@@ -236,12 +236,14 @@ export default function ProductListingPage() {
   // Clear all filters completely
   const handleClearAllFilters = () => {
     setDraftCategory('');
+    setDraftSubcategory('');
     setDraftMinPrice('');
     setDraftMaxPrice('');
     setDraftMinRating('');
     setDraftInStock(false);
     updateFilters({
       category: null,
+      subcategory: null,
       min_price: null,
       max_price: null,
       min_rating: null,
@@ -257,13 +259,19 @@ export default function ProductListingPage() {
 
   const activeFilterCount = [
     Boolean(categoryParam),
+    Boolean(subcategoryParam),
     Boolean(minPriceParam || maxPriceParam),
     Boolean(minRatingParam),
     Boolean(inStockParam),
   ].filter(Boolean).length;
 
-  const hasActiveFilters = Boolean(searchParam || categoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam);
-  const activeCategoryObj = categories.find(c => c.slug === categoryParam);
+  const hasActiveFilters = Boolean(searchParam || categoryParam || subcategoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam);
+  const activeCategoryObj = categories.find(c => c.slug === categoryParam) || (categoryParam ? findMainCategory(categoryParam) : undefined);
+  const activeSubcategories = categoryParam ? getSubcategoriesForCategory(categoryParam) : [];
+  const activeSubcategoryObj = subcategoryParam
+    ? activeSubcategories.find(s => s.slug === subcategoryParam || s.id === subcategoryParam) || findSubcategory(subcategoryParam, categoryParam)?.subcategory
+    : undefined;
+  const draftSubcategories = draftCategory ? getSubcategoriesForCategory(draftCategory) : [];
 
   return (
     <div className="container product-listing-layout">
@@ -305,12 +313,12 @@ export default function ProductListingPage() {
           )}
         </div>
 
-        {/* Category Filters */}
+        {/* Category & Subcategory Filters */}
         <div style={filterGroupStyles}>
           <h4 style={filterTitleStyles}>Categories</h4>
           <div style={filterListStyles}>
             <button
-              onClick={() => updateFilters({ category: null })}
+              onClick={() => updateFilters({ category: null, subcategory: null })}
               style={{
                 ...filterBtnStyles,
                 fontWeight: !categoryParam ? 'var(--font-bold)' : 'var(--font-normal)',
@@ -322,21 +330,71 @@ export default function ProductListingPage() {
             {categories.map(cat => {
               const isSelected = categoryParam === cat.slug;
               return (
-                <button
-                  key={cat.slug}
-                  onClick={() => updateFilters({ category: isSelected ? null : cat.slug })}
-                  style={{
-                    ...filterBtnStyles,
-                    fontWeight: isSelected ? 'var(--font-bold)' : 'var(--font-normal)',
-                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  {cat.icon && <span style={{ fontSize: '14px' }}>{cat.icon}</span>}
-                  <span>{cat.name}</span>
-                </button>
+                <div key={cat.slug} style={{ width: '100%' }}>
+                  <button
+                    onClick={() => updateFilters({ category: isSelected ? null : cat.slug, subcategory: null })}
+                    style={{
+                      ...filterBtnStyles,
+                      fontWeight: isSelected ? 'var(--font-bold)' : 'var(--font-normal)',
+                      color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    {cat.icon && <span style={{ fontSize: '14px' }}>{cat.icon}</span>}
+                    <span>{cat.name}</span>
+                  </button>
+                  {isSelected && activeSubcategories.length > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
+                        paddingLeft: '22px',
+                        marginTop: '2px',
+                        marginBottom: '6px',
+                        borderLeft: '2px solid rgba(255, 122, 0, 0.25)',
+                        marginLeft: '8px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => updateFilters({ subcategory: null })}
+                        style={{
+                          ...filterBtnStyles,
+                          fontSize: '12.5px',
+                          minHeight: '28px',
+                          padding: '3px 0',
+                          fontWeight: !subcategoryParam ? 'var(--font-bold)' : 'var(--font-normal)',
+                          color: !subcategoryParam ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                        }}
+                      >
+                        All in {cat.name}
+                      </button>
+                      {activeSubcategories.map(sub => {
+                        const isSubSelected = subcategoryParam === sub.slug || subcategoryParam === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => updateFilters({ subcategory: isSubSelected ? null : sub.slug })}
+                            style={{
+                              ...filterBtnStyles,
+                              fontSize: '12.5px',
+                              minHeight: '28px',
+                              padding: '3px 0',
+                              fontWeight: isSubSelected ? 'var(--font-bold)' : 'var(--font-normal)',
+                              color: isSubSelected ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                            }}
+                          >
+                            {sub.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -430,7 +488,7 @@ export default function ProductListingPage() {
         <div style={categoryQuickBarWrapperStyles} className="category-quick-bar">
           <button
             type="button"
-            onClick={() => updateFilters({ category: null })}
+            onClick={() => updateFilters({ category: null, subcategory: null })}
             style={{
               ...categoryQuickPillStyles,
               backgroundColor: !categoryParam ? 'var(--color-primary)' : '#ffffff',
@@ -447,7 +505,7 @@ export default function ProductListingPage() {
               <button
                 key={cat.slug}
                 type="button"
-                onClick={() => updateFilters({ category: isSelected ? null : cat.slug })}
+                onClick={() => updateFilters({ category: isSelected ? null : cat.slug, subcategory: null })}
                 style={{
                   ...categoryQuickPillStyles,
                   backgroundColor: isSelected ? 'var(--color-primary)' : '#ffffff',
@@ -462,6 +520,75 @@ export default function ProductListingPage() {
             );
           })}
         </div>
+
+        {/* Horizontal Subcategory Quick-Bar when a Main Category is selected */}
+        {categoryParam && activeSubcategories.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              overflowX: 'auto',
+              padding: '8px 12px',
+              marginTop: '-16px',
+              marginBottom: 'var(--space-2)',
+              backgroundColor: 'var(--color-bg-subtle)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              scrollbarWidth: 'none',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11.5px',
+                fontWeight: 700,
+                color: 'var(--color-text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
+                marginRight: '4px',
+              }}
+            >
+              Subcategories:
+            </span>
+            <button
+              type="button"
+              onClick={() => updateFilters({ subcategory: null })}
+              style={{
+                ...categoryQuickPillStyles,
+                padding: '5px 12px',
+                fontSize: '12px',
+                backgroundColor: !subcategoryParam ? '#111827' : '#ffffff',
+                color: !subcategoryParam ? '#ffffff' : 'var(--color-text)',
+                borderColor: !subcategoryParam ? '#111827' : 'var(--color-border)',
+                fontWeight: !subcategoryParam ? 700 : 500,
+              }}
+            >
+              All in {activeCategoryObj?.name || 'Category'}
+            </button>
+            {activeSubcategories.map(sub => {
+              const isSubSelected = subcategoryParam === sub.slug || subcategoryParam === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => updateFilters({ subcategory: isSubSelected ? null : sub.slug })}
+                  style={{
+                    ...categoryQuickPillStyles,
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    backgroundColor: isSubSelected ? 'var(--color-primary)' : '#ffffff',
+                    color: isSubSelected ? '#ffffff' : 'var(--color-text)',
+                    borderColor: isSubSelected ? 'var(--color-primary)' : 'var(--color-border)',
+                    fontWeight: isSubSelected ? 700 : 500,
+                  }}
+                >
+                  {sub.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Results Header Info & Active Filters Bar */}
         <div style={resultsHeaderStyles}>
@@ -497,7 +624,13 @@ export default function ProductListingPage() {
                 {activeCategoryObj && (
                   <span style={chipStyles}>
                     Category: {activeCategoryObj.name}
-                    <button type="button" onClick={() => updateFilters({ category: null })} style={chipRemoveBtnStyles}>&times;</button>
+                    <button type="button" onClick={() => updateFilters({ category: null, subcategory: null })} style={chipRemoveBtnStyles}>&times;</button>
+                  </span>
+                )}
+                {activeSubcategoryObj && (
+                  <span style={chipStyles}>
+                    Subcategory: {activeSubcategoryObj.name}
+                    <button type="button" onClick={() => updateFilters({ subcategory: null })} style={chipRemoveBtnStyles}>&times;</button>
                   </span>
                 )}
                 {(minPriceParam || maxPriceParam) && (
@@ -614,6 +747,7 @@ export default function ProductListingPage() {
                   type="button"
                   onClick={() => {
                     setDraftCategory('');
+                    setDraftSubcategory('');
                     setDraftMinPrice('');
                     setDraftMaxPrice('');
                     setDraftMinRating('');
@@ -633,11 +767,14 @@ export default function ProductListingPage() {
             <div className="dovi-filter-drawer-body">
               {/* Categories Section */}
               <div style={filterGroupStyles}>
-                <h4 style={filterTitleStyles}>Category</h4>
+                <h4 style={filterTitleStyles}>Main Category</h4>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   <button
                     type="button"
-                    onClick={() => setDraftCategory('')}
+                    onClick={() => {
+                      setDraftCategory('');
+                      setDraftSubcategory('');
+                    }}
                     style={{
                       ...filterPillStyles,
                       backgroundColor: !draftCategory ? 'var(--color-primary)' : 'var(--color-bg-subtle)',
@@ -654,7 +791,10 @@ export default function ProductListingPage() {
                       <button
                         key={cat.slug}
                         type="button"
-                        onClick={() => setDraftCategory(isSelected ? '' : cat.slug)}
+                        onClick={() => {
+                          setDraftCategory(isSelected ? '' : cat.slug);
+                          setDraftSubcategory('');
+                        }}
                         style={{
                           ...filterPillStyles,
                           backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--color-bg-subtle)',
@@ -673,6 +813,47 @@ export default function ProductListingPage() {
                   })}
                 </div>
               </div>
+
+              {/* Subcategories Section inside Filter Drawer (only shown when a Main Category is selected) */}
+              {draftCategory && draftSubcategories.length > 0 && (
+                <div style={filterGroupStyles}>
+                  <h4 style={filterTitleStyles}>Subcategory</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setDraftSubcategory('')}
+                      style={{
+                        ...filterPillStyles,
+                        backgroundColor: !draftSubcategory ? '#111827' : 'var(--color-bg-subtle)',
+                        color: !draftSubcategory ? '#ffffff' : 'var(--color-text)',
+                        borderColor: !draftSubcategory ? '#111827' : 'var(--color-border)',
+                        fontWeight: !draftSubcategory ? 700 : 500,
+                      }}
+                    >
+                      All in {categories.find(c => c.slug === draftCategory)?.name || 'Category'}
+                    </button>
+                    {draftSubcategories.map(sub => {
+                      const isSubSelected = draftSubcategory === sub.slug || draftSubcategory === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => setDraftSubcategory(isSubSelected ? '' : sub.slug)}
+                          style={{
+                            ...filterPillStyles,
+                            backgroundColor: isSubSelected ? 'var(--color-primary)' : 'var(--color-bg-subtle)',
+                            color: isSubSelected ? '#ffffff' : 'var(--color-text)',
+                            borderColor: isSubSelected ? 'var(--color-primary)' : 'var(--color-border)',
+                            fontWeight: isSubSelected ? 700 : 500,
+                          }}
+                        >
+                          {sub.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Price Range Section */}
               <div style={filterGroupStyles}>

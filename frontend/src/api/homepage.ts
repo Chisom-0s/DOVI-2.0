@@ -3,6 +3,7 @@ import apiClient from './client';
 import { parsePriceNumber } from '@/utils/currency';
 import { normalizeUrl } from '@/utils/image';
 import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
+import { enrichProductWithCategory } from '@/services/categoryService';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -243,7 +244,7 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     delivery_notes: p.delivery_notes,
   };
 
-  return enrichProductWithDelivery(summary);
+  return enrichProductWithCategory(enrichProductWithDelivery(summary));
 }
 
 /**
