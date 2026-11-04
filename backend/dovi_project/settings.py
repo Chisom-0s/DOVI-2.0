@@ -3,6 +3,18 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+def _load_env():
+    for p in [BASE_DIR / '.env', BASE_DIR.parent / '.env']:
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as ef:
+                for line in ef:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        k, v = line.split('=', 1)
+                        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+_load_env()
+
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dovi-production-resend-infrastucture-secret-key-2026')
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 ALLOWED_HOSTS = ['*']
