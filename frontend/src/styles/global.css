@@ -1604,3 +1604,22 @@ html, body {
   }
 }
 
+
+
+/* ============================================================
+   SMARTSUPP LIVE CHAT RESPONSIVE FIT & CLEARANCE
+   ============================================================ */
+#chat-application,
+#smartsupp-widget-container,
+.smartsupp-widget {
+  transition: bottom 0.2s ease-in-out, right 0.2s ease-in-out !important;
+}
+
+@media (max-width: 767px) {
+  /* On mobile viewports, elevate widget button above fixed bottom navigation */
+  #chat-application.closed,
+  .smartsupp-widget-button {
+    bottom: calc(var(--bottom-nav-total, 64px) + 16px) !important;
+    right: 16px !important;
+  }
+}

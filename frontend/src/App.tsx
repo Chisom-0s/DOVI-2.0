@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { PromptEngineProvider } from '@/contexts/PromptEngineContext';
 import AppRouter from '@/router';
 import DoviSplashScreen from '@/components/common/DoviSplashScreen';
+import SmartsuppChat from '@/components/common/SmartsuppChat';
 
 // ============================================================
 // App
@@ -39,6 +40,7 @@ export default function App() {
               <DoviSplashScreen onComplete={handleSplashComplete} />
             )}
             <AppRouter />
+            <SmartsuppChat />
             <Toaster
               position="top-right"
               toastOptions={{
