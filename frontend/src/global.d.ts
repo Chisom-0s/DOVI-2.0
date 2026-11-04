@@ -45,3 +45,8 @@ interface ImportMeta {
 }
 
 declare module '*.css';
+
+interface Window {
+  smartsupp?: any;
+  _smartsupp?: any;
+}

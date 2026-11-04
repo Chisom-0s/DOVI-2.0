@@ -26,6 +26,7 @@ import Save2OwnParticipantsPage from '@/pages/Save2Own/Save2OwnParticipantsPage'
 import Save2OwnRefundsPage from '@/pages/Save2Own/Save2OwnRefundsPage';
 import PaymentAccountsPage from '@/pages/PaymentAccounts/PaymentAccountsPage';
 import AutoListingsPage from '@/pages/Auto/AutoListingsPage';
+import EmailManagementPage from '@/pages/EmailManagementPage';
 
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="refunds" element={<RefundsPage />} />
               <Route path="reviews" element={<ReviewsPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
+              <Route path="emails" element={<EmailManagementPage />} />
             </Route>
           </Routes>
           <Toaster position="top-right" toastOptions={{ duration: 4000 }} />

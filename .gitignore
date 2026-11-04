@@ -39,3 +39,7 @@ yarn-error.log*
 # Project files to ignore (as requested by user)
 architecture.md
 
+
+# Database files
+*.sqlite3
+db.sqlite3

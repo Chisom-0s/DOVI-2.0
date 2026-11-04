@@ -1,3 +1,6 @@
 Django>=5.0,<6.0
 djangorestframework>=3.15.0
 django-cors-headers>=4.3.0
+resend>=2.0.0
+svix>=1.20.0
+requests>=2.31.0

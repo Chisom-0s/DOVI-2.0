@@ -1404,3 +1404,87 @@ export interface ProductSummary {
   needs_category_review?: boolean;
   legacy_category_name?: string | null;
 }
+
+
+// ============================================================
+// Resend Email Delivery & Management Types
+// ============================================================
+
+export type EmailDeliveryStatus = 'QUEUED' | 'ACCEPTED' | 'DELIVERED' | 'BOUNCED' | 'COMPLAINED' | 'FAILED' | 'CANCELLED';
+
+export type EmailCategory = 'ACCOUNT' | 'BUYER' | 'SELLER' | 'ESCROW' | 'SUPPORT';
+
+export interface EmailDeliveryAttempt {
+  id: string;
+  attempt_number: number;
+  status: string;
+  response_code?: number | null;
+  response_body?: string;
+  error_message?: string;
+  latency_ms?: number | null;
+  created_at: string;
+}
+
+export interface EmailLog {
+  id: string;
+  recipient: string;
+  recipient_name?: string;
+  email_type: string;
+  email_type_display?: string;
+  category: EmailCategory;
+  category_display?: string;
+  subject: string;
+  sender: string;
+  reply_to?: string;
+  status: EmailDeliveryStatus;
+  status_display?: string;
+  resend_message_id?: string;
+  idempotency_key?: string | null;
+  attempts_count: number;
+  max_retries: number;
+  last_error?: string;
+  context_data?: Record<string, any>;
+  html_body?: string;
+  text_body?: string;
+  created_at: string;
+  updated_at: string;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  delivery_attempts?: EmailDeliveryAttempt[];
+}
+
+export interface EmailMetrics {
+  total_emails: number;
+  delivered: number;
+  accepted: number;
+  failed: number;
+  bounced: number;
+  queued: number;
+  delivery_rate_pct: number;
+}
+
+export interface EmailConfigData {
+  is_configured: boolean;
+  masked_api_key: string;
+  from_address: string;
+  from_name: string;
+  reply_to: string;
+  app_url: string;
+  webhook_endpoint: string;
+  webhook_configured: boolean;
+}
+
+export interface SendTestEmailPayload {
+  email_type: string;
+  recipient: string;
+  recipient_name?: string;
+  custom_context?: Record<string, any>;
+}
+
+export interface PlatformAnnouncementPayload {
+  title: string;
+  message: string;
+  action_text?: string;
+  action_url?: string;
+  target_recipients?: string[];
+}
