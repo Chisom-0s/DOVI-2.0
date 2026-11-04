@@ -100,8 +100,8 @@ REST_FRAMEWORK = {
 # Resend Email Configuration
 # ============================================================================
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-MAIL_FROM_ADDRESS = os.environ.get('MAIL_FROM_ADDRESS', 'hello@dovishops.com')
+MAIL_FROM_ADDRESS = os.environ.get('MAIL_FROM_ADDRESS', 'hello@dovishop.com')
 MAIL_FROM_NAME = os.environ.get('MAIL_FROM_NAME', 'Dovi')
-MAIL_REPLY_TO = os.environ.get('MAIL_REPLY_TO', 'support@dovishops.com')
-APP_URL = os.environ.get('APP_URL', 'https://dovishops.com')
+MAIL_REPLY_TO = os.environ.get('MAIL_REPLY_TO', 'support@dovishop.com')
+APP_URL = os.environ.get('APP_URL', 'https://dovishop.com')
 RESEND_WEBHOOK_SECRET = os.environ.get('RESEND_WEBHOOK_SECRET', '')

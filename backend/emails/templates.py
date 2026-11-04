@@ -52,7 +52,7 @@ def build_email_shell(
     secondary_action_url: str = "",
     security_notice: str = "",
     support_note: str = "",
-    app_url: str = "https://dovishops.com",
+    app_url: str = "https://dovishop.com",
 ) -> str:
     """
     Renders a fully responsive, email-client compatible HTML document.
@@ -108,7 +108,7 @@ def build_email_shell(
     else:
         support_html = f"""
         <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #f3f4f6; font-size: 13px; line-height: 1.5; color: #6b7280;">
-          Questions? Reply directly to this email or contact our campus support desk at <a href="mailto:support@dovishops.com" style="color: #ff7a00; text-decoration: none; font-weight: 500;">support@dovishops.com</a>.
+          Questions? Reply directly to this email or contact our campus support desk at <a href="mailto:support@dovishop.com" style="color: #ff7a00; text-decoration: none; font-weight: 500;">support@dovishop.com</a>.
         </div>
         """
 
@@ -157,9 +157,9 @@ def build_email_shell(
                       <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                         <tr>
                           <td style="vertical-align: middle;">
-                            <span style="display: inline-block; width: 34px; height: 34px; line-height: 34px; background-color: #ff7a00; color: #ffffff; font-weight: 800; font-size: 20px; text-align: center; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">D</span>
+                            <img src="https://dovishop.com/logo.jpg" alt="DOVI" width="40" height="40" style="display: block; width: 40px; height: 40px; border-radius: 8px; border: 0; outline: none; object-fit: contain;" />
                           </td>
-                          <td style="vertical-align: middle; padding-left: 10px;">
+                          <td style="vertical-align: middle; padding-left: 12px;">
                             <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 800; color: #1f2937; letter-spacing: -0.5px;">DOVI</span>
                           </td>
                         </tr>
@@ -331,7 +331,7 @@ class EmailTemplateEngine:
     @staticmethod
     def render_welcome(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or ctx.get("first_name") or "there"
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         explore_url = ctx.get("action_url") or f"{app_url}/products"
 
         subject = "Welcome to Dovi! Shop Smart. Feel Good."
@@ -367,14 +367,14 @@ Discover smart student commerce, escrow-protected marketplace deals, and flexibl
 Explore the marketplace: {explore_url}
 
 Dovi — Shop Smart. Feel Good.
-https://dovishops.com
+https://dovishop.com
 """
         return subject, html_body, plain_text
 
     @staticmethod
     def render_email_verification(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         verification_url = ctx.get("action_url") or f"{app_url}/verify-email?token={ctx.get('token', '')}"
         expires_in = ctx.get("expires_in", "24 hours")
 
@@ -414,7 +414,7 @@ Dovi — Shop Smart. Feel Good.
     @staticmethod
     def render_password_reset(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         reset_url = ctx.get("action_url") or f"{app_url}/reset-password?uid={ctx.get('uid', '')}&token={ctx.get('token', '')}"
         expires_in = ctx.get("expires_in", "1 hour")
 
@@ -455,7 +455,7 @@ Dovi — Shop Smart. Feel Good.
     @staticmethod
     def render_password_changed(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         date_str = ctx.get("date_time", "Just now")
 
         subject = "Security Alert: Your Dovi password has been changed"
@@ -474,7 +474,7 @@ Dovi — Shop Smart. Feel Good.
             body_content_html=body,
             cta_text="Go to Login",
             cta_url=f"{app_url}/login",
-            security_notice="If you did NOT make this change, please contact Dovi Security immediately at security@dovishops.com or reset your password immediately.",
+            security_notice="If you did NOT make this change, please contact Dovi Security immediately at security@dovishop.com or reset your password immediately.",
             app_url=app_url,
         )
 
@@ -482,7 +482,7 @@ Dovi — Shop Smart. Feel Good.
 
 Your Dovi account password was successfully updated on {date_str}.
 
-If you did not make this change, please contact us immediately at security@dovishops.com.
+If you did not make this change, please contact us immediately at security@dovishop.com.
 
 Sign in: {app_url}/login
 
@@ -493,7 +493,7 @@ Dovi — Shop Smart. Feel Good.
     @staticmethod
     def render_security_login_alert(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         meta = [
             ("Date & Time", ctx.get("date_time", "Just now")),
             ("Device / Browser", ctx.get("device", "Unknown Browser / OS")),
@@ -544,7 +544,7 @@ Dovi — Shop Smart. Feel Good.
     def render_order_confirmation(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Valued Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         order_url = ctx.get("action_url") or f"{app_url}/orders/{order_ref}"
 
         items = ctx.get("items", [])
@@ -599,7 +599,7 @@ Dovi — Shop Smart. Feel Good.
         tx_ref = ctx.get("transaction_reference", "TX-REF")
         order_ref = ctx.get("order_reference", "")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         meta = [
             ("Transaction Reference", tx_ref),
@@ -648,7 +648,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         retry_url = ctx.get("action_url") or f"{app_url}/checkout"
 
         meta = [
@@ -693,7 +693,7 @@ Dovi — Shop Smart. Feel Good.
     def render_order_processing(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Order #{order_ref} is being processed"
         preheader = f"Great news! Your order #{order_ref} is now in processing."
@@ -728,7 +728,7 @@ Dovi — Shop Smart. Feel Good.
     def render_order_dispatched(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         tracking_ref = ctx.get("tracking_reference", "DOV-EXP")
 
         meta = [
@@ -773,7 +773,7 @@ Dovi — Shop Smart. Feel Good.
     def render_order_delivered(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Delivered: Order #{order_ref}"
         preheader = f"Your package for order #{order_ref} has been marked as delivered."
@@ -811,7 +811,7 @@ Dovi — Shop Smart. Feel Good.
     def render_order_cancelled(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         reason = ctx.get("cancellation_reason", "Customer request / Store inventory adjustment")
 
         meta = [
@@ -858,7 +858,7 @@ Dovi — Shop Smart. Feel Good.
         refund_ref = ctx.get("refund_reference", "RFD-REF")
         order_ref = ctx.get("order_reference", "")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         meta = [
             ("Refund Claim Ref", refund_ref),
@@ -906,7 +906,7 @@ Dovi — Shop Smart. Feel Good.
         refund_ref = ctx.get("refund_reference", "RFD-REF")
         order_ref = ctx.get("order_reference", "")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         meta = [
             ("Refund Reference", refund_ref),
@@ -955,7 +955,7 @@ Dovi — Shop Smart. Feel Good.
     def render_seller_new_order(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         seller_name = ctx.get("seller_name") or ctx.get("customer_name") or "Merchant"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         items = ctx.get("items", [])
         total = ctx.get("total_amount", 0)
 
@@ -1006,7 +1006,7 @@ Dovi — Shop Smart. Feel Good.
         seller_name = ctx.get("seller_name") or "Merchant"
         order_ref = ctx.get("order_reference", "DOV-ORD")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Escrow Secured: Payment confirmed for #{order_ref}"
         preheader = f"Payment of {format_currency(amount)} verified in escrow."
@@ -1040,7 +1040,7 @@ Dovi — Shop Smart. Feel Good.
     def render_seller_order_cancelled(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         seller_name = ctx.get("seller_name") or "Merchant"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Order Cancelled: #{order_ref}"
         preheader = f"Order #{order_ref} has been cancelled. Do not dispatch."
@@ -1073,7 +1073,7 @@ Dovi — Shop Smart. Feel Good.
     def render_seller_fulfillment_reminder(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         seller_name = ctx.get("seller_name") or "Merchant"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         hours_left = ctx.get("hours_remaining", "12")
 
         subject = f"Urgent Reminder: Fulfill Order #{order_ref} ({hours_left}h remaining)"
@@ -1109,7 +1109,7 @@ Dovi — Shop Smart. Feel Good.
         seller_name = ctx.get("seller_name") or "Merchant"
         amount = ctx.get("total_amount", 0)
         payout_ref = ctx.get("payout_reference", "PO-REF")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         meta = [
             ("Payout Reference", payout_ref),
@@ -1153,7 +1153,7 @@ Dovi — Shop Smart. Feel Good.
         seller_name = ctx.get("seller_name") or "Merchant"
         amount = ctx.get("total_amount", 0)
         payout_ref = ctx.get("payout_reference", "PO-REF")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Payout Confirmed: {format_currency(amount)} delivered to your bank"
         preheader = f"Your payout #{payout_ref} has been completed successfully."
@@ -1187,7 +1187,7 @@ Dovi — Shop Smart. Feel Good.
     def render_seller_payout_failed(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         seller_name = ctx.get("seller_name") or "Merchant"
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         reason = ctx.get("failure_reason", "Bank account name mismatch or invalid account number.")
 
         subject = "Action Required: Merchant Payout Attempt Failed"
@@ -1228,7 +1228,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Escrow Secured: Order #{order_ref}"
         preheader = f"Your payment of {format_currency(amount)} is protected under Dovi Escrow."
@@ -1269,7 +1269,7 @@ Dovi — Shop Smart. Feel Good.
     def render_escrow_awaiting_fulfillment(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Escrow Update: Order #{order_ref} awaiting merchant packaging"
         preheader = f"Order #{order_ref} is awaiting fulfillment under escrow."
@@ -1303,7 +1303,7 @@ Dovi — Shop Smart. Feel Good.
     def render_escrow_awaiting_confirmation(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "Customer"
         order_ref = ctx.get("order_reference", "DOV-ORD")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Action Needed: Confirm delivery for Order #{order_ref}"
         preheader = "Your order was delivered. Please confirm receipt to release escrow."
@@ -1338,7 +1338,7 @@ Dovi — Shop Smart. Feel Good.
         seller_name = ctx.get("seller_name") or ctx.get("customer_name") or "Merchant"
         order_ref = ctx.get("order_reference", "DOV-ORD")
         amount = ctx.get("total_amount", 0)
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Escrow Released: {format_currency(amount)} for #{order_ref}"
         preheader = f"Escrow funds for #{order_ref} have been released."
@@ -1373,7 +1373,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "User"
         dispute_ref = ctx.get("dispute_reference", "DSP-REF")
         order_ref = ctx.get("order_reference", "")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         reason = ctx.get("dispute_reason", "Item not received / defective")
 
         meta = [
@@ -1419,7 +1419,7 @@ Dovi — Shop Smart. Feel Good.
     def render_dispute_update(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "User"
         dispute_ref = ctx.get("dispute_reference", "DSP-REF")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         update_notes = ctx.get("update_notes", "A new note or evidence was submitted for your dispute case.")
 
         subject = f"Update on Dispute Case: {dispute_ref}"
@@ -1460,7 +1460,7 @@ Dovi — Shop Smart. Feel Good.
         dispute_ref = ctx.get("dispute_reference", "DSP-REF")
         order_ref = ctx.get("order_reference", "")
         resolution = ctx.get("resolution", "Refund approved and issued to buyer.")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         meta = [
             ("Dispute Reference", dispute_ref),
@@ -1507,7 +1507,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "Dovi Member"
         title = ctx.get("announcement_title") or ctx.get("title") or "Important Announcement from Dovi"
         message_html = ctx.get("message_html") or ctx.get("message") or "We have an important platform update to share with our campus community."
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         action_text = ctx.get("action_text", "Visit Dovi")
         action_url = ctx.get("action_url", app_url)
 
@@ -1548,7 +1548,7 @@ Dovi — Shop Smart. Feel Good.
     def render_support_ticket_received(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
         ticket_id = ctx.get("ticket_id", "TKT-001")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         subject_query = ctx.get("ticket_subject", "Customer Inquiry")
 
         meta = [
@@ -1594,7 +1594,7 @@ Dovi — Shop Smart. Feel Good.
     def render_support_response(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "there"
         ticket_id = ctx.get("ticket_id", "TKT-001")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
         response_text = ctx.get("agent_response", "Thank you for contacting Dovi Support.")
         agent_name = ctx.get("agent_name", "Dovi Support Team")
 
@@ -1637,7 +1637,7 @@ Dovi — Shop Smart. Feel Good.
     def render_account_suspended(ctx: Dict[str, Any]) -> Tuple[str, str, str]:
         name = ctx.get("customer_name") or "User"
         reason = ctx.get("suspension_reason", "Violation of Dovi Marketplace Community Guidelines or security safeguards.")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = "Important Notice: Your Dovi Account Has Been Suspended"
         preheader = "Your account access has been restricted."
@@ -1661,7 +1661,7 @@ Dovi — Shop Smart. Feel Good.
             intro_html=intro,
             body_content_html=body,
             cta_text="Contact Trust & Safety",
-            cta_url="mailto:support@dovishops.com?subject=Account%20Suspension%20Appeal",
+            cta_url="mailto:support@dovishop.com?subject=Account%20Suspension%20Appeal",
             app_url=app_url,
         )
 
@@ -1671,7 +1671,7 @@ Hello {name},
 Your Dovi account has been suspended.
 Reason: {reason}
 
-If you believe this was an error, please appeal to support@dovishops.com.
+If you believe this was an error, please appeal to support@dovishop.com.
 
 Dovi — Shop Smart. Feel Good.
 """
@@ -1682,7 +1682,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "Valued Member"
         policy_name = ctx.get("policy_name", "Terms of Service & Escrow Rules")
         effective_date = ctx.get("effective_date", "Immediately")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = f"Notice: Update to Dovi {policy_name}"
         preheader = f"We have updated our {policy_name}. Effective {effective_date}."
@@ -1719,7 +1719,7 @@ Dovi — Shop Smart. Feel Good.
         name = ctx.get("customer_name") or "there"
         title = ctx.get("title", f"Notification: {email_type.replace('_', ' ').title()}")
         message = ctx.get("message", "You have a new notification from Dovi.")
-        app_url = ctx.get("app_url", "https://dovishops.com")
+        app_url = ctx.get("app_url", "https://dovishop.com")
 
         subject = title
         preheader = message[:100]

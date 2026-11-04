@@ -179,12 +179,12 @@ RESEND_API_KEY=your_resend_api_key_here
 
 # Verified Sending Domain and Addresses
 # NOTE: Replace with your actual verified domain registered in Resend
-MAIL_FROM_ADDRESS=hello@dovishops.com
+MAIL_FROM_ADDRESS=hello@dovishop.com
 MAIL_FROM_NAME="Dovi"
-MAIL_REPLY_TO=support@dovishops.com
+MAIL_REPLY_TO=support@dovishop.com
 
 # Base Application URL (used in email CTA buttons)
-APP_URL=https://dovishops.com
+APP_URL=https://dovishop.com
 
 # Resend Webhook Signing Secret (starts with whsec_)
 RESEND_WEBHOOK_SECRET=whsec_your_resend_webhook_signing_secret
@@ -241,7 +241,7 @@ from emails.services import EmailService
 EmailService.trigger_welcome(
     user_email="student@unilag.edu.ng",
     user_name="Emeka",
-    login_url="https://dovishops.com/login"
+    login_url="https://dovishop.com/login"
 )
 
 EmailService.trigger_order_confirmation(

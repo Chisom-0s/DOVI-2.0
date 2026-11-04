@@ -14,14 +14,14 @@ class EmailTemplateEngineTests(TestCase):
     def test_welcome_template_renders_html_and_text(self):
         ctx = {
             "customer_name": "Chisom",
-            "app_url": "https://dovishops.com",
-            "action_url": "https://dovishops.com/products",
+            "app_url": "https://dovishop.com",
+            "action_url": "https://dovishop.com/products",
         }
         subject, html, text = EmailTemplateEngine.render(EmailType.WELCOME, ctx)
         self.assertIn("Welcome to Dovi", subject)
         self.assertIn("Chisom", html)
         self.assertIn("Shop Smart. Feel Good.", html)
-        self.assertIn("https://dovishops.com", text)
+        self.assertIn("https://dovishop.com", text)
         self.assertTrue(len(text) > 50)
 
     def test_order_confirmation_template(self):
@@ -93,7 +93,7 @@ class EmailServiceLogicTests(TestCase):
             email_type=EmailType.WELCOME,
             category=EmailCategory.ACCOUNT,
             subject="Welcome",
-            sender="Dovi <hello@dovishops.com>",
+            sender="Dovi <hello@dovishop.com>",
             status=EmailStatus.ACCEPTED,
             resend_message_id="re_live_webhook_msg_88",
         )
@@ -114,7 +114,7 @@ class EmailServiceLogicTests(TestCase):
             email_type=EmailType.ORDER_CONFIRMATION,
             category=EmailCategory.BUYER,
             subject="Order",
-            sender="Dovi <hello@dovishops.com>",
+            sender="Dovi <hello@dovishop.com>",
             status=EmailStatus.ACCEPTED,
             resend_message_id="re_live_bounce_msg_77",
         )
@@ -134,7 +134,7 @@ class EmailServiceLogicTests(TestCase):
 
     def test_semantic_event_triggers(self):
         # 1. Welcome trigger
-        welcome_log = EmailService.trigger_welcome("newbuyer@example.com", "Chisom", "https://dovishops.com/login")
+        welcome_log = EmailService.trigger_welcome("newbuyer@example.com", "Chisom", "https://dovishop.com/login")
         self.assertEqual(welcome_log.recipient, "newbuyer@example.com")
         self.assertEqual(welcome_log.email_type, EmailType.WELCOME)
         self.assertIn("welcome-newbuyer@example.com", welcome_log.idempotency_key)
