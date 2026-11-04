@@ -396,7 +396,7 @@ class EmailService:
     # ------------------------------------------------------------------------
 
     @classmethod
-    def trigger_welcome(cls, user_email: str, user_name: str, login_url: str = "") -> EmailLog:
+    def trigger_welcome(cls, user_email: str, user_name: str, login_url: str = "", force_sync: bool = False) -> EmailLog:
         return cls.send_transactional_email(
             email_type=EmailType.WELCOME,
             recipient=user_email,
@@ -406,10 +406,11 @@ class EmailService:
                 "login_url": login_url or f"{EmailConfig.get_app_url()}/login",
             },
             idempotency_key=f"welcome-{user_email.lower().strip()}",
+            force_sync=force_sync,
         )
 
     @classmethod
-    def trigger_verification(cls, user_email: str, user_name: str, verification_url: str) -> EmailLog:
+    def trigger_verification(cls, user_email: str, user_name: str, verification_url: str, force_sync: bool = False) -> EmailLog:
         return cls.send_transactional_email(
             email_type=EmailType.EMAIL_VERIFICATION,
             recipient=user_email,
@@ -419,10 +420,11 @@ class EmailService:
                 "verification_url": verification_url,
             },
             idempotency_key=None,
+            force_sync=force_sync,
         )
 
     @classmethod
-    def trigger_password_reset(cls, user_email: str, user_name: str, reset_url: str) -> EmailLog:
+    def trigger_password_reset(cls, user_email: str, user_name: str, reset_url: str, force_sync: bool = False) -> EmailLog:
         return cls.send_transactional_email(
             email_type=EmailType.PASSWORD_RESET,
             recipient=user_email,
@@ -432,6 +434,7 @@ class EmailService:
                 "reset_url": reset_url,
             },
             idempotency_key=None,
+            force_sync=force_sync,
         )
 
     @classmethod
@@ -456,6 +459,7 @@ class EmailService:
         total_amount: str,
         delivery_address: str = "",
         delivery_method: str = "Standard Delivery",
+        force_sync: bool = False,
     ) -> EmailLog:
         return cls.send_transactional_email(
             email_type=EmailType.ORDER_CONFIRMATION,
@@ -471,6 +475,7 @@ class EmailService:
                 "view_order_url": f"{EmailConfig.get_app_url()}/account/orders/{order_reference}",
             },
             idempotency_key=f"buyer-order-confirm-{order_reference}",
+            force_sync=force_sync,
         )
 
     @classmethod
@@ -509,6 +514,7 @@ class EmailService:
         transaction_reference: str,
         total_amount: str,
         payment_method: str = "Card / Bank Transfer",
+        force_sync: bool = False,
     ) -> EmailLog:
         return cls.send_transactional_email(
             email_type=EmailType.PAYMENT_SUCCESSFUL,
@@ -523,6 +529,7 @@ class EmailService:
                 "view_order_url": f"{EmailConfig.get_app_url()}/account/orders/{order_reference}",
             },
             idempotency_key=f"payment-success-{transaction_reference}",
+            force_sync=force_sync,
         )
 
     @classmethod
