@@ -19,14 +19,30 @@ export const tokenStore = {
 };
 
 /**
+ * Resolves the API base URL.
+ * In a browser environment on a live deployment (dovishop.com or *.vercel.app),
+ * returning empty string "" routes API requests to the same origin, where Vercel
+ * rewrites seamlessly proxy to Render without any CORS issues or preflight delays.
+ */
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // On production or staging web domains, use relative origin for proxying
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return '';
+    }
+  }
+  return import.meta.env.VITE_API_BASE_URL || '';
+}
+
+/**
  * Sends a background health ping to warm up Render's free tier container
  */
 export function warmupBackend() {
-  const base = import.meta.env.VITE_API_BASE_URL || '';
-  if (!base) return;
-  fetch(`${base.replace(/\/+$/, '')}/health/`, {
+  const base = getApiBaseUrl();
+  const target = base ? `${base.replace(/\/+$/, '')}/health/` : '/health/';
+  fetch(target, {
     method: 'GET',
-    mode: 'cors',
     cache: 'no-cache',
   }).catch(() => {
     // Ignore warmup errors
@@ -37,7 +53,7 @@ export function warmupBackend() {
 // Axios instance
 // ============================================================
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   withCredentials: true, // required for httpOnly refresh cookie
   headers: {
     'Content-Type': 'application/json',

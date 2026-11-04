@@ -517,6 +517,9 @@ async function pushCategoryStoreToServer(payload: {
   productCategoryAssignments?: Record<string, ProductCategoryAssignment>;
 }): Promise<void> {
   try {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return;
+    }
     if (typeof fetch !== 'undefined') {
       await fetch('/__dovi_delivery_db__', {
         method: 'POST',
@@ -529,6 +532,9 @@ async function pushCategoryStoreToServer(payload: {
 
 export async function syncCategoriesFromServer(): Promise<void> {
   try {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return;
+    }
     if (typeof fetch === 'undefined') return;
     const res = await fetch('/__dovi_delivery_db__', { method: 'GET' });
     if (!res.ok) return;

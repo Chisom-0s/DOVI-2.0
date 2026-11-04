@@ -109,5 +109,17 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+    proxy: {
+      '/api/v1': {
+        target: 'https://dovi-2-0-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/health': {
+        target: 'https://dovi-2-0-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
 });
