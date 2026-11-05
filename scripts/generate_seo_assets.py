@@ -164,3 +164,4 @@ sitemap_xml.append('</urlset>')
 with open('frontend/public/sitemap.xml', 'w', encoding='utf-8', newline='\n') as f:
     f.write('\n'.join(sitemap_xml) + '\n')
 print(f'Generated frontend/public/sitemap.xml with {2 + len(info_pages) + len(categories) + len(products)} URLs')
+

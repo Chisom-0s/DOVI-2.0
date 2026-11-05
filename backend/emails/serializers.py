@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import EmailLog, EmailDeliveryAttempt, EmailType, EmailCategory, EmailStatus
+from .models import EmailLog, EmailDeliveryAttempt, EmailType, EmailCategory, EmailStatus, EmailPriority
 
 
 class EmailDeliveryAttemptSerializer(serializers.ModelSerializer):
@@ -21,6 +21,7 @@ class EmailLogSerializer(serializers.ModelSerializer):
     email_type_display = serializers.CharField(source='get_email_type_display', read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
     delivery_attempts = EmailDeliveryAttemptSerializer(many=True, read_only=True)
 
     class Meta:
@@ -33,6 +34,9 @@ class EmailLogSerializer(serializers.ModelSerializer):
             'email_type_display',
             'category',
             'category_display',
+            'priority',
+            'priority_display',
+            'is_admin',
             'subject',
             'sender',
             'reply_to',
@@ -83,3 +87,5 @@ class EmailConfigResponseSerializer(serializers.Serializer):
     app_url = serializers.CharField()
     webhook_endpoint = serializers.CharField()
     webhook_configured = serializers.BooleanField()
+    admin_emails = serializers.ListField(child=serializers.CharField(), required=False)
+    admin_categories_routing = serializers.DictField(required=False)

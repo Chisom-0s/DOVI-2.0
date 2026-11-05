@@ -90,3 +90,4 @@ const boxStyles: React.CSSProperties = {
   borderRadius: '10px',
   padding: '1.25rem',
 };
+

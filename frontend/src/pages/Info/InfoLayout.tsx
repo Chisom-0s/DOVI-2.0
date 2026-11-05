@@ -133,3 +133,4 @@ const contentCardStyles: React.CSSProperties = {
   lineHeight: 1.7,
   color: 'var(--color-text)',
 };
+

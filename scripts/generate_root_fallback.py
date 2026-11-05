@@ -768,3 +768,4 @@ with open('frontend/index.html', 'w', encoding='utf-8') as f:
     f.write(index_html_content.strip())
 
 print(f"Generated frontend/index.html ({len(index_html_content)} bytes)")
+

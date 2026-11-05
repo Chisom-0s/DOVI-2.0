@@ -8,14 +8,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 
-from .models import EmailLog, EmailStatus, EmailType
+from .models import EmailLog, EmailStatus, EmailType, EmailCategory, EmailPriority
 from .serializers import (
     EmailLogSerializer,
     SendTestEmailSerializer,
     PlatformAnnouncementSerializer,
     EmailConfigResponseSerializer,
 )
-from .services import EmailService, EmailConfig
+from .services import EmailService, EmailConfig, AdminEmailConfig
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,27 @@ class AdminEmailLogViewSet(viewsets.ReadOnlyModelViewSet):
         if email_type and email_type != 'ALL':
             qs = qs.filter(email_type=email_type)
 
+        # Filter by priority
+        priority = params.get('priority')
+        if priority and priority != 'ALL':
+            qs = qs.filter(priority=priority)
+
+        # Filter by audience (ADMIN vs CUSTOMER)
+        audience = params.get('audience')
+        if audience:
+            if audience.upper() == 'ADMIN':
+                qs = qs.filter(is_admin=True)
+            elif audience.upper() in ['CUSTOMER', 'BUYER', 'USER']:
+                qs = qs.filter(is_admin=False)
+
+        # Explicit boolean is_admin parameter
+        is_admin_param = params.get('is_admin')
+        if is_admin_param is not None:
+            if is_admin_param.lower() in ('true', '1', 't'):
+                qs = qs.filter(is_admin=True)
+            elif is_admin_param.lower() in ('false', '0', 'f'):
+                qs = qs.filter(is_admin=False)
+
         # Search by recipient, subject, or resend_message_id
         q = params.get('q')
         if q:
@@ -89,6 +110,17 @@ class AdminEmailLogViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
+    def admin_notifications(self, request):
+        """Dedicated viewset endpoint returning only administrative operational notifications."""
+        admin_qs = self.get_queryset().filter(is_admin=True)
+        page = self.paginate_queryset(admin_qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(admin_qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
     def metrics(self, request):
         """Calculates dashboard metrics across email logs."""
         total_count = EmailLog.objects.count()
@@ -97,6 +129,8 @@ class AdminEmailLogViewSet(viewsets.ReadOnlyModelViewSet):
         failed_count = EmailLog.objects.filter(status=EmailStatus.FAILED).count()
         bounced_count = EmailLog.objects.filter(status=EmailStatus.BOUNCED).count()
         queued_count = EmailLog.objects.filter(status=EmailStatus.QUEUED).count()
+        admin_count = EmailLog.objects.filter(is_admin=True).count()
+        customer_count = EmailLog.objects.filter(is_admin=False).count()
 
         delivered_or_accepted = delivered_count + accepted_count
         rate = (delivered_or_accepted / total_count * 100) if total_count > 0 else 100.0
@@ -108,6 +142,8 @@ class AdminEmailLogViewSet(viewsets.ReadOnlyModelViewSet):
             'failed': failed_count,
             'bounced': bounced_count,
             'queued': queued_count,
+            'admin_emails_count': admin_count,
+            'customer_emails_count': customer_count,
             'delivery_rate_pct': round(rate, 1),
         })
 
@@ -132,6 +168,15 @@ class AdminEmailConfigView(APIView):
             'app_url': EmailConfig.get_app_url(),
             'webhook_endpoint': f"{EmailConfig.get_app_url()}/api/v1/webhooks/resend/",
             'webhook_configured': bool(webhook_secret),
+            'admin_emails': AdminEmailConfig.get_all_configured_admin_emails(),
+            'admin_categories_routing': {
+                'orders': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_ORDERS),
+                'payments': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_PAYMENTS),
+                'approvals': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_APPROVALS),
+                'support': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_SUPPORT),
+                'inventory': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_INVENTORY),
+                'security': AdminEmailConfig.get_admin_recipients(EmailCategory.ADMIN_SECURITY),
+            },
         }
         serializer = EmailConfigResponseSerializer(data)
         return Response(serializer.data)

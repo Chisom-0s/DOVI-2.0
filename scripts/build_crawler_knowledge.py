@@ -452,3 +452,4 @@ privacy_content = """
 with open('frontend/public/privacy.html', 'w', encoding='utf-8') as f:
     f.write(make_page('Privacy Policy', 'Data Protection', privacy_content))
 print('Generated frontend/public/privacy.html')
+

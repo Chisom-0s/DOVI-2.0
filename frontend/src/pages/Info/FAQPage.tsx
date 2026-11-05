@@ -195,3 +195,4 @@ const accordionHeaderStyles: React.CSSProperties = {
   alignItems: 'center',
   cursor: 'pointer',
 };
+

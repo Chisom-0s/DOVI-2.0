@@ -208,3 +208,4 @@ const bottomInnerStyles: React.CSSProperties = {
   fontSize: '0.8rem',
   color: '#9ca3af',
 };
+
