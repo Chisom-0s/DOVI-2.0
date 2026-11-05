@@ -17,6 +17,15 @@ import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
 
+// Knowledge & Information Pages
+import AboutPage from '@/pages/Info/AboutPage';
+import FAQPage from '@/pages/Info/FAQPage';
+import ContactPage from '@/pages/Info/ContactPage';
+import ShippingPolicyPage from '@/pages/Info/ShippingPolicyPage';
+import ReturnsPolicyPage from '@/pages/Info/ReturnsPolicyPage';
+import TermsPage from '@/pages/Info/TermsPage';
+import PrivacyPolicyPage from '@/pages/Info/PrivacyPolicyPage';
+
 // Phase 4 — Cart, Checkout, Orders, Payments, Refunds
 import CartPage from '@/pages/Cart/CartPage';
 import CheckoutPage from '@/pages/Checkout/CheckoutPage';
@@ -50,19 +59,7 @@ import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 
 // ============================================================
-// Placeholder component — used for pages not yet built (Phase 6+)
-// ============================================================
-function Placeholder({ name }: { name: string }) {
-  return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h2>{name}</h2>
-      <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-        This page will be built in a future phase.
-      </p>
-    </div>
-  );
-}
-
+// Router
 // ============================================================
 // Router
 // All routes defined here. Placeholder pages will be replaced
@@ -96,9 +93,13 @@ const router = createBrowserRouter([
           { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'search', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
-          { path: 'faq', element: <Placeholder name="FAQ" /> },
-          { path: 'contact', element: <Placeholder name="Contact Support" /> },
-          { path: 'terms', element: <Placeholder name="Terms & Conditions" /> },
+          { path: 'about', element: <AboutPage /> },
+          { path: 'faq', element: <FAQPage /> },
+          { path: 'contact', element: <ContactPage /> },
+          { path: 'shipping', element: <ShippingPolicyPage /> },
+          { path: 'returns', element: <ReturnsPolicyPage /> },
+          { path: 'terms', element: <TermsPage /> },
+          { path: 'privacy', element: <PrivacyPolicyPage /> },
 
           // ---- Cart & Checkout (Phase 4 — LIVE) ----
           {

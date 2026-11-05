@@ -1,0 +1,71 @@
+# DoviShop Robots.txt (https://dovishop.com)
+# Centralized Student Marketplace: Dovi — Shop Smart. Feel Good.
+
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /products/*
+Allow: /categories/*
+Allow: /about
+Allow: /about.html
+Allow: /faq
+Allow: /faq.html
+Allow: /contact
+Allow: /contact.html
+Allow: /shipping
+Allow: /shipping.html
+Allow: /returns
+Allow: /returns.html
+Allow: /terms
+Allow: /terms.html
+Allow: /privacy
+Allow: /privacy.html
+Allow: /sitemap.xml
+
+# Protect private account areas, checkout, and admin routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout
+Disallow: /checkout/*
+Disallow: /cart
+Disallow: /orders/*
+Disallow: /dashboard/
+Disallow: /dashboard/*
+Disallow: /vendor/
+Disallow: /vendor/*
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /verify-email
+
+# Allow legitimate search engines and AI knowledge crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: SmartsuppBot
+Allow: /
+
+User-agent: Mira
+Allow: /
+
+User-agent: SmartsuppMira
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://dovishop.com/sitemap.xml
+Host: https://dovishop.com

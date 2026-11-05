@@ -2,20 +2,1327 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Dovi — Shop smarter. Buy confidently." />
+    <title>Dovi — Shop Smart. Feel Good. | Student Marketplace Nigeria</title>
+    
+    <!-- Canonical & Standard SEO -->
+    <link rel="canonical" href="https://dovishop.com/" />
+    <meta name="description" content="Dovi (https://dovishop.com) — Shop Smart. Feel Good. Nigeria's premier student-focused marketplace. Shop laptops, smartphones, fashion, electronics, and campus essentials with 100% Escrow Buyer Protection, Save2Own zero-interest micro-installments, and fast campus delivery." />
+    <meta name="keywords" content="Dovi, Dovishop, student marketplace, Nigeria campus shopping, buy laptop student Nigeria, Save2Own, student installments, escrow protection, UNILAG, UNN, OAU, UNIZIK, campus delivery" />
+    <meta name="author" content="Dovi Technologies" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
     <meta name="theme-color" content="#ff7a00" />
+    
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:site_name" content="Dovi" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dovishop.com/" />
+    <meta property="og:title" content="Dovi — Shop Smart. Feel Good. | Student Marketplace Nigeria" />
+    <meta property="og:description" content="Shop smarter with 100% Escrow Buyer Protection, Save2Own zero-interest micro-installments, and fast campus fulfillment across Nigeria." />
+    <meta property="og:image" content="https://dovishop.com/logo.jpg" />
+    <meta property="og:locale" content="en_NG" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@dovishop" />
+    <meta name="twitter:title" content="Dovi — Shop Smart. Feel Good." />
+    <meta name="twitter:description" content="Nigeria's premier student-focused marketplace with Escrow protection and Save2Own." />
+    <meta name="twitter:image" content="https://dovishop.com/logo.jpg" />
+
+    <!-- Favicon & PWA -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo-192.png" />
+    <link rel="apple-touch-icon" href="/logo-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Performance & Preconnects -->
     <link rel="preconnect" href="https://dovi-2-0-backend.onrender.com" crossorigin />
     <link rel="dns-prefetch" href="https://dovi-2-0-backend.onrender.com" />
+    <link rel="preconnect" href="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev" crossorigin />
+    <link rel="dns-prefetch" href="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev" />
     <link rel="preconnect" href="https://www.smartsuppchat.com" crossorigin />
     <link rel="dns-prefetch" href="https://www.smartsuppchat.com" />
-    <title>Dovi</title>
+
+    <!-- Schema.org JSON-LD Structured Data for Crawlers & AI -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://dovishop.com/#website",
+      "url": "https://dovishop.com/",
+      "name": "Dovi",
+      "description": "Dovi — Shop Smart. Feel Good. Nigeria's premier student-focused marketplace.",
+      "publisher": {
+        "@id": "https://dovishop.com/#organization"
+      },
+      "potentialAction": [
+        {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://dovishop.com/products?search={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://dovishop.com/#organization",
+      "name": "Dovi Technologies",
+      "alternateName": "Dovi",
+      "url": "https://dovishop.com/",
+      "logo": "https://dovishop.com/logo.jpg",
+      "slogan": "Shop Smart. Feel Good.",
+      "description": "Centralized student-focused marketplace in Nigeria offering electronics, gadgets, fashion, and home goods with escrow buyer protection and Save2Own micro-installments.",
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "telephone": "+234-800-3684-7467",
+          "contactType": "customer service",
+          "email": "support@dovishop.com",
+          "availableLanguage": [
+            "English"
+          ]
+        }
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Central Logistics Hub",
+        "addressLocality": "Onitsha",
+        "addressRegion": "Anambra",
+        "addressCountry": "NG"
+      }
+    },
+    {
+      "@type": "OnlineStore",
+      "@id": "https://dovishop.com/#store",
+      "name": "Dovi Marketplace",
+      "url": "https://dovishop.com/",
+      "image": "https://dovishop.com/logo.jpg",
+      "priceRange": "₦1,500 - ₦500,000",
+      "currenciesAccepted": "NGN",
+      "paymentAccepted": "Credit Card, Debit Card, Bank Transfer, Save2Own Installments",
+      "parentOrganization": {
+        "@id": "https://dovishop.com/#organization"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://dovishop.com/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is Dovi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dovi (https://dovishop.com) is Nigeria's premier centralized student and campus marketplace, operating under the brand tagline 'Dovi — Shop Smart. Feel Good.' We connect verified vendors and student buyers with 100% escrow buyer protection, zero-interest Save2Own micro-installments, and fast campus fulfillment."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does Dovi Escrow Buyer Protection work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "When you pay for an order on Dovi, your payment is held securely in our centralized escrow account. The vendor only receives payment after the package arrives, is inspected at our hub or delivery point, and you have confirmed satisfaction within the 48-hour inspection period. If the item is defective or not as described, your payment is promptly refunded."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is Save2Own on Dovi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Save2Own is Dovi's zero-interest micro-installment savings program designed for students. It allows you to lock in the price of essential items (such as laptops, smartphones, home electronics, and course equipment) and pay in flexible daily, weekly, or monthly installments. Once fully funded, the product is dispatched directly to your campus."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does shipping and campus delivery work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Dovi operates a centralized fulfillment model with its primary consolidation hub in Onitsha, Anambra State. Small parcels and electronics arrive at campus delivery hubs within 24 to 72 hours, while standard regional parcels typically take 2 to 5 business days. Real-time tracking is provided for every order."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the return and refund policy?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Buyers enjoy a 48-hour inspection window upon package receipt. If an item arrives damaged, defective, or incorrect, you can initiate a return through your Dovi dashboard or by emailing support@dovishop.com. Returned items are inspected at our hub, and approved refunds are credited back via your original payment method or Dovi wallet."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I contact Dovi customer support?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can reach Dovi Customer Care by email at hello@dovishop.com or support@dovishop.com, through our website live chat powered by Smartsupp at https://dovishop.com, or via our customer support hotline during business hours (Monday to Saturday, 8:00 AM – 8:00 PM WAT)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can students and vendors sell their products on Dovi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Dovi welcomes verified independent merchants, brand distributors, and student entrepreneurs. Vendors undergo identity and store verification, list products in accordance with our quality guidelines, and receive automated weekly payouts once deliveries are confirmed."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://dovishop.com/#featured-products",
+      "name": "Featured Products on Dovi",
+      "numberOfItems": 18,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "Product",
+            "name": "Luxury Golden Crystal LED Decorative Bulb",
+            "url": "https://dovishop.com/products/350a679b-746a-4102-9710-2599dcd3aeb0",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/350a679b-746a-4102-9710-2599dcd3aeb0/thumbnail/thumb_4a354b4d.jpg",
+            "description": "Illuminate your space with elegance using this Luxury Golden Crystal LED Decorative Bulb. Featuring a stunning circular design, transparent crystal-style detailing, and beautiful golden illumination, this decorative light adds a luxurious touch to any interior.",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "9000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "item": {
+            "@type": "Product",
+            "name": "Aroma Humidifier",
+            "url": "https://dovishop.com/products/3318868a-1e34-43f4-888e-c9d63d373509",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/3318868a-1e34-43f4-888e-c9d63d373509/thumbnail/thumb_41d08c27.jpg",
+            "description": "Aroma Humidifier",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "35500.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "item": {
+            "@type": "Product",
+            "name": "Intelligent Aromatherapy",
+            "url": "https://dovishop.com/products/2967f4f6-bf01-4001-bfb5-df287afabd56",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/2967f4f6-bf01-4001-bfb5-df287afabd56/thumbnail/thumb_5bb11b1d.jpg",
+            "description": "Intelligent Aromatherapy",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "20000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "item": {
+            "@type": "Product",
+            "name": "Flame aroma diffuser",
+            "url": "https://dovishop.com/products/23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/23a9ba40-294a-4c8b-bef5-f0e1fa92abaa/thumbnail/thumb_fabdedeb.jpg",
+            "description": "Flame aroma diffuser",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "25000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "item": {
+            "@type": "Product",
+            "name": "TCL 55- inch Smart TV",
+            "url": "https://dovishop.com/products/0cd35e98-6eda-467d-8528-1ce1e8948f0f",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/0cd35e98-6eda-467d-8528-1ce1e8948f0f/thumbnail/thumb_85fb0990.jpg",
+            "description": "TCL 55- inch Smart TV",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "500000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 6,
+          "item": {
+            "@type": "Product",
+            "name": "2000 mAh rechargeable Hair Clippers",
+            "url": "https://dovishop.com/products/8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71/thumbnail/thumb_b00e4bed.jpg",
+            "description": "Key Features Heavy-Duty Precision Blades: Fitted with high-grade, self-sharpening steel blades that glide effortlessly through thick, coarse, or 4C hair without pulling or snagging.Smart Digital LED Battery Screen",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "15700.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 7,
+          "item": {
+            "@type": "Product",
+            "name": "TCL 50-inch Smart TV",
+            "url": "https://dovishop.com/products/40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef/thumbnail/thumb_c4f807f6.jpg",
+            "description": "TCL 50-inch Smart TV",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "380000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 8,
+          "item": {
+            "@type": "Product",
+            "name": "Yxahee Shoe Racks",
+            "url": "https://dovishop.com/products/3d2350c1-8325-4a02-b554-d24b650ad901",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/3d2350c1-8325-4a02-b554-d24b650ad901/thumbnail/thumb_d3d14939.jpg",
+            "description": "Easy to Install",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "10360.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 9,
+          "item": {
+            "@type": "Product",
+            "name": "TCL 43” Android Smart TV - Frameless",
+            "url": "https://dovishop.com/products/66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/66d4c89f-ea43-4fb3-904e-7de1ea7577e9/thumbnail/thumb_a0dea3e0.jpg",
+            "description": "Smart Frameless TV",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "305000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 10,
+          "item": {
+            "@type": "Product",
+            "name": "Oraimo watch muse",
+            "url": "https://dovishop.com/products/9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d/thumbnail/thumb_2ccfa562.jpg",
+            "description": "Smart watch 1.32 AMOLED screen \nAnti scratch \nUp to 11 days usage time",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "42000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 11,
+          "item": {
+            "@type": "Product",
+            "name": "Red Diamond",
+            "url": "https://dovishop.com/products/97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa/thumbnail/thumb_82659b4a.jpg",
+            "description": "Cool floral scent",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "8000.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 12,
+          "item": {
+            "@type": "Product",
+            "name": "Nivea dry impact roll on for men 70hrs, 50ml",
+            "url": "https://dovishop.com/products/38897758-8093-46e3-a005-63a4581e3bb7",
+            "image": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/38897758-8093-46e3-a005-63a4581e3bb7/thumbnail/thumb_b9b726e4.jpg",
+            "description": "-Reliable 70hrs anti perspirant protection that cares for your skin",
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "NGN",
+              "price": "5200.00",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": "Dovi Official Store"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+    </script>
+
+    <!-- Fallback Styling for Non-JS Crawlers & Pre-Hydration First Paint -->
+    <style>
+      :root {
+        --dovi-orange: #ff7a00;
+        --dovi-orange-dark: #e56e00;
+        --dovi-dark: #111827;
+        --dovi-gray: #4b5563;
+        --dovi-light-gray: #f3f4f6;
+        --dovi-border: #e5e7eb;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: var(--dovi-dark);
+        background-color: #fafafa;
+        line-height: 1.5;
+      }
+      .static-header {
+        background: #ffffff;
+        border-bottom: 1px solid var(--dovi-border);
+        padding: 0.85rem 1.25rem;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+      }
+      .static-header-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .static-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        text-decoration: none;
+        color: var(--dovi-dark);
+        font-weight: 800;
+        font-size: 1.35rem;
+      }
+      .static-logo img {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        object-fit: cover;
+      }
+      .static-nav {
+        display: flex;
+        gap: 1.25rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        align-items: center;
+      }
+      .static-nav a {
+        color: var(--dovi-gray);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.95rem;
+      }
+      .static-nav a:hover { color: var(--dovi-orange); }
+      .static-hero {
+        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+        border-bottom: 1px solid #fed7aa;
+        padding: 3.5rem 1.5rem;
+        text-align: center;
+      }
+      .static-hero h1 {
+        font-size: clamp(1.8rem, 4vw, 2.75rem);
+        font-weight: 800;
+        color: #9a3412;
+        margin-bottom: 0.75rem;
+        line-height: 1.2;
+      }
+      .static-hero p {
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        color: #7c2d12;
+        max-width: 780px;
+        margin: 0 auto 1.5rem;
+      }
+      .static-hero-badges {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .static-badge {
+        background: #ffffff;
+        color: #c2410c;
+        border: 1px solid #fdba74;
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      }
+      .static-container {
+        max-width: 1200px;
+        margin: 2.5rem auto;
+        padding: 0 1.25rem;
+      }
+      .static-section-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--dovi-dark);
+        margin-bottom: 0.4rem;
+      }
+      .static-section-sub {
+        color: var(--dovi-gray);
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+      }
+      .static-cat-grid {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 3rem;
+      }
+      .static-cat-pill {
+        background: #ffffff;
+        border: 1px solid var(--dovi-border);
+        border-radius: 9999px;
+        padding: 0.5rem 1rem;
+        text-decoration: none;
+        color: var(--dovi-dark);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+      .static-product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 3.5rem;
+      }
+      .static-product-card {
+        background: #ffffff;
+        border: 1px solid var(--dovi-border);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: transform 0.15s, box-shadow 0.15s;
+      }
+      .product-link {
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .product-img-wrap {
+        position: relative;
+        width: 100%;
+        padding-top: 100%;
+        background: #f9fafb;
+      }
+      .product-img-wrap img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .badge-escrow {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        background: rgba(17, 24, 39, 0.85);
+        color: #ffffff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+      }
+      .product-info {
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+      .product-cat {
+        font-size: 0.75rem;
+        color: var(--dovi-orange);
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+      }
+      .product-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--dovi-dark);
+        margin: 0 0 0.5rem;
+        line-height: 1.35;
+      }
+      .product-desc {
+        font-size: 0.825rem;
+        color: var(--dovi-gray);
+        margin: 0 0 0.75rem;
+        line-height: 1.4;
+      }
+      .product-price-row {
+        margin-top: auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .product-price {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--dovi-dark);
+      }
+      .vendor-tag {
+        font-size: 0.75rem;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .static-value-props {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3.5rem;
+      }
+      .value-prop-card {
+        background: #ffffff;
+        border: 1px solid var(--dovi-border);
+        border-radius: 12px;
+        padding: 1.75rem;
+      }
+      .value-prop-card h3 {
+        color: #111827;
+        font-size: 1.15rem;
+        margin: 0.5rem 0;
+      }
+      .value-prop-card p {
+        color: #4b5563;
+        font-size: 0.9rem;
+        margin: 0;
+      }
+      .static-faq-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 3.5rem;
+      }
+      .static-faq-card {
+        background: #ffffff;
+        border: 1px solid var(--dovi-border);
+        border-radius: 10px;
+        padding: 1.25rem;
+      }
+      .faq-question {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--dovi-dark);
+        margin: 0 0 0.5rem;
+      }
+      .faq-answer {
+        font-size: 0.875rem;
+        color: var(--dovi-gray);
+        margin: 0;
+        line-height: 1.55;
+      }
+      .static-footer {
+        background: #111827;
+        color: #d1d5db;
+        padding: 3rem 1.25rem 2rem;
+        margin-top: 4rem;
+      }
+      .static-footer-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+      .footer-col h4 {
+        color: #ffffff;
+        font-size: 1rem;
+        margin: 0 0 1rem;
+      }
+      .footer-col ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .footer-col li {
+        margin-bottom: 0.5rem;
+      }
+      .footer-col a {
+        color: #9ca3af;
+        text-decoration: none;
+        font-size: 0.875rem;
+      }
+      .footer-col a:hover { color: var(--dovi-orange); }
+      .footer-bottom {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-top: 1.5rem;
+        border-top: 1px solid #374151;
+        text-align: center;
+        font-size: 0.825rem;
+        color: #9ca3af;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- 
+      Crawlable Semantic HTML Root:
+      Contains full business knowledge, verified products, categories, FAQs, and policies.
+      Crawlable by Smartsupp Mira AI, Googlebot, Bingbot, and Gemini.
+      Replaced seamlessly by React upon client-side application mount.
+    -->
+    <div id="root">
+      <!-- Fallback Header -->
+      <header class="static-header">
+        <div class="static-header-inner">
+          <a href="/" class="static-logo">
+            <img src="/logo.jpg" alt="Dovi Marketplace Logo" width="38" height="38" />
+            <span>DOVI</span>
+          </a>
+          <nav>
+            <ul class="static-nav">
+              <li><a href="/">Home</a></li>
+              <li><a href="/products">All Products</a></li>
+              <li><a href="/about">About Dovi</a></li>
+              <li><a href="/faq">FAQ</a></li>
+              <li><a href="/shipping">Shipping Policy</a></li>
+              <li><a href="/returns">Returns Policy</a></li>
+              <li><a href="/contact">Contact Support</a></li>
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="static-hero">
+        <h1>Dovi — Shop Smart. Feel Good.</h1>
+        <p>The centralized campus marketplace built for Nigerian students. Shop authentic phones, laptops, electronics, fashion, and everyday essentials with 100% Escrow Buyer Protection, Save2Own zero-interest micro-installments, and fast campus fulfillment.</p>
+        <div class="static-hero-badges">
+          <span class="static-badge">🛡️ 100% Escrow Protection</span>
+          <span class="static-badge">💰 Save2Own Zero-Interest Installments</span>
+          <span class="static-badge">🚚 Fast Campus Delivery & Onitsha Hub</span>
+          <span class="static-badge">✅ Verified Vendors & Students</span>
+        </div>
+      </section>
+
+      <main class="static-container">
+        <!-- Categories -->
+        <section>
+          <h2 class="static-section-title">Explore Official Marketplace Categories</h2>
+          <p class="static-section-sub">Browse top-quality items curated across 12 official campus departments.</p>
+          <div class="static-cat-grid">
+            
+      <a href="/categories/fashion-clothing" class="static-cat-pill">
+        <span class="cat-icon">👗</span>
+        <span class="cat-name">Fashion & Clothing</span>
+      </a>
+    
+      <a href="/categories/shoes-footwear" class="static-cat-pill">
+        <span class="cat-icon">👟</span>
+        <span class="cat-name">Shoes & Footwear</span>
+      </a>
+    
+      <a href="/categories/phones-tablets-gadgets" class="static-cat-pill">
+        <span class="cat-icon">📱</span>
+        <span class="cat-name">Phones, Tablets & Gadgets</span>
+      </a>
+    
+      <a href="/categories/computing-accessories" class="static-cat-pill">
+        <span class="cat-icon">💻</span>
+        <span class="cat-name">Computing & Accessories</span>
+      </a>
+    
+      <a href="/categories/electronics-appliances" class="static-cat-pill">
+        <span class="cat-icon">⚡</span>
+        <span class="cat-name">Electronics & Appliances</span>
+      </a>
+    
+      <a href="/categories/campus-student-essentials" class="static-cat-pill">
+        <span class="cat-icon">🎒</span>
+        <span class="cat-name">Campus & Student Essentials</span>
+      </a>
+    
+      <a href="/categories/beauty-health-personal-care" class="static-cat-pill">
+        <span class="cat-icon">💄</span>
+        <span class="cat-name">Beauty, Health & Personal Care</span>
+      </a>
+    
+      <a href="/categories/furniture-home-decor" class="static-cat-pill">
+        <span class="cat-icon">🛋️</span>
+        <span class="cat-name">Furniture & Home Decor</span>
+      </a>
+    
+      <a href="/categories/groceries-packaged-food" class="static-cat-pill">
+        <span class="cat-icon">🛒</span>
+        <span class="cat-name">Groceries & Packaged Food</span>
+      </a>
+    
+      <a href="/categories/sports-fitness-outdoors" class="static-cat-pill">
+        <span class="cat-icon">⚽</span>
+        <span class="cat-name">Sports, Fitness & Outdoors</span>
+      </a>
+    
+      <a href="/categories/books-stationery-art" class="static-cat-pill">
+        <span class="cat-icon">📚</span>
+        <span class="cat-name">Books, Stationery & Art</span>
+      </a>
+    
+      <a href="/categories/auto-parts-accessories" class="static-cat-pill">
+        <span class="cat-icon">🚗</span>
+        <span class="cat-name">Auto Parts & Accessories</span>
+      </a>
+    
+          </div>
+        </section>
+
+        <!-- Live Products Grid -->
+        <section>
+          <h2 class="static-section-title">Verified Marketplace Catalog</h2>
+          <p class="static-section-sub">Shop brand new and verified quality products backed by 48-hour buyer inspection guarantees.</p>
+          <div class="static-product-grid">
+            
+      <article class="static-product-card">
+        <a href="/products/350a679b-746a-4102-9710-2599dcd3aeb0" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/350a679b-746a-4102-9710-2599dcd3aeb0/thumbnail/thumb_4a354b4d.jpg" alt="Luxury Golden Crystal LED Decorative Bulb" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Furniture & Home Decor</span>
+            <h3 class="product-name">Luxury Golden Crystal LED Decorative Bulb</h3>
+            <p class="product-desc">Illuminate your space with elegance using this Luxury Golden Crystal LED Decorative Bulb. Featuring a stunning...</p>
+            <div class="product-price-row">
+              <span class="product-price">₦9,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/3318868a-1e34-43f4-888e-c9d63d373509" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/3318868a-1e34-43f4-888e-c9d63d373509/thumbnail/thumb_41d08c27.jpg" alt="Aroma Humidifier" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Aroma Humidifier</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦35,500.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/2967f4f6-bf01-4001-bfb5-df287afabd56" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/2967f4f6-bf01-4001-bfb5-df287afabd56/thumbnail/thumb_5bb11b1d.jpg" alt="Intelligent Aromatherapy" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Intelligent Aromatherapy</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦20,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/23a9ba40-294a-4c8b-bef5-f0e1fa92abaa" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/23a9ba40-294a-4c8b-bef5-f0e1fa92abaa/thumbnail/thumb_fabdedeb.jpg" alt="Flame aroma diffuser" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Flame aroma diffuser</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦25,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/0cd35e98-6eda-467d-8528-1ce1e8948f0f" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/0cd35e98-6eda-467d-8528-1ce1e8948f0f/thumbnail/thumb_85fb0990.jpg" alt="TCL 55- inch Smart TV" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">TCL 55- inch Smart TV</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦500,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71/thumbnail/thumb_b00e4bed.jpg" alt="2000 mAh rechargeable Hair Clippers" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">2000 mAh rechargeable Hair Clippers</h3>
+            <p class="product-desc">Key Features Heavy-Duty Precision Blades: Fitted with high-grade, self-sharpening steel blades that glide effo...</p>
+            <div class="product-price-row">
+              <span class="product-price">₦15,700.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef/thumbnail/thumb_c4f807f6.jpg" alt="TCL 50-inch Smart TV" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">TCL 50-inch Smart TV</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦380,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/3d2350c1-8325-4a02-b554-d24b650ad901" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/3d2350c1-8325-4a02-b554-d24b650ad901/thumbnail/thumb_d3d14939.jpg" alt="Yxahee Shoe Racks" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Yxahee Shoe Racks</h3>
+            <p class="product-desc">Easy to Install</p>
+            <div class="product-price-row">
+              <span class="product-price">₦10,360.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/66d4c89f-ea43-4fb3-904e-7de1ea7577e9" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/66d4c89f-ea43-4fb3-904e-7de1ea7577e9/thumbnail/thumb_a0dea3e0.jpg" alt="TCL 43” Android Smart TV - Frameless" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">TCL 43” Android Smart TV - Frameless</h3>
+            <p class="product-desc">Smart Frameless TV</p>
+            <div class="product-price-row">
+              <span class="product-price">₦305,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d/thumbnail/thumb_2ccfa562.jpg" alt="Oraimo watch muse" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Oraimo watch muse</h3>
+            <p class="product-desc">Smart watch 1.32 AMOLED screen 
+Anti scratch 
+Up to 11 days usage time</p>
+            <div class="product-price-row">
+              <span class="product-price">₦42,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa/thumbnail/thumb_82659b4a.jpg" alt="Red Diamond" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Red Diamond</h3>
+            <p class="product-desc">Cool floral scent</p>
+            <div class="product-price-row">
+              <span class="product-price">₦8,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/38897758-8093-46e3-a005-63a4581e3bb7" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/38897758-8093-46e3-a005-63a4581e3bb7/thumbnail/thumb_b9b726e4.jpg" alt="Nivea dry impact roll on for men 70hrs, 50ml" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Nivea dry impact roll on for men 70hrs, 50ml</h3>
+            <p class="product-desc">-Reliable 70hrs anti perspirant protection that cares for your skin</p>
+            <div class="product-price-row">
+              <span class="product-price">₦5,200.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/5de6a587-2191-4495-a0ec-bd2f0d30ba80" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/5de6a587-2191-4495-a0ec-bd2f0d30ba80/thumbnail/thumb_290eb8c6.jpg" alt="Pyjamas" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Pyjamas</h3>
+            <p class="product-desc">Loose and Comfortable</p>
+            <div class="product-price-row">
+              <span class="product-price">₦7,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/fc26c3d7-8e88-4f6b-b648-0b512b031e20" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/fc26c3d7-8e88-4f6b-b648-0b512b031e20/thumbnail/thumb_43a8e32b.jpg" alt="Quality jeans" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Quality jeans</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦28,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/a0871326-206d-4888-b7af-df8b5f6d182a" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a0871326-206d-4888-b7af-df8b5f6d182a/thumbnail/thumb_3b1db74a.jpg" alt="Baggy jeans" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Baggy jeans</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦25,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/915504e3-a5eb-46ce-be83-f7ece5e5707a" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/915504e3-a5eb-46ce-be83-f7ece5e5707a/thumbnail/thumb_1690668d.jpg" alt="Syinix 8.5kg top load twin tub washing machine" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Syinix 8.5kg top load twin tub washing machine</h3>
+            <p class="product-desc">-model: E8WTMG
+-Type: semi-automatic twin tub washing machine 
+-wash capacity: 8.5kg
+-spin capacity: 5kg</p>
+            <div class="product-price-row">
+              <span class="product-price">₦165,000.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/a36c024a-77e4-4582-be28-b85aab404bfc" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a36c024a-77e4-4582-be28-b85aab404bfc/thumbnail/thumb_f7568743.jpg" alt="Tongue cleaner" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Fashion & Apparel</span>
+            <h3 class="product-name">Tongue cleaner</h3>
+            
+            <div class="product-price-row">
+              <span class="product-price">₦1,500.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+      <article class="static-product-card">
+        <a href="/products/0023fd0f-715d-4578-94ad-e84efb1f3ba8" class="product-link">
+          <div class="product-img-wrap">
+            <img src="https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/0023fd0f-715d-4578-94ad-e84efb1f3ba8/thumbnail/thumb_e5eeb6b6.jpg" alt="Iniu 20000mah power bank" loading="lazy" width="220" height="220" />
+            <span class="badge-escrow">100% Escrow</span>
+          </div>
+          <div class="product-info">
+            <span class="product-cat">Electronics</span>
+            <h3 class="product-name">Iniu 20000mah power bank</h3>
+            <p class="product-desc">Portable charger, ultra slim. 
+
+- Product Name: IN-203 Charging-Bank
+
+- Nominal Battery Capacity: 20000mAh/3.7...</p>
+            <div class="product-price-row">
+              <span class="product-price">₦15,700.00</span>
+              <span class="vendor-tag">Dovi Official Store</span>
+            </div>
+          </div>
+        </a>
+      </article>
+    
+          </div>
+        </section>
+
+        <!-- Why Choose Dovi (Knowledge Section) -->
+        <section>
+          <h2 class="static-section-title">The Dovi Difference</h2>
+          <p class="static-section-sub">How our centralized marketplace infrastructure protects buyers and empowers merchants.</p>
+          <div class="static-value-props">
+            <div class="value-prop-card">
+              <span style="font-size: 2rem;">🛡️</span>
+              <h3>100% Escrow Buyer Protection</h3>
+              <p>Your money is safe with Dovi. When you order, funds remain in escrow and are only released to the vendor after you inspect and accept your package within the 48-hour inspection period.</p>
+            </div>
+            <div class="value-prop-card">
+              <span style="font-size: 2rem;">💰</span>
+              <h3>Save2Own Micro-Installments</h3>
+              <p>Achieve your gadget and campus goals without financial stress. Lock in guaranteed product prices and pay in flexible daily or weekly installments with 0% interest and 0 hidden fees.</p>
+            </div>
+            <div class="value-prop-card">
+              <span style="font-size: 2rem;">🚚</span>
+              <h3>Onitsha Hub & Campus Logistics</h3>
+              <p>All items pass through our centralized Onitsha Logistics Hub for physical quality checks and multi-vendor parcel consolidation, reducing shipping fees and preventing fake goods.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Frequently Asked Questions (Knowledge Ingestion for Mira AI) -->
+        <section>
+          <h2 class="static-section-title">Frequently Asked Questions</h2>
+          <p class="static-section-sub">Instant answers to everything you need to know about shopping, delivery, and payments on Dovi.</p>
+          <div class="static-faq-grid">
+            
+      <div class="static-faq-card">
+        <h3 class="faq-question">What is Dovi?</h3>
+        <p class="faq-answer">Dovi (https://dovishop.com) is Nigeria's premier centralized student and campus marketplace, operating under the brand tagline 'Dovi — Shop Smart. Feel Good.' We connect verified vendors and student buyers with 100% escrow buyer protection, zero-interest Save2Own micro-installments, and fast campus fulfillment.</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">How does Dovi Escrow Buyer Protection work?</h3>
+        <p class="faq-answer">When you pay for an order on Dovi, your payment is held securely in our centralized escrow account. The vendor only receives payment after the package arrives, is inspected at our hub or delivery point, and you have confirmed satisfaction within the 48-hour inspection period. If the item is defective or not as described, your payment is promptly refunded.</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">What is Save2Own on Dovi?</h3>
+        <p class="faq-answer">Save2Own is Dovi's zero-interest micro-installment savings program designed for students. It allows you to lock in the price of essential items (such as laptops, smartphones, home electronics, and course equipment) and pay in flexible daily, weekly, or monthly installments. Once fully funded, the product is dispatched directly to your campus.</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">How does shipping and campus delivery work?</h3>
+        <p class="faq-answer">Dovi operates a centralized fulfillment model with its primary consolidation hub in Onitsha, Anambra State. Small parcels and electronics arrive at campus delivery hubs within 24 to 72 hours, while standard regional parcels typically take 2 to 5 business days. Real-time tracking is provided for every order.</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">What is the return and refund policy?</h3>
+        <p class="faq-answer">Buyers enjoy a 48-hour inspection window upon package receipt. If an item arrives damaged, defective, or incorrect, you can initiate a return through your Dovi dashboard or by emailing support@dovishop.com. Returned items are inspected at our hub, and approved refunds are credited back via your original payment method or Dovi wallet.</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">How do I contact Dovi customer support?</h3>
+        <p class="faq-answer">You can reach Dovi Customer Care by email at hello@dovishop.com or support@dovishop.com, through our website live chat powered by Smartsupp at https://dovishop.com, or via our customer support hotline during business hours (Monday to Saturday, 8:00 AM – 8:00 PM WAT).</p>
+      </div>
+    
+      <div class="static-faq-card">
+        <h3 class="faq-question">Can students and vendors sell their products on Dovi?</h3>
+        <p class="faq-answer">Yes! Dovi welcomes verified independent merchants, brand distributors, and student entrepreneurs. Vendors undergo identity and store verification, list products in accordance with our quality guidelines, and receive automated weekly payouts once deliveries are confirmed.</p>
+      </div>
+    
+          </div>
+        </section>
+      </main>
+
+      <!-- Static Footer -->
+      <footer class="static-footer">
+        <div class="static-footer-inner">
+          <div class="footer-col">
+            <h4>Dovi Marketplace</h4>
+            <p style="font-size: 0.875rem; color: #9ca3af; line-height: 1.6;">
+              Dovi — Shop Smart. Feel Good.<br />
+              Nigeria's premier student-focused centralized marketplace.<br />
+              Operating from the Central Logistics Hub in Onitsha, Anambra State, Nigeria.
+            </p>
+          </div>
+          <div class="footer-col">
+            <h4>Customer Support</h4>
+            <ul>
+              <li><a href="/contact">Contact Support</a></li>
+              <li><a href="/faq">Help Center & FAQ</a></li>
+              <li><a href="/shipping">Shipping & Delivery Rates</a></li>
+              <li><a href="/returns">Returns & Refunds (48-Hr)</a></li>
+              <li>Email: <a href="mailto:hello@dovishop.com">hello@dovishop.com</a></li>
+              <li>Support: <a href="mailto:support@dovishop.com">support@dovishop.com</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Legal & Trust</h4>
+            <ul>
+              <li><a href="/terms">Terms of Service</a></li>
+              <li><a href="/privacy">Privacy Policy</a></li>
+              <li><a href="/about">About Dovi Technologies</a></li>
+              <li>100% Escrow Guarantee</li>
+              <li>Verified Vendor Program</li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Top Categories</h4>
+            <ul>
+              <li><a href="/categories/phones-tablets-gadgets">Phones & Gadgets</a></li>
+              <li><a href="/categories/computing-accessories">Laptops & Computing</a></li>
+              <li><a href="/categories/electronics-appliances">Electronics & Appliances</a></li>
+              <li><a href="/categories/fashion-clothing">Fashion & Apparel</a></li>
+              <li><a href="/categories/shoes-footwear">Shoes & Footwear</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2026 Dovi Technologies. A product of Malc Nexus Technologies Limited. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+
+    <!-- React Application Entry Point -->
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -27,6 +1334,18 @@
             .catch((err) => console.error('Service Worker registration failed:', err));
         });
       }
+    </script>
+
+    <!-- Smartsupp Live Chat script -->
+    <script type="text/javascript">
+      var _smartsupp = _smartsupp || {};
+      _smartsupp.key = 'e9146c760832a54792657588a0c209aa694d26da';
+      window.smartsupp||(function(d) {
+        var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
+        s=d.getElementsByTagName('script')[0];c=d.createElement('script');
+        c.type='text/javascript';c.charset='utf-8';c.async=true;
+        c.src='https://www.smartsuppchat.com/loader.js?';s.parentNode.insertBefore(c,s);
+      })(document);
     </script>
     <noscript>Powered by <a href="https://www.smartsupp.com" target="_blank" rel="noopener noreferrer">Smartsupp</a></noscript>
   </body>

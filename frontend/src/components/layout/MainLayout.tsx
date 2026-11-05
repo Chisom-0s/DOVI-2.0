@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import type { CSSProperties } from 'react';
 import Header from './Header';
 import BottomNav from './BottomNav';
+import MarketplaceFooter from './MarketplaceFooter';
 
 export default function MainLayout() {
   return (
@@ -13,6 +14,9 @@ export default function MainLayout() {
       <main style={mainContentStyles} className="main-content-area">
         <Outlet />
       </main>
+
+      {/* Marketplace Footer */}
+      <MarketplaceFooter />
 
       {/* Mobile Bottom Navigation Bar */}
       <BottomNav />
