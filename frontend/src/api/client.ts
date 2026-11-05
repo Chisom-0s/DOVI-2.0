@@ -19,20 +19,10 @@ export const tokenStore = {
 };
 
 /**
- * Resolves the API base URL.
- * In a browser environment on a live deployment (dovishop.com or *.vercel.app),
- * returning empty string "" routes API requests to the same origin, where Vercel
- * rewrites seamlessly proxy to Render without any CORS issues or preflight delays.
+ * Resolves the backend API base URL
  */
 export function getApiBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    // On production or staging web domains, use relative origin for proxying
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      return '';
-    }
-  }
-  return import.meta.env.VITE_API_BASE_URL || '';
+  return import.meta.env.VITE_API_BASE_URL || 'https://dovi-2-0-backend.onrender.com';
 }
 
 /**
@@ -40,8 +30,7 @@ export function getApiBaseUrl(): string {
  */
 export function warmupBackend() {
   const base = getApiBaseUrl();
-  const target = base ? `${base.replace(/\/+$/, '')}/health/` : '/health/';
-  fetch(target, {
+  fetch(`${base.replace(/\/+$/, '')}/health/`, {
     method: 'GET',
     cache: 'no-cache',
   }).catch(() => {

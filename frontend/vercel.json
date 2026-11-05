@@ -4,14 +4,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/v1/:path*",
-      "destination": "https://dovi-2-0-backend.onrender.com/api/v1/:path*"
-    },
-    {
-      "source": "/health/:path*",
-      "destination": "https://dovi-2-0-backend.onrender.com/health/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

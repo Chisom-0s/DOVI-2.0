@@ -1,465 +1,481 @@
-// Products API — GET /api/v1/products/*
-import apiClient, { normalizeApiError } from './client';
-import { normalizeBackendProductToSummary, fetchRealBackendProducts, SEED_REAL_PRODUCTS } from './homepage';
-import { normalizeUrl } from '@/utils/image';
-import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
-import {
-  enrichProductWithCategory,
-  doesProductMatchCategoryFilter,
-  syncCategoriesFromServer,
-} from '@/services/categoryService';
-import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
-
-export interface ProductFilters {
-  page?: number;
-  page_size?: number;
-  category?: string;
-  subcategory?: string;
-  q?: string;
-  search?: string;
-  sort?: 'price_asc' | 'price_desc' | 'newest' | 'rating';
-  min_price?: number;
-  max_price?: number;
-  min_rating?: number;
-  vendor?: string;
-  in_stock?: boolean;
-}
-
-function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Review[] {
-  return [];
-}
-
-export const productsApi = {
-  list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
-    try {
-      await syncCategoriesFromServer();
-      const queryParams: Record<string, any> = {};
-      if (filters?.page && !filters?.category && !filters?.subcategory) queryParams.page = filters.page;
-      if (filters?.page_size && !filters?.category && !filters?.subcategory) queryParams.page_size = filters.page_size;
-      if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
-      if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
-      if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
-      if (filters?.min_rating !== undefined) queryParams.min_rating = filters.min_rating;
-      if (filters?.q) {
-        queryParams.search = filters.q;
-      } else if (filters?.search) {
-        queryParams.search = filters.search;
-      }
-
-      if (filters?.sort) {
-        if (filters.sort === 'price_asc') queryParams.ordering = 'base_price';
-        else if (filters.sort === 'price_desc') queryParams.ordering = '-base_price';
-        else if (filters.sort === 'newest') queryParams.ordering = '-created_at';
-        else if (filters.sort === 'rating') queryParams.ordering = '-created_at';
-      }
-
-      const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
-      const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
-
-      let deletedIds: string[] = [];
-      try {
-        deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
-      } catch {}
-
-      let realProducts = rawList
-        .filter((p: any) => {
-          if (!p) return false;
-          if (deletedIds.includes(p.id)) return false;
-          if (p.status === 'ARCHIVED' || p.status === 'DELETED') return false;
-          return true;
-        })
-        .map((p) => normalizeBackendProductToSummary(p));
-
-      if (filters?.category || filters?.subcategory) {
-        realProducts = realProducts.filter((p) =>
-          doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
-        );
-      }
-
-      if (filters?.min_rating) {
-        realProducts = realProducts.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
-      }
-      if (filters?.sort === 'rating') {
-        realProducts = [...realProducts].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
-      }
-
-      const isDefaultView =
-        !filters?.category &&
-        !filters?.subcategory &&
-        !filters?.min_price &&
-        !filters?.max_price &&
-        !filters?.in_stock &&
-        !filters?.min_rating &&
-        !filters?.q &&
-        (filters?.page || 1) === 1;
-      if (isDefaultView && realProducts.length > 0) {
-        try {
-          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
-          localStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
-        } catch {}
-      }
-
-      const totalCount =
-        filters?.category || filters?.subcategory
-          ? realProducts.length
-          : typeof data?.count === 'number'
-          ? data.count
-          : realProducts.length;
-
-      return {
-        count: totalCount,
-        next: filters?.category || filters?.subcategory ? null : data?.next || null,
-        previous: filters?.category || filters?.subcategory ? null : data?.previous || null,
-        results: realProducts,
-      };
-    } catch (err: any) {
-      console.warn('Backend products list fetch failed, falling back to cached seed:', err?.message || err);
-      let list: ProductSummary[] = [];
-      try {
-        const fromSession = sessionStorage.getItem('dovi_real_products_cache');
-        if (fromSession) list = JSON.parse(fromSession);
-      } catch {}
-      if (!list || list.length === 0) {
-        try {
-          const fromLocal = localStorage.getItem('dovi_real_products_cache');
-          if (fromLocal) list = JSON.parse(fromLocal);
-        } catch {}
-      }
-      if (!list || list.length === 0) {
-        list = SEED_REAL_PRODUCTS;
-      }
-
-      if (Array.isArray(list) && list.length > 0) {
-        let deletedIds: string[] = [];
-        try {
-          deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
-        } catch {}
-        let cleaned = list
-          .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
-          .map((p) => enrichProductWithCategory(enrichProductWithDelivery(p)));
-        if (filters?.category || filters?.subcategory) {
-          cleaned = cleaned.filter((p) =>
-            doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
-          );
-        }
-        if (filters?.min_rating) {
-          cleaned = cleaned.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
-        }
-        if (filters?.sort === 'rating') {
-          cleaned = [...cleaned].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
-        }
-        return {
-          count: cleaned.length,
-          next: null,
-          previous: null,
-          results: cleaned,
-        };
-      }
-
-      throw err;
-    }
-  },
-
-  getById: async (id: string): Promise<Product> => {
-    // 1. Try backend first
-    try {
-      await syncCategoriesFromServer();
-      const { data } = await apiClient.get(`/api/v1/products/${id}/`);
-      const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
-      const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
-        if (!img) return img;
-        if (typeof img === 'string') return normalizeUrl(img) || img;
-        return {
-          ...img,
-          image_url: normalizeUrl(img.image_url) || img.image_url,
-          thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
-          url: normalizeUrl(img.url || img.image_url) || img.url,
-        };
-      });
-      return enrichProductWithCategory(
-        enrichProductWithDelivery({
-          ...data,
-          primary_image_url: normPrimary,
-          image_url: normPrimary || data.image_url,
-          images: normImages,
-        } as any)
-      ) as Product;
-    } catch (err: any) {
-      console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
-    }
-
-    // 2. Check local sessionStorage cache of real backend products
-    try {
-      const cached = sessionStorage.getItem('dovi_real_products_cache');
-      if (cached) {
-        const list: ProductSummary[] = JSON.parse(cached);
-        const found = list.find((p: any) => (p.id === id || p.slug === id) && !String(p.id).startsWith('prod-'));
-        if (found) {
-          const normPrimary = normalizeUrl(found.primary_image_url) || found.primary_image_url;
-          return enrichProductWithDelivery({
-            ...found,
-            category: found.category || 'General',
-            description:
-              (found as any).description ||
-              `Premium authentic ${found.name} available at Dovi Official Store.`,
-            status: found.status || 'PUBLISHED',
-            primary_image_url: normPrimary,
-            image_url: normPrimary || found.image_url,
-            images:
-              found.images && found.images.length > 0
-                ? found.images
-                : normPrimary
-                ? [{ id: `img-${found.id}`, image_url: normPrimary, is_primary: true }]
-                : [],
-            variants:
-              found.variants && found.variants.length > 0
-                ? found.variants
-                : [
-                    {
-                      id: `var-${found.id}`,
-                      name: 'Standard Option',
-                      sku: `SKU-${found.id.substring(0, 8).toUpperCase()}`,
-                      stock: found.stock_quantity || 10,
-                      reserved: 0,
-                    },
-                  ],
-          } as any) as Product;
-        }
-      }
-    } catch {}
-
-    // Resilient fallback product for offline resilience
-    return enrichProductWithDelivery({
-      id,
-      name: 'Smart 4K UHD Television (55-Inch)',
-      base_price: '450000',
-      price: '450000',
-      description: 'Ultra HD 4K Smart Television with HDR10, Voice Control, and Save2Own purchase option.',
-      primary_image_url:
-        'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
-      image_url: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
-      vendor: {
-        id: 'vendor-1',
-        name: 'Dovi Official Partner',
-        logo_url: null,
-        rating: 5,
-        review_count: 12,
-        location: 'Lagos, Nigeria',
-      },
-      vendor_name: 'Dovi Official Partner',
-      stock_quantity: 10,
-      variants: [
-        {
-          id: `var-${id}-1`,
-          name: 'Standard Option',
-          price: '450000',
-          stock: 10,
-          sku: `SKU-${(id || 'DEFAULT').substring(0, 8).toUpperCase()}`,
-        },
-      ],
-      average_rating: 4.8,
-      review_count: 12,
-      status: 'PUBLISHED',
-      created_at: new Date().toISOString(),
-    } as any) as Product;
-  },
-
-  search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
-    try {
-      const queryParams: Record<string, any> = { search: q, ...filters };
-      delete queryParams.q;
-      const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
-      const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
-      const realProducts = rawList.map((p) => normalizeBackendProductToSummary(p));
-
-      return {
-        count: data?.count ?? realProducts.length,
-        next: data?.next || null,
-        previous: data?.previous || null,
-        results: realProducts,
-      };
-    } catch (err: any) {
-      console.warn('Backend search failed:', err?.message || err);
-      return {
-        count: 0,
-        next: null,
-        previous: null,
-        results: [],
-      };
-    }
-  },
-
-  featured: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/featured/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      return real;
-    }
-  },
-
-  trending: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/trending/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      const matching = real.filter((r) => r.is_trending);
-      return matching.length > 0 ? matching : real;
-    }
-  },
-
-  newArrivals: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/new-arrivals/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      return real;
-    }
-  },
-
-  bestSellers: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/best-sellers/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      const matching = real.filter((r) => r.is_best_seller);
-      return matching.length > 0 ? matching : real;
-    }
-  },
-
-  flashDeals: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/flash-deals/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      const matching = real.filter((r) => r.is_flash_deal);
-      return matching.length > 0 ? matching : real;
-    }
-  },
-
-  budgetDeals: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/budget-deals/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      const matching = real.filter((r) => r.is_hot_sale);
-      return matching.length > 0 ? matching : real;
-    }
-  },
-
-  topRated: async (): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/products/top-rated/');
-      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
-    } catch {
-      const real = await fetchRealBackendProducts();
-      return real;
-    }
-  },
-
-  getVariants: async (id: string): Promise<ProductVariant[]> => {
-    try {
-      const { data } = await apiClient.get(`/api/v1/products/${id}/variants/`);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  getReviews: async (
-    id: string,
-    params?: { page?: number; rating?: number; sort?: string }
-  ): Promise<PaginatedResponse<Review>> => {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (!isUuid) {
-      const results = getFallbackReviews(id, params?.rating, params?.sort);
-      return {
-        count: results.length,
-        next: null,
-        previous: null,
-        results,
-      };
-    }
-
-    try {
-      const { data } = await apiClient.get(`/api/v1/products/${id}/reviews/`, { params });
-      return data;
-    } catch (err: any) {
-      if (err?.response?.status === 404 || !err?.response) {
-        const results = getFallbackReviews(id, params?.rating, params?.sort);
-        return {
-          count: results.length,
-          next: null,
-          previous: null,
-          results,
-        };
-      }
-      throw normalizeApiError(err);
-    }
-  },
-
-  submitReview: async (id: string, payload: FormData): Promise<Review> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/products/${id}/reviews/`, payload);
-      return data;
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  getRelated: async (id: string): Promise<ProductSummary[]> => {
-    try {
-      const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
-      return Array.isArray(data) ? data : data?.results ?? [];
-    } catch (err: unknown) {
-      if ((err as { response?: { status?: number } })?.response?.status === 404) {
-        return [];
-      }
-      throw normalizeApiError(err);
-    }
-  },
-
-  uploadImage: async (
-    productId: string,
-    imageFile: File,
-    isPrimary: boolean = false
-  ): Promise<{
-    id: string;
-    product: string;
-    image_url: string;
-    thumbnail_url: string;
-    storage_key: string;
-    is_primary: boolean;
-    created_at: string;
-  }> => {
-    try {
-      const formData = new FormData();
-      formData.append('image', imageFile, imageFile.name);
-      formData.append('file', imageFile, imageFile.name);
-      formData.append('is_primary', isPrimary ? 'true' : 'false');
-
-      const { data } = await apiClient.post(`/api/v1/products/${productId}/images/`, formData);
-      return {
-        ...data,
-        image_url: normalizeUrl(data.image_url) || data.image_url,
-        thumbnail_url: normalizeUrl(data.thumbnail_url) || data.thumbnail_url,
-      };
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-
-  deleteImage: async (productId: string, imageId: string): Promise<void> => {
-    try {
-      await apiClient.delete(`/api/v1/products/${productId}/images/${imageId}/`);
-    } catch (err) {
-      throw normalizeApiError(err);
-    }
-  },
-};
+// Products API — GET /api/v1/products/*
+import apiClient, { normalizeApiError } from './client';
+import { normalizeBackendProductToSummary, fetchRealBackendProducts, SEED_REAL_PRODUCTS } from './homepage';
+import { normalizeUrl } from '@/utils/image';
+import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
+import {
+  enrichProductWithCategory,
+  doesProductMatchCategoryFilter,
+  syncCategoriesFromServer,
+} from '@/services/categoryService';
+import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
+
+export interface ProductFilters {
+  page?: number;
+  page_size?: number;
+  category?: string;
+  subcategory?: string;
+  q?: string;
+  search?: string;
+  sort?: 'price_asc' | 'price_desc' | 'newest' | 'rating';
+  min_price?: number;
+  max_price?: number;
+  min_rating?: number;
+  vendor?: string;
+  in_stock?: boolean;
+}
+
+function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Review[] {
+  return [];
+}
+
+export const productsApi = {
+  list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
+    try {
+      await syncCategoriesFromServer();
+      const queryParams: Record<string, any> = {};
+      if (filters?.page && !filters?.category && !filters?.subcategory) queryParams.page = filters.page;
+      if (filters?.page_size && !filters?.category && !filters?.subcategory) queryParams.page_size = filters.page_size;
+      if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
+      if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
+      if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
+      if (filters?.min_rating !== undefined) queryParams.min_rating = filters.min_rating;
+      if (filters?.q) {
+        queryParams.search = filters.q;
+      } else if (filters?.search) {
+        queryParams.search = filters.search;
+      }
+
+      if (filters?.sort) {
+        if (filters.sort === 'price_asc') queryParams.ordering = 'base_price';
+        else if (filters.sort === 'price_desc') queryParams.ordering = '-base_price';
+        else if (filters.sort === 'newest') queryParams.ordering = '-created_at';
+        else if (filters.sort === 'rating') queryParams.ordering = '-created_at';
+      }
+
+      const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
+      const isValidList = data && (Array.isArray(data) || Array.isArray(data?.results));
+      if (!isValidList) {
+        throw new Error('Invalid products payload received from server');
+      }
+      const rawList: any[] = Array.isArray(data) ? data : data.results;
+
+      let deletedIds: string[] = [];
+      try {
+        deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+      } catch {}
+
+      let realProducts = rawList
+        .filter((p: any) => {
+          if (!p) return false;
+          if (deletedIds.includes(p.id)) return false;
+          if (p.status === 'ARCHIVED' || p.status === 'DELETED') return false;
+          return true;
+        })
+        .map((p) => normalizeBackendProductToSummary(p));
+
+      if (filters?.category || filters?.subcategory) {
+        realProducts = realProducts.filter((p) =>
+          doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+        );
+      }
+
+      if (filters?.min_rating) {
+        realProducts = realProducts.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
+      }
+      if (filters?.sort === 'rating') {
+        realProducts = [...realProducts].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+      }
+
+      const isDefaultView =
+        !filters?.category &&
+        !filters?.subcategory &&
+        !filters?.min_price &&
+        !filters?.max_price &&
+        !filters?.in_stock &&
+        !filters?.min_rating &&
+        !filters?.q &&
+        (filters?.page || 1) === 1;
+      if (isDefaultView && realProducts.length > 0) {
+        try {
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
+          localStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
+        } catch {}
+      }
+
+      const totalCount =
+        filters?.category || filters?.subcategory
+          ? realProducts.length
+          : typeof data?.count === 'number'
+          ? data.count
+          : realProducts.length;
+
+      return {
+        count: totalCount,
+        next: filters?.category || filters?.subcategory ? null : data?.next || null,
+        previous: filters?.category || filters?.subcategory ? null : data?.previous || null,
+        results: realProducts,
+      };
+    } catch (err: any) {
+      console.warn('Backend products list fetch failed, falling back to cached seed:', err?.message || err);
+      let list: ProductSummary[] = [];
+      try {
+        const fromSession = sessionStorage.getItem('dovi_real_products_cache');
+        if (fromSession) list = JSON.parse(fromSession);
+      } catch {}
+      if (!list || list.length === 0) {
+        try {
+          const fromLocal = localStorage.getItem('dovi_real_products_cache');
+          if (fromLocal) list = JSON.parse(fromLocal);
+        } catch {}
+      }
+      if (!list || list.length === 0) {
+        list = SEED_REAL_PRODUCTS;
+      }
+
+      if (Array.isArray(list) && list.length > 0) {
+        let deletedIds: string[] = [];
+        try {
+          deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+        } catch {}
+        let cleaned = list
+          .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
+          .map((p) => enrichProductWithCategory(enrichProductWithDelivery(p)));
+        if (filters?.category || filters?.subcategory) {
+          cleaned = cleaned.filter((p) =>
+            doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+          );
+        }
+        if (filters?.min_rating) {
+          cleaned = cleaned.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
+        }
+        if (filters?.sort === 'rating') {
+          cleaned = [...cleaned].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        }
+        return {
+          count: cleaned.length,
+          next: null,
+          previous: null,
+          results: cleaned,
+        };
+      }
+
+      throw err;
+    }
+  },
+
+  getById: async (id: string): Promise<Product> => {
+    // 1. Try backend first
+    try {
+      await syncCategoriesFromServer();
+      const { data } = await apiClient.get(`/api/v1/products/${id}/`);
+      const normPrimary = normalizeUrl(data.primary_image_url) || data.primary_image_url;
+      const normImages = (Array.isArray(data.images) ? data.images : []).map((img: any) => {
+        if (!img) return img;
+        if (typeof img === 'string') return normalizeUrl(img) || img;
+        return {
+          ...img,
+          image_url: normalizeUrl(img.image_url) || img.image_url,
+          thumbnail_url: normalizeUrl(img.thumbnail_url) || img.thumbnail_url,
+          url: normalizeUrl(img.url || img.image_url) || img.url,
+        };
+      });
+      return enrichProductWithCategory(
+        enrichProductWithDelivery({
+          ...data,
+          primary_image_url: normPrimary,
+          image_url: normPrimary || data.image_url,
+          images: normImages,
+        } as any)
+      ) as Product;
+    } catch (err: any) {
+      console.warn(`Backend fetch for product ${id} failed, checking local cache:`, err?.message || err);
+    }
+
+    // 2. Check local storage / seed products fallback
+    try {
+      let list: ProductSummary[] = [];
+      try {
+        const fromSession = sessionStorage.getItem('dovi_real_products_cache');
+        if (fromSession) list = JSON.parse(fromSession);
+      } catch {}
+      if (!list || list.length === 0) {
+        try {
+          const fromLocal = localStorage.getItem('dovi_real_products_cache');
+          if (fromLocal) list = JSON.parse(fromLocal);
+        } catch {}
+      }
+      if (!list || list.length === 0) {
+        list = SEED_REAL_PRODUCTS;
+      }
+      if (Array.isArray(list) && list.length > 0) {
+        const found = list.find((p: any) => (p.id === id || p.slug === id) && !String(p.id).startsWith('prod-'));
+        if (found) {
+          const normPrimary = normalizeUrl(found.primary_image_url) || found.primary_image_url;
+          return enrichProductWithDelivery({
+            ...found,
+            category: found.category || 'General',
+            description:
+              (found as any).description ||
+              `Premium authentic ${found.name} available at Dovi Official Store.`,
+            status: found.status || 'PUBLISHED',
+            primary_image_url: normPrimary,
+            image_url: normPrimary || found.image_url,
+            images:
+              found.images && found.images.length > 0
+                ? found.images
+                : normPrimary
+                ? [{ id: `img-${found.id}`, image_url: normPrimary, is_primary: true }]
+                : [],
+            variants:
+              found.variants && found.variants.length > 0
+                ? found.variants
+                : [
+                    {
+                      id: `var-${found.id}`,
+                      name: 'Standard Option',
+                      sku: `SKU-${found.id.substring(0, 8).toUpperCase()}`,
+                      stock: found.stock_quantity || 10,
+                      reserved: 0,
+                    },
+                  ],
+          } as any) as Product;
+        }
+      }
+    } catch {}
+
+    // Resilient fallback product for offline resilience
+    return enrichProductWithDelivery({
+      id,
+      name: 'Smart 4K UHD Television (55-Inch)',
+      base_price: '450000',
+      price: '450000',
+      description: 'Ultra HD 4K Smart Television with HDR10, Voice Control, and Save2Own purchase option.',
+      primary_image_url:
+        'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
+      image_url: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&q=80',
+      vendor: {
+        id: 'vendor-1',
+        name: 'Dovi Official Partner',
+        logo_url: null,
+        rating: 5,
+        review_count: 12,
+        location: 'Lagos, Nigeria',
+      },
+      vendor_name: 'Dovi Official Partner',
+      stock_quantity: 10,
+      variants: [
+        {
+          id: `var-${id}-1`,
+          name: 'Standard Option',
+          price: '450000',
+          stock: 10,
+          sku: `SKU-${(id || 'DEFAULT').substring(0, 8).toUpperCase()}`,
+        },
+      ],
+      average_rating: 4.8,
+      review_count: 12,
+      status: 'PUBLISHED',
+      created_at: new Date().toISOString(),
+    } as any) as Product;
+  },
+
+  search: async (q: string, filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
+    try {
+      const queryParams: Record<string, any> = { search: q, ...filters };
+      delete queryParams.q;
+      const { data } = await apiClient.get('/api/v1/products/', { params: queryParams });
+      const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
+      const realProducts = rawList.map((p) => normalizeBackendProductToSummary(p));
+
+      return {
+        count: data?.count ?? realProducts.length,
+        next: data?.next || null,
+        previous: data?.previous || null,
+        results: realProducts,
+      };
+    } catch (err: any) {
+      console.warn('Backend search failed:', err?.message || err);
+      return {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      };
+    }
+  },
+
+  featured: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/featured/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real;
+    }
+  },
+
+  trending: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/trending/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter((r) => r.is_trending);
+      return matching.length > 0 ? matching : real;
+    }
+  },
+
+  newArrivals: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/new-arrivals/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real;
+    }
+  },
+
+  bestSellers: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/best-sellers/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter((r) => r.is_best_seller);
+      return matching.length > 0 ? matching : real;
+    }
+  },
+
+  flashDeals: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/flash-deals/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter((r) => r.is_flash_deal);
+      return matching.length > 0 ? matching : real;
+    }
+  },
+
+  budgetDeals: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/budget-deals/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      const matching = real.filter((r) => r.is_hot_sale);
+      return matching.length > 0 ? matching : real;
+    }
+  },
+
+  topRated: async (): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/products/top-rated/');
+      return (Array.isArray(data) ? data : []).map((p) => enrichProductWithDelivery(p));
+    } catch {
+      const real = await fetchRealBackendProducts();
+      return real;
+    }
+  },
+
+  getVariants: async (id: string): Promise<ProductVariant[]> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/variants/`);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getReviews: async (
+    id: string,
+    params?: { page?: number; rating?: number; sort?: string }
+  ): Promise<PaginatedResponse<Review>> => {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!isUuid) {
+      const results = getFallbackReviews(id, params?.rating, params?.sort);
+      return {
+        count: results.length,
+        next: null,
+        previous: null,
+        results,
+      };
+    }
+
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/reviews/`, { params });
+      return data;
+    } catch (err: any) {
+      if (err?.response?.status === 404 || !err?.response) {
+        const results = getFallbackReviews(id, params?.rating, params?.sort);
+        return {
+          count: results.length,
+          next: null,
+          previous: null,
+          results,
+        };
+      }
+      throw normalizeApiError(err);
+    }
+  },
+
+  submitReview: async (id: string, payload: FormData): Promise<Review> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/products/${id}/reviews/`, payload);
+      return data;
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  getRelated: async (id: string): Promise<ProductSummary[]> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/products/${id}/related/`);
+      return Array.isArray(data) ? data : data?.results ?? [];
+    } catch (err: unknown) {
+      if ((err as { response?: { status?: number } })?.response?.status === 404) {
+        return [];
+      }
+      throw normalizeApiError(err);
+    }
+  },
+
+  uploadImage: async (
+    productId: string,
+    imageFile: File,
+    isPrimary: boolean = false
+  ): Promise<{
+    id: string;
+    product: string;
+    image_url: string;
+    thumbnail_url: string;
+    storage_key: string;
+    is_primary: boolean;
+    created_at: string;
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile, imageFile.name);
+      formData.append('file', imageFile, imageFile.name);
+      formData.append('is_primary', isPrimary ? 'true' : 'false');
+
+      const { data } = await apiClient.post(`/api/v1/products/${productId}/images/`, formData);
+      return {
+        ...data,
+        image_url: normalizeUrl(data.image_url) || data.image_url,
+        thumbnail_url: normalizeUrl(data.thumbnail_url) || data.thumbnail_url,
+      };
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  deleteImage: async (productId: string, imageId: string): Promise<void> => {
+    try {
+      await apiClient.delete(`/api/v1/products/${productId}/images/${imageId}/`);
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+};
