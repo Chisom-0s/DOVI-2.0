@@ -34,8 +34,8 @@ export const productsApi = {
     try {
       await syncCategoriesFromServer();
       const queryParams: Record<string, any> = {};
-      if (filters?.page && !filters?.category && !filters?.subcategory) queryParams.page = filters.page;
-      if (filters?.page_size && !filters?.category && !filters?.subcategory) queryParams.page_size = filters.page_size;
+      if (filters?.page) queryParams.page = filters.page;
+      queryParams.page_size = filters?.page_size || 100;
       if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
       if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
       if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;

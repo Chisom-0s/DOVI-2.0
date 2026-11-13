@@ -233,11 +233,11 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     stock_quantity: stock,
     status: (p.status || 'PUBLISHED') as any,
     discount_percentage: Number(p.discount_percentage) || 0,
-    is_flash_deal: true,
-    is_trending: true,
-    is_best_seller: true,
-    is_hot_sale: true,
-    is_new_arrival: true,
+    is_flash_deal: Boolean(p.is_flash_deal),
+    is_trending: Boolean(p.is_trending),
+    is_best_seller: Boolean(p.is_best_seller),
+    is_hot_sale: Boolean(p.is_hot_sale),
+    is_new_arrival: Boolean(p.is_new_arrival),
     created_at: p.created_at || new Date().toISOString(),
     in_stock: stock > 0,
     delivery_classification: p.delivery_classification,
@@ -268,7 +268,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       .map((p) => enrichProductWithDelivery(p));
 
   try {
-    const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 50 } });
+    const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 100 } });
     const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
     if (rawList && rawList.length > 0) {
       const normalized = rawList
@@ -347,70 +347,172 @@ function getMockSections(): HomepageSection[] {
 
 // Helper to filter and combine real products + mock products matching section config
 function populateProductsForSection(section: HomepageSection, realProducts: ProductSummary[] = []): ProductSummary[] {
-  let matchingReal = [...realProducts];
+  if (!realProducts || realProducts.length === 0) return [];
 
   const source = section.configuration?.source || 'AUTOMATIC';
   const sourceId = section.configuration?.source_id;
 
-  // 1. Source Filtering
-  if (source === 'MANUAL' && section.configuration?.manual_product_ids) {
-    matchingReal = matchingReal.filter((p) => section.configuration.manual_product_ids?.includes(p.id));
-  } else if (source === 'CATEGORY' && sourceId) {
-    matchingReal = matchingReal.filter((p) => p.category?.id === sourceId || p.category?.slug === sourceId);
-  } else if (source === 'VENDOR' && sourceId) {
-    matchingReal = matchingReal.filter((p) => p.vendor?.id === sourceId || p.vendor?.slug === sourceId);
+  // 1. Manual Curation (Admin manually selected specific products)
+  if (source === 'MANUAL' && Array.isArray(section.configuration?.manual_product_ids) && section.configuration.manual_product_ids.length > 0) {
+    const idSet = new Set(section.configuration.manual_product_ids);
+    const manualMatches = realProducts.filter((p) => idSet.has(p.id));
+    if (manualMatches.length > 0) return manualMatches.slice(0, section.display_limit || 12);
   }
 
-  // 2. Automations Filter based on Section Type
-  if (section.key === 'FLASH_DEALS') {
-    matchingReal = matchingReal.filter((p) => p.is_flash_deal);
-  } else if (section.key === 'TRENDING_NOW') {
-    matchingReal = matchingReal.filter((p) => p.is_trending);
-  } else if (section.key === 'BEST_SELLERS') {
-    matchingReal = matchingReal.filter((p) => p.is_best_seller);
-  } else if (section.key === 'NEW_ARRIVALS') {
-    matchingReal = matchingReal.filter((p) => p.is_new_arrival);
-  } else if (section.key === 'HOT_SALES') {
-    matchingReal = matchingReal.filter((p) => p.is_hot_sale);
-  } else if (section.key === 'SAVE2OWN_FEATURED') {
-    matchingReal = matchingReal.filter((p) => parsePriceNumber(p) >= 10000);
-  } else if (section.key === 'DOVI_AUTO') {
-    matchingReal = matchingReal.filter(
-      (p) =>
-        p.category?.slug?.startsWith('auto') ||
-        (p.category_name && /auto|car|brake|engine/i.test(p.category_name))
-    );
+  // 2. Category Restriction (Admin set section to a specific category)
+  if (source === 'CATEGORY' && sourceId) {
+    const catMatches = realProducts.filter((p) => {
+      const cId = typeof p.category === 'object' ? p.category?.id : p.category;
+      const cSlug = typeof p.category === 'object' ? p.category?.slug : '';
+      return cId === sourceId || cSlug === sourceId || (p.category_name && p.category_name.toLowerCase() === sourceId.toLowerCase());
+    });
+    if (catMatches.length > 0) return catMatches.slice(0, section.display_limit || 12);
   }
 
-  // 3. Custom Filters
+  // 3. Vendor Restriction
+  if (source === 'VENDOR' && sourceId) {
+    const vendMatches = realProducts.filter((p) => {
+      const vId = typeof p.vendor === 'object' ? p.vendor?.id : p.vendor;
+      const vSlug = typeof p.vendor === 'object' ? p.vendor?.slug : '';
+      return vId === sourceId || vSlug === sourceId;
+    });
+    if (vendMatches.length > 0) return vendMatches.slice(0, section.display_limit || 12);
+  }
+
+  // 4. Automatic Section-Specific Logic
+  let candidates: ProductSummary[] = [];
+
+  switch (section.key) {
+    case 'NEW_ARRIVALS': {
+      // Sort strictly by newest creation date
+      candidates = [...realProducts].sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+      break;
+    }
+
+    case 'SAVE2OWN_FEATURED':
+    case 'SAVE2OWN_PRODUCTS': {
+      // High-value aspirational items specifically suited for micro-payment installment plans
+      // Filter >= ₦40,000, sorted from highest price down (TCL TVs, luxury hair, washing machine, cookers)
+      const highValue = realProducts.filter((p) => parsePriceNumber(p) >= 40000);
+      candidates = highValue.length >= 3 
+        ? highValue.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a))
+        : [...realProducts].sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
+      break;
+    }
+
+    case 'FLASH_DEALS':
+    case 'DEALS_OF_THE_DAY':
+    case 'LIMITED_TIME_OFFERS': {
+      // Deals, impulse purchases, and accessible price points (< ₦25,000 or high discount)
+      const deals = realProducts.filter((p) => {
+        const price = parsePriceNumber(p);
+        const discount = p.discount_percentage || 0;
+        return discount > 0 || (price > 0 && price <= 25000);
+      });
+      // Sort by price ascending
+      candidates = deals.length >= 4 
+        ? deals.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b))
+        : [...realProducts].sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
+      break;
+    }
+
+    case 'HOT_SALES': {
+      // Popular, high-demand tech & shoes & accessories (smartwatches, power banks, shoes, clippers, cookers)
+      candidates = realProducts.filter((p) => {
+        const name = (p.name || '').toLowerCase();
+        const cat = (p.category_name || '').toLowerCase();
+        return /watch|power bank|clipper|cooker|shoe|sandal|rack|charger/i.test(name) ||
+               /watch|shoe|electronics/i.test(cat);
+      });
+      if (candidates.length < 4) {
+        // Fallback: items in moderate price bracket ₦10k - ₦50k
+        candidates = realProducts.filter((p) => {
+          const price = parsePriceNumber(p);
+          return price >= 10000 && price <= 50000;
+        });
+      }
+      break;
+    }
+
+    case 'BEST_SELLERS': {
+      // Top performing essentials (apparel, kitchenware, diffusers, home goods)
+      candidates = realProducts.filter((p) => {
+        const name = (p.name || '').toLowerCase();
+        const cat = (p.category_name || '').toLowerCase();
+        return /jean|pyjama|diffuser|slicer|plate|drainer|towel|shirt|belt/i.test(name) ||
+               /fashion|home|kitchen/i.test(cat);
+      });
+      if (candidates.length < 4) {
+        candidates = [...realProducts].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+      }
+      break;
+    }
+
+    case 'TRENDING_NOW': {
+      // Viral, trending lifestyle & gadget items (headsets, LEDs, humidifiers, 2pcs sets)
+      candidates = realProducts.filter((p) => {
+        const name = (p.name || '').toLowerCase();
+        const cat = (p.category_name || '').toLowerCase();
+        return /headset|earbud|bluetooth|led|crystal|humidifier|2pcs|smart|pixie/i.test(name) ||
+               /phone|audio|beauty|decor/i.test(cat);
+      });
+      if (candidates.length < 4) {
+        candidates = realProducts.slice(4).concat(realProducts.slice(0, 4));
+      }
+      break;
+    }
+
+    case 'DOVI_AUTO':
+    case 'AUTO_PARTS':
+    case 'AUTO_ACCESSORIES': {
+      candidates = realProducts.filter((p) => {
+        const catSlug = (p.category?.slug || '').toLowerCase();
+        const catName = (p.category_name || '').toLowerCase();
+        const name = (p.name || '').toLowerCase();
+        return catSlug.includes('auto') || /auto|car|vehicle|motor|brake|engine|tire/i.test(catName + ' ' + name);
+      });
+      break;
+    }
+
+    default: {
+      candidates = [...realProducts];
+      break;
+    }
+  }
+
+  // 5. Custom Filters
   const filters = section.configuration?.filters;
   if (filters) {
     if (filters.min_rating) {
-      matchingReal = matchingReal.filter((p) => p.average_rating >= (filters.min_rating ?? 0));
+      candidates = candidates.filter((p) => (p.average_rating || 0) >= (filters.min_rating ?? 0));
     }
     if (filters.in_stock_only) {
-      matchingReal = matchingReal.filter((p) => p.stock_quantity > 0);
+      candidates = candidates.filter((p) => (p.stock_quantity ?? 0) > 0);
     }
     if (filters.price_min) {
-      matchingReal = matchingReal.filter((p) => parsePriceNumber(p) >= (filters.price_min ?? 0));
+      candidates = candidates.filter((p) => parsePriceNumber(p) >= (filters.price_min ?? 0));
     }
     if (filters.price_max) {
-      matchingReal = matchingReal.filter((p) => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
+      candidates = candidates.filter((p) => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
     }
   }
 
-  // 4. Deduplicate real products
+  // 6. Deduplicate candidates
   const seenIds = new Set<string>();
   const combined: ProductSummary[] = [];
 
-  for (const p of matchingReal) {
-    if (!seenIds.has(p.id)) {
+  for (const p of candidates) {
+    if (p && p.id && !seenIds.has(p.id)) {
       seenIds.add(p.id);
       combined.push(p);
     }
   }
 
-  // 5. Sorting rules
+  // 7. Sorting rules
   const sortBy = section.configuration?.sort_by;
   if (sortBy === 'price_asc') {
     combined.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
@@ -422,9 +524,8 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     combined.sort((a, b) => (b.discount_percentage ?? 0) - (a.discount_percentage ?? 0));
   }
 
-  const baseLimit = section.display_limit || 10;
-  const effectiveLimit = Math.max(baseLimit, matchingReal.length);
-  return combined.slice(0, effectiveLimit);
+  const limit = section.display_limit || 6;
+  return combined.slice(0, limit);
 }
 
 export const homepageApi = {
