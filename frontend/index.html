@@ -1340,6 +1340,13 @@ Up to 11 days usage time</p>
     <script type="text/javascript">
       var _smartsupp = _smartsupp || {};
       _smartsupp.key = 'e9146c760832a54792657588a0c209aa694d26da';
+      var isMobileView = typeof window !== 'undefined' && window.innerWidth < 768;
+      _smartsupp.orientation = 'right';
+      _smartsupp.offsetX = isMobileView ? 16 : 24;
+      // On mobile viewports, elevate widget 88px above screen bottom to clear the fixed bottom navigation and Account tab
+      _smartsupp.offsetY = isMobileView ? 88 : 24;
+      _smartsupp.zIndex = 99990;
+
       window.smartsupp||(function(d) {
         var s,c,o=smartsupp=function(){ o._.push(arguments)};o._=[];
         s=d.getElementsByTagName('script')[0];c=d.createElement('script');

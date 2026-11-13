@@ -1608,18 +1608,29 @@ html, body {
 
 /* ============================================================
    SMARTSUPP LIVE CHAT RESPONSIVE FIT & CLEARANCE
+   Guarantees the "Chat with Chichi" widget never overlaps with
+   the mobile bottom navigation bar or the "Account" tab.
    ============================================================ */
 #chat-application,
+#chat-application-iframe,
 #smartsupp-widget-container,
 .smartsupp-widget {
-  transition: bottom 0.2s ease-in-out, right 0.2s ease-in-out !important;
+  transition: bottom 0.25s ease-in-out, right 0.25s ease-in-out !important;
 }
 
 @media (max-width: 767px) {
-  /* On mobile viewports, elevate widget button above fixed bottom navigation */
+  /* On mobile viewports (<768px), float closed chat button 88px from screen bottom:
+     64px nav height + safe-area-inset + 20px padding.
+     Leaves the Account tab completely visible, unobstructed, and clickable. */
+  #chat-application-iframe:not([data-chat-open="true"]),
+  iframe[id*="chat-application"]:not([data-chat-open="true"]),
+  iframe[id*="smartsupp"]:not([data-chat-open="true"]),
+  iframe[title*="Smartsupp"]:not([data-chat-open="true"]),
+  #smartsupp-widget-container:not([data-chat-open="true"]),
+  #chat-application:not([data-chat-open="true"]),
   #chat-application.closed,
   .smartsupp-widget-button {
-    bottom: calc(var(--bottom-nav-total, 64px) + 16px) !important;
+    bottom: calc(var(--nav-h, 64px) + env(safe-area-inset-bottom, 0px) + 20px) !important;
     right: 16px !important;
   }
 }

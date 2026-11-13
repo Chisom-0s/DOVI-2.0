@@ -33,12 +33,27 @@ export function ItemImageLoader({
   const [hasError, setHasError] = useState<boolean>(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Sync state when src or fallbackSrc changes
+  // Sync state when src or fallbackSrc changes with timeout protection
   useEffect(() => {
     const nextTarget = src || fallbackSrc || '';
     setCurrentSrc(nextTarget);
     setHasError(false);
     setIsLoading(true);
+
+    // Safeguard: If target image does not complete within 2.5s (e.g. storage timeout or ISP block),
+    // automatically fall back to fallbackSrc so users see the product image instantly.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (fallbackSrc && nextTarget !== fallbackSrc) {
+      timer = setTimeout(() => {
+        if (!imgRef.current || !imgRef.current.complete || imgRef.current.naturalWidth === 0) {
+          setCurrentSrc(fallbackSrc);
+        }
+      }, 2500);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [src, fallbackSrc]);
 
   // Synchronously verify if the image is already cached / completed

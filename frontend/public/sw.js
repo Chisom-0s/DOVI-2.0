@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dovi-pwa-cache-v2';
+const CACHE_NAME = 'dovi-pwa-cache-v3';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/logo.jpg?v=2',

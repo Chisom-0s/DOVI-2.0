@@ -15,6 +15,10 @@ interface DoviSmartPromptProps {
   autoCollapseMs?: number; // Default 8000
 }
 
+function isMobile() {
+  return typeof window !== 'undefined' && window.innerWidth < 768;
+}
+
 export default function DoviSmartPrompt({
   id,
   icon,
@@ -35,8 +39,9 @@ export default function DoviSmartPrompt({
   const startPos = useRef({ x: 0, y: 0 });
   const currentOffset = useRef({ x: 0, y: 0 });
 
-  // Load saved position
+  // Load saved position — only on desktop (on mobile we use fixed CSS positions)
   useEffect(() => {
+    if (isMobile()) return; // Skip saved positions on mobile
     try {
       const saved = localStorage.getItem(`dovi_prompt_pos_${id}`);
       if (saved) {
@@ -71,8 +76,9 @@ export default function DoviSmartPrompt({
     }
   }, [isExpanded, autoCollapseMs]);
 
-  // Drag logic
+  // Drag logic — disabled on mobile
   const handlePointerDown = (e: any) => {
+    if (isMobile()) return; // No dragging on mobile
     if (e.button !== 0 && e.type !== 'touchstart') return; // Only left click or touch
     
     // Don't drag if clicking buttons
@@ -133,24 +139,35 @@ export default function DoviSmartPrompt({
     }
   };
 
-  // Determine styles based on state
+  // ── Positioning ──
+  // Mobile: always top-right, just below the header (~60px from top)
+  // Desktop: bottom-right (or saved dragged position)
+  const mobile = isMobile();
+
   const baseStyles: React.CSSProperties = {
     position: 'fixed',
     zIndex: 9999,
     touchAction: 'none',
     transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
     willChange: 'transform, width, height, opacity',
-    // Default position if no saved position (bottom right)
-    ...(position ? {} : {
-      bottom: 'calc(24px + env(safe-area-inset-bottom))',
-      right: '24px',
-    })
   };
 
-  if (position) {
+  if (mobile) {
+    // Mobile: always top-right, below header
+    baseStyles.top = '70px';
+    baseStyles.right = '12px';
+    baseStyles.bottom = 'auto';
+    baseStyles.left = 'auto';
+  } else if (position) {
+    // Desktop with saved drag position
     baseStyles.top = 0;
     baseStyles.left = 0;
     baseStyles.transform = `translate(${position.x}px, ${position.y}px)`;
+  } else {
+    // Desktop default: bottom-left (so it never collides with Smartsupp chat on bottom-right)
+    baseStyles.bottom = 'calc(24px + env(safe-area-inset-bottom))';
+    baseStyles.left = '24px';
+    baseStyles.right = 'auto';
   }
 
   const containerStyles: React.CSSProperties = {
@@ -161,7 +178,7 @@ export default function DoviSmartPrompt({
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    cursor: isDragging ? 'grabbing' : 'grab',
+    cursor: mobile ? 'default' : (isDragging ? 'grabbing' : 'grab'),
   };
 
   if (!isExpanded) {

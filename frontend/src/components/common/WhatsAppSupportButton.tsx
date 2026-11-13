@@ -51,7 +51,8 @@ export function WhatsAppSupportButton({
       style={{
         position: 'fixed',
         bottom: '24px',
-        right: '24px',
+        right: position === 'bottom-left' ? 'auto' : '24px',
+        left: position === 'bottom-left' ? '24px' : 'auto',
         zIndex: 999,
         display: 'flex',
         alignItems: 'center',
@@ -64,8 +65,9 @@ export function WhatsAppSupportButton({
           __html: `
           @media (max-width: 768px) {
             .whatsapp-support-floating-wrapper {
-              bottom: calc(var(--bottom-nav-total, 64px) + 16px) !important;
-              right: 16px !important;
+              bottom: calc(var(--nav-h, 64px) + env(safe-area-inset-bottom, 0px) + 84px) !important;
+              right: ${position === 'bottom-left' ? 'auto' : '16px'} !important;
+              left: ${position === 'bottom-left' ? '16px' : 'auto'} !important;
             }
           }
         `,
