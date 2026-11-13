@@ -31,21 +31,6 @@ export default function ProductImageGallery({ images, product }: ProductImageGal
     if (img && img.complete && img.naturalWidth > 0) {
       setImageLoaded(true);
     }
-
-    // Safety timeout: if primary image from R2 hangs/times out, switch to fallback image
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    if (fallbackImage && activeSrc !== fallbackImage) {
-      timer = setTimeout(() => {
-        if (!imgRef.current || !imgRef.current.complete || imgRef.current.naturalWidth === 0) {
-          if (imgRef.current) imgRef.current.src = fallbackImage;
-          setImageLoaded(true);
-        }
-      }, 2500);
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
   }, [activeSrc, fallbackImage]);
 
   const handleImageLoad = () => {

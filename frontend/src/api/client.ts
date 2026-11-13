@@ -25,10 +25,14 @@ export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL || 'https://dovi-2-0-backend.onrender.com';
 }
 
+let hasWarmedUp = false;
+
 /**
- * Sends a background health ping to warm up Render's free tier container
+ * Sends a single background health ping to warm up Render's free tier container
  */
 export function warmupBackend() {
+  if (hasWarmedUp) return;
+  hasWarmedUp = true;
   const base = getApiBaseUrl();
   fetch(`${base.replace(/\/+$/, '')}/health/`, {
     method: 'GET',
@@ -44,6 +48,7 @@ export function warmupBackend() {
 const apiClient: AxiosInstance = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: true, // required for httpOnly refresh cookie
+  timeout: 45000, // 45s timeout to allow Render free tier container cold-start (30-50s)
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -87,11 +92,16 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean; _retryCount?: number };
 
     // Network error / cold-start retry (up to 2 retries with exponential backoff)
+    // NEVER retry auth endpoints (login, register, token refresh) in background —
+    // burst retries of auth calls trip Cloudflare / Render rate limits (429)!
+    const originalUrl = originalRequest?.url || '';
+    const isAuthEndpoint = originalUrl.includes('/auth/login/') || originalUrl.includes('/auth/token/') || originalUrl.includes('/auth/register/');
+
     const isNetworkError = !error.response && Boolean(error.request);
     const retryCount = originalRequest._retryCount || 0;
-    if (isNetworkError && retryCount < 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
+    if (!isAuthEndpoint && isNetworkError && retryCount < 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
       originalRequest._retryCount = retryCount + 1;
-      const delay = retryCount === 0 ? 1200 : 2500;
+      const delay = retryCount === 0 ? 1500 : 3000;
       await new Promise(resolve => setTimeout(resolve, delay));
       return apiClient(originalRequest);
     }
@@ -287,6 +297,13 @@ export function normalizeApiError(error: unknown): APIError {
           code: 'SERVER_ERROR',
         };
       }
+      if (status === 429) {
+        return {
+          error: true,
+          message: 'Server is warming up or receiving high traffic. Please wait 10-15 seconds and try again.',
+          code: 'RATE_LIMITED',
+        };
+      }
       if (status === 404) {
         return {
           error: true,
@@ -313,18 +330,18 @@ export function normalizeApiError(error: unknown): APIError {
         message: `Request failed with status ${status}.`,
         code: 'HTTP_ERROR',
       };
-    } else if (error.request || !navigator.onLine) {
-      if (!navigator.onLine) {
+    } else if (error.request || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return {
           error: true,
-          message: 'No internet signal',
-          code: 'NETWORK_ERROR',
+          message: 'No internet connection. Please check your network.',
+          code: 'OFFLINE',
         };
       }
       return {
         error: true,
-        message: 'Server connection timed out. Please try again.',
-        code: 'NETWORK_ERROR',
+        message: 'Unable to connect to backend server. Render may be waking up from sleep (takes 30-50s); please try again in a few moments.',
+        code: 'SERVER_WAKING_UP',
       };
     }
   }
@@ -332,7 +349,7 @@ export function normalizeApiError(error: unknown): APIError {
   // General JS exception
   return {
     error: true,
-    message: error instanceof Error ? error.message : 'No internet signal',
+    message: error instanceof Error ? error.message : 'Unable to complete request. Please try again.',
     code: 'NETWORK_ERROR',
   };
 }

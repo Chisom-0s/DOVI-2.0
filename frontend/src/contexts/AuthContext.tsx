@@ -45,6 +45,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isRestoringSession.current) return;
     isRestoringSession.current = true;
 
+    // Skip redundant session restoration on dedicated auth pages to avoid cold-start request bursts
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      if (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password') {
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const restoreSession = async () => {
       try {
         // Attempt refresh — Django will use the httpOnly refresh cookie

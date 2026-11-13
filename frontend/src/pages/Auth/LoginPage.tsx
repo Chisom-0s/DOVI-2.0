@@ -35,14 +35,30 @@ export default function LoginPage() {
       }
     } catch (err) {
       const apiErr = err as APIError;
-      const isNetwork = apiErr?.code === 'NETWORK_ERROR' || apiErr?.message?.toLowerCase().includes('internet signal');
-      if (isNetwork) {
-        setError({ error: true, message: 'No internet signal', code: 'NETWORK_ERROR' });
+      if (apiErr?.code === 'INVALID_CREDENTIALS') {
+        setError({
+          error: true,
+          message: 'Wrong email or password. Please try again.',
+          code: 'INVALID_CREDENTIALS',
+          details: apiErr?.details,
+        });
+      } else if (apiErr?.code === 'OFFLINE') {
+        setError({
+          error: true,
+          message: 'No internet connection. Please verify your network.',
+          code: 'OFFLINE',
+        });
+      } else if (apiErr?.code === 'RATE_LIMITED' || apiErr?.code === 'SERVER_WAKING_UP') {
+        setError({
+          error: true,
+          message: apiErr.message || 'Connecting to server. Render may be waking up from sleep (takes 30-50s); please try again in a few moments.',
+          code: apiErr.code,
+        });
       } else {
         setError({
           error: true,
-          message: 'Wrong credentials',
-          code: 'INVALID_CREDENTIALS',
+          message: apiErr?.message || 'Unable to sign in. Please try again.',
+          code: apiErr?.code || 'AUTH_ERROR',
           details: apiErr?.details,
         });
       }

@@ -20,24 +20,19 @@ const saveLocalNotifications = (notifs: Notification[]) => {
 
 export const notificationsApi = {
   create: async (title: string, message: string, type: string = 'INFO'): Promise<Notification> => {
-    try {
-      const { data } = await apiClient.post('/api/v1/notifications/', { title, message, type });
-      return data;
-    } catch {
-      // Fallback to local storage
-      const newNotif: Notification = {
-        id: `local-${Date.now()}-${Math.random()}`,
-        title,
-        message,
-        type: type as any,
-        action_url: null,
-        is_read: false,
-        created_at: new Date().toISOString(),
-      };
-      const notifs = getLocalNotifications();
-      saveLocalNotifications([newNotif, ...notifs]);
-      return newNotif;
-    }
+    // Client-side transactional notification store (backend notifications are event-driven server-side)
+    const newNotif: Notification = {
+      id: `local-${Date.now()}-${Math.random()}`,
+      title,
+      message,
+      type: type as any,
+      action_url: null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    const notifs = getLocalNotifications();
+    saveLocalNotifications([newNotif, ...notifs]);
+    return newNotif;
   },
 
   list: async (page?: number): Promise<PaginatedResponse<Notification>> => {
