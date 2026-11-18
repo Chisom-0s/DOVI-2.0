@@ -96,3 +96,4 @@ class AdminEmailAPIEndpointsTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.admin_sec_log.refresh_from_db()
         self.assertIn(self.admin_sec_log.status, [EmailStatus.QUEUED, EmailStatus.ACCEPTED, EmailStatus.FAILED])
+

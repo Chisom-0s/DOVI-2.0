@@ -461,105 +461,112 @@ export const save2ownApi = {
         }
   ): Promise<Save2OwnGoal> => {
     try {
-      let productId = '';
-      let variantId = '';
-      let quantity = 1;
+      let reqFormData: FormData;
       let plan = 'WEEKLY';
       let targetDate = '';
-      let shippingAddress = 'Default Delivery Address';
-      let shippingCity = 'Lagos';
-      let shippingState = 'Lagos';
-      let shippingCountry = 'Nigeria';
-
-      let participantData: Save2OwnParticipant | null = null;
+      let quantity = 1;
+      let variantId = '';
 
       if (payload instanceof FormData) {
-        productId = (payload.get('product_id') as string) || '';
-        variantId = (payload.get('variant_id') as string) || '';
-        quantity = parseInt((payload.get('quantity') as string) || '1', 10) || 1;
+        reqFormData = payload;
         plan = (payload.get('contribution_plan') as string) || 'WEEKLY';
         targetDate = (payload.get('target_date') as string) || '';
-        shippingAddress = (payload.get('residential_address') as string) || 'Default Delivery Address';
-        shippingCity = (payload.get('city') as string) || 'Lagos';
-        shippingState = (payload.get('state') as string) || 'Lagos';
-        shippingCountry = (payload.get('country') as string) || 'Nigeria';
+        quantity = parseInt((payload.get('quantity') as string) || '1', 10) || 1;
+        variantId = (payload.get('variant') as string) || (payload.get('variant_id') as string) || '';
 
-        const fullName = (payload.get('full_name') as string) || '';
-        if (fullName) {
-          participantData = {
-            id: `part-${Date.now()}`,
-            goal_id: '',
-            full_name: fullName,
-            email: (payload.get('email') as string) || '',
-            phone: (payload.get('phone') as string) || '',
-            whatsapp_number: (payload.get('whatsapp_number') as string) || '',
-            address: shippingAddress,
-            residential_address: shippingAddress,
-            city: shippingCity,
-            state: shippingState,
-            country: shippingCountry,
-            identity_locked: true,
-            terms_acknowledged: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
+        // Ensure both variant and variant_id are present for backend compatibility
+        if (!reqFormData.get('variant') && variantId) {
+          reqFormData.append('variant', variantId);
+        }
+        if (!reqFormData.get('variant_id') && variantId) {
+          reqFormData.append('variant_id', variantId);
+        }
+        if (!reqFormData.get('terms_acknowledged')) {
+          reqFormData.append('terms_acknowledged', 'true');
+        }
+        if (!reqFormData.get('shipping_address_line_1')) {
+          const resAddr = (reqFormData.get('residential_address') as string) || 'Default Delivery Address';
+          reqFormData.append('shipping_address_line_1', resAddr);
+        }
+        if (!reqFormData.get('shipping_city')) {
+          const cityVal = (reqFormData.get('city') as string) || 'Lagos';
+          reqFormData.append('shipping_city', cityVal);
+        }
+        if (!reqFormData.get('shipping_state')) {
+          const stateVal = (reqFormData.get('state') as string) || 'Lagos';
+          reqFormData.append('shipping_state', stateVal);
+        }
+        if (!reqFormData.get('shipping_country')) {
+          const countryVal = (reqFormData.get('country') as string) || 'Nigeria';
+          reqFormData.append('shipping_country', countryVal);
+        }
+        if (!reqFormData.get('shipping_postal_code')) {
+          reqFormData.append('shipping_postal_code', '100001');
         }
       } else {
-        productId = payload.product_id || '';
-        variantId = payload.variant_id || '';
-        quantity = payload.quantity || 1;
+        reqFormData = new FormData();
+        variantId = payload.variant_id || payload.product_id || '';
         plan = payload.contribution_plan || 'WEEKLY';
         targetDate = payload.target_date || '';
-        shippingAddress = payload.residential_address || 'Default Delivery Address';
-        shippingCity = payload.city || 'Lagos';
-        shippingState = payload.state || 'Lagos';
-        shippingCountry = payload.country || 'Nigeria';
+        quantity = payload.quantity || 1;
 
-        if (payload.full_name) {
-          participantData = {
-            id: `part-${Date.now()}`,
-            goal_id: '',
-            full_name: payload.full_name || '',
-            email: payload.email || '',
-            phone: payload.phone || '',
-            whatsapp_number: payload.whatsapp_number || '',
-            address: shippingAddress,
-            residential_address: shippingAddress,
-            city: shippingCity,
-            state: shippingState,
-            country: shippingCountry,
-            identity_locked: true,
-            terms_acknowledged: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
+        reqFormData.append('variant', variantId);
+        reqFormData.append('variant_id', variantId);
+        if (payload.product_id) reqFormData.append('product_id', payload.product_id);
+        reqFormData.append('quantity', String(quantity));
+        reqFormData.append('contribution_plan', plan);
+        if (targetDate) reqFormData.append('target_date', targetDate);
+
+        const addr = payload.residential_address || 'Default Delivery Address';
+        const city = payload.city || 'Lagos';
+        const state = payload.state || 'Lagos';
+        const country = payload.country || 'Nigeria';
+
+        reqFormData.append('shipping_address_line_1', addr);
+        reqFormData.append('shipping_city', city);
+        reqFormData.append('shipping_state', state);
+        reqFormData.append('shipping_country', country);
+        reqFormData.append('shipping_postal_code', '100001');
+
+        if (payload.full_name) reqFormData.append('full_name', payload.full_name);
+        if (payload.email) reqFormData.append('email', payload.email);
+        if (payload.phone) reqFormData.append('phone', payload.phone);
+        if (payload.whatsapp_number) reqFormData.append('whatsapp_number', payload.whatsapp_number);
+        reqFormData.append('residential_address', addr);
+        reqFormData.append('city', city);
+        reqFormData.append('state', state);
+        reqFormData.append('country', country);
+        reqFormData.append('terms_acknowledged', 'true');
+        if (payload.selfie) reqFormData.append('selfie', payload.selfie);
+      }
+
+      const { data } = await apiClient.post('/api/v1/save2own/goals/', reqFormData);
+
+      // Auto-activate the created goal so participant record and permanent reference code are generated
+      if (data?.id) {
+        try {
+          await apiClient.post(`/api/v1/save2own/goals/${data.id}/activate/`);
+        } catch {
+          // May already be active
         }
       }
 
-      // Exact clean JSON payload accepted by the Django REST backend
-      const cleanJsonPayload: Record<string, unknown> = {
-        product_id: productId,
-        quantity,
-        contribution_plan: plan,
-        shipping_address_line_1: shippingAddress,
-        shipping_city: shippingCity,
-        shipping_state: shippingState,
-        shipping_country: shippingCountry,
-      };
-      if (variantId) {
-        cleanJsonPayload.variant_id = variantId;
-      }
-      if (targetDate) {
-        cleanJsonPayload.target_date = targetDate;
-      }
-
-      const { data } = await apiClient.post('/api/v1/save2own/goals/', cleanJsonPayload);
-
+      // Fetch refreshed full goal data with active participant
+      let fullGoalData = data;
       if (data?.id) {
         try {
-          localStorage.setItem(`s2o_plan_${data.id}`, plan);
+          const { data: refreshed } = await apiClient.get(`/api/v1/save2own/goals/${data.id}/`);
+          if (refreshed) fullGoalData = refreshed;
+        } catch {}
+      }
+
+      const normalized = normalizeGoal(fullGoalData);
+
+      if (normalized?.id) {
+        try {
+          localStorage.setItem(`s2o_plan_${normalized.id}`, plan);
           if (targetDate) {
-            localStorage.setItem(`s2o_target_date_${data.id}`, targetDate);
+            localStorage.setItem(`s2o_target_date_${normalized.id}`, targetDate);
           }
           const storedConfig = {
             quantity,
@@ -567,15 +574,23 @@ export const save2ownApi = {
             target_date: targetDate,
             variant_id: variantId,
           };
-          localStorage.setItem(`s2o_goal_config_${data.id}`, JSON.stringify(storedConfig));
-          if (participantData) {
-            participantData.goal_id = data.id;
-            localStorage.setItem(`s2o_participant_${data.id}`, JSON.stringify(participantData));
+          localStorage.setItem(`s2o_goal_config_${normalized.id}`, JSON.stringify(storedConfig));
+
+          // Sync into local caches for offline resilience
+          const existingGoals = JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]');
+          const nextGoals = [normalized, ...existingGoals.filter((g: any) => g.id !== normalized.id)];
+          localStorage.setItem('dovi_save2own_goals', JSON.stringify(nextGoals));
+
+          if (normalized.participant) {
+            localStorage.setItem(`s2o_participant_${normalized.id}`, JSON.stringify(normalized.participant));
+            const existingParts = JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]');
+            const nextParts = [normalized.participant, ...existingParts.filter((p: any) => p.id !== normalized.participant?.id)];
+            localStorage.setItem('dovi_save2own_participants', JSON.stringify(nextParts));
           }
         } catch {}
       }
 
-      return normalizeGoal(data);
+      return normalized;
     } catch (err) {
       throw normalizeApiError(err);
     }
@@ -821,7 +836,6 @@ export const save2ownApi = {
     };
 
     let reqData: any = contributionPayload;
-    let headers: Record<string, string> = {};
     if (payload.payment_proof) {
       const formData = new FormData();
       Object.entries(contributionPayload).forEach(([k, v]) => {
@@ -834,10 +848,25 @@ export const save2ownApi = {
     try {
       const { data } = await apiClient.post(
         `/api/v1/save2own/goals/${goalId}/contribute/`,
-        reqData,
-        { headers }
+        reqData
       );
-      return data?.contribution || data;
+      const resContrib = data?.contribution || data;
+
+      try {
+        let existing: any[] = [];
+        const stored = localStorage.getItem(`dovi_s2o_contribs_${goalId}`);
+        if (stored) existing = JSON.parse(stored);
+        existing = [resContrib, ...existing.filter((c: any) => c.id !== resContrib.id)];
+        localStorage.setItem(`dovi_s2o_contribs_${goalId}`, JSON.stringify(existing));
+
+        let globalList: any[] = [];
+        const globalStored = localStorage.getItem('dovi_global_s2o_contribs');
+        if (globalStored) globalList = JSON.parse(globalStored);
+        globalList = [resContrib, ...globalList.filter((c: any) => c.id !== resContrib.id)];
+        localStorage.setItem('dovi_global_s2o_contribs', JSON.stringify(globalList));
+      } catch {}
+
+      return resContrib;
     } catch (err) {
       // Offline/fallback storage
       const newContrib: Save2OwnContribution = {
@@ -850,7 +879,7 @@ export const save2ownApi = {
         transfer_reference: payload.transfer_reference,
         payment_reference: payload.transfer_reference,
         payment_proof_path: payload.payment_proof_path || null,
-        status: 'submitted',
+        status: 'SUBMITTED',
         payment_status: 'PENDING',
         submitted_at: new Date().toISOString(),
         bank_name_snapshot: payload.bank_name_snapshot || '',

@@ -336,16 +336,98 @@ function saveStoredEmailLogs(logs: EmailLog[]) {
 }
 
 function getStoredGlobalContributions(): Save2OwnContribution[] {
+  const contribsMap = new Map<string, Save2OwnContribution>();
+
+  // 1. Load directly from dovi_global_s2o_contribs
   try {
     const raw = localStorage.getItem('dovi_global_s2o_contribs');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter((c: any) => c && !String(c.id).includes('demo') && !String(c.user_id).includes('usr-') && !String(c.product_name).includes('iPhone 15') && !String(c.product_name).includes('Samsung Galaxy'));
+        parsed.forEach((c: any) => {
+          if (c && c.id) contribsMap.set(String(c.id), c);
+        });
       }
     }
   } catch {}
-  return [];
+
+  // 2. Aggregate any goal contributions from stored goals
+  try {
+    const goalsRaw = localStorage.getItem('dovi_save2own_goals');
+    if (goalsRaw) {
+      const goals = JSON.parse(goalsRaw);
+      if (Array.isArray(goals)) {
+        goals.forEach((g: any) => {
+          if (Array.isArray(g.contributions)) {
+            g.contributions.forEach((c: any) => {
+              if (c && c.id && !contribsMap.has(String(c.id))) {
+                contribsMap.set(String(c.id), {
+                  ...c,
+                  product_name: c.product_name || g.product?.name || 'Goal Item',
+                  user_name: c.user_name || g.participant?.full_name || 'Participant',
+                  user_email: c.user_email || g.participant?.email || 'participant@dovi.com',
+                });
+              }
+            });
+          }
+        });
+      }
+    }
+  } catch {}
+
+  return Array.from(contribsMap.values());
+}
+
+function getStoredParticipants(): AdminSave2OwnParticipant[] {
+  const partsMap = new Map<string, AdminSave2OwnParticipant>();
+
+  // 1. From dovi_save2own_participants
+  try {
+    const raw = localStorage.getItem('dovi_save2own_participants');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((p: any) => {
+          const key = p.id || p.email || p.user_id;
+          if (key) partsMap.set(String(key), p);
+        });
+      }
+    }
+  } catch {}
+
+  // 2. From dovi_save2own_goals (derive participants so counts never diverge)
+  try {
+    const goalsRaw = localStorage.getItem('dovi_save2own_goals');
+    if (goalsRaw) {
+      const goals = JSON.parse(goalsRaw);
+      if (Array.isArray(goals)) {
+        goals.forEach((g: any) => {
+          const p = g.participant;
+          const key = p?.id || p?.email || g.user_id || g.id;
+          if (key && !partsMap.has(String(key))) {
+            partsMap.set(String(key), {
+              id: p?.id || `part-${g.id}`,
+              user_id: p?.user_id || g.user_id || `usr-${g.id}`,
+              full_name: p?.full_name || g.user_name || 'Save2Own Participant',
+              email: p?.email || g.user_email || 'participant@dovi.com',
+              phone_number: p?.phone || p?.whatsapp_number || '+2348000000000',
+              goal_id: g.id,
+              goal_reference: g.reference_code || g.reference || `S2O-${String(g.id).slice(0, 8).toUpperCase()}`,
+              product_name: g.product?.name || 'Goal Product',
+              goal_status: g.status || 'ACTIVE',
+              target_amount: String(g.target_amount || '0.00'),
+              saved_amount: String(g.saved_amount || g.total_contributed || '0.00'),
+              identity_locked: p?.identity_locked ?? true,
+              created_at: p?.created_at || g.created_at || new Date().toISOString(),
+              updated_at: p?.updated_at || g.updated_at || new Date().toISOString(),
+            });
+          }
+        });
+      }
+    }
+  } catch {}
+
+  return Array.from(partsMap.values());
 }
 
 function saveStoredGlobalContributions(contribs: Save2OwnContribution[]) {
@@ -874,8 +956,33 @@ export const adminApi = {
         pendingRefunds = rList.filter((r: any) => r.status === 'PENDING').length;
       } catch {}
 
+      let activeGoalsCount = 0;
+      try {
+        const { data: gData } = await apiClient.get('/api/v1/admin/save2own/goals/');
+        const gList = Array.isArray(gData) ? gData : (gData?.results || []);
+        activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
+      } catch {
+        try {
+          const { data: gData } = await apiClient.get('/api/v1/save2own/goals/');
+          const gList = Array.isArray(gData) ? gData : (gData?.results || []);
+          activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
+        } catch {
+          const storedGoals = JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]');
+          activeGoalsCount = storedGoals.filter((g: any) => g.status === 'ACTIVE').length;
+        }
+      }
+
+      let totalUsersCount = 1;
+      try {
+        const { data: uData } = await apiClient.get('/api/v1/admin/users/');
+        totalUsersCount = uData?.count ?? (Array.isArray(uData) ? uData.length : 1);
+      } catch {
+        const storedUsers = JSON.parse(localStorage.getItem('dovi_admin_users_db') || '[]');
+        if (storedUsers.length > 0) totalUsersCount = storedUsers.length;
+      }
+
       return {
-        total_users: 1,
+        total_users: totalUsersCount,
         new_users_today: 0,
         total_vendors: totalVendors,
         pending_vendors_count: 0,
@@ -887,7 +994,7 @@ export const adminApi = {
           month: revenueToday,
         },
         pending_refunds_count: pendingRefunds,
-        active_s2o_goals_count: 0,
+        active_s2o_goals_count: activeGoalsCount,
         recent_orders: recentOrders,
         recent_users: [],
       };
@@ -2043,37 +2150,45 @@ export const adminApi = {
 
   // --- Save2Own Admin Management ---
   listSave2OwnGoals: async (params?: { page?: number; status?: string; q?: string; search?: string }): Promise<PaginatedResponse<Save2OwnGoal>> => {
+    const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
+    if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
+
     try {
-      const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
-      if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
-      const { data } = await apiClient.get('/api/v1/save2own/goals/', { params: queryParams });
+      const { data } = await apiClient.get('/api/v1/admin/save2own/goals/', { params: queryParams });
       return data;
     } catch {
-      let goals: Save2OwnGoal[] = [];
       try {
-        const stored = localStorage.getItem('dovi_save2own_goals');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) goals = parsed;
+        const { data } = await apiClient.get('/api/v1/save2own/goals/', { params: queryParams });
+        return data;
+      } catch {
+        let goals: Save2OwnGoal[] = [];
+        try {
+          const stored = localStorage.getItem('dovi_save2own_goals');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) goals = parsed;
+          }
+        } catch {}
+        if (params?.status) {
+          goals = goals.filter((g) => (g.status || '').toUpperCase() === params.status!.toUpperCase());
         }
-      } catch {}
-      if (params?.status) {
-        goals = goals.filter((g) => g.status === params.status);
+        if (params?.q || params?.search) {
+          const query = (params.q || params.search)!.toLowerCase();
+          goals = goals.filter((g) =>
+            g.product?.name?.toLowerCase().includes(query) ||
+            g.id?.toLowerCase().includes(query) ||
+            (g as any).reference?.toLowerCase().includes(query) ||
+            g.reference_code?.toLowerCase().includes(query)
+          );
+        }
+        const page = params?.page || 1;
+        return {
+          count: goals.length,
+          next: null,
+          previous: null,
+          results: goals.slice((page - 1) * 20, page * 20),
+        };
       }
-      if (params?.q || params?.search) {
-        const query = (params.q || params.search)!.toLowerCase();
-        goals = goals.filter((g) =>
-          g.product?.name?.toLowerCase().includes(query) ||
-          g.id?.toLowerCase().includes(query) ||
-          g.reference?.toLowerCase().includes(query)
-        );
-      }
-      return {
-        count: goals.length,
-        next: null,
-        previous: null,
-        results: goals,
-      };
     }
   },
 
@@ -2154,7 +2269,15 @@ export const adminApi = {
 
       let filtered = [...list];
       if (params?.status) {
-        filtered = filtered.filter((c) => (c.status || '').toLowerCase() === params.status!.toLowerCase());
+        const targetStatus = params.status.toUpperCase();
+        if (targetStatus === 'SUBMITTED' || targetStatus === 'PENDING') {
+          filtered = filtered.filter((c) => {
+            const s = (c.status || '').toUpperCase();
+            return s === 'SUBMITTED' || s === 'PENDING' || s === 'UNDER_REVIEW';
+          });
+        } else {
+          filtered = filtered.filter((c) => (c.status || '').toUpperCase() === targetStatus);
+        }
       }
       if (params?.goal_id) {
         filtered = filtered.filter((c) => c.goal_id === params.goal_id);
@@ -2220,8 +2343,39 @@ export const adminApi = {
       if (!updatedContrib) throw new Error('Contribution not found.');
       saveStoredGlobalContributions(nextList);
 
-      // Also update goal's local contributions list if present
+      // Also update goal's local contributions list and authoritative balance
       if (updatedContrib.goal_id) {
+        try {
+          const goalsRaw = localStorage.getItem('dovi_save2own_goals');
+          if (goalsRaw) {
+            const goals: Save2OwnGoal[] = JSON.parse(goalsRaw);
+            const updatedGoals = goals.map((g) => {
+              if (g.id === updatedContrib.goal_id) {
+                const addAmt = parseFloat(updatedContrib.amount) || 0;
+                const prevSaved = parseFloat(g.saved_amount || g.total_contributed || '0') || 0;
+                const newSaved = prevSaved + addAmt;
+                const target = parseFloat(g.target_amount || '0') || 0;
+                const remaining = Math.max(0, target - newSaved);
+                const progress = target > 0 ? Math.min(100, Math.round((newSaved / target) * 100)) : 0;
+                const newStatus = target > 0 && newSaved >= target && g.status === 'ACTIVE' ? 'COMPLETED' : g.status;
+
+                return {
+                  ...g,
+                  saved_amount: String(newSaved),
+                  total_contributed: String(newSaved),
+                  confirmed_balance: String(newSaved),
+                  remaining_amount: String(remaining),
+                  progress_percentage: progress,
+                  status: newStatus,
+                  updated_at: new Date().toISOString(),
+                };
+              }
+              return g;
+            });
+            localStorage.setItem('dovi_save2own_goals', JSON.stringify(updatedGoals));
+          }
+        } catch {}
+
         try {
           const goalContribsRaw = localStorage.getItem(`dovi_s2o_contribs_${updatedContrib.goal_id}`);
           if (goalContribsRaw) {
@@ -2328,19 +2482,31 @@ export const adminApi = {
       const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
       return data;
     } catch {
-      let list: AdminSave2OwnParticipant[] = [];
-      try {
-        const stored = localStorage.getItem('dovi_save2own_participants');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) list = parsed;
-        }
-      } catch {}
+      let list = getStoredParticipants();
+      if (params?.status) {
+        list = list.filter((p) => (p.goal_status || '').toUpperCase() === params.status!.toUpperCase());
+      }
+      if (params?.identity_locked !== undefined && params?.identity_locked !== '') {
+        const isLocked = params.identity_locked === 'true';
+        list = list.filter((p) => Boolean(p.identity_locked) === isLocked);
+      }
+      if (params?.q) {
+        const q = params.q.toLowerCase();
+        list = list.filter(
+          (p) =>
+            p.full_name?.toLowerCase().includes(q) ||
+            p.email?.toLowerCase().includes(q) ||
+            p.phone_number?.toLowerCase().includes(q) ||
+            p.goal_id?.toLowerCase().includes(q) ||
+            p.product_name?.toLowerCase().includes(q)
+        );
+      }
+      const page = params?.page || 1;
       return {
         count: list.length,
         next: null,
         previous: null,
-        results: list,
+        results: list.slice((page - 1) * 20, page * 20),
       };
     }
   },
@@ -2664,8 +2830,12 @@ export const adminApi = {
     } catch {
       // Calculate authoritatively from stored contributions and goals
       const contribs = getStoredGlobalContributions();
-      const confirmed = contribs.filter((c) => c.status === 'confirmed');
-      const pending = contribs.filter((c) => c.status === 'pending');
+      const confirmed = contribs.filter(
+        (c) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL'
+      );
+      const pending = contribs.filter(
+        (c) => (c.status || '').toUpperCase() === 'SUBMITTED' || (c.status || '').toUpperCase() === 'PENDING'
+      );
 
       const confirmedTotal = confirmed.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
       const pendingTotal = pending.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
@@ -2681,8 +2851,10 @@ export const adminApi = {
       const cancelledGoals = goals.filter((g) => g.status === 'CANCELLED').length;
       const pausedGoals = goals.filter((g) => g.status === 'PAUSED').length;
 
+      const participants = getStoredParticipants();
+
       return {
-        total_participants: goals.length,
+        total_participants: participants.length,
         active_goals: activeGoals,
         completed_goals: completedGoals,
         cancelled_goals: cancelledGoals,
