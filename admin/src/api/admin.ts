@@ -139,200 +139,45 @@ function addAuditLogEntry(action: string, details?: string, targetId?: string, a
   } catch {}
 }
 
-export const DEFAULT_EMAIL_LOGS: EmailLog[] = [
-  {
-    id: 'em-101',
-    recipient: 'chisom.student@unilag.edu.ng',
-    recipient_name: 'Chisom Okeke',
-    email_type: 'WELCOME',
-    email_type_display: 'Welcome Email',
-    category: 'ACCOUNT',
-    category_display: 'Account & Security',
-    subject: 'Welcome to Dovi! Shop Smart. Feel Good.',
-    sender: 'Dovi <hello@dovishops.com>',
-    status: 'DELIVERED',
-    status_display: 'Delivered',
-    resend_message_id: 're_wlc_9921abcf89',
-    attempts_count: 1,
-    max_retries: 3,
-    created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-    updated_at: new Date(Date.now() - 3600000 * 48 + 15000).toISOString(),
-    sent_at: new Date(Date.now() - 3600000 * 48 + 2000).toISOString(),
-    delivered_at: new Date(Date.now() - 3600000 * 48 + 8000).toISOString(),
-    context_data: { customer_name: 'Chisom Okeke' },
-    delivery_attempts: [
-      {
-        id: 'att-1',
-        attempt_number: 1,
-        status: 'SUCCESS',
-        response_code: 200,
-        response_body: '{"id":"re_wlc_9921abcf89"}',
-        latency_ms: 185,
-        created_at: new Date(Date.now() - 3600000 * 48 + 2000).toISOString(),
-      },
-    ],
-  },
-  {
-    id: 'em-102',
-    recipient: 'favour.buyer@gmail.com',
-    recipient_name: 'Favour James',
-    email_type: 'ORDER_CONFIRMATION',
-    email_type_display: 'Order Confirmation',
-    category: 'BUYER',
-    category_display: 'Buyer & Orders',
-    subject: 'Order Confirmed: DOV-ORD-8821',
-    sender: 'Dovi Orders <notifications@dovishops.com>',
-    status: 'DELIVERED',
-    status_display: 'Delivered',
-    resend_message_id: 're_ord_3381a172ce',
-    attempts_count: 1,
-    max_retries: 3,
-    created_at: new Date(Date.now() - 3600000 * 18).toISOString(),
-    updated_at: new Date(Date.now() - 3600000 * 18 + 12000).toISOString(),
-    sent_at: new Date(Date.now() - 3600000 * 18 + 1500).toISOString(),
-    delivered_at: new Date(Date.now() - 3600000 * 18 + 7000).toISOString(),
-    context_data: { order_reference: 'DOV-ORD-8821', total_amount: 45000 },
-    delivery_attempts: [
-      {
-        id: 'att-2',
-        attempt_number: 1,
-        status: 'SUCCESS',
-        response_code: 200,
-        response_body: '{"id":"re_ord_3381a172ce"}',
-        latency_ms: 210,
-        created_at: new Date(Date.now() - 3600000 * 18 + 1500).toISOString(),
-      },
-    ],
-  },
-  {
-    id: 'em-103',
-    recipient: 'apple.store.ng@merchant.com',
-    recipient_name: 'Apple Authorized Store',
-    email_type: 'SELLER_NEW_ORDER',
-    email_type_display: 'Seller New Order',
-    category: 'SELLER',
-    category_display: 'Seller & Payouts',
-    subject: 'Action Required: New Order #DOV-ORD-8821 Received!',
-    sender: 'Dovi Orders <notifications@dovishops.com>',
-    status: 'ACCEPTED',
-    status_display: 'Accepted by Provider',
-    resend_message_id: 're_sel_7719fbc412',
-    attempts_count: 1,
-    max_retries: 3,
-    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-    updated_at: new Date(Date.now() - 3600000 * 5 + 3000).toISOString(),
-    sent_at: new Date(Date.now() - 3600000 * 5 + 2000).toISOString(),
-    context_data: { order_reference: 'DOV-ORD-8821', total_amount: 45000 },
-    delivery_attempts: [
-      {
-        id: 'att-3',
-        attempt_number: 1,
-        status: 'SUCCESS',
-        response_code: 200,
-        response_body: '{"id":"re_sel_7719fbc412"}',
-        latency_ms: 195,
-        created_at: new Date(Date.now() - 3600000 * 5 + 2000).toISOString(),
-      },
-    ],
-  },
-  {
-    id: 'em-104',
-    recipient: 'emeka.student@campus.edu',
-    recipient_name: 'Emeka Nwosu',
-    email_type: 'PAYMENT_FAILED',
-    email_type_display: 'Payment Failed',
-    category: 'BUYER',
-    category_display: 'Buyer & Orders',
-    subject: 'Payment Attempt Failed for Order DOV-ORD-9102',
-    sender: 'Dovi Orders <notifications@dovishops.com>',
-    status: 'FAILED',
-    status_display: 'Failed',
-    resend_message_id: '',
-    attempts_count: 3,
-    max_retries: 3,
-    last_error: 'HTTP 429: Too many requests to mail provider / rate limit exceeded',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    updated_at: new Date(Date.now() - 3600000 * 2 + 14000).toISOString(),
-    context_data: { order_reference: 'DOV-ORD-9102', failure_reason: 'Card decline / limit' },
-    delivery_attempts: [
-      {
-        id: 'att-4',
-        attempt_number: 1,
-        status: 'FAILED',
-        response_code: 429,
-        error_message: 'HTTP 429: Rate limit exceeded',
-        latency_ms: 140,
-        created_at: new Date(Date.now() - 3600000 * 2 + 1000).toISOString(),
-      },
-      {
-        id: 'att-5',
-        attempt_number: 2,
-        status: 'FAILED',
-        response_code: 429,
-        error_message: 'HTTP 429: Rate limit exceeded (retry 1)',
-        latency_ms: 160,
-        created_at: new Date(Date.now() - 3600000 * 2 + 4000).toISOString(),
-      },
-      {
-        id: 'att-6',
-        attempt_number: 3,
-        status: 'FAILED',
-        response_code: 429,
-        error_message: 'HTTP 429: Rate limit exceeded (retry 2)',
-        latency_ms: 155,
-        created_at: new Date(Date.now() - 3600000 * 2 + 12000).toISOString(),
-      },
-    ],
-  },
-  {
-    id: 'em-105',
-    recipient: 'tunde.bounced@invalid-mail-domain.xyz',
-    recipient_name: 'Tunde Bakare',
-    email_type: 'PASSWORD_RESET',
-    email_type_display: 'Password Reset',
-    category: 'ACCOUNT',
-    category_display: 'Account & Security',
-    subject: 'Reset your Dovi password',
-    sender: 'Dovi Security <security@dovishops.com>',
-    status: 'BOUNCED',
-    status_display: 'Bounced',
-    resend_message_id: 're_pwd_5510aabb99',
-    attempts_count: 1,
-    max_retries: 3,
-    last_error: '550 5.1.1: Recipient address rejected: Domain does not exist',
-    created_at: new Date(Date.now() - 3600000 * 10).toISOString(),
-    updated_at: new Date(Date.now() - 3600000 * 10 + 25000).toISOString(),
-    sent_at: new Date(Date.now() - 3600000 * 10 + 1000).toISOString(),
-    context_data: { token: 'sample-reset-token' },
-    delivery_attempts: [
-      {
-        id: 'att-7',
-        attempt_number: 1,
-        status: 'SUCCESS',
-        response_code: 200,
-        response_body: '{"id":"re_pwd_5510aabb99"}',
-        latency_ms: 175,
-        created_at: new Date(Date.now() - 3600000 * 10 + 1000).toISOString(),
-      },
-    ],
-  },
-];
+export const DEFAULT_EMAIL_LOGS: EmailLog[] = [];
 
 function getStoredEmailLogs(): EmailLog[] {
   try {
     const raw = localStorage.getItem('dovi_email_logs');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((e: any) => {
+          const rec = (e.recipient || '').toLowerCase();
+          return !rec.includes('invalid-mail') && !rec.includes('campus.edu') && !rec.includes('merchant.com');
+        });
+      }
     }
   } catch {}
-  return DEFAULT_EMAIL_LOGS;
+  return [];
 }
 
 function saveStoredEmailLogs(logs: EmailLog[]) {
   try {
     localStorage.setItem('dovi_email_logs', JSON.stringify(logs));
   } catch {}
+}
+
+function isTestUserOrEmail(email?: string, name?: string): boolean {
+  if (!email && !name) return false;
+  const em = (email || '').toLowerCase().trim();
+  const nm = (name || '').toLowerCase().trim();
+  return (
+    em.includes('test') ||
+    em.includes('demo') ||
+    em.includes('example.com') ||
+    em.includes('invalid-mail') ||
+    em.includes('campus.edu') ||
+    em === 'user@dovi.com' ||
+    em === 'participant@dovi.com' ||
+    nm.includes('test') ||
+    nm.includes('demo')
+  );
 }
 
 function getStoredGlobalContributions(): Save2OwnContribution[] {
@@ -345,7 +190,9 @@ function getStoredGlobalContributions(): Save2OwnContribution[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         parsed.forEach((c: any) => {
-          if (c && c.id) contribsMap.set(String(c.id), c);
+          if (c && c.id && !isTestUserOrEmail(c.user_email, c.user_name) && !String(c.transfer_reference || '').toLowerCase().includes('test')) {
+            contribsMap.set(String(c.id), c);
+          }
         });
       }
     }
@@ -358,9 +205,15 @@ function getStoredGlobalContributions(): Save2OwnContribution[] {
       const goals = JSON.parse(goalsRaw);
       if (Array.isArray(goals)) {
         goals.forEach((g: any) => {
-          if (Array.isArray(g.contributions)) {
+          if (!isTestUserOrEmail(g.participant?.email, g.participant?.full_name) && Array.isArray(g.contributions)) {
             g.contributions.forEach((c: any) => {
-              if (c && c.id && !contribsMap.has(String(c.id))) {
+              if (
+                c &&
+                c.id &&
+                !contribsMap.has(String(c.id)) &&
+                !isTestUserOrEmail(c.user_email, c.user_name) &&
+                !String(c.transfer_reference || '').toLowerCase().includes('test')
+              ) {
                 contribsMap.set(String(c.id), {
                   ...c,
                   product_name: c.product_name || g.product?.name || 'Goal Item',
@@ -388,8 +241,10 @@ function getStoredParticipants(): AdminSave2OwnParticipant[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         parsed.forEach((p: any) => {
-          const key = p.id || p.email || p.user_id;
-          if (key) partsMap.set(String(key), p);
+          if (!isTestUserOrEmail(p.email, p.full_name)) {
+            const key = p.id || p.email || p.user_id;
+            if (key) partsMap.set(String(key), p);
+          }
         });
       }
     }
@@ -403,24 +258,26 @@ function getStoredParticipants(): AdminSave2OwnParticipant[] {
       if (Array.isArray(goals)) {
         goals.forEach((g: any) => {
           const p = g.participant;
-          const key = p?.id || p?.email || g.user_id || g.id;
-          if (key && !partsMap.has(String(key))) {
-            partsMap.set(String(key), {
-              id: p?.id || `part-${g.id}`,
-              user_id: p?.user_id || g.user_id || `usr-${g.id}`,
-              full_name: p?.full_name || g.user_name || 'Save2Own Participant',
-              email: p?.email || g.user_email || 'participant@dovi.com',
-              phone_number: p?.phone || p?.whatsapp_number || '+2348000000000',
-              goal_id: g.id,
-              goal_reference: g.reference_code || g.reference || `S2O-${String(g.id).slice(0, 8).toUpperCase()}`,
-              product_name: g.product?.name || 'Goal Product',
-              goal_status: g.status || 'ACTIVE',
-              target_amount: String(g.target_amount || '0.00'),
-              saved_amount: String(g.saved_amount || g.total_contributed || '0.00'),
-              identity_locked: p?.identity_locked ?? true,
-              created_at: p?.created_at || g.created_at || new Date().toISOString(),
-              updated_at: p?.updated_at || g.updated_at || new Date().toISOString(),
-            });
+          if (!isTestUserOrEmail(p?.email, p?.full_name)) {
+            const key = p?.id || p?.email || g.user_id || g.id;
+            if (key && !partsMap.has(String(key))) {
+              partsMap.set(String(key), {
+                id: p?.id || `part-${g.id}`,
+                user_id: p?.user_id || g.user_id || `usr-${g.id}`,
+                full_name: p?.full_name || g.user_name || 'Save2Own Participant',
+                email: p?.email || g.user_email || 'participant@dovi.com',
+                phone_number: p?.phone || p?.whatsapp_number || '+2348000000000',
+                goal_id: g.id,
+                goal_reference: g.reference_code || g.reference || `S2O-${String(g.id).slice(0, 8).toUpperCase()}`,
+                product_name: g.product?.name || 'Goal Product',
+                goal_status: g.status || 'ACTIVE',
+                target_amount: String(g.target_amount || '0.00'),
+                saved_amount: String(g.saved_amount || g.total_contributed || '0.00'),
+                identity_locked: p?.identity_locked ?? true,
+                created_at: p?.created_at || g.created_at || new Date().toISOString(),
+                updated_at: p?.updated_at || g.updated_at || new Date().toISOString(),
+              });
+            }
           }
         });
       }
@@ -1005,6 +862,14 @@ export const adminApi = {
   listUsers: async (params?: { page?: number; q?: string; role?: string }): Promise<PaginatedResponse<User>> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/users/', { params });
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((u: User) => !isTestUserOrEmail(u.email, `${u.first_name} ${u.last_name}`));
+        return {
+          ...data,
+          count: filtered.length,
+          results: filtered,
+        };
+      }
       return data;
     } catch {
       let list: User[] = [];
@@ -1015,6 +880,10 @@ export const adminApi = {
           if (Array.isArray(parsed)) list = parsed;
         }
       } catch {}
+
+      // Filter out test users
+      list = list.filter((u) => !isTestUserOrEmail(u.email, `${u.first_name} ${u.last_name}`));
+
       if (params?.role && params.role !== 'ALL') {
         list = list.filter((u) => u.role === params.role);
       }
@@ -2169,6 +2038,8 @@ export const adminApi = {
             if (Array.isArray(parsed)) goals = parsed;
           }
         } catch {}
+        // Filter out test goals and test accounts
+        goals = goals.filter((g: any) => !isTestUserOrEmail(g.participant?.email, g.participant?.full_name) && !String(g.id || '').toLowerCase().includes('test'));
         if (params?.status) {
           goals = goals.filter((g) => (g.status || '').toUpperCase() === params.status!.toUpperCase());
         }
