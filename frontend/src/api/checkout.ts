@@ -1,9 +1,11 @@
 // Checkout API — /api/v1/checkout/*
 import apiClient, { normalizeApiError } from './client';
+import { deliveryApi } from './delivery';
 import {
   syncDeliveryStoreFromServer,
   calculateOrderDelivery,
   buildOrderShipmentsFromCalculation,
+  findRouteInList,
   type EvaluableOrderItem,
 } from '@/services/deliveryPricingService';
 import type {
@@ -306,11 +308,21 @@ export const checkoutApi = {
       }))
     );
 
+    // Use the exact same route list as the checkout selectors (backend + shared admin store).
+    const routesForVerify = await deliveryApi.getActiveRoutes();
+    const verifyRoute = findRouteInList(
+      routesForVerify,
+      existingCalc.destination_state,
+      existingCalc.destination_city,
+      existingCalc.dispatch_origin
+    ).route;
+
     const freshCalc = calculateOrderDelivery({
       items: evaluableItems,
       destinationState: existingCalc.destination_state,
       destinationCity: existingCalc.destination_city,
       dispatchOrigin: existingCalc.dispatch_origin,
+      routeOverride: verifyRoute,
     });
 
     const prevFee = existingCalc.total_delivery_fee;

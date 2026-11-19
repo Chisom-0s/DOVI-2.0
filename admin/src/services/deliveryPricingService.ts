@@ -180,16 +180,18 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
       const serverData = (await res.json()) as Partial<DeliveryStoreState>;
       const local = getLocalDeliveryStore();
 
-      // Merge routes by ID (taking newest updated_at)
-      const routeMap = new Map<string, DeliveryRoute>();
-      for (const r of local.routes) routeMap.set(r.id, r);
-      for (const r of serverData.routes || []) {
-        const existing = routeMap.get(r.id);
-        if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
-          routeMap.set(r.id, r);
-        }
+      // Routes: the shared store is the single source of truth. Merging by ID previously
+      // resurrected routes the admin had deleted/edited (stale localStorage copies won),
+      // causing customers to be priced against outdated or phantom routes.
+      // Bootstrap: if the shared store is empty but this browser has routes, keep them and push them up.
+      const serverRoutes = Array.isArray(serverData.routes) ? serverData.routes : [];
+      let mergedRoutes: DeliveryRoute[];
+      if (serverRoutes.length === 0 && local.routes.length > 0) {
+        mergedRoutes = local.routes;
+        void pushDeliveryStoreToServer({ routes: local.routes });
+      } else {
+        mergedRoutes = serverRoutes;
       }
-      const mergedRoutes = Array.from(routeMap.values());
 
       // Merge rate history by ID
       const historyMap = new Map<string, DeliveryRateChangeRecord>();
@@ -486,36 +488,146 @@ export function listDeliveryRoutes(includeInactive = true): DeliveryRoute[] {
   });
 }
 
+// ----------------------------------------------------------
+// LOCATION NORMALIZATION
+// A single canonical normalizer is used by the admin route editor, the
+// checkout selectors and the route matcher so "Lagos", "Lagos State",
+// " lagos " and "FCT - Abuja" / "Abuja (FCT)" always resolve to the same key.
+// ----------------------------------------------------------
+const STATE_KEY_ALIASES: Record<string, string> = {
+  fct: 'fct',
+  'fct abuja': 'fct',
+  'abuja fct': 'fct',
+  abuja: 'fct',
+  'federal capital territory': 'fct',
+  'cross rivers': 'cross river',
+  akwaibom: 'akwa ibom',
+  nassarawa: 'nasarawa',
+};
+
+const STATE_WIDE_CITY_KEYS = ['all cities', 'all city', 'all towns', 'all', 'any', 'statewide', 'state wide', '*'];
+
+export function normalizeLocationName(value: string | null | undefined): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[().,'’`\-_/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function canonicalStateKey(value: string | null | undefined): string {
+  const stripped = normalizeLocationName(value)
+    .replace(/\bstate\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return STATE_KEY_ALIASES[stripped] || stripped;
+}
+
+export function canonicalCityKey(value: string | null | undefined): string {
+  return normalizeLocationName(value);
+}
+
+/** Maps any user/admin supplied state string to the canonical entry in NIGERIAN_STATES (or '' if unknown). */
+export function resolveCanonicalStateName(value: string | null | undefined): string {
+  const key = canonicalStateKey(value);
+  if (!key) return '';
+  return NIGERIAN_STATES.find((s) => canonicalStateKey(s) === key) || '';
+}
+
+export function isStateWideCity(route: Pick<DeliveryRoute, 'destination_state' | 'destination_city'>): boolean {
+  const cityKey = canonicalCityKey(route.destination_city);
+  return !cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey) || cityKey === canonicalStateKey(route.destination_state);
+}
+
+export type RouteMatchType = 'EXACT_CITY' | 'STATE_WIDE' | 'NONE';
+
+/**
+ * Pure route matcher: given an explicit list of routes, finds the active route for
+ * origin + state + city. Never falls back to a different state or a different city
+ * (other than an explicitly state-wide route of the SAME state).
+ */
+export function findRouteInList(
+  routes: DeliveryRoute[],
+  destinationState: string,
+  destinationCity: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): { route: DeliveryRoute | null; match: RouteMatchType } {
+  const originKey = normalizeLocationName(dispatchOrigin || PRIMARY_DISPATCH_ORIGIN);
+  const stateKey = canonicalStateKey(destinationState);
+  const cityKey = canonicalCityKey(destinationCity);
+
+  if (!stateKey) return { route: null, match: 'NONE' };
+
+  const candidates = routes.filter(
+    (r) =>
+      r.is_active !== false &&
+      normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN) === originKey &&
+      canonicalStateKey(r.destination_state) === stateKey
+  );
+
+  if (cityKey) {
+    const exact = candidates.find((r) => !isStateWideCity(r) && canonicalCityKey(r.destination_city) === cityKey);
+    if (exact) return { route: exact, match: 'EXACT_CITY' };
+  }
+
+  const stateWide = candidates.find((r) => isStateWideCity(r));
+  if (stateWide) return { route: stateWide, match: 'STATE_WIDE' };
+
+  return { route: null, match: 'NONE' };
+}
+
+/** Lists the distinct, active, configured destination cities for a state (excluding state-wide catch-all rows). */
+export function listConfiguredCitiesForState(
+  routes: DeliveryRoute[],
+  destinationState: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): DeliveryRoute[] {
+  const originKey = normalizeLocationName(dispatchOrigin || PRIMARY_DISPATCH_ORIGIN);
+  const stateKey = canonicalStateKey(destinationState);
+  if (!stateKey) return [];
+  const seen = new Set<string>();
+  const result: DeliveryRoute[] = [];
+  for (const r of routes) {
+    if (r.is_active === false) continue;
+    if (normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN) !== originKey) continue;
+    if (canonicalStateKey(r.destination_state) !== stateKey) continue;
+    if (isStateWideCity(r)) continue;
+    const key = canonicalCityKey(r.destination_city);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(r);
+  }
+  return result.sort((a, b) => a.destination_city.localeCompare(b.destination_city));
+}
+
 export function findActiveRoute(
   destinationState: string,
   destinationCity: string,
   dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
 ): DeliveryRoute | null {
-  const normOrigin = (dispatchOrigin || PRIMARY_DISPATCH_ORIGIN).trim().toLowerCase();
-  const normState = (destinationState || '').trim().toLowerCase();
-  const normCity = (destinationCity || '').trim().toLowerCase();
+  return findRouteInList(listDeliveryRoutes(false), destinationState, destinationCity, dispatchOrigin).route;
+}
 
-  if (!normState) return null;
+/** Pure state-change transition: a new state ALWAYS clears the town (towns belong to exactly one state). */
+export function selectDestinationState(nextState: string): { state: string; city: string } {
+  return { state: nextState, city: '' };
+}
 
-  const activeRoutes = listDeliveryRoutes(false).filter(
-    (r) => (r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN).trim().toLowerCase() === normOrigin
+/** True only if `city` is a configured town of `state` (or a custom town typed by the customer for that state). */
+export function isConfiguredCityForState(
+  routes: DeliveryRoute[],
+  state: string,
+  city: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): boolean {
+  const key = canonicalCityKey(city);
+  if (!key) return false;
+  return listConfiguredCitiesForState(routes, state, dispatchOrigin).some(
+    (r) => canonicalCityKey(r.destination_city) === key
   );
-
-  // 1. Exact state + city match
-  const exactMatch = activeRoutes.find(
-    (r) =>
-      r.destination_state.trim().toLowerCase() === normState &&
-      r.destination_city.trim().toLowerCase() === normCity
-  );
-  if (exactMatch) return exactMatch;
-
-  // 2. State-wide fallback route (where destination_city is 'All Cities', '*', or matches state name)
-  const stateWideMatch = activeRoutes.find(
-    (r) =>
-      r.destination_state.trim().toLowerCase() === normState &&
-      ['all cities', 'all', '*', normState].includes(r.destination_city.trim().toLowerCase())
-  );
-  return stateWideMatch || null;
 }
 
 export function listRateChangeHistory(routeId?: string): DeliveryRateChangeRecord[] {
@@ -527,7 +639,7 @@ export function listRateChangeHistory(routeId?: string): DeliveryRateChangeRecor
 export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: AdminActor): DeliveryRoute {
   assertAuthorizedAdmin(actor);
 
-  const destinationState = (input.destination_state || '').trim();
+  const destinationState = resolveCanonicalStateName(input.destination_state) || (input.destination_state || '').trim();
   const destinationCity = (input.destination_city || '').trim();
   const dispatchOrigin = (input.dispatch_origin || PRIMARY_DISPATCH_ORIGIN).trim();
 
@@ -538,9 +650,9 @@ export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: Admi
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   const duplicate = routes.find(
     (r) =>
-      r.dispatch_origin.toLowerCase() === dispatchOrigin.toLowerCase() &&
-      r.destination_state.toLowerCase() === destinationState.toLowerCase() &&
-      r.destination_city.toLowerCase() === destinationCity.toLowerCase()
+      normalizeLocationName(r.dispatch_origin) === normalizeLocationName(dispatchOrigin) &&
+      canonicalStateKey(r.destination_state) === canonicalStateKey(destinationState) &&
+      canonicalCityKey(r.destination_city) === canonicalCityKey(destinationCity)
   );
   if (duplicate) {
     throw new Error(

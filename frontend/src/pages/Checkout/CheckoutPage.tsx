@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
@@ -7,8 +7,13 @@ import { authApi } from '@/api/auth';
 import { checkoutApi } from '@/api/checkout';
 import { deliveryApi } from '@/api/delivery';
 import {
+  NIGERIAN_STATES,
   PARCEL_CLASSIFICATION_LABELS,
   resolveProductDeliveryAttributes,
+  resolveCanonicalStateName,
+  listConfiguredCitiesForState,
+  selectDestinationState,
+  canonicalCityKey,
 } from '@/services/deliveryPricingService';
 import type {
   Address,
@@ -18,45 +23,6 @@ import type {
 } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
-const NIGERIAN_STATES = [
-  'Abia',
-  'Abuja (FCT)',
-  'Adamawa',
-  'Akwa Ibom',
-  'Anambra',
-  'Bauchi',
-  'Bayelsa',
-  'Benue',
-  'Borno',
-  'Cross River',
-  'Delta',
-  'Ebonyi',
-  'Edo',
-  'Ekiti',
-  'Enugu',
-  'Gombe',
-  'Imo',
-  'Jigawa',
-  'Kaduna',
-  'Kano',
-  'Katsina',
-  'Kebbi',
-  'Kogi',
-  'Kwara',
-  'Lagos',
-  'Nasarawa',
-  'Niger',
-  'Ogun',
-  'Ondo',
-  'Osun',
-  'Oyo',
-  'Plateau',
-  'Rivers',
-  'Sokoto',
-  'Taraba',
-  'Yobe',
-  'Zamfara',
-];
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -71,8 +37,12 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [activeRoutes, setActiveRoutes] = useState<DeliveryRoute[]>([]);
-  const [destinationState, setDestinationState] = useState<string>('Lagos');
-  const [destinationCity, setDestinationCity] = useState<string>('Lagos');
+  const [destinationState, setDestinationState] = useState<string>('');
+  const [destinationCity, setDestinationCity] = useState<string>('');
+  // True once the customer has typed/selected a destination themselves; async loads (saved addresses)
+  // must never overwrite an explicit customer choice.
+  const userChoseDestinationRef = useRef(false);
+  const [customCityMode, setCustomCityMode] = useState(false);
   const [deliveryCalculation, setDeliveryCalculation] = useState<DeliveryCalculationResult | null>(null);
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -87,8 +57,8 @@ export default function CheckoutPage() {
     phone: '',
     address_line_1: '',
     address_line_2: '',
-    city: 'Lagos',
-    state: 'Lagos',
+    city: '',
+    state: '',
     country: 'Nigeria',
     postal_code: '',
     is_default: true,
@@ -139,8 +109,10 @@ export default function CheckoutPage() {
       if (addrs.length > 0) {
         const defaultAddr = addrs.find((a: Address) => a.is_default) || addrs[0];
         setSelectedAddressId(defaultAddr.id);
-        if (defaultAddr.state) setDestinationState(defaultAddr.state);
-        if (defaultAddr.city) setDestinationCity(defaultAddr.city);
+        // Never overwrite a destination the customer already picked while addresses were loading.
+        if (!userChoseDestinationRef.current) {
+          applyDestination(defaultAddr.state, defaultAddr.city);
+        }
       } else {
         setShowAddForm(true);
       }
@@ -155,26 +127,77 @@ export default function CheckoutPage() {
     fetchData();
   }, [fetchData]);
 
+  // Keep configured routes fresh: admin may add/edit/deactivate routes while the customer is on this page.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') {
+        deliveryApi.getActiveRoutes().then(setActiveRoutes).catch(() => {});
+      }
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
+
   // Sync destinationState & destinationCity when user selects a saved address
   const selectedAddress = useMemo(
     () => addresses.find((a) => a.id === selectedAddressId) || null,
     [addresses, selectedAddressId]
   );
 
-  const handleSelectAddress = (addr: Address) => {
-    setSelectedAddressId(addr.id);
-    if (addr.state) setDestinationState(addr.state);
-    if (addr.city) setDestinationCity(addr.city);
+  /**
+   * Single entry point that sets BOTH state and city atomically. State is mapped to the canonical
+   * state name (so "Abuja (FCT)" / "Lagos State" match admin-configured routes). A city is only kept
+   * if it was supplied together with the state; it can never be carried over from a previous state.
+   */
+  function applyDestination(rawState: string | null | undefined, rawCity: string | null | undefined) {
+    const canonicalState = resolveCanonicalStateName(rawState) || (rawState || '').trim();
+    const city = (rawCity || '').trim();
+    setDestinationState(canonicalState);
+    setDestinationCity(city);
+    // "Other city" mode is only ever entered explicitly by the customer; whether a typed city matches a
+    // configured one is derived at render time (selectedCityOptionValue), never cached.
+    setCustomCityMode(false);
+  }
+
+  const handleStateChange = (nextState: string) => {
+    userChoseDestinationRef.current = true;
+    // Changing the state ALWAYS clears the town; a town belongs to exactly one state.
+    const next = selectDestinationState(nextState);
+    setDestinationState(next.state);
+    setDestinationCity(next.city);
+    setCustomCityMode(false);
+    setAddrForm((p) => ({ ...p, state: next.state, city: next.city }));
   };
 
-  // Recalculate consolidated delivery pricing whenever items or destination changes
+  const handleCityChange = (nextCity: string) => {
+    userChoseDestinationRef.current = true;
+    setDestinationCity(nextCity);
+    setAddrForm((p) => ({ ...p, city: nextCity }));
+  };
+
+  const handleSelectAddress = (addr: Address) => {
+    userChoseDestinationRef.current = true;
+    setSelectedAddressId(addr.id);
+    applyDestination(addr.state, addr.city);
+  };
+
+  const hasDestination = Boolean(destinationState.trim() && destinationCity.trim());
+
+  // Recalculate consolidated delivery pricing whenever items, destination or configured routes change
   useEffect(() => {
     let cancelled = false;
-    if (effectiveItems.length === 0) {
+    if (effectiveItems.length === 0 || !hasDestination) {
       setDeliveryCalculation(null);
+      setIsCalculatingDelivery(false);
       return;
     }
 
+    // Drop the previous destination's fee immediately so a stale fee can never be paid.
+    setDeliveryCalculation(null);
     setIsCalculatingDelivery(true);
     deliveryApi
       .calculateConsolidatedDelivery(
@@ -198,17 +221,22 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveItems, destinationState, destinationCity]);
+  }, [effectiveItems, destinationState, destinationCity, hasDestination, activeRoutes]);
 
-  // Available cities for selected state from configured routes
-  const configuredCitiesForState = useMemo(() => {
-    const normState = destinationState.trim().toLowerCase();
-    return activeRoutes.filter(
-      (r) =>
-        r.destination_state.trim().toLowerCase() === normState ||
-        (normState.includes('abuja') && r.destination_state.toLowerCase().includes('abuja'))
+  // Configured (active) cities for the currently selected state ONLY
+  const configuredCitiesForState = useMemo(
+    () => listConfiguredCitiesForState(activeRoutes, destinationState),
+    [activeRoutes, destinationState]
+  );
+
+  const selectedCityOptionValue = useMemo(() => {
+    if (customCityMode) return '__custom__';
+    if (!destinationCity) return '';
+    const match = configuredCitiesForState.find(
+      (r) => canonicalCityKey(r.destination_city) === canonicalCityKey(destinationCity)
     );
-  }, [activeRoutes, destinationState]);
+    return match ? match.destination_city : '__custom__';
+  }, [customCityMode, destinationCity, configuredCitiesForState]);
 
   // Add Address Handler
   const handleAddAddress = async (e: React.FormEvent) => {
@@ -235,8 +263,8 @@ export default function CheckoutPage() {
       };
       setAddresses((prev) => [...prev, guestAddr]);
       setSelectedAddressId(localId);
-      setDestinationState(guestAddr.state);
-      setDestinationCity(guestAddr.city);
+      userChoseDestinationRef.current = true;
+      applyDestination(guestAddr.state, guestAddr.city);
       setShowAddForm(false);
       toast.success('Delivery address saved for this order!');
       return;
@@ -258,8 +286,8 @@ export default function CheckoutPage() {
       });
       setAddresses((prev) => [...prev, newAddr]);
       setSelectedAddressId(newAddr.id);
-      setDestinationState(newAddr.state);
-      setDestinationCity(newAddr.city);
+      userChoseDestinationRef.current = true;
+      applyDestination(newAddr.state, newAddr.city);
       setShowAddForm(false);
       toast.success('Delivery address added!');
     } catch {
@@ -280,8 +308,8 @@ export default function CheckoutPage() {
       };
       setAddresses((prev) => [...prev, localAddr]);
       setSelectedAddressId(localId);
-      setDestinationState(localAddr.state);
-      setDestinationCity(localAddr.city);
+      userChoseDestinationRef.current = true;
+      applyDestination(localAddr.state, localAddr.city);
       setShowAddForm(false);
       toast.success('Delivery address saved!');
     } finally {
@@ -490,16 +518,10 @@ export default function CheckoutPage() {
                   <label style={fieldLabelStyles}>Destination State</label>
                   <select
                     value={destinationState}
-                    onChange={(e) => {
-                      const nextState = e.target.value;
-                      setDestinationState(nextState);
-                      const matchingRoute = activeRoutes.find(
-                        (r) => r.destination_state.toLowerCase() === nextState.toLowerCase()
-                      );
-                      setDestinationCity(matchingRoute ? matchingRoute.destination_city : nextState);
-                    }}
+                    onChange={(e) => handleStateChange(e.target.value)}
                     style={{ ...inputStyles, width: '100%' }}
                   >
+                    <option value="">Select state...</option>
                     {NIGERIAN_STATES.map((st) => (
                       <option key={st} value={st}>
                         {st}
@@ -510,25 +532,47 @@ export default function CheckoutPage() {
 
                 <div>
                   <label style={fieldLabelStyles}>Destination City / Town</label>
-                  {configuredCitiesForState.length > 0 ? (
+                  {!destinationState ? (
+                    <input
+                      type="text"
+                      disabled
+                      value=""
+                      placeholder="Select a state first"
+                      style={{ ...inputStyles, width: '100%' }}
+                    />
+                  ) : configuredCitiesForState.length > 0 ? (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <select
-                        value={destinationCity}
-                        onChange={(e) => setDestinationCity(e.target.value)}
+                        key={destinationState}
+                        value={selectedCityOptionValue}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === '__custom__') {
+                            userChoseDestinationRef.current = true;
+                            setCustomCityMode(true);
+                            setDestinationCity('');
+                          } else {
+                            setCustomCityMode(false);
+                            handleCityChange(v);
+                          }
+                        }}
                         style={{ ...inputStyles, flex: 1 }}
                       >
+                        <option value="">Select city / town...</option>
                         {configuredCitiesForState.map((r) => (
                           <option key={r.id} value={r.destination_city}>
-                            {r.destination_city} ({r.estimated_delivery_days})
+                            {r.destination_city}
+                            {r.estimated_delivery_days ? ` (${r.estimated_delivery_days})` : ''}
                           </option>
                         ))}
                         <option value="__custom__">Other City (Enter manually)...</option>
                       </select>
-                      {destinationCity === '__custom__' && (
+                      {selectedCityOptionValue === '__custom__' && (
                         <input
                           type="text"
                           placeholder="Enter city name"
-                          onChange={(e) => setDestinationCity(e.target.value)}
+                          value={destinationCity}
+                          onChange={(e) => handleCityChange(e.target.value)}
                           style={{ ...inputStyles, flex: 1 }}
                         />
                       )}
@@ -537,7 +581,7 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       value={destinationCity}
-                      onChange={(e) => setDestinationCity(e.target.value)}
+                      onChange={(e) => handleCityChange(e.target.value)}
                       placeholder="Enter destination city"
                       style={{ ...inputStyles, width: '100%' }}
                     />
@@ -634,20 +678,19 @@ export default function CheckoutPage() {
                     placeholder="City"
                     value={addrForm.city}
                     onChange={(e) => {
-                      setAddrForm((p) => ({ ...p, city: e.target.value }));
-                      setDestinationCity(e.target.value);
+                      handleCityChange(e.target.value);
+                      setCustomCityMode(false);
                     }}
                     style={inputStyles}
                     required
                   />
                   <select
                     value={addrForm.state}
-                    onChange={(e) => {
-                      setAddrForm((p) => ({ ...p, state: e.target.value }));
-                      setDestinationState(e.target.value);
-                    }}
+                    onChange={(e) => handleStateChange(e.target.value)}
                     style={inputStyles}
+                    required
                   >
+                    <option value="">Select state...</option>
                     {NIGERIAN_STATES.map((st) => (
                       <option key={st} value={st}>
                         {st}
@@ -705,7 +748,20 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            {isCalculatingDelivery || !deliveryCalculation ? (
+            {!hasDestination ? (
+              <div
+                style={{
+                  padding: '16px',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 'var(--text-sm)',
+                  color: 'var(--color-text-muted)',
+                  textAlign: 'center',
+                }}
+              >
+                Select your destination state and city above to see your delivery fee.
+              </div>
+            ) : isCalculatingDelivery || !deliveryCalculation ? (
               <Skeleton width="100%" height="140px" borderRadius="var(--radius-md)" />
             ) : (
               <>
@@ -976,7 +1032,11 @@ export default function CheckoutPage() {
                   lineHeight: 1.4,
                 }}
               >
-                <strong>No Surprises Guarantee:</strong> Because this route or bulky item requires a custom transport arrangement from our Onitsha Hub, we do not guess or charge a fake fee. Submit your order below to receive an exact delivery quotation before you pay.
+                <strong>Delivery quotation needed:</strong>{' '}
+                {deliveryCalculation.route_found
+                  ? 'A delivery route exists for this destination, but this order needs a custom quotation (see the reason above).'
+                  : `No delivery route from our Onitsha Hub to ${destinationCity}, ${destinationState} has been configured yet.`}{' '}
+                We do not guess or charge a fake fee. Submit your order below to receive an exact delivery quotation before you pay.
               </div>
               <button
                 type="button"
@@ -998,10 +1058,10 @@ export default function CheckoutPage() {
             <button
               type="button"
               onClick={handleProceedToPayment}
-              disabled={isSubmitting || isCalculatingDelivery || !deliveryCalculation}
+              disabled={isSubmitting || isCalculatingDelivery || !deliveryCalculation || !hasDestination}
               style={{
                 ...proceedBtnStyles,
-                opacity: isSubmitting || isCalculatingDelivery || !deliveryCalculation ? 0.6 : 1,
+                opacity: isSubmitting || isCalculatingDelivery || !deliveryCalculation || !hasDestination ? 0.6 : 1,
               }}
             >
               {isSubmitting

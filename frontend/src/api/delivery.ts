@@ -3,7 +3,10 @@ import apiClient, { normalizeApiError } from './client';
 import {
   syncDeliveryStoreFromServer,
   listDeliveryRoutes,
-  findActiveRoute,
+  findRouteInList,
+  canonicalStateKey,
+  canonicalCityKey,
+  normalizeLocationName,
   calculateOrderDelivery,
   calculateConsolidatedDelivery as calcConsolidatedFromItems,
   getOrderShipments,
@@ -17,6 +20,72 @@ import type {
   DeliveryCalculationResult,
   OrderShipment,
 } from '@/types';
+
+/** Adapts a backend (Django) route record to the frontend DeliveryRoute shape. */
+function adaptBackendRoute(r: any): DeliveryRoute {
+  const num = (v: any) => (v === null || v === undefined || v === '' ? null : Number(v));
+  return {
+    id: String(r.id),
+    dispatch_origin: r.dispatch_origin || r.origin || 'Onitsha',
+    destination_state: r.destination_state || '',
+    destination_city: r.destination_city || '',
+    small_parcel_rate: num(r.small_parcel_rate),
+    heavy_parcel_rate: num(r.heavy_parcel_rate),
+    furniture_bulky_rate: num(r.furniture_bulky_rate),
+    combined_furniture_rate: num(r.combined_furniture_rate),
+    special_handling_surcharge: num(r.special_handling_surcharge),
+    allows_furniture_small_consolidation: Boolean(
+      r.allows_furniture_small_consolidation ?? r.allow_small_with_furniture ?? false
+    ),
+    max_furniture_items_consolidated: Number(r.max_furniture_items_consolidated ?? 2),
+    max_small_parcel_weight_kg: Number(r.max_small_parcel_weight_kg ?? 15),
+    max_heavy_parcel_weight_kg: Number(r.max_heavy_parcel_weight_kg ?? 80),
+    special_delivery_requirements: r.special_delivery_requirements ?? null,
+    estimated_delivery_days: r.estimated_delivery_days ?? r.estimated_delivery_info ?? null,
+    is_active: r.is_active !== false,
+    created_at: r.created_at || new Date(0).toISOString(),
+    updated_at: r.updated_at || new Date(0).toISOString(),
+    updated_by_id: r.updated_by_id ?? null,
+    updated_by_email: r.updated_by_email ?? r.updated_by ?? null,
+    updated_by_name: r.updated_by_name ?? r.updated_by ?? null,
+  };
+}
+
+function routeIdentity(r: DeliveryRoute): string {
+  return [
+    normalizeLocationName(r.dispatch_origin),
+    canonicalStateKey(r.destination_state),
+    canonicalCityKey(r.destination_city),
+  ].join('|');
+}
+
+/**
+ * Single loader for the customer-facing route list. Combines the backend routes (if the
+ * endpoint exists and has data) with the shared admin store. When both describe the same
+ * origin+state+city the most recently updated record wins. Inactive routes are excluded.
+ */
+async function loadActiveRoutes(): Promise<DeliveryRoute[]> {
+  await syncDeliveryStoreFromServer();
+  const merged = new Map<string, DeliveryRoute>();
+  for (const r of listDeliveryRoutes(false)) merged.set(routeIdentity(r), r);
+
+  try {
+    const { data } = await apiClient.get('/api/v1/delivery/routes/', { params: { active_only: true } });
+    const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+    for (const raw of list) {
+      const r = adaptBackendRoute(raw);
+      if (!r.is_active || !r.destination_state) continue;
+      const key = routeIdentity(r);
+      const existing = merged.get(key);
+      if (!existing || new Date(r.updated_at).getTime() > new Date(existing.updated_at).getTime()) {
+        merged.set(key, r);
+      }
+    }
+  } catch {
+    // Backend delivery endpoint unavailable — shared admin store is used.
+  }
+  return Array.from(merged.values()).filter((r) => r.is_active);
+}
 
 export const deliveryApi = {
   list: async (params?: {
@@ -93,16 +162,7 @@ export const deliveryApi = {
   // DOVI ONITSHA HUB DELIVERY PRICING & CONSOLIDATION ENDPOINTS
   // ----------------------------------------------------------
   getActiveRoutes: async (): Promise<DeliveryRoute[]> => {
-    await syncDeliveryStoreFromServer();
-    try {
-      const { data } = await apiClient.get('/api/v1/delivery/routes/', { params: { active_only: true } });
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
-      }
-    } catch {
-      // Fallback to synced shared store
-    }
-    return listDeliveryRoutes(false);
+    return loadActiveRoutes();
   },
 
   findRouteForDestination: async (
@@ -110,25 +170,36 @@ export const deliveryApi = {
     destinationCity: string,
     dispatchOrigin = 'Onitsha'
   ): Promise<DeliveryRoute | null> => {
-    await syncDeliveryStoreFromServer();
-    return findActiveRoute(destinationState, destinationCity, dispatchOrigin);
+    const routes = await loadActiveRoutes();
+    return findRouteInList(routes, destinationState, destinationCity, dispatchOrigin).route;
   },
 
   calculateConsolidatedDelivery: async (
     itemsOrParams: any[] | CalculateOrderDeliveryParams,
-    destinationState = 'Lagos',
-    destinationCity = 'Lagos',
+    destinationState = '',
+    destinationCity = '',
     dispatchOrigin = 'Onitsha'
   ): Promise<DeliveryCalculationResult> => {
-    await syncDeliveryStoreFromServer();
+    // The SAME route list that populates the checkout selectors is used for pricing,
+    // so a destination the customer can pick is always priced against its configured route.
+    const routes = await loadActiveRoutes();
     if (!Array.isArray(itemsOrParams) && itemsOrParams && Array.isArray(itemsOrParams.items)) {
-      return calculateOrderDelivery(itemsOrParams);
+      const params = itemsOrParams;
+      const route = findRouteInList(
+        routes,
+        params.destinationState,
+        params.destinationCity,
+        params.dispatchOrigin || dispatchOrigin
+      ).route;
+      return calculateOrderDelivery({ ...params, routeOverride: params.routeOverride ?? route });
     }
+    const route = findRouteInList(routes, destinationState, destinationCity, dispatchOrigin).route;
     return calcConsolidatedFromItems(
       itemsOrParams,
       destinationState,
       destinationCity,
-      dispatchOrigin
+      dispatchOrigin,
+      route
     );
   },
 

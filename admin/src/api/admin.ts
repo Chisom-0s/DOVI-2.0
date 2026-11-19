@@ -1,5 +1,7 @@
 import apiClient, { normalizeApiError, tokenStore } from './client';
 import { normalizeUrl } from '@/utils/image';
+import { computeAnalytics } from '@/services/analyticsAggregator';
+import type { AnalyticsRange, AnalyticsOverviewResult, AnalyticsSourceStatus } from '@/services/analyticsAggregator';
 import {
   listMainCategories,
   syncCategoriesFromSharedDb,
@@ -161,6 +163,32 @@ function saveStoredEmailLogs(logs: EmailLog[]) {
   try {
     localStorage.setItem('dovi_email_logs', JSON.stringify(logs));
   } catch {}
+}
+
+/**
+ * Loads EVERY page of a paginated DRF list endpoint (the previous dashboard only read page 1,
+ * so counts and revenue silently stopped at the first page of results).
+ */
+async function fetchAllPages(
+  path: string,
+  params: Record<string, any> = {},
+  maxPages = 200
+): Promise<{ items: any[]; truncated: boolean }> {
+  const items: any[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { data } = await apiClient.get(path, { params: { ...params, page } });
+    if (Array.isArray(data)) {
+      items.push(...data);
+      return { items, truncated: false };
+    }
+    const results: any[] = Array.isArray(data?.results) ? data.results : [];
+    items.push(...results);
+    if (!data?.next || results.length === 0) {
+      const declared = typeof data?.count === "number" ? data.count : items.length;
+      return { items, truncated: declared > items.length };
+    }
+  }
+  return { items, truncated: true };
 }
 
 function isTestUserOrEmail(email?: string, name?: string): boolean {
@@ -776,87 +804,104 @@ export const adminApi = {
 
   
   // --- Dashboard Analytics ---
-  getAnalyticsOverview: async (): Promise<any> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/admin/analytics/overview/');
-      return data;
-    } catch {
-      // Compute analytics dynamically from real endpoints / stored data
-      let totalOrders = 0;
-      let revenueToday = '0';
-      let recentOrders: any[] = [];
-      try {
-        const { data: ordData } = await apiClient.get('/api/v1/orders/');
-        const list = Array.isArray(ordData) ? ordData : (ordData?.results || []);
-        totalOrders = ordData?.count ?? list.length;
-        recentOrders = list.slice(0, 5).map((o: any) => ({
-          reference: o.reference_code || o.reference || o.id?.slice(0, 8),
-          total: String(o.total_amount || '0'),
-          status: o.status || 'PENDING',
-          created_at: o.created_at || new Date().toISOString(),
-        }));
-        const sum = list.reduce((acc: number, o: any) => acc + (parseFloat(o.total_amount) || 0), 0);
-        revenueToday = String(sum);
-      } catch {}
+  getAnalyticsOverview: async (
+    range: AnalyticsRange = 'ALL'
+  ): Promise<AnalyticsOverviewResult & { sources: AnalyticsSourceStatus[]; discrepancies: string[] }> => {
+    // Every metric is computed from the same real record lists the management pages use.
+    // No mock data, no localStorage fallbacks, no silent zeros: a source that fails to load is reported.
+    const sources: AnalyticsSourceStatus[] = [];
 
-      let totalVendors = 0;
-      try {
-        const { data: vData } = await apiClient.get('/api/v1/vendors/');
-        const vList = Array.isArray(vData) ? vData : (vData?.results || []);
-        totalVendors = vData?.count ?? vList.length;
-      } catch {}
-
-      let pendingRefunds = 0;
-      try {
-        const { data: rData } = await apiClient.get('/api/v1/refunds/');
-        const rList = Array.isArray(rData) ? rData : (rData?.results || []);
-        pendingRefunds = rList.filter((r: any) => r.status === 'PENDING').length;
-      } catch {}
-
-      let activeGoalsCount = 0;
-      try {
-        const { data: gData } = await apiClient.get('/api/v1/admin/save2own/goals/');
-        const gList = Array.isArray(gData) ? gData : (gData?.results || []);
-        activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
-      } catch {
+    const load = async (
+      name: string,
+      paths: string[],
+      params: Record<string, any> = {}
+    ): Promise<any[] | null> => {
+      let lastError = '';
+      for (const path of paths) {
         try {
-          const { data: gData } = await apiClient.get('/api/v1/save2own/goals/');
-          const gList = Array.isArray(gData) ? gData : (gData?.results || []);
-          activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
-        } catch {
-          const storedGoals = JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]');
-          activeGoalsCount = storedGoals.filter((g: any) => g.status === 'ACTIVE').length;
+          const res = await fetchAllPages(path, params);
+          sources.push({ name, ok: true, count: res.items.length, truncated: res.truncated });
+          return res.items;
+        } catch (err: any) {
+          lastError = err?.response?.status ? `HTTP ${err.response.status}` : err?.message || 'request failed';
         }
       }
+      sources.push({ name, ok: false, count: 0, error: lastError });
+      return null;
+    };
 
-      let totalUsersCount = 1;
-      try {
-        const { data: uData } = await apiClient.get('/api/v1/admin/users/');
-        totalUsersCount = uData?.count ?? (Array.isArray(uData) ? uData.length : 1);
-      } catch {
-        const storedUsers = JSON.parse(localStorage.getItem('dovi_admin_users_db') || '[]');
-        if (storedUsers.length > 0) totalUsersCount = storedUsers.length;
-      }
+    const [orders, users, vendors, products, refunds, goals, contributions, payments, serverOverview] =
+      await Promise.all([
+        load('Orders', ['/api/v1/orders/']),
+        load('Users', ['/api/v1/admin/users/']),
+        load('Vendors', ['/api/v1/admin/vendors/', '/api/v1/vendors/']),
+        load('Products', ['/api/v1/products/']),
+        load('Refunds', ['/api/v1/refunds/']),
+        load('Save2Own goals', ['/api/v1/admin/save2own/goals/', '/api/v1/save2own/goals/']),
+        load('Save2Own contributions', ['/api/v1/admin/save2own/contributions/']),
+        load('Payments', ['/api/v1/admin/payments/']),
+        apiClient
+          .get('/api/v1/admin/analytics/overview/')
+          .then((r) => r.data)
+          .catch(() => null),
+      ]);
 
-      return {
-        total_users: totalUsersCount,
-        new_users_today: 0,
-        total_vendors: totalVendors,
-        pending_vendors_count: 0,
-        total_orders: totalOrders,
-        revenue_today: revenueToday,
-        payments_summary: {
-          today: revenueToday,
-          week: revenueToday,
-          month: revenueToday,
-        },
-        pending_refunds_count: pendingRefunds,
-        active_s2o_goals_count: activeGoalsCount,
-        recent_orders: recentOrders,
-        recent_users: [],
-      };
+    if (orders === null && users === null) {
+      throw normalizeApiError(new Error('Unable to load orders or users from the backend. Dashboard analytics are unavailable.'));
     }
+
+    // Same filters as the management pages so counts line up with what admins see there.
+    let deletedProductIds: string[] = [];
+    try {
+      deletedProductIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+    } catch {}
+    const visibleProducts = (products || []).filter(
+      (p: any) =>
+        p && !deletedProductIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED'
+    );
+    const visibleUsers = (users || []).filter(
+      (u: any) => !isTestUserOrEmail(u?.email, `${u?.first_name || ''} ${u?.last_name || ''}`)
+    );
+
+    const result = computeAnalytics({
+      orders: orders || [],
+      payments,
+      users: visibleUsers,
+      vendors: vendors || [],
+      products: visibleProducts,
+      refunds: refunds || [],
+      goals: goals || [],
+      contributions: contributions || [],
+      range,
+    });
+
+    for (const s of sources) {
+      if (!s.ok && s.name !== 'Payments') {
+        result.warnings.push(`${s.name} could not be loaded (${s.error}); related figures are excluded, not zero.`);
+      }
+      if (s.ok && s.truncated) {
+        result.warnings.push(`${s.name}: not every page could be loaded; figures may be incomplete.`);
+      }
+    }
+
+    // Cross-check against the backend's own overview endpoint (if it exists) and surface disagreements.
+    const discrepancies: string[] = [];
+    if (serverOverview && typeof serverOverview === 'object' && range === 'ALL') {
+      if (orders && typeof serverOverview.total_orders === 'number' && serverOverview.total_orders !== orders.length) {
+        discrepancies.push(
+          `Backend overview reports ${serverOverview.total_orders} orders but the Orders list contains ${orders.length}.`
+        );
+      }
+      if (users && typeof serverOverview.total_users === 'number' && serverOverview.total_users !== users.length) {
+        discrepancies.push(
+          `Backend overview reports ${serverOverview.total_users} users but the Users list contains ${users.length}.`
+        );
+      }
+    }
+
+    return { ...result, sources, discrepancies };
   },
+
 
   // --- User Management ---
   listUsers: async (params?: { page?: number; q?: string; role?: string }): Promise<PaginatedResponse<User>> => {
