@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
     # Dovi applications
     'emails.apps.EmailsConfig',
+    'delivery.apps.DeliveryConfig',
 ]
 
 MIDDLEWARE = [

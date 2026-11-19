@@ -2,6 +2,12 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import {
+  getProductHomepagePlacement,
+  saveProductHomepagePlacement,
+  serializeProductDescriptionWithHomepage,
+  type ProductHomepagePlacement,
+} from '@/services/homepagePlacementService';
+import {
   getProductImageUrl,
   getProductFallbackImage,
   cacheLocalProductImage,
@@ -136,6 +142,27 @@ export default function ProductsPage() {
     can_consolidate_with_furniture: false,
     max_items_per_shipment: null,
     delivery_notes: '',
+  });
+
+  // Homepage Placement & Promotion Form State
+  const [homepageForm, setHomepageForm] = useState<{
+    is_hot_sale: boolean;
+    is_flash_deal: boolean;
+    is_new_arrival: boolean;
+    flash_price: string;
+    original_price: string;
+    start_time: string;
+    end_time: string;
+    flash_active: boolean;
+  }>({
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_new_arrival: false,
+    flash_price: '',
+    original_price: '',
+    start_time: '',
+    end_time: '',
+    flash_active: true,
   });
 
   // Stock Units & Color Variants
@@ -328,6 +355,20 @@ export default function ProductsPage() {
         base_price: fullProd.base_price?.toString() || fullProd.price?.toString() || '',
         description: cleanDesc,
         status: fullProd.status || 'PUBLISHED',
+      });
+
+      const existingPlacement = getProductHomepagePlacement({ id: fullProd.id, description: fullProd.description });
+      setHomepageForm({
+        is_hot_sale: Boolean(existingPlacement ? existingPlacement.is_hot_sale : fullProd.is_hot_sale),
+        is_flash_deal: Boolean(existingPlacement ? existingPlacement.is_flash_deal : fullProd.is_flash_deal),
+        is_new_arrival: Boolean(existingPlacement ? existingPlacement.is_new_arrival : fullProd.is_new_arrival),
+        flash_price: existingPlacement?.flash_sale?.flash_price != null ? String(existingPlacement.flash_sale.flash_price) : '',
+        original_price: existingPlacement?.flash_sale?.original_price != null
+          ? String(existingPlacement.flash_sale.original_price)
+          : (fullProd.base_price ? String(fullProd.base_price) : ''),
+        start_time: existingPlacement?.flash_sale?.start_time ? existingPlacement.flash_sale.start_time.slice(0, 16) : '',
+        end_time: existingPlacement?.flash_sale?.end_time ? existingPlacement.flash_sale.end_time.slice(0, 16) : '',
+        flash_active: existingPlacement?.flash_sale?.is_active !== false,
       });
 
       if (parsedSpecs.length > 0) {
@@ -570,6 +611,43 @@ export default function ProductsPage() {
       }
     );
 
+    // Validate Flash Sale configuration if enabled
+    if (homepageForm.is_flash_deal) {
+      const flashPriceNum = parsePriceNumber(homepageForm.flash_price);
+      const origPriceNum = parsePriceNumber(homepageForm.original_price || form.base_price);
+      if (flashPriceNum <= 0) {
+        toast.error('Please enter a valid Flash Sale price greater than ₦0.');
+        return;
+      }
+      if (flashPriceNum >= origPriceNum) {
+        toast.error(`Flash Sale price (₦${flashPriceNum.toLocaleString()}) must be strictly lower than the original price (₦${origPriceNum.toLocaleString()}).`);
+        return;
+      }
+      if (homepageForm.start_time && homepageForm.end_time) {
+        if (new Date(homepageForm.start_time) >= new Date(homepageForm.end_time)) {
+          toast.error('Flash sale end time must be after the start time.');
+          return;
+        }
+      }
+    }
+
+    // Homepage Placement metadata embedding (Hot Sales, Flash Sale, New Arrivals)
+    const placementPayload: Omit<ProductHomepagePlacement, 'product_id' | 'updated_at'> = {
+      is_hot_sale: homepageForm.is_hot_sale,
+      is_flash_deal: homepageForm.is_flash_deal,
+      is_new_arrival: homepageForm.is_new_arrival,
+      flash_sale: homepageForm.is_flash_deal
+        ? {
+            flash_price: parsePriceNumber(homepageForm.flash_price),
+            original_price: parsePriceNumber(homepageForm.original_price || form.base_price),
+            start_time: homepageForm.start_time ? new Date(homepageForm.start_time).toISOString() : null,
+            end_time: homepageForm.end_time ? new Date(homepageForm.end_time).toISOString() : null,
+            is_active: homepageForm.flash_active,
+          }
+        : null,
+    };
+    formattedDescription = serializeProductDescriptionWithHomepage(formattedDescription, placementPayload);
+
     // Delivery Classification & Attributes metadata embedding (kept separate from product category)
     formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
 
@@ -633,6 +711,7 @@ export default function ProductsPage() {
           subcategoryIdOrSlug: catValidation.subcategory?.id || null,
         });
         saveProductDeliveryAttributes(editingProduct.id, deliveryForm);
+        await saveProductHomepagePlacement(editingProduct.id, placementPayload);
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
@@ -1261,6 +1340,188 @@ export default function ProductsPage() {
                     style={textInputStyles}
                   />
                 </div>
+              </div>
+
+              {/* HOMEPAGE PROMOTIONAL PLACEMENT (HOT SALES, FLASH SALE, NEW ARRIVALS) */}
+              <div
+                style={{
+                  border: '1px solid #bfdbfe',
+                  backgroundColor: '#eff6ff',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <h4 style={{ ...sectionHeaderStyles, color: '#1e40af' }}>
+                    Homepage Placement &amp; Promotions
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#1d4ed8' }}>
+                    Select which promotional sections of the DOVI homepage this product should appear in.
+                  </p>
+                </div>
+
+                {/* Section Toggles */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  {/* Hot Sales */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_hot_sale ? '#dbeafe' : '#ffffff',
+                      border: homepageForm.is_hot_sale ? '2px solid #2563eb' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_hot_sale}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_hot_sale: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>🔥 Hot Sales</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Homepage Hot Sales section</div>
+                    </div>
+                  </label>
+
+                  {/* New Arrivals */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_new_arrival ? '#dbeafe' : '#ffffff',
+                      border: homepageForm.is_new_arrival ? '2px solid #2563eb' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_new_arrival}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_new_arrival: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>✨ New Arrivals</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Homepage New Arrivals section</div>
+                    </div>
+                  </label>
+
+                  {/* Flash Sale */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_flash_deal ? '#fef3c7' : '#ffffff',
+                      border: homepageForm.is_flash_deal ? '2px solid #d97706' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_flash_deal}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_flash_deal: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#d97706' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>⚡ Flash Sale</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Configure discounted flash deal &amp; schedule</div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Flash Sale Detailed Configuration */}
+                {homepageForm.is_flash_deal && (
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      padding: '14px',
+                      backgroundColor: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e', marginBottom: '10px' }}>
+                      ⚡ Flash Sale Configuration &amp; Schedule
+                    </div>
+
+                    <div style={inputGridStyles}>
+                      <div style={inputGroupStyles}>
+                        <label style={labelStyles}>Flash Sale Discounted Price (₦) *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="e.g. 15000"
+                          value={homepageForm.flash_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, flash_price: e.target.value }))}
+                          style={textInputStyles}
+                          required={homepageForm.is_flash_deal}
+                        />
+                        <span style={{ fontSize: '11px', color: '#b45309' }}>
+                          Must be strictly less than original price.
+                        </span>
+                      </div>
+
+                      <div style={inputGroupStyles}>
+                        <label style={labelStyles}>Original / Reference Price (₦)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="e.g. 25000 (defaults to base price)"
+                          value={homepageForm.original_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, original_price: e.target.value }))}
+                          style={textInputStyles}
+                        />
+                      </div>
+
+                      <div style={inputGroupStyles}>
+                        <label style={labelStyles}>Sale Start Date &amp; Time</label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.start_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, start_time: e.target.value }))}
+                          style={textInputStyles}
+                        />
+                      </div>
+
+                      <div style={inputGroupStyles}>
+                        <label style={labelStyles}>Sale End Date &amp; Time</label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.end_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, end_time: e.target.value }))}
+                          style={textInputStyles}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '10px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#78350f' }}>
+                        <input
+                          type="checkbox"
+                          checked={homepageForm.flash_active}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, flash_active: e.target.checked }))}
+                          style={{ accentColor: '#d97706' }}
+                        />
+                        <span style={{ fontWeight: 600 }}>Flash Sale Status is currently Active</span>
+                      </label>
+                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#92400e' }}>
+                        When inactive or when the scheduled end time passes, the product automatically exits Flash Sale on the homepage.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SECTION 3: SPECIFICATIONS (COLLAPSIBLE) */}

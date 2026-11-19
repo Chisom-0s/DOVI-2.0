@@ -1,3 +1,4 @@
+import { getProductHomepagePlacement, isFlashSaleActiveNow } from '@/services/homepagePlacementService';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -227,11 +228,20 @@ export default function ProductDetailPage() {
   }
 
   // Display price and stock matching either the variant (if overridden) or the base product
+  const placement = getProductHomepagePlacement({ id: product.id, description: product.description });
+  const flashSaleConfig = placement?.flash_sale ?? (product as any).flash_sale ?? null;
+  const isFlashActive = isFlashSaleActiveNow(flashSaleConfig);
+
   const variantPrice = selectedVariant
     ? (selectedVariant.price_override || selectedVariant.price)
     : null;
-  const rawPrice = variantPrice || product.base_price || product.price;
-  const displayPrice = formatPrice(rawPrice);
+  const effectivePrice = (isFlashActive && flashSaleConfig?.flash_price && !variantPrice)
+    ? flashSaleConfig.flash_price
+    : (variantPrice || product.base_price || product.price);
+  const displayPrice = formatPrice(effectivePrice);
+  const originalPriceForDisplay = (isFlashActive && flashSaleConfig?.original_price)
+    ? formatPrice(flashSaleConfig.original_price)
+    : ((product as any).original_price ? formatPrice((product as any).original_price) : null);
 
   const displaySku = selectedVariant?.sku || product.sku || product.reference_code || 'N/A';
 
@@ -341,9 +351,30 @@ export default function ProductDetailPage() {
 
           {/* Pricing area */}
           <div style={priceContainerStyles}>
-            <span style={priceStyles}>
-              {displayPrice}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+              <span style={priceStyles}>
+                {displayPrice}
+              </span>
+              {isFlashActive && originalPriceForDisplay && (
+                <span style={{ fontSize: '15px', color: '#9ca3af', textDecoration: 'line-through' }}>
+                  {originalPriceForDisplay}
+                </span>
+              )}
+            </div>
+            {isFlashActive && (
+              <span style={{
+                backgroundColor: '#dc2626',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                ⚡ Flash Sale
+              </span>
+            )}
             <span style={isOutOfStock ? outOfStockBadgeStyles : inStockBadgeStyles}>
               {isOutOfStock ? 'Out of Stock' : 'In Stock'}
             </span>

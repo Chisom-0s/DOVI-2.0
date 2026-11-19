@@ -222,6 +222,7 @@ export interface ProductSummary {
   discount_percentage?: number;
   category?: CategorySummary;
   is_flash_deal?: boolean;
+  flash_sale?: any;
   is_trending?: boolean;
   is_best_seller?: boolean;
   is_hot_sale?: boolean;

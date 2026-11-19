@@ -122,9 +122,69 @@ export default function ProductCard({ product }: ProductCardProps) {
         </button>
 
         {/* Stock Badge */}
-        {product.stock_quantity !== undefined && product.stock_quantity <= 0 && (
+        {product.stock_quantity !== undefined && product.stock_quantity <= 0 ? (
           <div style={stockBadgeStyles}>Out of Stock</div>
-        )}
+        ) : product.is_flash_deal ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '8px',
+              backgroundColor: '#dc2626',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 800,
+              padding: '3px 8px',
+              borderRadius: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              zIndex: 2,
+            }}
+          >
+            ⚡ Flash Sale{product.discount_percentage ? ` -${product.discount_percentage}%` : ''}
+          </div>
+        ) : product.is_hot_sale ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '8px',
+              backgroundColor: '#ea580c',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 800,
+              padding: '3px 8px',
+              borderRadius: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              zIndex: 2,
+            }}
+          >
+            🔥 Hot
+          </div>
+        ) : product.is_new_arrival ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '8px',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              fontSize: '10px',
+              fontWeight: 800,
+              padding: '3px 8px',
+              borderRadius: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              zIndex: 2,
+            }}
+          >
+            ✨ New
+          </div>
+        ) : null}
       </div>
 
       {/* Product Details */}
@@ -142,7 +202,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Footer info */}
         <div style={footerStyles}>
-          <span style={priceStyles}>{formattedPrice}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={priceStyles}>{formattedPrice}</span>
+            {product.is_flash_deal && product.original_price && (
+              <span style={{ fontSize: '11px', color: '#9ca3af', textDecoration: 'line-through' }}>
+                {formatPrice(product.original_price)}
+              </span>
+            )}
+          </div>
           <button
             onClick={handleAddToCart}
             disabled={isCartLoading || (product.stock_quantity !== undefined && product.stock_quantity <= 0)}

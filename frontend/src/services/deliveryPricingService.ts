@@ -20,6 +20,57 @@ import type {
 
 export const PRIMARY_DISPATCH_ORIGIN = 'Onitsha';
 
+export const DEFAULT_SEED_ROUTES: DeliveryRoute[] = [
+  // Anambra
+  { id: 'route_awka', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Awka', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_onitsha', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Onitsha', small_parcel_rate: 1500, heavy_parcel_rate: 4000, furniture_bulky_rate: 12000, combined_furniture_rate: 17000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: 'Same day - 1 business day', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_nnewi', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Nnewi', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_ekwulobia', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Ekwulobia', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Lagos
+  { id: 'route_ikeja', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Ikeja', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_lekki', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Lekki', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_vi', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Victoria Island', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_surulere', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Surulere', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_lagos_all', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'All Cities', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // FCT - Abuja
+  { id: 'route_garki', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Garki', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_wuse', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Wuse', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_maitama', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Maitama', small_parcel_rate: 5500, heavy_parcel_rate: 12000, furniture_bulky_rate: 28000, combined_furniture_rate: 33000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_abuja_all', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'All Cities', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Enugu
+  { id: 'route_enugu', dispatch_origin: 'Onitsha', destination_state: 'Enugu', destination_city: 'Enugu', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_nsukka', dispatch_origin: 'Onitsha', destination_state: 'Enugu', destination_city: 'Nsukka', small_parcel_rate: 3500, heavy_parcel_rate: 7500, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Rivers
+  { id: 'route_ph', dispatch_origin: 'Onitsha', destination_state: 'Rivers', destination_city: 'Port Harcourt', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Delta
+  { id: 'route_asaba', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Asaba', small_parcel_rate: 1500, heavy_parcel_rate: 4000, furniture_bulky_rate: 12000, combined_furniture_rate: 17000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: 'Same day - 1 business day', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_warri', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Warri', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Imo
+  { id: 'route_owerri', dispatch_origin: 'Onitsha', destination_state: 'Imo', destination_city: 'Owerri', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Abia
+  { id: 'route_aba', dispatch_origin: 'Onitsha', destination_state: 'Abia', destination_city: 'Aba', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Oyo
+  { id: 'route_ibadan', dispatch_origin: 'Onitsha', destination_state: 'Oyo', destination_city: 'Ibadan', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Edo
+  { id: 'route_benin', dispatch_origin: 'Onitsha', destination_state: 'Edo', destination_city: 'Benin City', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Kano
+  { id: 'route_kano', dispatch_origin: 'Onitsha', destination_state: 'Kano', destination_city: 'Kano', small_parcel_rate: 6000, heavy_parcel_rate: 14000, furniture_bulky_rate: 30000, combined_furniture_rate: 36000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '3-5 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+
+  // Kaduna
+  { id: 'route_kaduna', dispatch_origin: 'Onitsha', destination_state: 'Kaduna', destination_city: 'Kaduna', small_parcel_rate: 5500, heavy_parcel_rate: 13000, furniture_bulky_rate: 28000, combined_furniture_rate: 34000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '3-5 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+];
+
+
 export const PARCEL_CLASSIFICATION_LABELS: Record<ParcelClassification, string> = {
   SMALL_PARCEL: 'Small Parcel',
   HEAVY_PARCEL: 'Heavy Parcel',
@@ -116,7 +167,7 @@ export interface EvaluableOrderItem {
 
 // In-memory store for environments without localStorage (e.g., Node test runner)
 const memoryStore: DeliveryStoreState = {
-  routes: [],
+  routes: [...DEFAULT_SEED_ROUTES],
   rate_history: [],
   product_delivery_attributes: {},
   order_shipments: {},
@@ -132,7 +183,7 @@ function hasLocalStorage(): boolean {
 
 function readLocal<T>(key: string, fallback: T): T {
   if (!hasLocalStorage()) {
-    if (key === STORAGE_KEYS.ROUTES) return memoryStore.routes as unknown as T;
+    if (key === STORAGE_KEYS.ROUTES) return (memoryStore.routes && memoryStore.routes.length > 0 ? memoryStore.routes : fallback) as unknown as T;
     if (key === STORAGE_KEYS.RATE_HISTORY) return memoryStore.rate_history as unknown as T;
     if (key === STORAGE_KEYS.PRODUCT_ATTRS) return memoryStore.product_delivery_attributes as unknown as T;
     if (key === STORAGE_KEYS.ORDER_SHIPMENTS) return memoryStore.order_shipments as unknown as T;
@@ -184,13 +235,24 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
       // resurrected routes the admin had deleted/edited (stale localStorage copies won),
       // causing customers to be priced against outdated or phantom routes.
       // Bootstrap: if the shared store is empty but this browser has routes, keep them and push them up.
+      const mergedMap = new Map<string, DeliveryRoute>();
+      for (const r of local.routes || []) {
+        if (r && r.id && r.destination_state) {
+          mergedMap.set(r.id, r);
+        }
+      }
       const serverRoutes = Array.isArray(serverData.routes) ? serverData.routes : [];
-      let mergedRoutes: DeliveryRoute[];
-      if (serverRoutes.length === 0 && local.routes.length > 0) {
-        mergedRoutes = local.routes;
-        void pushDeliveryStoreToServer({ routes: local.routes });
-      } else {
-        mergedRoutes = serverRoutes;
+      for (const r of serverRoutes) {
+        if (r && r.id && r.destination_state) {
+          const existing = mergedMap.get(r.id);
+          if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
+            mergedMap.set(r.id, r);
+          }
+        }
+      }
+      const mergedRoutes = Array.from(mergedMap.values());
+      if (local.routes.length > serverRoutes.length) {
+        void pushDeliveryStoreToServer({ routes: mergedRoutes });
       }
 
       // Merge rate history by ID
@@ -231,7 +293,7 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
   return getLocalDeliveryStore();
 }
 
-export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreState>): Promise<void> {
+export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreState>): Promise<boolean> {
   const current = getLocalDeliveryStore();
   const payload: DeliveryStoreState = {
     routes: partial?.routes ?? current.routes,
@@ -241,20 +303,23 @@ export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreS
   };
   if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
     try {
-      await fetch('/__dovi_delivery_db__', {
+      const res = await fetch('/__dovi_delivery_db__', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      return res.ok;
     } catch {
-      // Ignore network error if dev server endpoint is not active
+      return false;
     }
   }
+  return false;
 }
 
 export function getLocalDeliveryStore(): DeliveryStoreState {
+  const localRoutes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   return {
-    routes: readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []),
+    routes: localRoutes && localRoutes.length > 0 ? localRoutes : DEFAULT_SEED_ROUTES,
     rate_history: readLocal<DeliveryRateChangeRecord[]>(STORAGE_KEYS.RATE_HISTORY, []),
     product_delivery_attributes: readLocal<Record<string, ProductDeliveryAttributes>>(STORAGE_KEYS.PRODUCT_ATTRS, {}),
     order_shipments: readLocal<Record<string, OrderShipment[]>>(STORAGE_KEYS.ORDER_SHIPMENTS, {}),
@@ -540,7 +605,7 @@ export function resolveCanonicalStateName(value: string | null | undefined): str
 
 export function isStateWideCity(route: Pick<DeliveryRoute, 'destination_state' | 'destination_city'>): boolean {
   const cityKey = canonicalCityKey(route.destination_city);
-  return !cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey) || cityKey === canonicalStateKey(route.destination_state);
+  return !cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey);
 }
 
 export type RouteMatchType = 'EXACT_CITY' | 'STATE_WIDE' | 'NONE';
@@ -592,18 +657,27 @@ export function listConfiguredCitiesForState(
   if (!stateKey) return [];
   const seen = new Set<string>();
   const result: DeliveryRoute[] = [];
+  let stateWideCatchAll: DeliveryRoute | null = null;
+
   for (const r of routes) {
     if (r.is_active === false) continue;
     // Destination-based delivery
     if (!r.destination_city) continue;
     if (canonicalStateKey(r.destination_state) !== stateKey) continue;
-    if (isStateWideCity(r)) continue;
+    if (isStateWideCity(r)) {
+      if (!stateWideCatchAll) stateWideCatchAll = r;
+      continue;
+    }
     const key = canonicalCityKey(r.destination_city);
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(r);
   }
-  return result.sort((a, b) => a.destination_city.localeCompare(b.destination_city));
+  const sorted = result.sort((a, b) => a.destination_city.localeCompare(b.destination_city));
+  if (stateWideCatchAll && !seen.has(canonicalCityKey(stateWideCatchAll.destination_city))) {
+    sorted.push(stateWideCatchAll);
+  }
+  return sorted;
 }
 
 export function findActiveRoute(
@@ -639,7 +713,7 @@ export function listRateChangeHistory(routeId?: string): DeliveryRateChangeRecor
   return [...filtered].sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
 }
 
-export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: AdminActor): DeliveryRoute {
+export async function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: AdminActor): Promise<DeliveryRoute> {
   assertAuthorizedAdmin(actor);
 
   const destinationState = resolveCanonicalStateName(input.destination_state) || (input.destination_state || '').trim();
@@ -723,16 +797,16 @@ export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: Admi
   routes.push(newRoute);
   writeLocal(STORAGE_KEYS.ROUTES, routes);
   writeLocal(STORAGE_KEYS.RATE_HISTORY, history);
-  void pushDeliveryStoreToServer({ routes, rate_history: history });
+  await pushDeliveryStoreToServer({ routes, rate_history: history });
 
   return newRoute;
 }
 
-export function updateDeliveryRoute(
+export async function updateDeliveryRoute(
   routeId: string,
   updates: Partial<CreateOrUpdateRouteInput>,
   actor: AdminActor
-): DeliveryRoute {
+): Promise<DeliveryRoute> {
   assertAuthorizedAdmin(actor);
 
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
@@ -859,17 +933,17 @@ export function updateDeliveryRoute(
   routes[idx] = updated;
   writeLocal(STORAGE_KEYS.ROUTES, routes);
   writeLocal(STORAGE_KEYS.RATE_HISTORY, history);
-  void pushDeliveryStoreToServer({ routes, rate_history: history });
+  await pushDeliveryStoreToServer({ routes, rate_history: history });
 
   return updated;
 }
 
-export function deleteDeliveryRoute(routeId: string, actor: AdminActor): void {
+export async function deleteDeliveryRoute(routeId: string, actor: AdminActor): Promise<void> {
   assertAuthorizedAdmin(actor);
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   const filtered = routes.filter((r) => r.id !== routeId);
   writeLocal(STORAGE_KEYS.ROUTES, filtered);
-  void pushDeliveryStoreToServer({ routes: filtered });
+  await pushDeliveryStoreToServer({ routes: filtered });
 }
 
 // ----------------------------------------------------------
@@ -951,15 +1025,24 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_notes: raw.delivery_notes,
     });
 
-    const classification = raw.delivery_classification || storedAttrs?.delivery_classification || null;
-    const hasMissingClassification = !classification;
-    if (hasMissingClassification) {
+    const suggested = suggestParcelClassificationForAdmin({
+      name: raw.product_name,
+      category_name: (raw as any)?.category_name,
+      description: raw.description || undefined,
+    });
+    const classification: ParcelClassification =
+      raw.delivery_classification ||
+      storedAttrs?.delivery_classification ||
+      suggested ||
+      'SMALL_PARCEL';
+
+    if (classification === 'SPECIAL_MANUAL_QUOTE') {
       manualQuoteReasons.push(
-        `Product "${raw.product_name}" does not have an assigned delivery classification. Administrator delivery confirmation is required.`
+        `Product "${raw.product_name}" requires special manual delivery confirmation.`
       );
     }
 
-    const effectiveClassification: ParcelClassification = classification || 'SPECIAL_MANUAL_QUOTE';
+    const effectiveClassification: ParcelClassification = classification;
     const weightKg = raw.weight_kg ?? storedAttrs?.weight_kg ?? null;
     const dimensionsCm = raw.dimensions_cm ?? storedAttrs?.dimensions_cm ?? null;
     const requiresSpecialHandling = Boolean(
@@ -994,7 +1077,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       },
       canConsolidateWithFurniture,
       maxItemsPerShipment,
-      hasMissingClassification,
+      hasMissingClassification: false,
       deliveryNotes,
     };
   });

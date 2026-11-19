@@ -19,6 +19,7 @@ function doviSharedDeliveryDbPlugin() {
       manualQuoteOrders: {},
       categories: null,
       productCategoryAssignments: {},
+      homepagePlacements: {},
     };
   };
   const writeStore = (data: unknown) => {
@@ -39,7 +40,18 @@ function doviSharedDeliveryDbPlugin() {
     }
     if (req.method === 'GET') {
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(readStore()));
+      const s = readStore();
+      const payload = {
+        ...s,
+        rate_history: s.rate_history || s.rateHistory || [],
+        rateHistory: s.rateHistory || s.rate_history || [],
+        product_delivery_attributes: s.product_delivery_attributes || s.productAttributes || {},
+        productAttributes: s.productAttributes || s.product_delivery_attributes || {},
+        order_shipments: s.order_shipments || s.orderShipments || {},
+        orderShipments: s.orderShipments || s.order_shipments || {},
+        homepagePlacements: s.homepagePlacements || {},
+      };
+      res.end(JSON.stringify(payload));
       return;
     }
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
@@ -51,15 +63,22 @@ function doviSharedDeliveryDbPlugin() {
         try {
           const incoming = JSON.parse(body || '{}');
           const current = readStore();
+          const rHist = incoming.rateHistory !== undefined ? incoming.rateHistory : (incoming.rate_history !== undefined ? incoming.rate_history : current.rateHistory || []);
+          const pAttrs = (incoming.productAttributes || incoming.product_delivery_attributes) !== undefined
+            ? { ...(current.productAttributes || current.product_delivery_attributes || {}), ...(incoming.productAttributes || incoming.product_delivery_attributes) }
+            : (current.productAttributes || current.product_delivery_attributes || {});
+          const oShip = (incoming.orderShipments || incoming.order_shipments) !== undefined
+            ? { ...(current.orderShipments || current.order_shipments || {}), ...(incoming.orderShipments || incoming.order_shipments) }
+            : (current.orderShipments || current.order_shipments || {});
+
           const merged = {
             routes: incoming.routes !== undefined ? incoming.routes : current.routes,
-            rateHistory: incoming.rateHistory !== undefined ? incoming.rateHistory : current.rateHistory,
-            productAttributes: incoming.productAttributes !== undefined
-              ? { ...current.productAttributes, ...incoming.productAttributes }
-              : current.productAttributes,
-            orderShipments: incoming.orderShipments !== undefined
-              ? { ...current.orderShipments, ...incoming.orderShipments }
-              : current.orderShipments,
+            rateHistory: rHist,
+            rate_history: rHist,
+            productAttributes: pAttrs,
+            product_delivery_attributes: pAttrs,
+            orderShipments: oShip,
+            order_shipments: oShip,
             manualQuoteOrders: incoming.manualQuoteOrders !== undefined
               ? { ...current.manualQuoteOrders, ...incoming.manualQuoteOrders }
               : current.manualQuoteOrders,
@@ -67,6 +86,9 @@ function doviSharedDeliveryDbPlugin() {
             productCategoryAssignments: incoming.productCategoryAssignments !== undefined
               ? { ...current.productCategoryAssignments, ...incoming.productCategoryAssignments }
               : current.productCategoryAssignments,
+            homepagePlacements: incoming.homepagePlacements !== undefined
+              ? { ...(current.homepagePlacements || {}), ...incoming.homepagePlacements }
+              : (current.homepagePlacements || {}),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

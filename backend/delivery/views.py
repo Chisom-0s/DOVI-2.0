@@ -115,3 +115,63 @@ class AdminDeliveryRouteListCreateAPIView(views.APIView):
                     reason=payload.get('reason', 'Initial route configuration'),
                 )
         return Response({'id': str(route.id)}, status=status.HTTP_201_CREATED)
+
+
+class AdminDeliveryRouteDetailAPIView(views.APIView):
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [IsAdminRolePermission()]
+
+    def get_object(self, route_id):
+        try:
+            return DeliveryRoute.objects.get(id=route_id)
+        except DeliveryRoute.DoesNotExist:
+            return None
+
+    def get(self, request, route_id):
+        route = self.get_object(route_id)
+        if not route:
+            return Response({'error': 'Delivery route not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'id': str(route.id),
+            'origin': route.origin,
+            'destination_state': route.destination_state,
+            'destination_city': route.destination_city,
+            'is_active': route.is_active,
+            'small_parcel_rate': float(route.small_parcel_rate) if route.small_parcel_rate is not None else None,
+            'heavy_parcel_rate': float(route.heavy_parcel_rate) if route.heavy_parcel_rate is not None else None,
+            'furniture_bulky_rate': float(route.furniture_bulky_rate) if route.furniture_bulky_rate is not None else None,
+            'combined_small_heavy_rate': float(route.combined_small_heavy_rate) if route.combined_small_heavy_rate is not None else None,
+            'combined_furniture_rate': float(route.combined_furniture_rate) if route.combined_furniture_rate is not None else None,
+            'allow_small_with_furniture': route.allow_small_with_furniture,
+            'max_furniture_items_consolidated': route.max_furniture_items_consolidated,
+            'multi_furniture_requires_manual_quote': route.multi_furniture_requires_manual_quote,
+            'special_handling_surcharge': float(route.special_handling_surcharge) if route.special_handling_surcharge is not None else None,
+            'requires_manual_quote_for_special_handling': route.requires_manual_quote_for_special_handling,
+            'special_delivery_requirements': route.special_delivery_requirements,
+            'estimated_delivery_info': route.estimated_delivery_info,
+            'updated_by': route.updated_by_email,
+            'updated_at': route.updated_at.isoformat(),
+            'created_at': route.created_at.isoformat(),
+        }, status=status.HTTP_200_OK)
+
+    def patch(self, request, route_id):
+        route = self.get_object(route_id)
+        if not route:
+            return Response({'error': 'Delivery route not found'}, status=status.HTTP_404_NOT_FOUND)
+        payload = request.data or {}
+        actor_email = getattr(request.user, 'email', 'admin@dovi.com')
+        for attr in ['destination_state', 'destination_city', 'origin', 'is_active', 'small_parcel_rate', 'heavy_parcel_rate', 'furniture_bulky_rate', 'combined_small_heavy_rate', 'combined_furniture_rate', 'allow_small_with_furniture', 'max_furniture_items_consolidated', 'multi_furniture_requires_manual_quote', 'special_handling_surcharge', 'requires_manual_quote_for_special_handling', 'special_delivery_requirements', 'estimated_delivery_info']:
+            if attr in payload:
+                setattr(route, attr, payload[attr])
+        route.updated_by_email = actor_email
+        route.save()
+        return Response({'id': str(route.id), 'message': 'Route updated successfully'}, status=status.HTTP_200_OK)
+
+    def delete(self, request, route_id):
+        route = self.get_object(route_id)
+        if not route:
+            return Response({'error': 'Delivery route not found'}, status=status.HTTP_404_NOT_FOUND)
+        route.delete()
+        return Response({'message': 'Route deleted successfully'}, status=status.HTTP_204_NO_CONTENT)

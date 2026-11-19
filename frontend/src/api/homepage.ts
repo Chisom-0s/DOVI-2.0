@@ -5,6 +5,11 @@ import { parsePriceNumber } from '@/utils/currency';
 import { normalizeUrl } from '@/utils/image';
 import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
 import { enrichProductWithCategory } from '@/services/categoryService';
+import {
+  getProductHomepagePlacement,
+  isFlashSaleActiveNow,
+  syncHomepagePlacementsFromServer
+} from '@/services/homepagePlacementService';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
@@ -213,13 +218,34 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     };
   });
 
+  // Authoritative Admin-controlled Homepage Placement & Flash Sale configuration
+  const placement = getProductHomepagePlacement({ id: p.id, description: p.description });
+  const isHotSale = Boolean(placement ? placement.is_hot_sale : p.is_hot_sale);
+  const isNewArrival = Boolean(placement ? placement.is_new_arrival : p.is_new_arrival);
+  const flashSaleConfig = placement?.flash_sale ?? p.flash_sale ?? null;
+  const isFlashActive = isFlashSaleActiveNow(flashSaleConfig);
+  const isFlashDeal = Boolean((placement ? placement.is_flash_deal : p.is_flash_deal) && isFlashActive);
+
+  let finalPrice = priceStr;
+  let finalOriginalPrice: string | null = p.original_price != null ? String(p.original_price) : null;
+  let finalDiscount = Number(p.discount_percentage) || 0;
+
+  if (isFlashDeal && flashSaleConfig?.flash_price) {
+    finalPrice = String(flashSaleConfig.flash_price);
+    finalOriginalPrice = flashSaleConfig.original_price ? String(flashSaleConfig.original_price) : priceStr;
+    const origNum = Number(finalOriginalPrice) || Number(priceStr);
+    if (origNum > flashSaleConfig.flash_price) {
+      finalDiscount = Math.round(((origNum - flashSaleConfig.flash_price) / origNum) * 100);
+    }
+  }
+
   const summary: ProductSummary = {
     id: p.id,
     name: p.name,
     description: p.description || '',
-    price: priceStr,
-    base_price: priceStr,
-    original_price: p.original_price ?? null,
+    price: finalPrice,
+    base_price: finalPrice,
+    original_price: finalOriginalPrice,
     primary_image_url: resolvedPrimary,
     image_url: resolvedPrimary || undefined,
     images: normalizedImages,
@@ -232,12 +258,13 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 12),
     stock_quantity: stock,
     status: (p.status || 'PUBLISHED') as any,
-    discount_percentage: Number(p.discount_percentage) || 0,
-    is_flash_deal: Boolean(p.is_flash_deal),
+    discount_percentage: finalDiscount,
+    is_flash_deal: isFlashDeal,
+    flash_sale: flashSaleConfig,
     is_trending: Boolean(p.is_trending),
     is_best_seller: Boolean(p.is_best_seller),
-    is_hot_sale: Boolean(p.is_hot_sale),
-    is_new_arrival: Boolean(p.is_new_arrival),
+    is_hot_sale: isHotSale,
+    is_new_arrival: isNewArrival,
     created_at: p.created_at || new Date().toISOString(),
     in_stock: stock > 0,
     delivery_classification: p.delivery_classification,
@@ -257,6 +284,7 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
  * Uses sessionStorage cache as immediate fallback for speed and offline stability.
  */
 export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
+  await syncHomepagePlacementsFromServer().catch(() => {});
   let deletedIds: string[] = [];
   try {
     deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
@@ -384,57 +412,36 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 
   switch (section.key) {
     case 'NEW_ARRIVALS': {
-      // Sort strictly by newest creation date
-      candidates = [...realProducts].sort((a, b) => {
-        const dateA = new Date(a.created_at || 0).getTime();
-        const dateB = new Date(b.created_at || 0).getTime();
-        return dateB - dateA;
-      });
+      // Admin-controlled New Arrivals: ONLY products explicitly marked by admin as New Arrivals
+      candidates = realProducts.filter((p) => Boolean(p.is_new_arrival) && (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') && p.in_stock !== false);
+      // Sort newest first among admin selections
+      candidates.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
       break;
     }
 
-    case 'SAVE2OWN_FEATURED':
-    case 'SAVE2OWN_PRODUCTS': {
-      // High-value aspirational items specifically suited for micro-payment installment plans
-      // Filter >= ₦40,000, sorted from highest price down (TCL TVs, luxury hair, washing machine, cookers)
-      const highValue = realProducts.filter((p) => parsePriceNumber(p) >= 40000);
-      candidates = highValue.length >= 3
-        ? highValue.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a))
-        : [...realProducts].sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
+    case 'HOT_SALES': {
+      // Admin-controlled Hot Sales: ONLY products explicitly marked by admin as Hot Sales
+      candidates = realProducts.filter((p) => Boolean(p.is_hot_sale) && (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') && p.in_stock !== false);
       break;
     }
 
     case 'FLASH_DEALS':
     case 'DEALS_OF_THE_DAY':
     case 'LIMITED_TIME_OFFERS': {
-      // Deals, impulse purchases, and accessible price points (< ₦25,000 or high discount)
-      const deals = realProducts.filter((p) => {
-        const price = parsePriceNumber(p);
-        const discount = p.discount_percentage || 0;
-        return discount > 0 || (price > 0 && price <= 25000);
-      });
-      // Sort by price ascending
-      candidates = deals.length >= 4
-        ? deals.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b))
-        : [...realProducts].sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
+      // Admin-controlled Flash Sale: ONLY products marked is_flash_deal with valid active schedule
+      candidates = realProducts.filter(
+        (p) => Boolean(p.is_flash_deal) && isFlashSaleActiveNow(p.flash_sale) && (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') && p.in_stock !== false
+      );
       break;
     }
 
-    case 'HOT_SALES': {
-      // Popular, high-demand tech & shoes & accessories (smartwatches, power banks, shoes, clippers, cookers)
-      candidates = realProducts.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const cat = (p.category_name || '').toLowerCase();
-        return /watch|power bank|clipper|cooker|shoe|sandal|rack|charger/i.test(name) ||
-          /watch|shoe|electronics/i.test(cat);
-      });
-      if (candidates.length < 4) {
-        // Fallback: items in moderate price bracket ₦10k - ₦50k
-        candidates = realProducts.filter((p) => {
-          const price = parsePriceNumber(p);
-          return price >= 10000 && price <= 50000;
-        });
-      }
+    case 'SAVE2OWN_FEATURED':
+    case 'SAVE2OWN_PRODUCTS': {
+      // High-value aspirational items specifically suited for micro-payment installment plans
+      const highValue = realProducts.filter((p) => parsePriceNumber(p) >= 40000 && (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') && p.in_stock !== false);
+      candidates = highValue.length >= 3
+        ? highValue.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a))
+        : [...realProducts].filter((p) => (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') && p.in_stock !== false).sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
       break;
     }
 

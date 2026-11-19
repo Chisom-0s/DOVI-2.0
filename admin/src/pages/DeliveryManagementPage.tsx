@@ -191,12 +191,12 @@ export const DeliveryManagementPage: React.FC = () => {
     setSavingRoute(true);
     try {
       if (editingRoute) {
-        updateDeliveryRoute(editingRoute.id, routeForm, adminActor);
+        await updateDeliveryRoute(editingRoute.id, routeForm, adminActor);
         toast.success(
           `Updated delivery route: ${routeForm.dispatch_origin} → ${routeForm.destination_city}, ${routeForm.destination_state}`
         );
       } else {
-        createDeliveryRoute(routeForm, adminActor);
+        await createDeliveryRoute(routeForm, adminActor);
         toast.success(
           `Created delivery route: ${routeForm.dispatch_origin} → ${routeForm.destination_city}, ${routeForm.destination_state}`
         );
@@ -212,7 +212,7 @@ export const DeliveryManagementPage: React.FC = () => {
 
   const handleToggleRouteActive = async (route: DeliveryRoute) => {
     try {
-      const updated = updateDeliveryRoute(
+      const updated = await updateDeliveryRoute(
         route.id,
         {
           is_active: !route.is_active,
@@ -240,7 +240,7 @@ export const DeliveryManagementPage: React.FC = () => {
       return;
     }
     try {
-      deleteDeliveryRoute(route.id, adminActor);
+      await deleteDeliveryRoute(route.id, adminActor);
       toast.success('Delivery route deleted.');
       await loadDeliveryData();
     } catch (err: any) {
