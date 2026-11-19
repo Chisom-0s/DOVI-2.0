@@ -9,7 +9,7 @@ interface WhatsAppSupportButtonProps {
 }
 
 export function WhatsAppSupportButton({
-  phoneNumber = '2347014109517',
+  phoneNumber = '2347067402413',
   message = 'Hello Dovi Support, I need assistance with my account.',
   position = 'bottom-right',
   className = '',
@@ -115,7 +115,7 @@ export function WhatsAppSupportButton({
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Contact Dovi Support on WhatsApp (07014109517)"
+            aria-label="Contact Dovi Support on WhatsApp (07067402413)"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -129,7 +129,7 @@ export function WhatsAppSupportButton({
             }}
           >
             <WhatsAppIcon width={20} height={20} />
-            <span>Support (07014109517)</span>
+            <span>Support (07067402413)</span>
           </a>
 
           {/* Minimize toggle button */}

@@ -21,7 +21,7 @@ import type {
 } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
-const DOVI_SUPPORT_WHATSAPP = '2347014109517';
+const DOVI_SUPPORT_WHATSAPP = '2347067402413';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();

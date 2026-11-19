@@ -149,15 +149,15 @@ assert.equal(calcUnconfigured.requires_manual_quote, true, 'Manual quote / Whats
 console.log('PASS Scenario 8: Customer selects unconfigured destination -> No fake ₦0, requires arrangement');
 
 // Scenario 9: WhatsApp opens with correct DOVI support contact and prefilled message
-const DOVI_SUPPORT_PHONE = '2347014109517';
+const DOVI_SUPPORT_PHONE = '2347067402413';
 const town = 'Makurdi';
 const state = 'Benue';
 const cartRef = 'CART-98234';
 const expectedMsg = `Hello DOVI Support, I want to place an order, but my delivery location is not currently listed. My location is ${town}, ${state}. (Cart Reference: ${cartRef}) Please help me arrange delivery and confirm the delivery fee.`;
 const whatsAppUrl = `https://wa.me/${DOVI_SUPPORT_PHONE}?text=${encodeURIComponent(expectedMsg)}`;
-assert.ok(whatsAppUrl.includes('2347014109517'), 'Must use verified DOVI Support phone 2347014109517');
+assert.ok(whatsAppUrl.includes('2347067402413'), 'Must use verified DOVI Support phone 2347067402413');
 assert.ok(whatsAppUrl.includes(encodeURIComponent(`My location is ${town}, ${state}`)), 'Message must contain town and state');
-console.log('PASS Scenario 9: WhatsApp link generates verified contact 2347014109517 & prefilled message');
+console.log('PASS Scenario 9: WhatsApp link generates verified contact 2347067402413 & prefilled message');
 
 // Scenario 10: Customer cannot complete checkout with an unconfirmed delivery fee
 const canProceedWithUnconfirmed = calcUnconfigured.total_delivery_fee !== null && !calcUnconfigured.requires_manual_quote;
