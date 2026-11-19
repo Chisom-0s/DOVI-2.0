@@ -20,17 +20,40 @@ CLASSIFICATION_LABELS = {
 def find_active_route(destination_state: str, destination_city: str = '', origin: str = 'Onitsha') -> Optional[DeliveryRoute]:
     if not destination_state or not destination_state.strip():
         return None
-    norm_state = destination_state.strip()
-    norm_city = (destination_city or '').strip()
-    norm_origin = (origin or 'Onitsha').strip()
+    norm_state = destination_state.strip().lower()
+    norm_city = (destination_city or '').strip().lower()
+    norm_origin = (origin or 'Onitsha').strip().lower()
 
     if norm_city:
+        # 1. Exact match
         city_match = DeliveryRoute.objects.filter(
             origin__iexact=norm_origin,
             destination_state__iexact=norm_state,
             destination_city__iexact=norm_city,
             is_active=True,
         ).first()
+        if city_match:
+            return city_match
+
+        # 2. Fuzzy / Prefix / Suffix match
+        candidates = DeliveryRoute.objects.filter(
+            origin__iexact=norm_origin,
+            destination_state__iexact=norm_state,
+            is_active=True,
+        )
+        for r in candidates:
+            rcity = (r.destination_city or '').strip().lower()
+            if rcity and rcity not in ['', 'all cities', 'statewide']:
+                if norm_city.startswith(rcity) or rcity.startswith(norm_city) or rcity in norm_city or norm_city in rcity:
+                    return r
+
+    # 3. Statewide match
+    return DeliveryRoute.objects.filter(
+        origin__iexact=norm_origin,
+        destination_state__iexact=norm_state,
+        destination_city__in=['', 'All Cities', 'Statewide', destination_state.strip()],
+        is_active=True,
+    ).first()
         if city_match:
             return city_match
 
@@ -94,10 +117,8 @@ def calculate_order_delivery(
         cls = item.get('delivery_classification')
         name = item.get('product_name', 'Product')
         if not cls:
-            manual_quote_reasons.append(
-                f"Product '{name}' has no assigned delivery classification. Delivery confirmation is required."
-            )
-            manual_items.append(item)
+            # Default unclassified standard catalog item to Small Parcel
+            cls = ParcelClassification.SMALL_PARCEL
         elif cls == ParcelClassification.SPECIAL_MANUAL_QUOTE:
             manual_quote_reasons.append(
                 f"Product '{name}' is classified as Special Delivery / Manual Quote."
@@ -151,14 +172,21 @@ def calculate_order_delivery(
         if parcel_items:
             has_heavy = len(heavy_items) > 0
             eff_cls = ParcelClassification.HEAVY_PARCEL if has_heavy else ParcelClassification.SMALL_PARCEL
+            conf_small = route.small_parcel_rate
+            conf_heavy = route.heavy_parcel_rate
+            conf_bulky = route.furniture_bulky_rate
+
+            res_small = conf_small if conf_small is not None else (conf_heavy * Decimal('0.5') if conf_heavy is not None else (conf_bulky * Decimal('0.25') if conf_bulky is not None else None))
+            res_heavy = conf_heavy if conf_heavy is not None else (conf_small * Decimal('2.2') if conf_small is not None else (conf_bulky * Decimal('0.5') if conf_bulky is not None else None))
+
             if has_heavy and small_items:
-                rate = route.combined_small_heavy_rate if route.combined_small_heavy_rate is not None else route.heavy_parcel_rate
+                rate = route.combined_small_heavy_rate if route.combined_small_heavy_rate is not None else res_heavy
                 label = 'Combined Delivery (Heavy & Small Parcels)'
             elif has_heavy:
-                rate = route.heavy_parcel_rate
+                rate = res_heavy
                 label = 'Heavy Parcel'
             else:
-                rate = route.small_parcel_rate
+                rate = res_small
                 label = 'Small Parcel (Consolidated)' if len(small_items) > 1 else 'Small Parcel'
 
             req_quote = rate is None

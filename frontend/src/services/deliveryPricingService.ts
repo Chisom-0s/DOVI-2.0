@@ -571,6 +571,96 @@ const STATE_KEY_ALIASES: Record<string, string> = {
   nassarawa: 'nasarawa',
 };
 
+export const CITY_KEY_ALIASES: Record<string, string> = {
+  ph: 'port harcourt',
+  phc: 'port harcourt',
+  portharcourt: 'port harcourt',
+  'port harcourt city': 'port harcourt',
+  'port harcourt': 'port harcourt',
+  benin: 'benin city',
+  'benin city': 'benin city',
+  enugu: 'enugu',
+  'enugu urban': 'enugu',
+  'enugu city': 'enugu',
+  awka: 'awka',
+  'awka urban': 'awka',
+  'awka south': 'awka',
+  'awka north': 'awka',
+  onitsha: 'onitsha',
+  'onitsha north': 'onitsha',
+  'onitsha south': 'onitsha',
+  'onitsha urban': 'onitsha',
+  warri: 'warri',
+  'warri south': 'warri',
+  asaba: 'asaba',
+  'asaba urban': 'asaba',
+  aba: 'aba',
+  'aba north': 'aba',
+  'aba south': 'aba',
+  'aba urban': 'aba',
+  umuahia: 'umuahia',
+  'umuahia north': 'umuahia',
+  'umuahia south': 'umuahia',
+  'umuahia urban': 'umuahia',
+  owerri: 'owerri',
+  'owerri municipal': 'owerri',
+  'owerri urban': 'owerri',
+  'owerri west': 'owerri',
+  'owerri north': 'owerri',
+  calabar: 'calabar',
+  'calabar municipal': 'calabar',
+  'calabar south': 'calabar',
+  uyo: 'uyo',
+  'uyo urban': 'uyo',
+  kano: 'kano',
+  'kano municipal': 'kano',
+  'kano city': 'kano',
+  kaduna: 'kaduna',
+  'kaduna north': 'kaduna',
+  'kaduna south': 'kaduna',
+  'kaduna central': 'kaduna',
+  ibadan: 'ibadan',
+  'ibadan north': 'ibadan',
+  'ibadan south': 'ibadan',
+  'ibadan sw': 'ibadan',
+  'ibadan central': 'ibadan',
+  abeokuta: 'abeokuta',
+  'abeokuta north': 'abeokuta',
+  'abeokuta south': 'abeokuta',
+  jos: 'jos',
+  'jos north': 'jos',
+  'jos south': 'jos',
+  garki: 'garki',
+  'garki 1': 'garki',
+  'garki 2': 'garki',
+  'garki ii': 'garki',
+  wuse: 'wuse',
+  'wuse 2': 'wuse',
+  'wuse ii': 'wuse',
+  'wuse zone': 'wuse',
+  maitama: 'maitama',
+  gwarinpa: 'gwarinpa',
+  gwarimpa: 'gwarinpa',
+  ikeja: 'ikeja',
+  'ikeja gra': 'ikeja',
+  lekki: 'lekki',
+  'lekki phase 1': 'lekki',
+  'lekki phase 2': 'lekki',
+  'lekki peninsula': 'lekki',
+  'victoria island': 'victoria island',
+  vi: 'victoria island',
+  surulere: 'surulere',
+  yaba: 'yaba',
+};
+
+export function routeIdentity(r: Pick<DeliveryRoute, 'dispatch_origin' | 'destination_state' | 'destination_city'>): string {
+  return [
+    normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN),
+    canonicalStateKey(r.destination_state),
+    canonicalCityKey(r.destination_city),
+  ].join('|');
+}
+
 const STATE_WIDE_CITY_KEYS = ['all cities', 'all city', 'all towns', 'all', 'any', 'statewide', 'state wide', '*'];
 
 export function normalizeLocationName(value: string | null | undefined): string {
@@ -593,7 +683,8 @@ export function canonicalStateKey(value: string | null | undefined): string {
 }
 
 export function canonicalCityKey(value: string | null | undefined): string {
-  return normalizeLocationName(value);
+  const norm = normalizeLocationName(value);
+  return CITY_KEY_ALIASES[norm] || norm;
 }
 
 /** Maps any user/admin supplied state string to the canonical entry in NIGERIAN_STATES (or '' if unknown). */
@@ -605,7 +696,13 @@ export function resolveCanonicalStateName(value: string | null | undefined): str
 
 export function isStateWideCity(route: Pick<DeliveryRoute, 'destination_state' | 'destination_city'>): boolean {
   const cityKey = canonicalCityKey(route.destination_city);
-  return !cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey);
+  if (!cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey)) return true;
+  const stateKey = canonicalStateKey(route.destination_state);
+  const citySameAsStateExceptions = ['lagos', 'enugu', 'kano', 'kaduna'];
+  if (cityKey === stateKey && !citySameAsStateExceptions.includes(stateKey)) {
+    return true;
+  }
+  return false;
 }
 
 export type RouteMatchType = 'EXACT_CITY' | 'STATE_WIDE' | 'NONE';
@@ -630,16 +727,32 @@ export function findRouteInList(
   const candidates = routes.filter(
     (r) =>
       r.is_active !== false &&
-      // Destination-based delivery matching
       r.destination_state &&
       canonicalStateKey(r.destination_state) === stateKey
   );
 
   if (cityKey) {
+    // 1. Exact normalized match
     const exact = candidates.find((r) => !isStateWideCity(r) && canonicalCityKey(r.destination_city) === cityKey);
     if (exact) return { route: exact, match: 'EXACT_CITY' };
+
+    // 2. Substring / Prefix / Alias match:
+    // e.g. customer entered "Ikeja GRA" and candidate is "Ikeja", or candidate is "Benin City" and customer entered "Benin"
+    const fuzzy = candidates.find((r) => {
+      if (isStateWideCity(r)) return false;
+      const candKey = canonicalCityKey(r.destination_city);
+      if (!candKey) return false;
+      return (
+        cityKey.startsWith(candKey) ||
+        cityKey.includes(candKey) ||
+        candKey.startsWith(cityKey) ||
+        candKey.includes(cityKey)
+      );
+    });
+    if (fuzzy) return { route: fuzzy, match: 'EXACT_CITY' };
   }
 
+  // 3. Statewide catch-all route for this state
   const stateWide = candidates.find((r) => isStateWideCity(r));
   if (stateWide) return { route: stateWide, match: 'STATE_WIDE' };
 
@@ -1130,19 +1243,28 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       groupQuoteReason = `Delivery rate not configured for ${destinationCity || 'destination'}, ${destinationState || 'state'}.`;
     } else if (exceedsHeavyLimit) {
       groupQuoteReason = `Combined parcel weight (${combinedWeight} kg) exceeds standard Heavy Parcel limit (${maxHeavyWeight} kg). Manual cargo quotation required.`;
-    } else if (effectiveClass === 'SMALL_PARCEL') {
-      if (route.small_parcel_rate !== null && route.small_parcel_rate >= 0) {
-        baseFee = Number(route.small_parcel_rate);
-      } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
-      }
     } else {
-      if (route.heavy_parcel_rate !== null && route.heavy_parcel_rate >= 0) {
-        baseFee = Number(route.heavy_parcel_rate);
+      const confSmall = route?.small_parcel_rate !== null && route?.small_parcel_rate !== undefined && Number(route.small_parcel_rate) >= 0 ? Number(route.small_parcel_rate) : null;
+      const confHeavy = route?.heavy_parcel_rate !== null && route?.heavy_parcel_rate !== undefined && Number(route.heavy_parcel_rate) >= 0 ? Number(route.heavy_parcel_rate) : null;
+      const confBulky = route?.furniture_bulky_rate !== null && route?.furniture_bulky_rate !== undefined && Number(route.furniture_bulky_rate) >= 0 ? Number(route.furniture_bulky_rate) : null;
+
+      const resSmall = confSmall ?? (confHeavy !== null ? Math.round(confHeavy * 0.5) : (confBulky !== null ? Math.round(confBulky * 0.25) : null));
+      const resHeavy = confHeavy ?? (confSmall !== null ? Math.round(confSmall * 2.2) : (confBulky !== null ? Math.round(confBulky * 0.5) : null));
+
+      if (effectiveClass === 'SMALL_PARCEL') {
+        if (resSmall !== null) {
+          baseFee = resSmall;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        if (resHeavy !== null) {
+          baseFee = resHeavy;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       }
     }
 
@@ -1240,23 +1362,32 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     } else if (bulkyMissingDimensions) {
       groupRequiresQuote = true;
       groupQuoteReason = `Bulky item "${bulkyMissingDimensions.shipmentItem.product_name}" requires special handling and dimension verification for direct delivery for manual quotation.`;
-    } else if (totalFurnitureUnits === 1) {
-      if (route.furniture_bulky_rate !== null && route.furniture_bulky_rate >= 0) {
-        baseFee = Number(route.furniture_bulky_rate);
-      } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Furniture / Bulky rate not configured for ${route.destination_city}, ${route.destination_state}. Manual quotation required.`;
-      }
     } else {
-      // Multiple furniture items (Test F): NEVER automatically multiply furniture rate per item!
-      if (totalFurnitureUnits <= maxConsolidatedFurniture && route.combined_furniture_rate !== null && route.combined_furniture_rate >= 0) {
-        baseFee = Number(route.combined_furniture_rate);
-      } else if (totalFurnitureUnits > maxConsolidatedFurniture) {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Order includes ${totalFurnitureUnits} Furniture / Bulky items (exceeding standard ${maxConsolidatedFurniture}-item consolidated cargo limit). Manual transport quotation required.`;
+      const confSmall = route?.small_parcel_rate !== null && route?.small_parcel_rate !== undefined && Number(route.small_parcel_rate) >= 0 ? Number(route.small_parcel_rate) : null;
+      const confHeavy = route?.heavy_parcel_rate !== null && route?.heavy_parcel_rate !== undefined && Number(route.heavy_parcel_rate) >= 0 ? Number(route.heavy_parcel_rate) : null;
+      const confBulky = route?.furniture_bulky_rate !== null && route?.furniture_bulky_rate !== undefined && Number(route.furniture_bulky_rate) >= 0 ? Number(route.furniture_bulky_rate) : null;
+      const confComb = route?.combined_furniture_rate !== null && route?.combined_furniture_rate !== undefined && Number(route.combined_furniture_rate) >= 0 ? Number(route.combined_furniture_rate) : null;
+
+      const resBulky = confBulky ?? (confHeavy !== null ? Math.round(confHeavy * 2.2) : (confSmall !== null ? Math.round(confSmall * 4.5) : null));
+      const resComb = confComb ?? (resBulky !== null ? Math.round(resBulky * 1.35) : null);
+
+      if (totalFurnitureUnits === 1) {
+        if (resBulky !== null) {
+          baseFee = resBulky;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Furniture / Bulky rate not configured for ${route.destination_city}, ${route.destination_state}. Manual quotation required.`;
+        }
       } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation for direct delivery rather than charging per item.`;
+        if (totalFurnitureUnits <= maxConsolidatedFurniture && resComb !== null) {
+          baseFee = resComb;
+        } else if (totalFurnitureUnits > maxConsolidatedFurniture) {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Order includes ${totalFurnitureUnits} Furniture / Bulky items (exceeding standard ${maxConsolidatedFurniture}-item consolidated cargo limit). Manual transport quotation required.`;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation for direct delivery rather than charging per item.`;
+        }
       }
     }
 
@@ -2063,4 +2194,8 @@ export function reverifySessionDeliveryPricing(params: {
     newDeliveryFee: newFee,
     updatedCalculation,
   };
+}
+
+export function setLocalRoutes(routes: DeliveryRoute[]): void {
+  writeLocal(STORAGE_KEYS.ROUTES, routes);
 }

@@ -197,3 +197,4 @@ export async function syncHomepagePlacementsFromServer(): Promise<Record<string,
   } catch {}
   return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
 }
+

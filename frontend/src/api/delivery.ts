@@ -2,6 +2,7 @@
 import apiClient, { normalizeApiError } from './client';
 import {
   syncDeliveryStoreFromServer,
+  setLocalRoutes,
   listDeliveryRoutes,
   findRouteInList,
   canonicalStateKey,
@@ -84,7 +85,11 @@ async function loadActiveRoutes(): Promise<DeliveryRoute[]> {
   } catch {
     // Backend delivery endpoint unavailable — shared admin store is used.
   }
-  return Array.from(merged.values()).filter((r) => r.is_active);
+  const activeList = Array.from(merged.values()).filter((r) => r.is_active);
+  if (activeList.length > 0) {
+    setLocalRoutes(activeList);
+  }
+  return activeList;
 }
 
 export const deliveryApi = {

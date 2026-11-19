@@ -324,3 +324,4 @@ test('Admin controls Hot Sales, New Arrivals, and Flash Sale placement', async (
 console.log(`\n=============================================================`);
 console.log(`ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);
 console.log(`=============================================================\n`);
+

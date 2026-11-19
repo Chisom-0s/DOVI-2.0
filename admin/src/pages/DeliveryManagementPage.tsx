@@ -190,15 +190,32 @@ export const DeliveryManagementPage: React.FC = () => {
     e.preventDefault();
     setSavingRoute(true);
     try {
+      const baseSmall = routeForm.small_parcel_rate;
+      const baseHeavy = routeForm.heavy_parcel_rate;
+      const baseBulky = routeForm.furniture_bulky_rate;
+
+      const effSmall = baseSmall ?? (baseHeavy ? Math.round(baseHeavy * 0.5) : (baseBulky ? Math.round(baseBulky * 0.25) : null));
+      const effHeavy = baseHeavy ?? (effSmall ? Math.round(effSmall * 2.2) : (baseBulky ? Math.round(baseBulky * 0.5) : null));
+      const effBulky = baseBulky ?? (effHeavy ? Math.round(effHeavy * 2.2) : (effSmall ? Math.round(effSmall * 4.5) : null));
+      const effCombined = routeForm.combined_furniture_rate ?? (effBulky ? Math.round(effBulky * 1.35) : null);
+
+      const completeForm: CreateOrUpdateRouteInput = {
+        ...routeForm,
+        small_parcel_rate: effSmall,
+        heavy_parcel_rate: effHeavy,
+        furniture_bulky_rate: effBulky,
+        combined_furniture_rate: effCombined,
+      };
+
       if (editingRoute) {
-        await updateDeliveryRoute(editingRoute.id, routeForm, adminActor);
+        await updateDeliveryRoute(editingRoute.id, completeForm, adminActor);
         toast.success(
-          `Updated delivery route: ${routeForm.dispatch_origin} → ${routeForm.destination_city}, ${routeForm.destination_state}`
+          `Updated delivery route: ${completeForm.dispatch_origin} → ${completeForm.destination_city}, ${completeForm.destination_state}`
         );
       } else {
-        await createDeliveryRoute(routeForm, adminActor);
+        await createDeliveryRoute(completeForm, adminActor);
         toast.success(
-          `Created delivery route: ${routeForm.dispatch_origin} → ${routeForm.destination_city}, ${routeForm.destination_state}`
+          `Created delivery route: ${completeForm.dispatch_origin} → ${completeForm.destination_city}, ${completeForm.destination_state}`
         );
       }
       setIsRouteModalOpen(false);
