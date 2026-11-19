@@ -219,7 +219,7 @@ export default function OrdersPage() {
       return existing;
     }
 
-    // Automatically build consolidated Onitsha Hub shipment(s) for orders without stored shipments
+    // Automatically build consolidated Fulfillment shipment(s) for orders without stored shipments
     const destState =
       orderObj.shipping_state ||
       orderObj.delivery_address?.state ||
@@ -255,7 +255,7 @@ export default function OrdersPage() {
       })),
       destState,
       destCity,
-      'Onitsha'
+      ''
     );
 
     const built = buildOrderShipmentsFromCalculation(
@@ -392,7 +392,7 @@ export default function OrdersPage() {
       hydrateDraftsForShipments(updatedShipments);
       const overall = deriveOverallOrderStatus(updatedShipments);
       setSelectedOrder((prev) => (prev ? { ...prev, status: overall as any, shipments: updatedShipments } : prev));
-      toast.success('Onitsha Hub item status updated.');
+      toast.success('Item fulfillment status updated.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update hub item check.');
     }
@@ -466,7 +466,7 @@ export default function OrdersPage() {
             shipmentId: shipment.id,
             confirmedDeliveryFee: feeNum,
             transportArrangement: draft.transport_arrangement || shipment.transport_arrangement,
-            deliveryNotes: draft.quote_notes || 'Manual delivery quotation confirmed by Onitsha Logistics Desk.',
+            deliveryNotes: draft.quote_notes || 'Delivery fee confirmed by administrator.',
           },
         ],
         actor
@@ -532,7 +532,7 @@ export default function OrdersPage() {
   if (isLoading) {
     return (
       <div style={containerStyles}>
-        <h2 style={titleStyles}>Order Logs & Onitsha Hub Fulfillment</h2>
+        <h2 style={titleStyles}>Order Logs & Direct Delivery Fulfillment</h2>
         <Skeleton width="100%" height="48px" borderRadius="8px" />
         <div style={{ marginTop: '24px' }}>
           <Skeleton width="100%" height="300px" borderRadius="12px" />
@@ -545,9 +545,9 @@ export default function OrdersPage() {
     <div style={containerStyles}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={titleStyles}>Order Logs & Onitsha Hub Fulfillment</h2>
+          <h2 style={titleStyles}>Order Logs & Direct Delivery Fulfillment</h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
-            Manage supplier sourcing, Onitsha Hub product receipt, quality inspection, consolidated packaging, and dispatch.
+            Manage customer orders, direct destination delivery arrangement, supplier sourcing, quality inspection, and dispatch.
           </p>
         </div>
       </div>
@@ -582,7 +582,7 @@ export default function OrdersPage() {
             <option value="DELIVERY_FEE_CONFIRMED">Delivery Fee Confirmed</option>
             <option value="ORDER_PLACED">Order Placed</option>
             <option value="SOURCING_PRODUCTS">Sourcing Products</option>
-            <option value="AWAITING_PRODUCTS_AT_HUB">Awaiting Products at Onitsha Hub</option>
+            <option value="AWAITING_PRODUCTS_AT_HUB">Procurement & Sourcing</option>
             <option value="PRODUCTS_RECEIVED">Products Received at Hub</option>
             <option value="QUALITY_CHECK">Quality Check</option>
             <option value="READY_FOR_PACKAGING">Ready for Packaging</option>
@@ -612,10 +612,13 @@ export default function OrdersPage() {
               <thead>
                 <tr style={tableHeaderRowStyles}>
                   <th style={tableHeaderCellStyles}>Reference</th>
-                  <th style={tableHeaderCellStyles}>Date</th>
-                  <th style={tableHeaderCellStyles}>Items & Shipments</th>
-                  <th style={tableHeaderCellStyles}>Total Amount</th>
-                  <th style={tableHeaderCellStyles}>Fulfillment Status</th>
+                  <th style={tableHeaderCellStyles}>Customer</th>
+                  <th style={tableHeaderCellStyles}>Destination</th>
+                  <th style={tableHeaderCellStyles}>Products</th>
+                  <th style={tableHeaderCellStyles}>Subtotal</th>
+                  <th style={tableHeaderCellStyles}>Delivery Fee</th>
+                  <th style={tableHeaderCellStyles}>Total Payable</th>
+                  <th style={tableHeaderCellStyles}>Delivery Status</th>
                   <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
@@ -629,6 +632,9 @@ export default function OrdersPage() {
                     <tr key={o.id || ref} style={tableRowStyles}>
                       <td style={{ ...tableCellStyles, fontWeight: 700 }}>
                         <div>{ref}</div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 400 }}>
+                          {o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}
+                        </div>
                         {o.requires_manual_quote && (
                           <span
                             style={{
@@ -638,27 +644,45 @@ export default function OrdersPage() {
                               fontWeight: 700,
                               padding: '2px 6px',
                               borderRadius: '4px',
-                              backgroundColor: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fecaca',
+                              backgroundColor: '#fffbeb',
+                              color: '#b45309',
+                              border: '1px solid #fde68a',
                             }}
                           >
-                            Manual Delivery Quote Needed
+                            💬 WhatsApp / Quote Needed
                           </span>
                         )}
                       </td>
                       <td style={tableCellStyles}>
-                        {o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td style={tableCellStyles}>
-                        <div style={{ fontWeight: 600 }}>
-                          {itemCount} item{itemCount !== 1 ? 's' : ''}
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {o.buyer_name || o.shipping_full_name || (o.buyer_email ? o.buyer_email.split(' ')[0] : 'Customer')}
                         </div>
                         <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                          {shipmentCount} shipment{shipmentCount !== 1 ? 's' : ''} (Origin: Onitsha)
+                          {o.buyer_email || o.buyer_phone || ''}
                         </div>
                       </td>
-                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(total)}</td>
+                      <td style={tableCellStyles}>
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {o.shipping_city || o.delivery_address?.city || 'Town N/A'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                          {o.shipping_state || o.delivery_address?.state || 'State N/A'}
+                        </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {itemCount} item{itemCount !== 1 ? 's' : ''} ({shipmentCount} parcel{shipmentCount !== 1 ? 's' : ''})
+                        </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        {formatCurrency(o.subtotal || total)}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 600, color: o.delivery_fee && o.delivery_fee !== '0' ? '#047857' : '#d97706' }}>
+                        {o.requires_manual_quote ? 'Pending Quote' : formatCurrency(o.delivery_fee || '0')}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 800, color: '#111827' }}>
+                        {formatCurrency(total)}
+                      </td>
                       <td style={tableCellStyles}>
                         <span style={statusBadgeStyles(o.status)}>
                           {SHIPMENT_STATUS_LABELS[o.status as ShipmentFulfillmentStatus] ||
@@ -671,7 +695,7 @@ export default function OrdersPage() {
                           onClick={() => handleInspectOrder(o)}
                           style={viewBtnStyles}
                         >
-                          Manage Fulfillment
+                          {o.requires_manual_quote ? 'Record Fee / Manage' : 'Manage Order'}
                         </button>
                       </td>
                     </tr>
@@ -708,7 +732,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Inspect Order & Onitsha Hub Shipment Management Modal */}
+      {/* Inspect Order & Fulfillment Shipment Management Modal */}
       {selectedOrder && (
         <div style={modalBackdropStyles}>
           <div
@@ -722,11 +746,11 @@ export default function OrdersPage() {
             <div style={modalHeaderStyles}>
               <div>
                 <h3 style={modalTitleStyles}>
-                  Onitsha Hub Order & Shipment Fulfillment —{' '}
+                  Order & Destination Delivery Fulfillment —{' '}
                   {(selectedOrder as any).reference_code || selectedOrder.reference}
                 </h3>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                  Dispatch Origin: <strong>Onitsha Hub</strong> · Shipments:{' '}
+                  Delivery: <strong>Direct Destination Delivery</strong> · Shipments:{' '}
                   <strong>{orderShipments.length || 1}</strong> · Overall Status:{' '}
                   <strong>
                     {SHIPMENT_STATUS_LABELS[selectedOrder.status as ShipmentFulfillmentStatus] ||
@@ -882,7 +906,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            {/* ONITSHA HUB SHIPMENT GROUPS SECTION */}
+            {/* DIRECT DELIVERY SHIPMENT GROUPS SECTION */}
             <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
               <div
                 style={{
@@ -894,10 +918,10 @@ export default function OrdersPage() {
               >
                 <div>
                   <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#111827' }}>
-                    Onitsha Hub Consolidated Shipments ({orderShipments.length})
+                    Destination Delivery Shipments ({orderShipments.length})
                   </h4>
                   <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-                    Receive items from suppliers at the Onitsha Hub, inspect condition, consolidate & package, and update shipment status.
+                    Verify sourced items from suppliers, inspect condition, package for direct delivery, and update shipment status.
                   </p>
                 </div>
               </div>
@@ -1033,7 +1057,7 @@ export default function OrdersPage() {
                             ⚠️ Manual Delivery Quotation Required (Customer Awaiting Confirmation)
                           </div>
                           <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#78350f' }}>
-                            Enter the actual transport partner quotation from Onitsha to{' '}
+                            Enter the confirmed delivery fee to{' '}
                             {shipment.destination_city}, {shipment.destination_state}. Once confirmed,
                             the customer will be notified to review and accept the fee before payment/dispatch.
                           </p>
@@ -1069,7 +1093,7 @@ export default function OrdersPage() {
                               </label>
                               <input
                                 type="text"
-                                placeholder="e.g. Onitsha Bulky Haulage Partner"
+                                placeholder="e.g. Courier Direct Delivery Partner"
                                 value={draft.transport_arrangement}
                                 onChange={(e) =>
                                   setShipmentDrafts((prev) => ({
@@ -1137,8 +1161,8 @@ export default function OrdersPage() {
                           }}
                         >
                           <div style={{ fontSize: '12px', color: '#1e3a8a' }}>
-                            <strong>Pending Consolidation at Onitsha Hub:</strong> {receivedCount} of{' '}
-                            {totalItemsInShipment} products have arrived at the Onitsha Hub. Arrived
+                            <strong>Pending Verification:</strong> {receivedCount} of{' '}
+                            {totalItemsInShipment} products have been sourced and verified.
                             products are held pending remaining supplier deliveries so the order ships
                             together.
                           </div>
@@ -1161,7 +1185,7 @@ export default function OrdersPage() {
                         </div>
                       )}
 
-                      {/* Onitsha Hub Item-Level Checkboxes */}
+                      {/* Product Verification Checkboxes */}
                       <div style={{ marginBottom: '12px' }}>
                         <div
                           style={{
@@ -1172,7 +1196,7 @@ export default function OrdersPage() {
                             marginBottom: '6px',
                           }}
                         >
-                          Products in Shipment & Onitsha Hub Verification ({shipment.items.length})
+                          Products in Shipment & Quality Verification ({shipment.items.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {shipment.items.map((item) => (
@@ -1445,7 +1469,7 @@ export default function OrdersPage() {
           >
             <Skeleton width="40px" height="40px" borderRadius="50%" />
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563' }}>
-              Loading Order & Onitsha Hub Shipments...
+              Loading Order & Delivery Shipments...
             </span>
           </div>
         </div>

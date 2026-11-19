@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,8 +8,6 @@ import { checkoutApi } from '@/api/checkout';
 import { deliveryApi } from '@/api/delivery';
 import {
   NIGERIAN_STATES,
-  PARCEL_CLASSIFICATION_LABELS,
-  resolveProductDeliveryAttributes,
   resolveCanonicalStateName,
   listConfiguredCitiesForState,
   selectDestinationState,
@@ -23,30 +21,30 @@ import type {
 } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
+const DOVI_SUPPORT_WHATSAPP = '2347014109517';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
-  const { cart, isLoading: cartLoading, addToCart, clearCart } = useCart();
-
-  const directProduct = location.state?.product;
-  const directQuantity = location.state?.quantity || 1;
-  const directVariant = location.state?.variant;
+  const { cart, isLoading: cartLoading } = useCart();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [activeRoutes, setActiveRoutes] = useState<DeliveryRoute[]>([]);
   const [destinationState, setDestinationState] = useState<string>('');
   const [destinationCity, setDestinationCity] = useState<string>('');
-  // True once the customer has typed/selected a destination themselves; async loads (saved addresses)
-  // must never overwrite an explicit customer choice.
+  // Guard so asynchronous address loads never overwrite user's intentional selection
   const userChoseDestinationRef = useRef(false);
   const [customCityMode, setCustomCityMode] = useState(false);
   const [deliveryCalculation, setDeliveryCalculation] = useState<DeliveryCalculationResult | null>(null);
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Manual agreed delivery fee state (when customer arranges delivery via WhatsApp)
+  const [agreedFeeInput, setAgreedFeeInput] = useState<string>('');
+  const [showAgreedFeeBox, setShowAgreedFeeBox] = useState<boolean>(false);
+  const [confirmedCustomFee, setConfirmedCustomFee] = useState<number | null>(null);
 
   // New Address Form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -64,32 +62,10 @@ export default function CheckoutPage() {
     is_default: true,
   });
 
-  // Construct direct buy item if user clicked "Buy Now"
-  const directCartItem: CartItem | null = useMemo(() => {
-    if (!directProduct) return null;
-    const price = directVariant?.price_override ?? directVariant?.price ?? directProduct.base_price ?? directProduct.price ?? 0;
-    const total = Number(price) * directQuantity;
-    return {
-      id: 'direct-buy-item',
-      product_id: directProduct.id,
-      product: directProduct,
-      variant: directVariant,
-      quantity: directQuantity,
-      unit_price: String(price),
-      line_total: String(total),
-    };
-  }, [directProduct, directQuantity, directVariant]);
-
-  // Combine cart items or direct buy item
+  // Items from cart (strictly cart-based checkout, no direct-buy bypass)
   const effectiveItems: CartItem[] = useMemo(() => {
-    if (cart?.items && cart.items.length > 0) {
-      return cart.items;
-    }
-    if (directCartItem) {
-      return [directCartItem];
-    }
-    return [];
-  }, [cart?.items, directCartItem]);
+    return cart?.items || [];
+  }, [cart?.items]);
 
   // Fetch routes and addresses
   const fetchData = useCallback(async () => {
@@ -109,7 +85,6 @@ export default function CheckoutPage() {
       if (addrs.length > 0) {
         const defaultAddr = addrs.find((a: Address) => a.is_default) || addrs[0];
         setSelectedAddressId(defaultAddr.id);
-        // Never overwrite a destination the customer already picked while addresses were loading.
         if (!userChoseDestinationRef.current) {
           applyDestination(defaultAddr.state, defaultAddr.city);
         }
@@ -127,7 +102,7 @@ export default function CheckoutPage() {
     fetchData();
   }, [fetchData]);
 
-  // Keep configured routes fresh: admin may add/edit/deactivate routes while the customer is on this page.
+  // Refresh active routes when window regains focus so admin changes are immediately seen
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === 'visible') {
@@ -142,40 +117,34 @@ export default function CheckoutPage() {
     };
   }, []);
 
-  // Sync destinationState & destinationCity when user selects a saved address
   const selectedAddress = useMemo(
     () => addresses.find((a) => a.id === selectedAddressId) || null,
     [addresses, selectedAddressId]
   );
 
-  /**
-   * Single entry point that sets BOTH state and city atomically. State is mapped to the canonical
-   * state name (so "Abuja (FCT)" / "Lagos State" match admin-configured routes). A city is only kept
-   * if it was supplied together with the state; it can never be carried over from a previous state.
-   */
   function applyDestination(rawState: string | null | undefined, rawCity: string | null | undefined) {
     const canonicalState = resolveCanonicalStateName(rawState) || (rawState || '').trim();
     const city = (rawCity || '').trim();
     setDestinationState(canonicalState);
     setDestinationCity(city);
-    // "Other city" mode is only ever entered explicitly by the customer; whether a typed city matches a
-    // configured one is derived at render time (selectedCityOptionValue), never cached.
     setCustomCityMode(false);
+    setConfirmedCustomFee(null);
   }
 
   const handleStateChange = (nextState: string) => {
     userChoseDestinationRef.current = true;
-    // Changing the state ALWAYS clears the town; a town belongs to exactly one state.
     const next = selectDestinationState(nextState);
     setDestinationState(next.state);
     setDestinationCity(next.city);
     setCustomCityMode(false);
+    setConfirmedCustomFee(null);
     setAddrForm((p) => ({ ...p, state: next.state, city: next.city }));
   };
 
   const handleCityChange = (nextCity: string) => {
     userChoseDestinationRef.current = true;
     setDestinationCity(nextCity);
+    setConfirmedCustomFee(null);
     setAddrForm((p) => ({ ...p, city: nextCity }));
   };
 
@@ -187,7 +156,7 @@ export default function CheckoutPage() {
 
   const hasDestination = Boolean(destinationState.trim() && destinationCity.trim());
 
-  // Recalculate consolidated delivery pricing whenever items, destination or configured routes change
+  // Recalculate delivery pricing whenever destination, cart items, or active routes change
   useEffect(() => {
     let cancelled = false;
     if (effectiveItems.length === 0 || !hasDestination) {
@@ -196,7 +165,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Drop the previous destination's fee immediately so a stale fee can never be paid.
     setDeliveryCalculation(null);
     setIsCalculatingDelivery(true);
     deliveryApi
@@ -204,11 +172,23 @@ export default function CheckoutPage() {
         effectiveItems,
         destinationState,
         destinationCity,
-        'Onitsha'
+        ''
       )
       .then((res) => {
         if (!cancelled) {
-          setDeliveryCalculation(res);
+          // If customer has a confirmed custom fee arranged with admin via WhatsApp, apply it
+          if (confirmedCustomFee !== null && res) {
+            const updatedPayable = Number((res.product_subtotal + confirmedCustomFee).toFixed(2));
+            setDeliveryCalculation({
+              ...res,
+              total_delivery_fee: confirmedCustomFee,
+              total_payable: updatedPayable,
+              requires_manual_quote: false,
+              consolidation_summary: `Direct delivery to ${destinationCity}, ${destinationState} (Arranged Delivery Fee: ₦${confirmedCustomFee.toLocaleString()}).`,
+            });
+          } else {
+            setDeliveryCalculation(res);
+          }
         }
       })
       .catch((err) => {
@@ -221,7 +201,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveItems, destinationState, destinationCity, hasDestination, activeRoutes]);
+  }, [effectiveItems, destinationState, destinationCity, hasDestination, activeRoutes, confirmedCustomFee]);
 
   // Configured (active) cities for the currently selected state ONLY
   const configuredCitiesForState = useMemo(
@@ -291,7 +271,6 @@ export default function CheckoutPage() {
       setShowAddForm(false);
       toast.success('Delivery address added!');
     } catch {
-      // Fallback local save so checkout is never blocked
       const localId = `addr_${Date.now()}`;
       const localAddr: Address = {
         id: localId,
@@ -317,24 +296,23 @@ export default function CheckoutPage() {
     }
   };
 
-  // Handle Proceed to Payment Session (when rates are configured)
+  // Handle Proceed to Payment Session (when delivery fee is confirmed)
   const handleProceedToPayment = async () => {
     if (!isAuthenticated) {
       toast('Please sign in or create an account to finalize your order.', { icon: '🔐' });
       navigate('/login', {
-        state: {
-          from: '/checkout',
-          directBuy: true,
-          product: directProduct,
-          quantity: directQuantity,
-          variant: directVariant,
-        },
+        state: { from: '/checkout' },
       });
       return;
     }
 
     if (!destinationState.trim() || !destinationCity.trim()) {
       toast.error('Please select your delivery destination state and city.');
+      return;
+    }
+
+    if (!deliveryCalculation || deliveryCalculation.total_delivery_fee === null || deliveryCalculation.requires_manual_quote) {
+      toast.error('Delivery fee has not yet been confirmed for this destination. Please arrange delivery via WhatsApp.');
       return;
     }
 
@@ -346,17 +324,10 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     try {
-      if (directProduct && (!cart?.items || cart.items.length === 0)) {
-        try {
-          await addToCart(directProduct, directQuantity, {
-            variantId: directVariant?.id,
-          });
-        } catch {}
-      }
-
       const session = await checkoutApi.initializeSession({
         delivery_address_id: selectedAddressId || 'addr_custom',
-        delivery_method_id: 'onitsha_consolidated',
+        delivery_method_id: 'dovi_direct_delivery',
+        delivery_method: 'DOVI Direct Delivery',
         destination_state: destinationState,
         destination_city: destinationCity,
         destination_address: formattedAddress,
@@ -379,61 +350,19 @@ export default function CheckoutPage() {
     }
   };
 
-  // Handle Submit Order for Manual Delivery Quotation (when route/rate is missing or bulky manual quote needed)
-  const handleRequestManualQuote = async () => {
-    if (!isAuthenticated) {
-      toast('Please sign in or create an account to submit your order for delivery quotation.', {
-        icon: '🔐',
-      });
-      navigate('/login', {
-        state: {
-          from: '/checkout',
-          directBuy: true,
-          product: directProduct,
-          quantity: directQuantity,
-          variant: directVariant,
-        },
-      });
+  // Handle customer applying agreed delivery fee from WhatsApp support
+  const handleApplyAgreedFee = () => {
+    const val = parseFloat(agreedFeeInput.replace(/,/g, '').trim());
+    if (isNaN(val) || val < 0) {
+      toast.error('Please enter a valid agreed delivery fee amount.');
       return;
     }
-
-    if (!deliveryCalculation) return;
-
-    const formattedAddress = selectedAddress
-      ? `${selectedAddress.address_line_1}${selectedAddress.address_line_2 ? `, ${selectedAddress.address_line_2}` : ''}, ${destinationCity}, ${destinationState}`
-      : addrForm.address_line_1
-      ? `${addrForm.address_line_1}, ${destinationCity}, ${destinationState}`
-      : `${destinationCity}, ${destinationState}`;
-
-    setIsSubmitting(true);
-    try {
-      const order = await checkoutApi.submitOrderForManualDeliveryQuote({
-        destination_state: destinationState,
-        destination_city: destinationCity,
-        destination_address: formattedAddress,
-        recipient_name:
-          selectedAddress?.full_name ||
-          addrForm.full_name ||
-          `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
-          user?.email ||
-          'Customer',
-        recipient_phone: selectedAddress?.phone || addrForm.phone || user?.phone_number || '',
-        items: effectiveItems,
-        delivery_calculation: deliveryCalculation,
-      });
-      await clearCart().catch(() => {});
-      toast.success(
-        'Order submitted for Delivery Confirmation! Our Onitsha Hub team will confirm your delivery quote shortly.'
-      );
-      navigate(`/orders/${order.reference}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to submit order for delivery confirmation.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setConfirmedCustomFee(val);
+    toast.success(`Agreed delivery fee of ₦${val.toLocaleString()} applied! You can now proceed to payment.`);
+    setShowAgreedFeeBox(false);
   };
 
-  // Subtotal & Item Count calculation
+  // Subtotal calculation
   const totalItemCount = useMemo(() => {
     if (effectiveItems.length > 0) {
       return effectiveItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0);
@@ -451,6 +380,10 @@ export default function CheckoutPage() {
     }, 0);
   }, [deliveryCalculation, effectiveItems]);
 
+  const deliveryFee = deliveryCalculation && deliveryCalculation.total_delivery_fee !== null ? deliveryCalculation.total_delivery_fee : null;
+  const totalPayable = deliveryFee !== null ? Number((computedSubtotal + deliveryFee).toFixed(2)) : null;
+
+  // Empty Cart View
   if (!cartLoading && effectiveItems.length === 0) {
     return (
       <div className="container" style={pageStyles}>
@@ -458,7 +391,7 @@ export default function CheckoutPage() {
           <span style={{ fontSize: '3rem' }}>🛒</span>
           <h3 style={emptyTitleStyles}>Your cart is empty</h3>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>
-            Find products and add them to your cart or click Buy Now to checkout directly.
+            Please add products to your cart before proceeding to checkout.
           </p>
           <Link to="/products" style={primaryBtnStyles}>Browse Products</Link>
         </div>
@@ -467,9 +400,9 @@ export default function CheckoutPage() {
   }
 
   const formatCurrency = (val: string | number | null | undefined) => {
-    if (val === null || val === undefined || val === '') return 'Manual Quote Required';
+    if (val === null || val === undefined || val === '') return 'Fee Not Configured';
     const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isNaN(num)) return 'Manual Quote Required';
+    if (isNaN(num)) return 'Fee Not Configured';
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: 'NGN',
@@ -477,9 +410,16 @@ export default function CheckoutPage() {
     }).format(num);
   };
 
+  // WhatsApp Message Preparation
+  const cartRefText = cart?.id ? ` (Cart Reference: ${cart.id})` : '';
+  const whatsAppMessage = `Hello DOVI Support, I want to place an order, but my delivery location is not currently listed. My location is ${destinationCity || '[Town/City]'}, ${destinationState || '[State]'}${cartRefText}. Please help me arrange delivery and confirm the delivery fee.`;
+  const whatsAppUrl = `https://wa.me/${DOVI_SUPPORT_WHATSAPP}?text=${encodeURIComponent(whatsAppMessage)}`;
+
+  const isDestinationUnconfigured = hasDestination && deliveryCalculation && (deliveryCalculation.requires_manual_quote || deliveryFee === null);
+
   return (
     <div className="container" style={pageStyles}>
-      <h1 style={pageTitleStyles}>Checkout — Onitsha Hub Consolidated Delivery</h1>
+      <h1 style={pageTitleStyles}>Checkout — Direct Delivery</h1>
 
       <div className="checkout-layout-grid">
         {/* Main Column */}
@@ -488,13 +428,13 @@ export default function CheckoutPage() {
           <section style={sectionCardStyles}>
             <h2 style={sectionTitleStyles}>
               <span style={stepBadgeStyles}>1</span>
-              Delivery Address & Destination
+              Delivery Address &amp; Destination
             </h2>
             <p style={{ margin: '0 0 var(--space-4)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-              All DOVI orders are sourced, quality-checked, consolidated, and dispatched from our <strong>Onitsha Hub</strong>. Select your delivery address and destination to calculate your consolidated delivery fee.
+              DOVI handles sourcing and arranges direct delivery to your selected destination. Select your destination state and town to retrieve the admin-configured delivery fee.
             </p>
 
-            {/* Quick Destination State & City Selector */}
+            {/* Destination State & Town Selector */}
             <div
               style={{
                 backgroundColor: '#f8fafc',
@@ -504,8 +444,8 @@ export default function CheckoutPage() {
                 marginBottom: 'var(--space-4)',
               }}
             >
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>
-                📍 Dispatch Origin: <span style={{ color: 'var(--color-primary)' }}>Onitsha Hub (Anambra)</span> &rarr; Select Customer Destination:
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>
+                📍 Select Your Delivery Destination:
               </div>
               <div
                 style={{
@@ -515,7 +455,7 @@ export default function CheckoutPage() {
                 }}
               >
                 <div>
-                  <label style={fieldLabelStyles}>Destination State</label>
+                  <label style={fieldLabelStyles}>Destination State *</label>
                   <select
                     value={destinationState}
                     onChange={(e) => handleStateChange(e.target.value)}
@@ -531,7 +471,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label style={fieldLabelStyles}>Destination City / Town</label>
+                  <label style={fieldLabelStyles}>Destination Town / City *</label>
                   {!destinationState ? (
                     <input
                       type="text"
@@ -558,19 +498,19 @@ export default function CheckoutPage() {
                         }}
                         style={{ ...inputStyles, flex: 1 }}
                       >
-                        <option value="">Select city / town...</option>
+                        <option value="">Select town / city...</option>
                         {configuredCitiesForState.map((r) => (
                           <option key={r.id} value={r.destination_city}>
                             {r.destination_city}
                             {r.estimated_delivery_days ? ` (${r.estimated_delivery_days})` : ''}
                           </option>
                         ))}
-                        <option value="__custom__">Other City (Enter manually)...</option>
+                        <option value="__custom__">Other City / Unlisted Location...</option>
                       </select>
                       {selectedCityOptionValue === '__custom__' && (
                         <input
                           type="text"
-                          placeholder="Enter city name"
+                          placeholder="Enter town / city name"
                           value={destinationCity}
                           onChange={(e) => handleCityChange(e.target.value)}
                           style={{ ...inputStyles, flex: 1 }}
@@ -582,7 +522,7 @@ export default function CheckoutPage() {
                       type="text"
                       value={destinationCity}
                       onChange={(e) => handleCityChange(e.target.value)}
-                      placeholder="Enter destination city"
+                      placeholder="Enter destination town / city"
                       style={{ ...inputStyles, width: '100%' }}
                     />
                   )}
@@ -675,7 +615,7 @@ export default function CheckoutPage() {
                     style={inputStyles}
                   />
                   <input
-                    placeholder="City"
+                    placeholder="City / Town"
                     value={addrForm.city}
                     onChange={(e) => {
                       handleCityChange(e.target.value);
@@ -712,363 +652,230 @@ export default function CheckoutPage() {
             )}
           </section>
 
-          {/* STEP 2: Order Consolidation & Shipment Grouping Breakdown */}
+          {/* STEP 2: Delivery Route Status & Products Review */}
           <section style={sectionCardStyles}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '8px',
-                marginBottom: 'var(--space-3)',
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
               <h2 style={{ ...sectionTitleStyles, margin: 0 }}>
                 <span style={stepBadgeStyles}>2</span>
-                Consolidated Shipment & Delivery Breakdown
+                Ordered Products ({totalItemCount} {totalItemCount === 1 ? 'item' : 'items'})
               </h2>
-              {deliveryCalculation && (
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    backgroundColor:
-                      deliveryCalculation.shipment_count === 1 ? '#dcfce7' : '#dbeafe',
-                    color:
-                      deliveryCalculation.shipment_count === 1 ? '#166534' : '#1e40af',
-                  }}
-                >
-                  {deliveryCalculation.shipment_count === 1
-                    ? '✓ 1 Consolidated Shipment'
-                    : `${deliveryCalculation.shipment_count} Separate Shipments`}
-                </span>
-              )}
             </div>
 
-            {!hasDestination ? (
-              <div
-                style={{
-                  padding: '16px',
-                  border: '1px dashed var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--color-text-muted)',
-                  textAlign: 'center',
-                }}
-              >
-                Select your destination state and city above to see your delivery fee.
-              </div>
-            ) : isCalculatingDelivery || !deliveryCalculation ? (
-              <Skeleton width="100%" height="140px" borderRadius="var(--radius-md)" />
-            ) : (
-              <>
-                {/* Consolidation Explanation Banner */}
+            {/* Items List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {effectiveItems.map((item) => (
                 <div
+                  key={item.id}
                   style={{
-                    backgroundColor: deliveryCalculation.requires_manual_quote
-                      ? '#fffbeb'
-                      : deliveryCalculation.shipment_count === 1
-                      ? '#f0fdf4'
-                      : '#eff6ff',
-                    border: `1px solid ${
-                      deliveryCalculation.requires_manual_quote
-                        ? '#fde68a'
-                        : deliveryCalculation.shipment_count === 1
-                        ? '#bbf7d0'
-                        : '#bfdbfe'
-                    }`,
-                    borderRadius: 'var(--radius-md)',
-                    padding: '12px 14px',
-                    fontSize: '13px',
-                    color: deliveryCalculation.requires_manual_quote
-                      ? '#92400e'
-                      : deliveryCalculation.shipment_count === 1
-                      ? '#166534'
-                      : '#1e3a8a',
-                    marginBottom: 'var(--space-4)',
-                    lineHeight: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
                   }}
                 >
-                  <strong>
-                    {deliveryCalculation.requires_manual_quote
-                      ? '⚠️ Delivery Confirmation / Manual Quote Required:'
-                      : deliveryCalculation.shipment_count === 1
-                      ? '📦 Combined Delivery from Onitsha Hub:'
-                      : '🚚 Why Separate Shipments Apply:'}
-                  </strong>{' '}
-                  {deliveryCalculation.consolidation_summary}
-                  {deliveryCalculation.manual_quote_reason && (
-                    <div style={{ marginTop: '6px', fontWeight: 600 }}>
-                      Reason: {deliveryCalculation.manual_quote_reason}
-                    </div>
-                  )}
-                </div>
-
-                {/* Shipment Groups */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                  {deliveryCalculation.shipment_groups.map((group) => (
-                    <div key={group.group_index} style={vendorBlockStyles}>
-                      <div style={vendorHeaderStyles}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span
-                              style={{
-                                fontSize: 'var(--text-sm)',
-                                fontWeight: 'var(--font-bold)',
-                                color: 'var(--color-text)',
-                              }}
-                            >
-                              Shipment #{group.group_index} (Onitsha &rarr; {destinationCity}, {destinationState})
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                padding: '2px 8px',
-                                borderRadius: '999px',
-                                backgroundColor: '#ffedd5',
-                                color: '#9a3412',
-                              }}
-                            >
-                              {group.classification_label ||
-                                PARCEL_CLASSIFICATION_LABELS[group.shipment_classification]}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                            Transport Arrangement: <strong>{group.transport_arrangement}</strong>
-                            {group.combined_weight_kg ? ` · Combined Weight: ${group.combined_weight_kg} kg` : ''}
-                            {group.combined_dimensions_cm ? ` · Max Dimensions: ${group.combined_dimensions_cm} cm` : ''}
-                          </div>
-                        </div>
-
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                            Shipment Delivery Fee
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 'var(--text-base)',
-                              fontWeight: 'var(--font-bold)',
-                              color: group.requires_manual_quote ? '#d97706' : 'var(--color-primary)',
-                            }}
-                          >
-                            {group.requires_manual_quote || group.delivery_fee === null
-                              ? 'Manual Quote Required'
-                              : formatCurrency(group.delivery_fee)}
-                          </div>
-                        </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img
+                      src={item.product?.primary_image_url || (item as any).imageUrl || '/logo.jpg?v=2'}
+                      alt={item.product?.name || 'Item'}
+                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                        {item.product?.name || 'Item'}
                       </div>
-
-                      {/* Items in this shipment */}
-                      <div style={itemListStyles}>
-                        {group.items.map((item) => {
-                          const prodAttrs = resolveProductDeliveryAttributes({
-                            id: item.product_id,
-                            name: item.product_name,
-                            delivery_classification: item.delivery_classification,
-                          });
-                          return (
-                            <div key={item.id} style={itemPreviewRowStyles}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text)', fontWeight: 500 }}>
-                                  • {item.product_name}
-                                  {item.variant_name ? ` (${item.variant_name})` : ''} × {item.quantity}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#f3f4f6',
-                                    color: '#4b5563',
-                                  }}
-                                >
-                                  {PARCEL_CLASSIFICATION_LABELS[prodAttrs.delivery_classification]}
-                                </span>
-                              </div>
-                              <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)' }}>
-                                {formatCurrency(item.unit_price * item.quantity)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Separation / Consolidation explanation for this shipment */}
-                      <div
-                        style={{
-                          marginTop: '10px',
-                          paddingTop: '8px',
-                          borderTop: '1px dashed var(--color-border)',
-                          fontSize: '11px',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        <strong>Shipment Note:</strong> {group.separation_reason}
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        Qty: {item.quantity} × {formatCurrency(item.unit_price)}
+                        {item.variant ? ` · Variant: ${typeof item.variant === 'object' ? (item.variant as any).name : item.variant}` : ''}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
-        </div>
-
-        {/* Order Summary Sidebar */}
-        <div style={summaryCardStyles}>
-          <h3 style={summaryTitleStyles}>Order & Delivery Summary</h3>
-
-          <div style={summaryRowStyles}>
-            <span>
-              Product Subtotal ({totalItemCount} {totalItemCount === 1 ? 'item' : 'items'})
-            </span>
-            <span style={summaryValStyles}>{formatCurrency(computedSubtotal)}</span>
-          </div>
-
-          <div style={summaryRowStyles}>
-            <span>Number of Shipments</span>
-            <span style={summaryValStyles}>
-              {deliveryCalculation
-                ? `${deliveryCalculation.shipment_count} ${
-                    deliveryCalculation.shipment_count === 1 ? 'Consolidated Shipment' : 'Shipments'
-                  }`
-                : '1 Shipment'}
-            </span>
-          </div>
-
-          {/* Per-shipment delivery breakdown when multiple shipments exist */}
-          {deliveryCalculation && deliveryCalculation.shipment_count > 1 && (
-            <div
-              style={{
-                padding: '10px 12px',
-                backgroundColor: 'var(--color-bg-subtle)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: 'var(--color-text-muted)',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Per-Shipment Delivery Breakdown
-              </span>
-              {deliveryCalculation.shipment_groups.map((g) => (
-                <div
-                  key={g.group_index}
-                  style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}
-                >
-                  <span>
-                    Shipment #{g.group_index} ({PARCEL_CLASSIFICATION_LABELS[g.shipment_classification]}):
-                  </span>
-                  <span style={{ fontWeight: 700 }}>
-                    {g.requires_manual_quote || g.delivery_fee === null
-                      ? 'Manual Quote'
-                      : formatCurrency(g.delivery_fee)}
-                  </span>
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b' }}>
+                    {formatCurrency(Number(item.unit_price || 0) * (item.quantity || 1))}
+                  </div>
                 </div>
               ))}
             </div>
-          )}
+          </section>
+        </div>
 
-          {deliveryCalculation && deliveryCalculation.special_handling_fee > 0 && (
-            <div style={summaryRowStyles}>
-              <span>Special Handling Charge</span>
-              <span style={summaryValStyles}>
-                {formatCurrency(deliveryCalculation.special_handling_fee)}
-              </span>
-            </div>
-          )}
+        {/* Order Summary & Pricing Sidebar */}
+        <div style={summaryCardStyles}>
+          <h3 style={summaryTitleStyles}>Price Breakdown</h3>
 
+          {/* Product Subtotal */}
           <div style={summaryRowStyles}>
-            <span>
-              {deliveryCalculation && deliveryCalculation.shipment_count > 1
-                ? 'Combined Shipments Delivery Fee'
-                : 'Consolidated Delivery Fee'}
-            </span>
+            <span style={{ color: '#4b5563' }}>Product Subtotal</span>
+            <span style={summaryValStyles}>{formatCurrency(computedSubtotal)}</span>
+          </div>
+
+          {/* Delivery Fee */}
+          <div style={summaryRowStyles}>
+            <span style={{ color: '#4b5563' }}>Delivery Fee</span>
             <span
               style={{
                 ...summaryValStyles,
-                color: deliveryCalculation?.requires_manual_quote ? '#d97706' : 'var(--color-text)',
+                color: deliveryFee !== null ? '#047857' : '#d97706',
               }}
             >
-              {deliveryCalculation?.requires_manual_quote ||
-              deliveryCalculation?.total_delivery_fee === null
-                ? 'Confirmation Required'
-                : formatCurrency(deliveryCalculation?.total_delivery_fee ?? 0)}
+              {deliveryFee !== null ? formatCurrency(deliveryFee) : 'Not Configured'}
             </span>
           </div>
 
           <hr style={dividerStyles} />
 
-          <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
-            <span>Total Payable</span>
+          {/* Total Amount Payable */}
+          <div style={{ ...summaryRowStyles, fontSize: '16px', fontWeight: 800 }}>
+            <span style={{ color: '#111827' }}>Total Amount Payable</span>
             <span style={{ color: 'var(--color-primary)' }}>
-              {deliveryCalculation?.requires_manual_quote || deliveryCalculation?.total_payable === null
-                ? `${formatCurrency(computedSubtotal)} + Delivery Quote`
-                : formatCurrency(deliveryCalculation?.total_payable ?? computedSubtotal)}
+              {totalPayable !== null ? formatCurrency(totalPayable) : `${formatCurrency(computedSubtotal)} + Delivery`}
             </span>
           </div>
 
-          {/* Action CTA: Normal Checkout vs Manual Delivery Quote Request */}
-          {deliveryCalculation?.requires_manual_quote ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'var(--space-2)' }}>
+          {/* Destination Status Message & Action CTA */}
+          {!hasDestination ? (
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#f1f5f9',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#64748b',
+                textAlign: 'center',
+                marginTop: '12px',
+              }}
+            >
+              Select your destination state and town above to view your delivery fee.
+            </div>
+          ) : isCalculatingDelivery ? (
+            <div style={{ marginTop: '14px' }}>
+              <Skeleton width="100%" height="48px" borderRadius="8px" />
+            </div>
+          ) : isDestinationUnconfigured ? (
+            /* Unconfigured Destination: Display WhatsApp Arrangement Option */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
               <div
                 style={{
-                  fontSize: '12px',
                   backgroundColor: '#fffbeb',
                   border: '1px solid #fde68a',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '12px',
                   color: '#92400e',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  lineHeight: 1.4,
+                  lineHeight: 1.5,
                 }}
               >
-                <strong>Delivery quotation needed:</strong>{' '}
-                {deliveryCalculation.route_found
-                  ? 'A delivery route exists for this destination, but this order needs a custom quotation (see the reason above).'
-                  : `No delivery route from our Onitsha Hub to ${destinationCity}, ${destinationState} has been configured yet.`}{' '}
-                We do not guess or charge a fake fee. Submit your order below to receive an exact delivery quotation before you pay.
+                <strong>Delivery to {destinationCity}, {destinationState} has not yet been configured.</strong>
+                <p style={{ margin: '4px 0 0' }}>
+                  DOVI does not assign an estimated or fake delivery fee. Please contact our support team on WhatsApp to arrange direct delivery and confirm your delivery fee before payment.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={handleRequestManualQuote}
-                disabled={isSubmitting}
+
+              {/* Prominent WhatsApp Option */}
+              <a
+                href={whatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  ...proceedBtnStyles,
-                  backgroundColor: '#d97706',
-                  marginTop: 0,
-                  opacity: isSubmitting ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  backgroundColor: '#25D366',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.3)',
+                  transition: 'opacity 0.15s ease',
                 }}
               >
-                {isSubmitting
-                  ? 'Submitting for Delivery Quote...'
-                  : 'Submit Order for Delivery Fee Confirmation'}
-              </button>
+                <span>💬</span> Arrange Delivery via WhatsApp
+              </a>
+
+              {/* Collapsible Form for entering confirmed agreed fee */}
+              {!showAgreedFeeBox ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAgreedFeeBox(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6b7280',
+                    fontSize: '12px',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    padding: '4px 0',
+                    textAlign: 'center',
+                  }}
+                >
+                  Already arranged fee with DOVI Support? Enter agreed fee
+                </button>
+              ) : (
+                <div
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>
+                    Agreed Delivery Fee (₦)
+                  </label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="number"
+                      placeholder="e.g. 3500"
+                      value={agreedFeeInput}
+                      onChange={(e) => setAgreedFeeInput(e.target.value)}
+                      style={{ ...inputStyles, flex: 1, padding: '8px 10px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyAgreedFee}
+                      style={{
+                        backgroundColor: '#ff7a00',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
+            /* Configured Destination: Active Proceed to Payment Button */
             <button
               type="button"
               onClick={handleProceedToPayment}
-              disabled={isSubmitting || isCalculatingDelivery || !deliveryCalculation || !hasDestination}
+              disabled={isSubmitting || isCalculatingDelivery || totalPayable === null}
               style={{
                 ...proceedBtnStyles,
-                opacity: isSubmitting || isCalculatingDelivery || !deliveryCalculation || !hasDestination ? 0.6 : 1,
+                marginTop: '16px',
+                opacity: isSubmitting || isCalculatingDelivery || totalPayable === null ? 0.6 : 1,
               }}
             >
               {isSubmitting
-                ? 'Initializing Checkout...'
-                : `Proceed to Review & Pay (${formatCurrency(
-                    deliveryCalculation?.total_payable ?? computedSubtotal
-                  )})`}
+                ? 'Initializing Payment...'
+                : `Proceed to Pay (${formatCurrency(totalPayable)})`}
             </button>
           )}
         </div>
@@ -1077,7 +884,9 @@ export default function CheckoutPage() {
   );
 }
 
-// Styles
+// ----------------------------------------------------------
+// Styling Tokens
+// ----------------------------------------------------------
 const pageStyles: React.CSSProperties = {
   paddingTop: 'var(--space-6)',
   paddingBottom: 'var(--space-12)',
@@ -1102,70 +911,48 @@ const sectionTitleStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 'var(--space-2)',
-  margin: '0 0 var(--space-4)',
+  marginBottom: 'var(--space-2)',
 };
 
 const stepBadgeStyles: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
   width: '24px',
   height: '24px',
   borderRadius: '50%',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-bold)',
 };
 
 const fieldLabelStyles: React.CSSProperties = {
   display: 'block',
-  fontSize: '11px',
-  fontWeight: 700,
-  color: '#475569',
-  marginBottom: '4px',
-  textTransform: 'uppercase',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  color: 'var(--color-text)',
+  marginBottom: 'var(--space-1)',
 };
 
-const vendorBlockStyles: React.CSSProperties = {
-  border: '1px solid var(--color-border)',
+const inputStyles: React.CSSProperties = {
+  padding: '10px 12px',
   borderRadius: 'var(--radius-md)',
-  padding: 'var(--space-4)',
-};
-
-const vendorHeaderStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  flexWrap: 'wrap',
-  gap: '8px',
-  paddingBottom: 'var(--space-2)',
-  borderBottom: '1px dashed var(--color-border)',
-  marginBottom: 'var(--space-3)',
-};
-
-const itemListStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6px',
-};
-
-const itemPreviewRowStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '8px',
+  border: '1px solid var(--color-border)',
+  fontSize: 'var(--text-sm)',
+  outline: 'none',
 };
 
 const addressCardStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   gap: 'var(--space-3)',
-  padding: 'var(--space-4)',
+  padding: 'var(--space-3) var(--space-4)',
   borderRadius: 'var(--radius-md)',
   border: '1px solid var(--color-border)',
-  marginBottom: 'var(--space-3)',
   cursor: 'pointer',
+  marginBottom: 'var(--space-2)',
+  transition: 'border-color 0.15s, background-color 0.15s',
 };
 
 const addressSubStyles: React.CSSProperties = {
@@ -1175,19 +962,22 @@ const addressSubStyles: React.CSSProperties = {
 };
 
 const addBtnStyles: React.CSSProperties = {
-  marginTop: 'var(--space-2)',
   background: 'none',
-  border: 'none',
-  color: 'var(--color-primary)',
-  fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-xs)',
+  border: '1px dashed var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  padding: 'var(--space-3)',
+  width: '100%',
   cursor: 'pointer',
+  color: 'var(--color-primary)',
+  fontWeight: 'var(--font-semibold)',
+  fontSize: 'var(--text-sm)',
+  marginTop: 'var(--space-2)',
 };
 
 const addFormStyles: React.CSSProperties = {
   marginTop: 'var(--space-4)',
   padding: 'var(--space-4)',
-  background: 'var(--color-bg-subtle)',
+  backgroundColor: 'var(--color-bg-subtle)',
   borderRadius: 'var(--radius-md)',
   display: 'flex',
   flexDirection: 'column',
@@ -1196,37 +986,33 @@ const addFormStyles: React.CSSProperties = {
 
 const formGridStyles: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-  gap: 'var(--space-2)',
-};
-
-const inputStyles: React.CSSProperties = {
-  padding: '8px 12px',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-border)',
-  fontSize: 'var(--text-xs)',
-  backgroundColor: '#ffffff',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gap: 'var(--space-3)',
 };
 
 const primaryBtnStyles: React.CSSProperties = {
-  padding: '8px 16px',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   border: 'none',
   borderRadius: 'var(--radius-md)',
-  fontWeight: 'var(--font-semibold)',
-  fontSize: 'var(--text-xs)',
+  padding: '10px 20px',
+  fontWeight: 'var(--font-bold)',
+  fontSize: 'var(--text-sm)',
   cursor: 'pointer',
   textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const secondaryBtnStyles: React.CSSProperties = {
-  padding: '8px 16px',
-  backgroundColor: 'transparent',
-  color: 'var(--color-text-muted)',
-  border: '1px solid var(--color-border)',
+  backgroundColor: '#f3f4f6',
+  color: '#4b5563',
+  border: '1px solid #d1d5db',
   borderRadius: 'var(--radius-md)',
-  fontSize: 'var(--text-xs)',
+  padding: '10px 16px',
+  fontWeight: 'var(--font-semibold)',
+  fontSize: 'var(--text-sm)',
   cursor: 'pointer',
 };
 
@@ -1235,57 +1021,58 @@ const summaryCardStyles: React.CSSProperties = {
   padding: 'var(--space-5)',
   borderRadius: 'var(--radius-lg)',
   border: '1px solid var(--color-border)',
-  alignSelf: 'start',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--space-3)',
+  height: 'fit-content',
 };
 
 const summaryTitleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-lg)',
   fontWeight: 'var(--font-bold)',
-  margin: 0,
+  marginBottom: 'var(--space-4)',
+  color: '#111827',
 };
 
 const summaryRowStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 'var(--space-3)',
   fontSize: 'var(--text-sm)',
 };
 
 const summaryValStyles: React.CSSProperties = {
-  fontWeight: 'var(--font-semibold)',
+  fontWeight: 'var(--font-bold)',
 };
 
 const dividerStyles: React.CSSProperties = {
   border: 'none',
   borderTop: '1px solid var(--color-border)',
-  margin: 'var(--space-2) 0',
+  margin: 'var(--space-3) 0',
 };
 
 const proceedBtnStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '14px',
   backgroundColor: 'var(--color-primary)',
   color: '#ffffff',
   border: 'none',
   borderRadius: 'var(--radius-md)',
+  padding: '14px',
+  width: '100%',
   fontWeight: 'var(--font-bold)',
-  fontSize: 'var(--text-sm)',
+  fontSize: 'var(--text-base)',
   cursor: 'pointer',
-  marginTop: 'var(--space-3)',
+  transition: 'background-color 0.15s ease',
+  boxShadow: '0 2px 8px rgba(255, 122, 0, 0.25)',
 };
 
 const emptyStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  padding: 'var(--space-12)',
-  gap: 'var(--space-3)',
+  textAlign: 'center',
+  padding: 'var(--space-12) 0',
+  background: '#ffffff',
+  borderRadius: 'var(--radius-lg)',
+  border: '1px solid var(--color-border)',
 };
 
 const emptyTitleStyles: React.CSSProperties = {
   fontSize: 'var(--text-xl)',
   fontWeight: 'var(--font-bold)',
-  margin: 0,
+  margin: 'var(--space-3) 0 var(--space-2)',
 };

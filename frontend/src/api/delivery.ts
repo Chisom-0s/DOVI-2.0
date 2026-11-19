@@ -1,4 +1,4 @@
-// Delivery API — /api/v1/delivery/* and Onitsha Hub Consolidation & Pricing
+// Delivery API — /api/v1/delivery/* and Fulfillment Consolidation & Pricing
 import apiClient, { normalizeApiError } from './client';
 import {
   syncDeliveryStoreFromServer,
@@ -159,7 +159,7 @@ export const deliveryApi = {
   },
 
   // ----------------------------------------------------------
-  // DOVI ONITSHA HUB DELIVERY PRICING & CONSOLIDATION ENDPOINTS
+  // DOVI DIRECT DELIVERY DELIVERY PRICING & CONSOLIDATION ENDPOINTS
   // ----------------------------------------------------------
   getActiveRoutes: async (): Promise<DeliveryRoute[]> => {
     return loadActiveRoutes();

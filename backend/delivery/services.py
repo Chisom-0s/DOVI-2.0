@@ -1,6 +1,6 @@
 """
 Authoritative Server-Side Delivery Pricing & Order Consolidation Service for DOVI.
-Primary Dispatch Origin: Onitsha Hub.
+Direct-to-Destination Delivery Service for DOVI.
 Never hardcodes courier prices, never charges per product or per category automatically,
 and consolidates mixed-category orders into the minimum practical number of shipments.
 """
@@ -64,7 +64,7 @@ def calculate_order_delivery(
 
     if not route:
         manual_quote_reasons.append(
-            f"No configured active delivery route from {origin} Hub to {destination_city + ', ' if destination_city else ''}{destination_state}. Delivery confirmation is required."
+            f"No configured active delivery route to {destination_city + ', ' if destination_city else ''}{destination_state}. Delivery confirmation is required."
         )
         return {
             'origin': origin,
@@ -81,7 +81,7 @@ def calculate_order_delivery(
             'total_payable': None,
             'requires_manual_quote': True,
             'manual_quote_reasons': manual_quote_reasons,
-            'consolidation_explanation': 'Order is pending manual delivery confirmation from DOVI Onitsha Hub.',
+            'consolidation_explanation': 'Order is pending manual delivery confirmation from DOVI Support / Admin.',
             'separation_explanation': None,
         }
 
@@ -133,7 +133,7 @@ def calculate_order_delivery(
             manual_quote_reasons.append(reason)
         elif total_furniture_qty > route.max_furniture_items_consolidated or (total_furniture_qty > 1 and route.multi_furniture_requires_manual_quote):
             req_quote = True
-            reason = f"Multiple furniture items ({total_furniture_qty} units) require Onitsha Hub transport capacity confirmation."
+            reason = f"Multiple furniture items ({total_furniture_qty} units) require transport capacity confirmation."
             manual_quote_reasons.append(reason)
 
         shipments.append({
@@ -145,7 +145,7 @@ def calculate_order_delivery(
             'delivery_fee': None if req_quote else str(rate),
             'requires_manual_quote': req_quote,
             'manual_quote_reason': reason or None,
-            'transport_arrangement': 'Consolidated Bulky & Parcel Transport from Onitsha Hub',
+            'transport_arrangement': 'Consolidated Bulky & Parcel Transport for direct delivery',
         })
     else:
         if parcel_items:
@@ -176,7 +176,7 @@ def calculate_order_delivery(
                 'delivery_fee': None if req_quote else str(rate),
                 'requires_manual_quote': req_quote,
                 'manual_quote_reason': reason or None,
-                'transport_arrangement': 'Consolidated Parcel Dispatch from Onitsha Hub',
+                'transport_arrangement': 'Consolidated Parcel Dispatch for direct delivery',
             })
 
         if furniture_items:
@@ -194,7 +194,7 @@ def calculate_order_delivery(
                 manual_quote_reasons.append(reason)
             elif total_furniture_qty > route.max_furniture_items_consolidated or (total_furniture_qty > 1 and route.multi_furniture_requires_manual_quote):
                 req_quote = True
-                reason = f"Multiple furniture/bulky items ({total_furniture_qty} pieces) require Onitsha Hub transport confirmation."
+                reason = f"Multiple furniture/bulky items ({total_furniture_qty} pieces) require transport confirmation."
                 manual_quote_reasons.append(reason)
 
             shipments.append({
@@ -206,7 +206,7 @@ def calculate_order_delivery(
                 'delivery_fee': None if req_quote else str(rate),
                 'requires_manual_quote': req_quote,
                 'manual_quote_reason': reason or None,
-                'transport_arrangement': 'Dedicated Bulky / Furniture Transport from Onitsha Hub',
+                'transport_arrangement': 'Dedicated Bulky / Furniture Transport for direct delivery',
             })
 
         if manual_items:
@@ -218,8 +218,8 @@ def calculate_order_delivery(
                 'items': manual_items,
                 'delivery_fee': None,
                 'requires_manual_quote': True,
-                'manual_quote_reason': 'Requires manual delivery confirmation by DOVI Onitsha Hub.',
-                'transport_arrangement': 'Special Arrangement (Pending Hub Confirmation)',
+                'manual_quote_reason': 'Requires manual delivery confirmation by DOVI.',
+                'transport_arrangement': 'Special Arrangement (Pending Delivery Confirmation)',
             })
 
     requires_manual_quote = len(manual_quote_reasons) > 0 or any(s['requires_manual_quote'] for s in shipments)
@@ -246,12 +246,12 @@ def calculate_order_delivery(
         'requires_manual_quote': requires_manual_quote,
         'manual_quote_reasons': manual_quote_reasons,
         'consolidation_explanation': (
-            'All items in your order will be consolidated and packaged together at our Onitsha Hub into a single shipment.'
+            'All items in your order will be consolidated and packaged together for direct delivery into a single shipment.'
             if len(shipments) == 1
             else 'Your order has been grouped into separate shipments based on parcel transport requirements.'
         ),
         'separation_explanation': (
-            'Furniture / Bulky items require a separate transport arrangement from standard parcels to ensure safe handling from our Onitsha Hub.'
+            'Furniture / Bulky items require a separate transport arrangement from standard parcels to ensure safe handling for direct delivery.'
             if len(shipments) > 1
             else None
         ),

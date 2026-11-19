@@ -19,7 +19,7 @@ function enrichOrderWithShipments(order: Order): Order {
   }
 
   // If an existing order does not yet have persisted shipment records, synthesize them cleanly
-  // from its items and delivery address so every order has structured Onitsha Hub shipment tracking.
+  // from its items and delivery address so every order has structured direct delivery shipment tracking.
   if ((!shipments || shipments.length === 0) && Array.isArray(order.items) && order.items.length > 0) {
     // Never invent a destination: a missing address must not silently be priced as Lagos.
     const destState = order.delivery_address?.state || '';
@@ -27,7 +27,7 @@ function enrichOrderWithShipments(order: Order): Order {
     const calc = calculateOrderDelivery({
       destinationState: destState,
       destinationCity: destCity,
-      dispatchOrigin: 'Onitsha',
+      dispatchOrigin: '',
       items: order.items.map((oi) => ({
         id: oi.id,
         product_id: String(oi.product?.id || oi.id),

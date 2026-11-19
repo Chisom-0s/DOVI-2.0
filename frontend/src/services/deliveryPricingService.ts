@@ -1,6 +1,6 @@
 // ============================================================
 // DOVI 2.0 — Authoritative Delivery Pricing, Consolidation &
-// Onitsha Hub Fulfillment Service
+// Fulfillment Fulfillment Service
 // ============================================================
 
 import type {
@@ -39,13 +39,13 @@ export const SHIPMENT_STATUS_LABELS: Record<ShipmentFulfillmentStatus, string> =
   AWAITING_DELIVERY_CONFIRMATION: 'Awaiting Delivery Confirmation',
   DELIVERY_FEE_CONFIRMED: 'Delivery Fee Confirmed',
   SOURCING_PRODUCTS: 'Sourcing Products',
-  AWAITING_PRODUCTS_AT_HUB: 'Awaiting Products at Hub',
-  PRODUCTS_RECEIVED: 'Products Received at Onitsha Hub',
+  AWAITING_PRODUCTS_AT_HUB: 'Procurement & Sourcing',
+  PRODUCTS_RECEIVED: 'Products Sourced & Verified',
   QUALITY_CHECK: 'Quality Check & Inspection',
   READY_FOR_PACKAGING: 'Ready for Packaging',
-  PACKAGED: 'Packaged & Consolidated',
+  PACKAGED: 'Packaged for Direct Delivery',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
-  DISPATCHED: 'Dispatched from Onitsha Hub',
+  DISPATCHED: 'Dispatched to Customer',
   OUT_FOR_DELIVERY: 'Out for Delivery',
   DELIVERED: 'Delivered',
 };
@@ -456,6 +456,7 @@ export interface CreateOrUpdateRouteInput {
   dispatch_origin?: string;
   destination_state: string;
   destination_city: string;
+  delivery_fee?: number | null;
   small_parcel_rate?: number | null;
   heavy_parcel_rate?: number | null;
   furniture_bulky_rate?: number | null;
@@ -555,7 +556,7 @@ export function findRouteInList(
   destinationCity: string,
   dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
 ): { route: DeliveryRoute | null; match: RouteMatchType } {
-  const originKey = normalizeLocationName(dispatchOrigin || PRIMARY_DISPATCH_ORIGIN);
+  void dispatchOrigin;
   const stateKey = canonicalStateKey(destinationState);
   const cityKey = canonicalCityKey(destinationCity);
 
@@ -564,7 +565,8 @@ export function findRouteInList(
   const candidates = routes.filter(
     (r) =>
       r.is_active !== false &&
-      normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN) === originKey &&
+      // Destination-based delivery matching
+      r.destination_state &&
       canonicalStateKey(r.destination_state) === stateKey
   );
 
@@ -585,14 +587,15 @@ export function listConfiguredCitiesForState(
   destinationState: string,
   dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
 ): DeliveryRoute[] {
-  const originKey = normalizeLocationName(dispatchOrigin || PRIMARY_DISPATCH_ORIGIN);
+  void dispatchOrigin;
   const stateKey = canonicalStateKey(destinationState);
   if (!stateKey) return [];
   const seen = new Set<string>();
   const result: DeliveryRoute[] = [];
   for (const r of routes) {
     if (r.is_active === false) continue;
-    if (normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN) !== originKey) continue;
+    // Destination-based delivery
+    if (!r.destination_city) continue;
     if (canonicalStateKey(r.destination_state) !== stateKey) continue;
     if (isStateWideCity(r)) continue;
     const key = canonicalCityKey(r.destination_city);
@@ -1083,13 +1086,13 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     let consolidationExplanation = '';
     if (hasSmall && hasHeavy) {
       consolidationExplanation =
-        'Small Parcel and Heavy Parcel items are consolidated into one combined Heavy Parcel shipment at our Onitsha hub so you pay a single delivery fee.';
+        'Small Parcel and Heavy Parcel items are consolidated into one combined Heavy Parcel shipment so you pay a single direct delivery fee.';
     } else if (weightUpgradedToHeavy) {
-      consolidationExplanation = `Multiple small parcels (${combinedWeight} kg total) consolidated into a single Heavy Parcel shipment from our Onitsha hub.`;
+      consolidationExplanation = `Multiple small parcels (${combinedWeight} kg total) consolidated into a single Heavy Parcel shipment for direct delivery.`;
     } else if (totalQty > 1) {
-      consolidationExplanation = `All ${totalQty} items consolidated into one ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} shipment from our Onitsha hub with a single delivery fee.`;
+      consolidationExplanation = `All ${totalQty} items consolidated into one ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} shipment for direct delivery with a single delivery fee.`;
     } else {
-      consolidationExplanation = `Single ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} dispatch from our Onitsha hub.`;
+      consolidationExplanation = `Single ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} dispatch for direct delivery.`;
     }
 
     const separationReason =
@@ -1115,8 +1118,8 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       manual_quote_reason: groupQuoteReason,
       transport_arrangement:
         effectiveClass === 'HEAVY_PARCEL'
-          ? 'DOVI Consolidated Heavy Van / Express Haulage from Onitsha Hub'
-          : 'DOVI Consolidated Express Parcel Courier from Onitsha Hub',
+          ? 'DOVI Consolidated Heavy Van / Express Haulage for direct delivery'
+          : 'DOVI Consolidated Express Parcel Courier for direct delivery',
       consolidation_explanation: consolidationExplanation,
       separation_reason: separationReason,
       delivery_notes: parcelItems
@@ -1153,7 +1156,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       groupQuoteReason = `Furniture / Bulky delivery rate not configured for ${destinationCity || 'destination'}, ${destinationState || 'state'}.`;
     } else if (bulkyMissingDimensions) {
       groupRequiresQuote = true;
-      groupQuoteReason = `Bulky item "${bulkyMissingDimensions.shipmentItem.product_name}" requires special handling and dimension verification at Onitsha Hub for manual quotation.`;
+      groupQuoteReason = `Bulky item "${bulkyMissingDimensions.shipmentItem.product_name}" requires special handling and dimension verification for direct delivery for manual quotation.`;
     } else if (totalFurnitureUnits === 1) {
       if (route.furniture_bulky_rate !== null && route.furniture_bulky_rate >= 0) {
         baseFee = Number(route.furniture_bulky_rate);
@@ -1170,7 +1173,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
         groupQuoteReason = `Order includes ${totalFurnitureUnits} Furniture / Bulky items (exceeding standard ${maxConsolidatedFurniture}-item consolidated cargo limit). Manual transport quotation required.`;
       } else {
         groupRequiresQuote = true;
-        groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation from Onitsha Hub rather than charging per item.`;
+        groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation for direct delivery rather than charging per item.`;
       }
     }
 
@@ -1191,13 +1194,13 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     let consolidationExplanation = '';
     if (canMergeSmallIntoFurniture) {
       consolidationExplanation =
-        'Your Small Parcel items and Furniture / Bulky item are consolidated into a single dedicated transport shipment from Onitsha Hub.';
+        'Your Small Parcel items and Furniture / Bulky item are consolidated into a single dedicated transport shipment for direct delivery.';
     } else if (totalFurnitureUnits > 1) {
       consolidationExplanation = groupRequiresQuote
         ? `Multiple furniture items (${totalFurnitureUnits} units) grouped for a single combined cargo quotation (we never multiply the single-item furniture fee per item).`
-        : `Multiple furniture items (${totalFurnitureUnits} units) consolidated into one combined Furniture / Bulky cargo shipment from Onitsha Hub.`;
+        : `Multiple furniture items (${totalFurnitureUnits} units) consolidated into one combined Furniture / Bulky cargo shipment for direct delivery.`;
     } else {
-      consolidationExplanation = 'Dedicated Furniture / Bulky cargo transport from our Onitsha hub.';
+      consolidationExplanation = 'Dedicated Furniture / Bulky cargo transport for direct delivery.';
     }
 
     const separationReason =
@@ -1221,7 +1224,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_fee: totalGroupFee,
       requires_manual_quote: groupRequiresQuote,
       manual_quote_reason: groupQuoteReason,
-      transport_arrangement: 'DOVI Dedicated Bulky & Furniture Cargo Transport from Onitsha Hub',
+      transport_arrangement: 'DOVI Dedicated Bulky & Furniture Cargo Transport for direct delivery',
       consolidation_explanation: consolidationExplanation,
       separation_reason: separationReason,
       delivery_notes: mergedFurnitureList
@@ -1241,7 +1244,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     const hasUnclassified = manualBucket.some((m) => m.hasMissingClassification);
     const groupQuoteReason = hasUnclassified
       ? 'One or more products require delivery classification confirmation by an administrator.'
-      : 'Special Delivery / Manual Quote items require custom transport pricing from our Onitsha dispatch team.';
+      : 'Special Delivery / Manual Quote items require custom transport pricing from our logistics team.';
 
     if (!manualQuoteReasons.includes(groupQuoteReason)) {
       manualQuoteReasons.push(groupQuoteReason);
@@ -1263,9 +1266,9 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_fee: null,
       requires_manual_quote: true,
       manual_quote_reason: groupQuoteReason,
-      transport_arrangement: 'Custom Arranged Specialized Transport from Onitsha Hub',
+      transport_arrangement: 'Custom Arranged Specialized Transport for direct delivery',
       consolidation_explanation:
-        'Items requiring custom handling or manual delivery confirmation are grouped for assessment by our Onitsha logistics team.',
+        'Items requiring custom handling or manual delivery confirmation are grouped for assessment by our logistics team.',
       separation_reason:
         shipmentGroups.length > 0
           ? 'Separated because these items require custom transport evaluation and manual rate confirmation.'
@@ -1301,11 +1304,11 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
   if (requiresManualQuote) {
     overallExplanation =
       manualQuoteReasons[0] ||
-      'Delivery confirmation required: Our Onitsha logistics team will confirm the exact delivery fee for your destination and items before payment.';
+      'Delivery confirmation required: Our logistics team will confirm the exact delivery fee for your destination and items before payment.';
   } else if (shipmentGroups.length === 1) {
     overallExplanation = shipmentGroups[0].consolidation_explanation;
   } else if (shipmentGroups.length > 1) {
-    overallExplanation = `Your order requires ${shipmentGroups.length} separate shipments from our Onitsha hub because ${
+    overallExplanation = `Your order requires ${shipmentGroups.length} separate shipments for direct delivery because ${
       shipmentGroups[1]?.separation_reason ||
       'items require different transport arrangements to ensure safe delivery.'
     }`;
@@ -1338,7 +1341,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
 }
 
 // ----------------------------------------------------------
-// SHIPMENT CREATION, ONITSHA HUB FULFILLMENT & MANUAL QUOTES
+// SHIPMENT CREATION, DIRECT DELIVERY FULFILLMENT & MANUAL QUOTES
 // ----------------------------------------------------------
 export function buildOrderShipmentsFromCalculation(
   orderId: string,
@@ -1420,11 +1423,11 @@ export function saveOrderShipments(
 }
 
 /**
- * Updates per-item Onitsha Hub receipt, quality check, or packaging status.
+ * Updates per-item Fulfillment receipt, quality check, or packaging status.
  * Enforces Edge Case 5 & Test J:
- * If one item arrives at Onitsha Hub while another is still pending from the supplier,
+ * If one item arrives for direct delivery while another is still pending from the supplier,
  * the shipment status automatically transitions to `AWAITING_PRODUCTS_AT_HUB`
- * ("Pending Consolidation at Onitsha Hub").
+ * ("Pending Consolidation for direct delivery").
  */
 export function updateShipmentItemHubStatus(
   orderIdOrRef: string,
@@ -1467,7 +1470,7 @@ export function updateShipmentItemHubStatus(
 
   if (updates.quality_checked !== undefined) {
     if (updates.quality_checked && !item.hub_received) {
-      throw new Error(`Cannot mark "${item.product_name}" as quality checked before it is received at the Onitsha hub.`);
+      throw new Error(`Cannot mark "${item.product_name}" as quality checked before it is received prior to dispatch.`);
     }
     item.quality_checked = Boolean(updates.quality_checked);
     item.quality_checked_at = item.quality_checked ? now : null;
@@ -1480,7 +1483,7 @@ export function updateShipmentItemHubStatus(
   if (updates.packaged !== undefined) {
     if (updates.packaged && (!item.hub_received || !item.quality_checked)) {
       throw new Error(
-        `Cannot package "${item.product_name}" until it has been received and passed quality inspection at the Onitsha hub.`
+        `Cannot package "${item.product_name}" until it has been received and passed quality inspection prior to dispatch.`
       );
     }
     item.packaged = Boolean(updates.packaged);
@@ -1506,7 +1509,7 @@ export function updateShipmentItemHubStatus(
     } else if (allReceived) {
       shipment.status = 'PRODUCTS_RECEIVED';
     } else if (someReceived && !allReceived) {
-      // Partial arrival at Onitsha Hub -> Hold for consolidation!
+      // Partial arrival for direct delivery -> Hold for consolidation!
       shipment.status = 'AWAITING_PRODUCTS_AT_HUB';
     }
   }
@@ -1517,9 +1520,9 @@ export function updateShipmentItemHubStatus(
 }
 
 /**
- * Updates a shipment's fulfillment status, enforcing Onitsha Hub operational rules:
+ * Updates a shipment's fulfillment status, enforcing Fulfillment operational rules:
  * - Never allow `PACKAGED`, `READY_FOR_DISPATCH`, `DISPATCHED`, `OUT_FOR_DELIVERY`, or `DELIVERED`
- *   before all items in the shipment are received at the Onitsha hub, quality-inspected, and packaged.
+ *   before all items in the shipment are received prior to dispatch, quality-inspected, and packaged.
  */
 export function updateShipmentStatus(
   orderIdOrRef: string,
@@ -1560,7 +1563,7 @@ export function updateShipmentStatus(
         new Set([...unreceived, ...uninspected, ...unpackaged].map((i) => i.product_name))
       ).join(', ');
       throw new Error(
-        `Onitsha Hub Guard: Cannot mark shipment as "${SHIPMENT_STATUS_LABELS[newStatus]}" while items (${missingNames}) have not completed hub receipt, quality inspection, and packaging. Please confirm hub steps or approve split delivery first.`
+        `Fulfillment Guard: Cannot mark shipment as "${SHIPMENT_STATUS_LABELS[newStatus]}" while items (${missingNames}) have not completed hub receipt, quality inspection, and packaging. Please confirm hub steps or approve split delivery first.`
       );
     }
   }
@@ -1569,7 +1572,7 @@ export function updateShipmentStatus(
     const unready = shipment.items.filter((i) => !i.hub_received || !i.quality_checked);
     if (unready.length > 0) {
       throw new Error(
-        `Cannot mark shipment as Packaged until all items (${unready.map((i) => i.product_name).join(', ')}) have arrived at the Onitsha hub and passed quality inspection.`
+        `Cannot mark shipment as Packaged until all items (${unready.map((i) => i.product_name).join(', ')}) have arrived prior to dispatch and passed quality inspection.`
       );
     }
     shipment.items = shipment.items.map((i) => ({
@@ -1592,7 +1595,7 @@ export function updateShipmentStatus(
   if (newStatus === 'QUALITY_CHECK' || newStatus === 'READY_FOR_PACKAGING') {
     if (!shipment.items.every((i) => i.hub_received)) {
       throw new Error(
-        'Cannot complete Quality Check until all products in this shipment have been received at the Onitsha hub.'
+        'Cannot complete Quality Check until all products in this shipment have been received prior to dispatch.'
       );
     }
     shipment.items = shipment.items.map((i) => ({
@@ -1635,7 +1638,7 @@ export function updateShipmentStatus(
 
 /**
  * Approves split delivery when one or more items in a consolidated shipment have arrived
- * at the Onitsha hub and are ready, while other items are delayed by a supplier (Edge Case 5 / Test J).
+ * prior to dispatch and are ready, while other items are delayed by a supplier (Edge Case 5 / Test J).
  */
 export function approvePartialSplitDelivery(
   orderIdOrRef: string,
@@ -1677,7 +1680,7 @@ export function approvePartialSplitDelivery(
       : readyItems.every((i) => i.quality_checked)
       ? 'READY_FOR_PACKAGING'
       : 'PRODUCTS_RECEIVED',
-    separation_reason: 'Approved split dispatch for items already received at Onitsha Hub.',
+    separation_reason: 'Approved split dispatch for items already received for direct delivery.',
     updated_at: now,
   };
 
@@ -1696,7 +1699,7 @@ export function approvePartialSplitDelivery(
     hub_inspected_confirmed: false,
     hub_packaged_confirmed: false,
     status: 'AWAITING_PRODUCTS_AT_HUB',
-    separation_reason: 'Split shipment awaiting delayed supplier product arrival at Onitsha Hub.',
+    separation_reason: 'Split shipment awaiting delayed supplier product arrival for direct delivery.',
     tracking_reference: `${target.order_reference}-TRK-${delayedShipmentIndex}`,
     created_at: now,
     updated_at: now,

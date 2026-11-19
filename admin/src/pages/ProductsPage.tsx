@@ -790,7 +790,7 @@ export default function ProductsPage() {
         <div>
           <h2 style={titleStyles}>Product Directory</h2>
           <p style={subtitleStyles}>
-            Manage platform retail catalog, categories &amp; subcategories, stock levels, pricing, and Onitsha Hub parcel classifications.
+            Manage platform retail catalog, categories &amp; subcategories, stock levels, pricing, and delivery parcel classifications.
           </p>
         </div>
         <button
@@ -999,7 +999,7 @@ export default function ProductsPage() {
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
                   {editingProduct
-                    ? `Update listing parameters, category/subcategory, and Onitsha Hub parcel classification for "${editingProduct.name}".`
+                    ? `Update listing parameters, category/subcategory, and delivery parcel classification for "${editingProduct.name}".`
                     : 'List a new item directly in the Dovi Official Store catalog.'}
                 </p>
               </div>
@@ -1141,7 +1141,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* SECTION 2: DELIVERY CLASSIFICATION & ONITSHA HUB PACKAGING ATTRIBUTES */}
+              {/* SECTION 2: DELIVERY CLASSIFICATION & DELIVERY ATTRIBUTES */}
               <div
                 style={{
                   ...formSectionStyles,
@@ -1152,10 +1152,10 @@ export default function ProductsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h4 style={{ ...sectionHeaderStyles, color: '#9a3412' }}>
-                      2. Delivery Classification & Onitsha Hub Consolidation Attributes
+                      2. Delivery Classification & Delivery Consolidation Attributes
                     </h4>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#c2410c' }}>
-                      Used by DOVI's Order Consolidation Engine to calculate combined delivery fees from Onitsha Hub.
+                      Used by DOVI's Order Consolidation Engine to calculate combined delivery fees to customer destination.
                     </p>
                   </div>
                 </div>
@@ -1228,7 +1228,7 @@ export default function ProductsPage() {
                         }))
                       }
                     />
-                    <span>Requires Special Handling (fragile / protective crating at Onitsha Hub)</span>
+                    <span>Requires Special Handling (fragile / protective crating)</span>
                   </label>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#374151' }}>
@@ -1250,7 +1250,7 @@ export default function ProductsPage() {
                   <label style={labelStyles}>Delivery & Packaging Notes</label>
                   <input
                     type="text"
-                    placeholder="Optional handling or consolidation instructions for Onitsha Hub dispatch..."
+                    placeholder="Optional handling or consolidation instructions for direct dispatch..."
                     value={deliveryForm.delivery_notes || ''}
                     onChange={(e) =>
                       setDeliveryForm((prev) => ({

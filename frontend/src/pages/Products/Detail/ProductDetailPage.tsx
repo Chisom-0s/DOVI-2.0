@@ -63,7 +63,6 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(() => !initialProduct);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [isBuying, setIsBuying] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<ProductSummary[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [fetchError, setFetchError] = useState<APIError | null>(null);
@@ -175,40 +174,6 @@ export default function ProductDetailPage() {
       toast.error('Could not add to cart. Please try again.');
     } finally {
       setIsAddingToCart(false);
-    }
-  };
-
-  const handleBuyNow = async () => {
-    if (!product || isOutOfStock) return;
-    setIsBuying(true);
-
-    try {
-      await addToCart(product, quantity, {
-        variantId: selectedVariant ? selectedVariant.id : undefined,
-        variantName: selectedVariant?.name,
-        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
-        imageUrl: product.primary_image_url || product.image_url || undefined,
-      });
-      navigate('/checkout', {
-        state: {
-          directBuy: true,
-          product,
-          quantity,
-          variant: selectedVariant,
-        },
-      });
-    } catch (err) {
-      console.error('Failed to buy item:', err);
-      navigate('/checkout', {
-        state: {
-          directBuy: true,
-          product,
-          quantity,
-          variant: selectedVariant,
-        },
-      });
-    } finally {
-      setIsBuying(false);
     }
   };
 
@@ -384,7 +349,7 @@ export default function ProductDetailPage() {
             </span>
           </div>
 
-          {/* DOVI Onitsha Hub Delivery Classification & Consolidation Banner */}
+          {/* DOVI Direct Destination Delivery Banner */}
           <div
             style={{
               backgroundColor: '#fff7ed',
@@ -400,7 +365,7 @@ export default function ProductDetailPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
               <span style={{ fontWeight: 700 }}>
-                🚚 DOVI Onitsha Hub Consolidated Dispatch
+                🚚 DOVI Direct Delivery
               </span>
               <span
                 style={{
@@ -417,7 +382,7 @@ export default function ProductDetailPage() {
               </span>
             </div>
             <div style={{ color: '#9a3412', lineHeight: 1.4 }}>
-              Inspected & packaged at our Onitsha Hub. Combine multiple products across categories in your cart for a single consolidated shipment fee whenever practical.
+              Direct delivery to your destination. Add multiple items across categories to your cart to calculate consolidated destination delivery at checkout.
               {deliveryAttrs.weight_kg ? ` · Est. Weight: ${deliveryAttrs.weight_kg} kg` : ''}
               {deliveryAttrs.dimensions_cm ? ` · Dimensions: ${deliveryAttrs.dimensions_cm} cm` : ''}
             </div>
@@ -432,7 +397,7 @@ export default function ProductDetailPage() {
             />
           )}
 
-          {/* Purchase Actions (Quantity selector & Add button) */}
+          {/* Purchase Actions (Quantity selector & Add to Cart) */}
           <div style={purchaseWrapperStyles}>
             {!isOutOfStock && (
               <div style={qtyWrapperStyles}>
@@ -456,26 +421,19 @@ export default function ProductDetailPage() {
 
             <button
               onClick={handleAddToCart}
-              disabled={isOutOfStock || isAddingToCart || isBuying}
+              disabled={isOutOfStock || isAddingToCart}
               style={{
                 ...cartBtnStyles,
-                opacity: (isOutOfStock || isAddingToCart || isBuying) ? 0.6 : 1,
-                cursor: (isOutOfStock || isAddingToCart || isBuying) ? 'not-allowed' : 'pointer',
+                flex: 1,
+                opacity: (isOutOfStock || isAddingToCart) ? 0.6 : 1,
+                cursor: (isOutOfStock || isAddingToCart) ? 'not-allowed' : 'pointer',
               }}
             >
-              {isAddingToCart ? 'Adding to Cart...' : '🛒 Add to Cart'}
-            </button>
-
-            <button
-              onClick={handleBuyNow}
-              disabled={isOutOfStock || isBuying || isAddingToCart}
-              style={{
-                ...buyBtnStyles,
-                opacity: (isOutOfStock || isBuying || isAddingToCart) ? 0.6 : 1,
-                cursor: (isOutOfStock || isBuying || isAddingToCart) ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {isBuying ? 'Opening Checkout...' : '⚡ Buy Now'}
+              {isOutOfStock
+                ? 'Out of Stock'
+                : isAddingToCart
+                ? 'Adding to Cart...'
+                : '🛒 Add to Cart'}
             </button>
           </div>
 
@@ -677,24 +635,6 @@ const save2ownBtnStyles: React.CSSProperties = {
   boxShadow: '0 4px 14px rgba(39, 174, 96, 0.22)',
 };
 
-const buyBtnStyles: React.CSSProperties = {
-  flex: '1',
-  height: '48px',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: '#111827',
-  color: '#ffffff',
-  border: 'none',
-  fontSize: 'var(--text-base)',
-  fontWeight: 'var(--font-bold)',
-  cursor: 'pointer',
-  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
-  minWidth: '160px',
-  boxShadow: '0 4px 14px rgba(17, 24, 39, 0.2)',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '6px',
-};
 
 const descriptionSectionStyles: React.CSSProperties = {
   marginTop: 'var(--space-8)',

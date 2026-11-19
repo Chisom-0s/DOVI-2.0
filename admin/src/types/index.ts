@@ -1082,7 +1082,7 @@ export interface Save2OwnUnlockConfig {
 
 
 // ----------------------------------------------------------
-// DOVI DELIVERY PRICING, CONSOLIDATION & ONITSHA HUB FULFILLMENT
+// DOVI DELIVERY PRICING, CONSOLIDATION & DIRECT DELIVERY FULFILLMENT
 // ----------------------------------------------------------
 export type ParcelClassification =
   | 'SMALL_PARCEL'
@@ -1105,6 +1105,7 @@ export interface DeliveryRoute {
   dispatch_origin: string;
   destination_state: string;
   destination_city: string;
+  delivery_fee?: number | null;
   small_parcel_rate: number | null;
   heavy_parcel_rate: number | null;
   furniture_bulky_rate: number | null;

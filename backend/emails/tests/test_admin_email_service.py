@@ -47,7 +47,7 @@ class AdminEmailTemplateTests(TestCase):
         ctx = {
             "order_reference": "DOV-ORD-9021",
             "refund_amount": 35000,
-            "inspection_notes": "Defective screen verified at Onitsha Hub",
+            "inspection_notes": "Defective screen verified upon return inspection",
             "app_url": "https://dovishop.com",
         }
         subject, html, text = EmailTemplateEngine.render(EmailType.ADMIN_REFUND_APPROVAL_REQUIRED, ctx)

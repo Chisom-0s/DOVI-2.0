@@ -220,7 +220,7 @@ export default function CheckoutSessionPage() {
           <section style={sectionStyles}>
             <h2 style={sectionTitleStyles}>
               <span style={stepNumberStyles}>3</span>
-              Order & Onitsha Hub Shipment Review
+              Order &amp; Delivery Review
             </h2>
 
             {/* Delivery Info */}
@@ -236,9 +236,9 @@ export default function CheckoutSessionPage() {
 
             {session.delivery_method && (
               <div style={infoCardStyles}>
-                <span style={labelStyles}>Dispatch & Shipping:</span>
+                <span style={labelStyles}>Direct Delivery:</span>
                 <span style={valueStyles}>
-                  Origin: Onitsha Hub · {session.delivery_method.name} ({session.delivery_method.estimated_days})
+                  {session.delivery_method.name} ({session.delivery_method.estimated_days})
                 </span>
               </div>
             )}

@@ -180,25 +180,25 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     typeof p.vendor === 'object' && p.vendor !== null
       ? p.vendor
       : {
-          id: String(p.vendor || 'vend-real'),
-          name: vendorName,
-          logo_url: null,
-          rating: 4.9,
-          review_count: 14,
-          location: 'Lagos, Nigeria',
-          slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
-        };
+        id: String(p.vendor || 'vend-real'),
+        name: vendorName,
+        logo_url: null,
+        rating: 4.9,
+        review_count: 14,
+        location: 'Lagos, Nigeria',
+        slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
+      };
 
   const categoryName = p.category_name || (typeof p.category === 'object' ? p.category?.name : 'General');
   const categoryObj =
     typeof p.category === 'object' && p.category !== null
       ? p.category
       : {
-          id: String(p.category || 'cat-real'),
-          name: categoryName,
-          slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
-          icon_url: null,
-        };
+        id: String(p.category || 'cat-real'),
+        name: categoryName,
+        slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
+        icon_url: null,
+      };
 
   const normalizedImages = (Array.isArray(p.images) ? p.images : []).map((img: any) => {
     if (!img) return img;
@@ -260,7 +260,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
   let deletedIds: string[] = [];
   try {
     deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
-  } catch {}
+  } catch { }
 
   const filterActive = (list: ProductSummary[]) =>
     list
@@ -283,7 +283,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       try {
         sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
         localStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
-      } catch {}
+      } catch { }
       return normalized;
     }
   } catch (err) {
@@ -299,7 +299,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         return filterActive(parsed);
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback 2: localStorage (survives tab closing & browser restart)
   try {
@@ -310,7 +310,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         return filterActive(parsed);
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback 3: Verified seed products (guarantees instant 0ms first render)
   if (SEED_REAL_PRODUCTS.length > 0) {
@@ -398,7 +398,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
       // High-value aspirational items specifically suited for micro-payment installment plans
       // Filter >= ₦40,000, sorted from highest price down (TCL TVs, luxury hair, washing machine, cookers)
       const highValue = realProducts.filter((p) => parsePriceNumber(p) >= 40000);
-      candidates = highValue.length >= 3 
+      candidates = highValue.length >= 3
         ? highValue.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a))
         : [...realProducts].sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
       break;
@@ -414,7 +414,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
         return discount > 0 || (price > 0 && price <= 25000);
       });
       // Sort by price ascending
-      candidates = deals.length >= 4 
+      candidates = deals.length >= 4
         ? deals.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b))
         : [...realProducts].sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
       break;
@@ -426,7 +426,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
         const name = (p.name || '').toLowerCase();
         const cat = (p.category_name || '').toLowerCase();
         return /watch|power bank|clipper|cooker|shoe|sandal|rack|charger/i.test(name) ||
-               /watch|shoe|electronics/i.test(cat);
+          /watch|shoe|electronics/i.test(cat);
       });
       if (candidates.length < 4) {
         // Fallback: items in moderate price bracket ₦10k - ₦50k
@@ -444,7 +444,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
         const name = (p.name || '').toLowerCase();
         const cat = (p.category_name || '').toLowerCase();
         return /jean|pyjama|diffuser|slicer|plate|drainer|towel|shirt|belt/i.test(name) ||
-               /fashion|home|kitchen/i.test(cat);
+          /fashion|home|kitchen/i.test(cat);
       });
       if (candidates.length < 4) {
         candidates = [...realProducts].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
@@ -458,7 +458,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
         const name = (p.name || '').toLowerCase();
         const cat = (p.category_name || '').toLowerCase();
         return /headset|earbud|bluetooth|led|crystal|humidifier|2pcs|smart|pixie/i.test(name) ||
-               /phone|audio|beauty|decor/i.test(cat);
+          /phone|audio|beauty|decor/i.test(cat);
       });
       if (candidates.length < 4) {
         candidates = realProducts.slice(4).concat(realProducts.slice(0, 4));
@@ -577,7 +577,7 @@ export const homepageApi = {
 
     try {
       localStorage.setItem('dovi_cached_homepage_sections', JSON.stringify(sections));
-    } catch {}
+    } catch { }
 
     return {
       banners: DEFAULT_HERO_BANNERS,
@@ -591,7 +591,7 @@ export const homepageApi = {
       if (Array.isArray(data) && data.length > 0) {
         return data;
       }
-    } catch {}
+    } catch { }
     return DEFAULT_HERO_BANNERS;
   },
 
@@ -677,19 +677,19 @@ export function getCachedHomepageSections(): HomepageSection[] {
           }));
       }
     }
-  } catch {}
+  } catch { }
 
   try {
     let cachedReal: ProductSummary[] = [];
     try {
       const fromSession = sessionStorage.getItem('dovi_real_products_cache');
       if (fromSession) cachedReal = JSON.parse(fromSession);
-    } catch {}
+    } catch { }
     if (!cachedReal || cachedReal.length === 0) {
       try {
         const fromLocal = localStorage.getItem('dovi_real_products_cache');
         if (fromLocal) cachedReal = JSON.parse(fromLocal);
-      } catch {}
+      } catch { }
     }
     if (!cachedReal || cachedReal.length === 0) {
       cachedReal = SEED_REAL_PRODUCTS;

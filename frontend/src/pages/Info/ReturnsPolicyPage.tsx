@@ -55,7 +55,7 @@ export default function ReturnsPolicyPage() {
               <strong>Drop-off / Pickup:</strong> Hand the packaged item to your local Dovi Campus Pickup Agent or courier return partner.
             </li>
             <li>
-              <strong>Instant Refund:</strong> Once the package is received and verified at our Onitsha Hub, your refund is credited within 24 to 48 hours.
+              <strong>Instant Refund:</strong> Once the returned item is received and inspected, your refund is credited within 24 to 48 hours.
             </li>
           </ol>
         </section>

@@ -120,7 +120,7 @@ export default function CartPage() {
         </button>
       </div>
 
-      {/* DOVI Onitsha Hub Order Consolidation Info Banner */}
+      {/* DOVI Direct Delivery Info Banner */}
       <div
         style={{
           backgroundColor: '#eff6ff',
@@ -136,7 +136,7 @@ export default function CartPage() {
       >
         <span style={{ fontSize: '18px', lineHeight: 1 }}>📦</span>
         <div>
-          <strong>DOVI Onitsha Hub Order Consolidation:</strong> You can mix products from any category in a single cart. All items are inspected, consolidated, and packaged together at our <strong>Onitsha Hub</strong> so you pay a single consolidated shipment fee whenever your items can travel together.
+          <strong>DOVI Direct Delivery:</strong> You can mix products from any category in a single cart. DOVI handles sourcing and arranges direct delivery to your selected destination at the active delivery rate configured for your location.
         </div>
       </div>
 

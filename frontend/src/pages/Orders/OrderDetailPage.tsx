@@ -108,7 +108,7 @@ export default function OrderDetailPage() {
       setOrder(updated);
       if (accept) {
         toast.success(
-          'Delivery quotation accepted! Your order is now confirmed for payment and Onitsha Hub fulfillment.'
+          'Delivery quotation accepted! Your order is now confirmed for payment and direct delivery.'
         );
       } else {
         toast('Delivery quotation declined.', { icon: 'ℹ️' });
@@ -156,7 +156,7 @@ export default function OrderDetailPage() {
   }
 
   const shipments: OrderShipment[] = order.shipments || [];
-  const hasOnitshaShipments = shipments.length > 0;
+  const hasDirectShipments = shipments.length > 0;
   const hasDeliveryGroups = order.delivery_groups && order.delivery_groups.length > 0;
   const quotedShipments = shipments.filter(
     (s) => s.manual_quote_status === 'QUOTED_AWAITING_CUSTOMER'
@@ -172,7 +172,7 @@ export default function OrderDetailPage() {
           <Link to="/dashboard/orders" style={backLinkStyles}>← My Orders</Link>
           <h1 style={titleStyles}>Order #{order.reference}</h1>
           <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-            Dispatch Origin: <strong>Onitsha Hub</strong> · Shipments:{' '}
+            Delivery: <strong>Direct Destination Delivery</strong> · Shipments:{' '}
             <strong>
               {shipments.length || 1}{' '}
               {shipments.length <= 1 ? 'Consolidated Shipment' : 'Separate Shipments'}
@@ -207,10 +207,10 @@ export default function OrderDetailPage() {
           }}
         >
           <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>
-            ⏳ Awaiting Delivery Fee Confirmation from DOVI Onitsha Hub
+            ⏳ Awaiting Delivery Fee Confirmation from DOVI
           </strong>
           <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5 }}>
-            Your order includes a route or bulky item requiring a custom transport quotation from our Onitsha Hub logistics desk. As soon as the administrator confirms your exact delivery fee, you will be notified here to review and approve it before payment and dispatch proceed.
+            Your order includes a route or bulky item requiring a custom transport quotation from our logistics desk. As soon as the administrator confirms your exact delivery fee, you will be notified here to review and approve it before payment and dispatch proceed.
           </p>
         </div>
       )}
@@ -247,7 +247,7 @@ export default function OrderDetailPage() {
               Review & Confirm Your Delivery Quotation for {qs.shipment_reference}
             </h3>
             <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#1e40af', lineHeight: 1.5 }}>
-              Our Onitsha Hub logistics team has confirmed the transport arrangement ({qs.transport_arrangement}) to {qs.destination_city}, {qs.destination_state}.
+              Our logistics team has confirmed the transport arrangement ({qs.transport_arrangement}) to {qs.destination_city}, {qs.destination_state}.
             </p>
           </div>
 
@@ -320,18 +320,18 @@ export default function OrderDetailPage() {
       <div className="checkout-layout-grid">
         {/* Main Column */}
         <div style={mainColStyles}>
-          {/* ONITSHA HUB CONSOLIDATED SHIPMENTS VIEW (Section 9) */}
-          {hasOnitshaShipments ? (
+          {/* DIRECT DELIVERY CONSOLIDATED SHIPMENTS VIEW (Section 9) */}
+          {hasDirectShipments ? (
             <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
               <div>
                 <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', margin: 0 }}>
                   {shipments.length === 1
-                    ? 'Consolidated Shipment Progress (Onitsha Hub)'
-                    : `Shipments Breakdown (${shipments.length} Shipments from Onitsha Hub)`}
+                    ? 'Consolidated Delivery Progress'
+                    : `Shipments Breakdown (${shipments.length} Shipments for direct delivery)`}
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>
                   {shipments.length === 1
-                    ? 'All products in your order are consolidated into a single shipment from our Onitsha Hub.'
+                    ? 'All products in your order are consolidated into a single shipment to your destination.'
                     : 'Your order requires separate transport arrangements. Track the status of each shipment below — your order is marked Delivered only when all shipments have arrived.'}
                 </p>
               </div>
@@ -393,7 +393,7 @@ export default function OrderDetailPage() {
                       </div>
                     </div>
 
-                    {/* Visual Onitsha Hub Fulfillment Progress Timeline */}
+                    {/* Visual Delivery Fulfillment Progress Timeline */}
                     <div
                       style={{
                         padding: '14px 16px',
@@ -410,7 +410,7 @@ export default function OrderDetailPage() {
                           marginBottom: '10px',
                         }}
                       >
-                        Onitsha Hub Fulfillment Progress
+                        Delivery Fulfillment Progress
                       </div>
                       <div
                         style={{
@@ -508,7 +508,7 @@ export default function OrderDetailPage() {
                                   color: item.hub_received ? '#166534' : '#64748b',
                                 }}
                               >
-                                {item.hub_received ? '✓ At Onitsha Hub' : '• Sourcing / En Route to Hub'}
+                                {item.hub_received ? '✓ Sourced & Verified' : '• Sourcing Item'}
                               </span>
                               {item.quality_checked && (
                                 <span
@@ -589,7 +589,7 @@ export default function OrderDetailPage() {
                   <div style={groupHeaderStyles}>
                     <div>
                       <strong style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
-                        GROUP #{idx + 1}: {group.vendor?.name || 'DOVI Onitsha Hub'}
+                        GROUP #{idx + 1}: {group.vendor?.name || 'DOVI Fulfillment'}
                       </strong>
                     </div>
 

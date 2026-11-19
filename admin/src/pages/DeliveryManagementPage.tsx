@@ -369,7 +369,7 @@ export const DeliveryManagementPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              📍 Primary Dispatch Hub: {PRIMARY_DISPATCH_ORIGIN}
+              📍 Direct Destination Delivery
             </span>
             <span
               style={{
@@ -389,10 +389,10 @@ export const DeliveryManagementPage: React.FC = () => {
             </span>
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0 }}>
-            DOVI Delivery Rate & Order Consolidation Management
+            DOVI Delivery Destinations & Pricing Management
           </h1>
           <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '4px', marginBottom: 0 }}>
-            Configure destination delivery routes from Onitsha Hub, assign parcel classifications per product, and audit
+            Configure destination delivery routes, towns, and delivery fees, and audit
             transport rate updates.
           </p>
         </div>
@@ -439,7 +439,7 @@ export const DeliveryManagementPage: React.FC = () => {
               boxShadow: '0 2px 6px rgba(255,122,0,0.25)',
             }}
           >
-            + Add Delivery Route
+            + Add Delivery Destination
           </button>
         </div>
       </div>
@@ -470,7 +470,7 @@ export const DeliveryManagementPage: React.FC = () => {
             <span style={{ fontSize: '13px', fontWeight: 500, color: '#6b7280' }}>/ {routes.length} total</span>
           </div>
           <div style={{ fontSize: '12px', color: '#059669', marginTop: '4px' }}>
-            Dispatched from {PRIMARY_DISPATCH_ORIGIN} Hub
+            Direct delivery to customer destinations
           </div>
         </div>
 
@@ -649,7 +649,7 @@ export const DeliveryManagementPage: React.FC = () => {
               <p style={{ fontSize: '14px', color: '#6b7280', maxWidth: '520px', margin: '0 auto 20px' }}>
                 DOVI never invents courier rates or assigns ₦0 to unconfigured destinations. Orders to destinations
                 without an active route automatically require manual delivery confirmation. Click below to configure
-                your first route from {PRIMARY_DISPATCH_ORIGIN}.
+                your first route for customer destinations.
               </p>
               <button
                 type="button"
@@ -676,7 +676,7 @@ export const DeliveryManagementPage: React.FC = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>
-                    <th style={{ padding: '12px 16px', fontWeight: 700, color: '#374151' }}>Origin → Destination</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 700, color: '#374151' }}>Destination State & Town</th>
                     <th style={{ padding: '12px 16px', fontWeight: 700, color: '#374151' }}>Small Parcel</th>
                     <th style={{ padding: '12px 16px', fontWeight: 700, color: '#374151' }}>Heavy Parcel</th>
                     <th style={{ padding: '12px 16px', fontWeight: 700, color: '#374151' }}>Furniture / Bulky</th>
@@ -694,7 +694,7 @@ export const DeliveryManagementPage: React.FC = () => {
                     <tr key={route.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ fontWeight: 700, color: '#111827', fontSize: '14px' }}>
-                          {route.dispatch_origin} → {route.destination_city}, {route.destination_state}
+                          {route.destination_city}, {route.destination_state}
                         </div>
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                           Est: {route.estimated_delivery_days || '2-4 business days'}
@@ -1385,18 +1385,7 @@ export const DeliveryManagementPage: React.FC = () => {
 
             <form onSubmit={handleSaveRoute}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>
-                    Dispatch Origin Hub *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={routeForm.dispatch_origin || PRIMARY_DISPATCH_ORIGIN}
-                    onChange={(e) => setRouteForm({ ...routeForm, dispatch_origin: e.target.value })}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }}
-                  />
-                </div>
+                
 
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>
@@ -1586,7 +1575,7 @@ export const DeliveryManagementPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Fragile crating available at Onitsha Hub"
+                    placeholder="e.g. Fragile crating available upon request"
                     value={routeForm.special_delivery_requirements || ''}
                     onChange={(e) => setRouteForm({ ...routeForm, special_delivery_requirements: e.target.value })}
                     style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }}
@@ -1787,7 +1776,7 @@ export const DeliveryManagementPage: React.FC = () => {
                       setProductAttrForm({ ...productAttrForm, requires_special_handling: e.target.checked })
                     }
                   />
-                  <span>Requires Special Handling (fragile / custom crating at Onitsha Hub)</span>
+                  <span>Requires Special Handling (fragile / custom crating at Fulfillment)</span>
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
@@ -1808,7 +1797,7 @@ export const DeliveryManagementPage: React.FC = () => {
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Optional handling or consolidation instructions for Onitsha Hub..."
+                  placeholder="Optional handling or consolidation instructions for direct delivery..."
                   value={productAttrForm.delivery_notes || ''}
                   onChange={(e) => setProductAttrForm({ ...productAttrForm, delivery_notes: e.target.value })}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }}

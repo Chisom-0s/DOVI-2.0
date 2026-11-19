@@ -1,5 +1,5 @@
 -- ============================================================================
--- DOVI 2.0 — Delivery Pricing, Order Consolidation & Onitsha Hub Fulfillment
+-- DOVI 2.0 — Delivery Pricing, Order Consolidation & Fulfillment Fulfillment
 -- Migration: 0001_delivery_pricing_and_consolidation.sql
 -- Safe, non-destructive migration preserving all existing data, tables, and records.
 -- ============================================================================
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS order_shipments (
   delivery_notes TEXT NULL,
   estimated_delivery_info VARCHAR(255) NULL,
 
-  -- Onitsha Hub Fulfillment Checkpoints
+  -- Fulfillment Fulfillment Checkpoints
   received_at_hub_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
   inspection_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
   packaging_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS order_shipment_items (
   requires_special_handling BOOLEAN NOT NULL DEFAULT FALSE,
   delivery_notes TEXT NULL,
 
-  -- Per-item Onitsha Hub Consolidation Tracking
+  -- Per-item Fulfillment Consolidation Tracking
   supplier_status VARCHAR(40) NOT NULL DEFAULT 'PENDING'
     CHECK (supplier_status IN ('PENDING', 'SOURCING', 'RECEIVED_AT_HUB', 'LATE_AT_HUB', 'UNAVAILABLE')),
   received_at_hub BOOLEAN NOT NULL DEFAULT FALSE,

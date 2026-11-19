@@ -92,11 +92,11 @@ export default function OrderConfirmationPage() {
         <p style={subTextStyles}>
           {isAwaitingManualQuote ? (
             <>
-              Your order <strong>#{order.reference}</strong> has been received at our Onitsha Hub. Our logistics desk is calculating your manual delivery quotation and will notify you to review & accept before payment.
+              Your order <strong>#{order.reference}</strong> has been received. Our logistics team will confirm your delivery arrangement and notify you to review & accept before payment.
             </>
           ) : (
             <>
-              Your order <strong>#{order.reference}</strong> has been placed and is being prepared for consolidated dispatch from our <strong>Onitsha Hub</strong>.
+              Your order <strong>#{order.reference}</strong> has been placed and is being prepared for direct delivery to your destination.
             </>
           )}
         </p>
@@ -124,8 +124,8 @@ export default function OrderConfirmationPage() {
             </span>
           </div>
           <div style={cardRowStyles}>
-            <span style={cardLabelStyles}>Dispatch Origin</span>
-            <span style={cardValueStyles}>Onitsha Hub</span>
+            <span style={cardLabelStyles}>Delivery Type</span>
+            <span style={cardValueStyles}>Direct Destination Delivery</span>
           </div>
           <div style={cardRowStyles}>
             <span style={cardLabelStyles}>Shipments</span>

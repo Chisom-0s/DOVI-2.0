@@ -152,8 +152,8 @@ export const checkoutApi = {
           cart_snapshot: payload.cart_snapshot,
           delivery_address: payload.delivery_address || null,
           delivery_method: {
-            id: 'onitsha-hub-consolidated',
-            name: 'DOVI Onitsha Hub Consolidated Delivery',
+            id: 'dovi-direct-delivery',
+            name: 'DOVI Direct Delivery',
             description: calc.overall_explanation,
             estimated_days: '2-4 business days',
             price: calc.total_delivery_fee !== null ? String(calc.total_delivery_fee) : '0',
@@ -228,8 +228,8 @@ export const checkoutApi = {
           cart_snapshot: overlay.cart_snapshot,
           delivery_address: overlay.delivery_address || null,
           delivery_method: {
-            id: 'onitsha-hub-consolidated',
-            name: 'DOVI Onitsha Hub Consolidated Delivery',
+            id: 'dovi-direct-delivery',
+            name: 'DOVI Direct Delivery',
             description: overlay.delivery_calculation.overall_explanation,
             estimated_days: '2-4 business days',
             price:
@@ -433,7 +433,7 @@ export const checkoutApi = {
             ),
           })),
           delivery_address: overlay.delivery_address || null,
-          delivery_method: 'DOVI Onitsha Hub Consolidated Delivery',
+          delivery_method: 'DOVI Direct Delivery',
           subtotal: overlay.subtotal,
           delivery_fee:
             overlay.delivery_calculation.total_delivery_fee !== null
@@ -448,10 +448,10 @@ export const checkoutApi = {
           tracking: [
             {
               status: 'PENDING_PAYMENT',
-              location: 'Onitsha Hub',
+              location: 'Direct Delivery',
               description: overlay.delivery_calculation.requires_manual_quote
                 ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
-                : 'Order created and consolidated for Onitsha Hub dispatch.',
+                : 'Order created and consolidated for direct dispatch.',
               timestamp: now,
             },
           ],
@@ -548,7 +548,7 @@ export const checkoutApi = {
         line_total: String(Number(ci.unit_price || ci.price || 0) * Number(ci.quantity || 1)),
       })),
       delivery_address: resolvedAddress,
-      delivery_method: 'DOVI Onitsha Hub — Manual Delivery Quote Required',
+      delivery_method: 'DOVI Direct Delivery — Custom Quotation',
       subtotal: String(calc.product_subtotal),
       delivery_fee: '0',
       total: String(calc.product_subtotal),
@@ -557,7 +557,7 @@ export const checkoutApi = {
       tracking: [
         {
           status: 'PENDING_PAYMENT',
-          location: 'Onitsha Hub',
+          location: 'Direct Delivery',
           description:
             'Delivery Confirmation Required: Order submitted for transport fee confirmation by DOVI Onitsha logistics team.',
           timestamp: now,

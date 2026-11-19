@@ -213,7 +213,7 @@ about_content = """
     <li><strong>100% Escrow Protection:</strong> Every payment made on Dovi is held in secure escrow. Funds are never disbursed to the vendor until the student receives, inspects, and approves their item.</li>
     <li><strong>Vendor Verification:</strong> Every vendor on Dovi undergoes strict identity and quality verification before listing products.</li>
     <li><strong>Centralized Customer Operations:</strong> If an issue arises with an order, Dovi's dedicated resolution team intervenes directly to provide refunds, replacements, or support.</li>
-    <li><strong>Consolidated Logistics:</strong> Through our flagship <strong>Onitsha Fulfillment Hub</strong> and campus dispatch stations, orders from multiple vendors are consolidated into single parcels, saving students substantial delivery fees.</li>
+    <li><strong>Consolidated Logistics:</strong> Through our flagship <strong>Fulfillment & Logistics Network</strong> and campus dispatch stations, orders from multiple vendors are consolidated into single parcels, saving students substantial delivery fees.</li>
   </ul>
 
   <h2>Our Core Values</h2>
@@ -255,7 +255,7 @@ faq_content = """
 
   <div class="faq-item">
     <div class="faq-q">4. How long does campus delivery take?</div>
-    <div class="faq-a">Standard campus delivery typically takes 24 to 72 hours depending on your campus location. Deliveries routed through our Onitsha Fulfillment Hub are consolidated to reduce delivery costs and speed up transit.</div>
+    <div class="faq-a">Standard campus delivery typically takes 24 to 72 hours depending on your campus location. Deliveries routed through our Fulfillment & Logistics Network are consolidated to reduce delivery costs and speed up transit.</div>
   </div>
 
   <div class="faq-item">
@@ -331,7 +331,7 @@ shipping_content = """
   <p class="tagline">Fast, reliable, and consolidated fulfillment for tertiary institutions.</p>
 
   <h2>1. Order Fulfillment & Consolidation</h2>
-  <p>Dovi operates a centralized logistics fulfillment model. Orders placed from one or multiple vendors are routed to our <strong>Onitsha Fulfillment Hub</strong> where items are consolidated into single parcels. This eliminates duplicate delivery charges and ensures all items arrive safely.</p>
+  <p>Dovi operates a centralized logistics fulfillment model. Orders placed from one or multiple vendors are routed to our <strong>Fulfillment & Logistics Network</strong> where items are consolidated into single parcels. This eliminates duplicate delivery charges and ensures all items arrive safely.</p>
 
   <h2>2. Delivery Classifications</h2>
   <p>To keep shipping rates fair for students, items on Dovi are categorized into 4 delivery classes:</p>
