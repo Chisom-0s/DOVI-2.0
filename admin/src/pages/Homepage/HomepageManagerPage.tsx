@@ -7,9 +7,10 @@ import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
 import BannerFormPage from './BannerFormPage';
 import SectionBuilderModal from './SectionBuilderModal';
+import ProductMerchandisingTab from './ProductMerchandisingTab';
 
 export default function HomepageManagerPage() {
-  const [activeTab, setActiveTab] = useState<'banners' | 'sections'>('banners');
+  const [activeTab, setActiveTab] = useState<'merchandising' | 'banners' | 'sections'>('merchandising');
   const [banners, setBanners] = useState<HomepageBanner[]>([]);
   const [sections, setSections] = useState<HomepageSection[]>([]);
   
@@ -212,6 +213,18 @@ export default function HomepageManagerPage() {
         <div style={tabGroupStyles}>
           <button
             type="button"
+            onClick={() => setActiveTab('merchandising')}
+            style={{
+              ...tabBtnStyles,
+              borderBottom: activeTab === 'merchandising' ? '3px solid #ff7a00' : '3px solid transparent',
+              color: activeTab === 'merchandising' ? '#ff7a00' : '#4b5563',
+              fontWeight: activeTab === 'merchandising' ? 700 : 500,
+            }}
+          >
+            🏷️ Product Merchandising
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('banners')}
             style={{
               ...tabBtnStyles,
@@ -240,7 +253,9 @@ export default function HomepageManagerPage() {
       <ApiErrorMessage error={error} />
 
       {/* TABS VIEWPORT */}
-      {activeTab === 'banners' ? (
+      {activeTab === 'merchandising' ? (
+        <ProductMerchandisingTab />
+      ) : activeTab === 'banners' ? (
         <div style={cardStyles}>
           <div style={cardHeaderRowStyles}>
             <div style={infoAlertStyles}>

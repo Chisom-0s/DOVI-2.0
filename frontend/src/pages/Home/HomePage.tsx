@@ -95,8 +95,13 @@ export default function HomePage() {
 
     loadHomeData();
 
+    window.addEventListener('dovi-merchandising-updated', loadHomeData);
+    window.addEventListener('dovi-homepage-placements-updated', loadHomeData);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('dovi-merchandising-updated', loadHomeData);
+      window.removeEventListener('dovi-homepage-placements-updated', loadHomeData);
     };
   }, []);
 

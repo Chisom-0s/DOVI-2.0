@@ -67,4 +67,4 @@
 | **Homepage CMS** | `GET /api/v1/admin/homepage/sections/` | **MISSING (404)**| Silent fallback to `localStorage` | `apps/homepage` is empty placeholder |
 | **Payments List** | `GET /api/v1/admin/payments/` | **MISSING (404)**| Backend only has init/verify | Needs admin payment listing view |
 | **Audit Logs** | `GET /api/v1/admin/audit-logs/` | **MISSING (404)**| `apps/audit/urls.py` is empty | Needs audit log ViewSet |
-| **Auto Listings** | `GET /api/v1/admin/auto/listings/` | **MISSING (404)**| `apps/auto/urls.py` is empty | Needs auto vehicle ViewSet |
+| **Marketplace Products** | `GET /api/v1/admin/auto/listings/` | **MISSING (404)**| `apps/auto/urls.py` is empty | Needs auto vehicle ViewSet |

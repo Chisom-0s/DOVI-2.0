@@ -5,7 +5,9 @@ import {
   getProductHomepagePlacement,
   saveProductHomepagePlacement,
   serializeProductDescriptionWithHomepage,
+  listMerchandisingSections,
   type ProductHomepagePlacement,
+  type MerchandisingSection,
 } from '@/services/homepagePlacementService';
 import {
   getProductImageUrl,
@@ -146,24 +148,35 @@ export default function ProductsPage() {
 
   // Homepage Placement & Promotion Form State
   const [homepageForm, setHomepageForm] = useState<{
+    is_best_seller: boolean;
+    is_trending: boolean;
+    is_new_arrival: boolean;
     is_hot_sale: boolean;
     is_flash_deal: boolean;
-    is_new_arrival: boolean;
+    custom_section_ids: string[];
     flash_price: string;
     original_price: string;
     start_time: string;
     end_time: string;
     flash_active: boolean;
   }>({
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
     is_hot_sale: false,
     is_flash_deal: false,
-    is_new_arrival: false,
+    custom_section_ids: [],
     flash_price: '',
     original_price: '',
     start_time: '',
     end_time: '',
     flash_active: true,
   });
+
+  const [availableCustomSections, setAvailableCustomSections] = useState<MerchandisingSection[]>([]);
+  useEffect(() => {
+    setAvailableCustomSections(listMerchandisingSections().filter((s) => s.is_custom));
+  }, []);
 
   // Stock Units & Color Variants
   const [baseUnits, setBaseUnits] = useState<string>('10');
@@ -359,9 +372,12 @@ export default function ProductsPage() {
 
       const existingPlacement = getProductHomepagePlacement({ id: fullProd.id, description: fullProd.description });
       setHomepageForm({
+        is_best_seller: Boolean(existingPlacement ? existingPlacement.is_best_seller : fullProd.is_best_seller),
+        is_trending: Boolean(existingPlacement ? existingPlacement.is_trending : fullProd.is_trending),
+        is_new_arrival: Boolean(existingPlacement ? existingPlacement.is_new_arrival : fullProd.is_new_arrival),
         is_hot_sale: Boolean(existingPlacement ? existingPlacement.is_hot_sale : fullProd.is_hot_sale),
         is_flash_deal: Boolean(existingPlacement ? existingPlacement.is_flash_deal : fullProd.is_flash_deal),
-        is_new_arrival: Boolean(existingPlacement ? existingPlacement.is_new_arrival : fullProd.is_new_arrival),
+        custom_section_ids: existingPlacement?.custom_section_ids || [],
         flash_price: existingPlacement?.flash_sale?.flash_price != null ? String(existingPlacement.flash_sale.flash_price) : '',
         original_price: existingPlacement?.flash_sale?.original_price != null
           ? String(existingPlacement.flash_sale.original_price)
@@ -370,6 +386,7 @@ export default function ProductsPage() {
         end_time: existingPlacement?.flash_sale?.end_time ? existingPlacement.flash_sale.end_time.slice(0, 16) : '',
         flash_active: existingPlacement?.flash_sale?.is_active !== false,
       });
+      setAvailableCustomSections(listMerchandisingSections().filter((s) => s.is_custom));
 
       if (parsedSpecs.length > 0) {
         setSpecifications(parsedSpecs);
@@ -633,9 +650,12 @@ export default function ProductsPage() {
 
     // Homepage Placement metadata embedding (Hot Sales, Flash Sale, New Arrivals)
     const placementPayload: Omit<ProductHomepagePlacement, 'product_id' | 'updated_at'> = {
+      is_best_seller: homepageForm.is_best_seller,
+      is_trending: homepageForm.is_trending,
+      is_new_arrival: homepageForm.is_new_arrival,
       is_hot_sale: homepageForm.is_hot_sale,
       is_flash_deal: homepageForm.is_flash_deal,
-      is_new_arrival: homepageForm.is_new_arrival,
+      custom_section_ids: homepageForm.custom_section_ids || [],
       flash_sale: homepageForm.is_flash_deal
         ? {
             flash_price: parsePriceNumber(homepageForm.flash_price),
@@ -1342,27 +1362,105 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* HOMEPAGE PROMOTIONAL PLACEMENT (HOT SALES, FLASH SALE, NEW ARRIVALS) */}
+              {/* HOMEPAGE DISPLAY SECTIONS (ADMIN-CONTROLLED) */}
               <div
                 style={{
-                  border: '1px solid #bfdbfe',
-                  backgroundColor: '#eff6ff',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #cbd5e1',
                   borderRadius: '8px',
                   padding: '16px',
                   marginBottom: '20px',
                 }}
               >
                 <div style={{ marginBottom: '12px' }}>
-                  <h4 style={{ ...sectionHeaderStyles, color: '#1e40af' }}>
-                    Homepage Placement &amp; Promotions
+                  <h4 style={{ ...sectionHeaderStyles, color: '#0f172a' }}>
+                    Homepage Display Sections
                   </h4>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#1d4ed8' }}>
-                    Select which promotional sections of the DOVI homepage this product should appear in.
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
+                    Select which sections of the DOVI homepage this product should appear in. The admin controls all placements.
                   </p>
                 </div>
 
-                {/* Section Toggles */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                {/* Core 5 Section Toggles */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                  {/* Best Sellers */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_best_seller ? '#fef9c3' : '#ffffff',
+                      border: homepageForm.is_best_seller ? '2px solid #ca8a04' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_best_seller}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_best_seller: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#ca8a04' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#854d0e' }}>🌟 Best Sellers</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Best Sellers section</div>
+                    </div>
+                  </label>
+
+                  {/* Trending Now */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_trending ? '#f3e8ff' : '#ffffff',
+                      border: homepageForm.is_trending ? '2px solid #9333ea' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_trending}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_trending: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#9333ea' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#6b21a8' }}>🔥 Trending Now</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Trending Now section</div>
+                    </div>
+                  </label>
+
+                  {/* New Arrivals */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_new_arrival ? '#ecfdf5' : '#ffffff',
+                      border: homepageForm.is_new_arrival ? '2px solid #059669' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_new_arrival}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_new_arrival: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#059669' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#065f46' }}>✨ New Arrivals</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in New Arrivals section</div>
+                    </div>
+                  </label>
+
                   {/* Hot Sales */}
                   <label
                     style={{
@@ -1374,6 +1472,7 @@ export default function ProductsPage() {
                       border: homepageForm.is_hot_sale ? '2px solid #2563eb' : '1px solid #d1d5db',
                       borderRadius: '8px',
                       cursor: 'pointer',
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     <input
@@ -1383,33 +1482,8 @@ export default function ProductsPage() {
                       style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>🔥 Hot Sales</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Homepage Hot Sales section</div>
-                    </div>
-                  </label>
-
-                  {/* New Arrivals */}
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '12px',
-                      backgroundColor: homepageForm.is_new_arrival ? '#dbeafe' : '#ffffff',
-                      border: homepageForm.is_new_arrival ? '2px solid #2563eb' : '1px solid #d1d5db',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={homepageForm.is_new_arrival}
-                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_new_arrival: e.target.checked }))}
-                      style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
-                    />
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>✨ New Arrivals</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Homepage New Arrivals section</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>🏷️ Hot Sales</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Hot Sales section</div>
                     </div>
                   </label>
 
@@ -1424,6 +1498,7 @@ export default function ProductsPage() {
                       border: homepageForm.is_flash_deal ? '2px solid #d97706' : '1px solid #d1d5db',
                       borderRadius: '8px',
                       cursor: 'pointer',
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     <input
@@ -1433,11 +1508,59 @@ export default function ProductsPage() {
                       style={{ width: '18px', height: '18px', accentColor: '#d97706' }}
                     />
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>⚡ Flash Sale</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>Configure discounted flash deal &amp; schedule</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>⚡ Flash Sales</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Configure discounted flash deal</div>
                     </div>
                   </label>
                 </div>
+
+                {/* Custom Sections (if created by Admin) */}
+                {availableCustomSections.length > 0 && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                      Custom Homepage Sections:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                      {availableCustomSections.map((cs) => {
+                        const isChecked = homepageForm.custom_section_ids.includes(cs.id) || homepageForm.custom_section_ids.includes(cs.key);
+                        return (
+                          <label
+                            key={cs.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 12px',
+                              backgroundColor: isChecked ? '#f1f5f9' : '#ffffff',
+                              border: isChecked ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setHomepageForm((p) => {
+                                  const cur = new Set(p.custom_section_ids);
+                                  if (checked) cur.add(cs.id);
+                                  else {
+                                    cur.delete(cs.id);
+                                    cur.delete(cs.key);
+                                  }
+                                  return { ...p, custom_section_ids: Array.from(cur) };
+                                });
+                              }}
+                              style={{ width: '16px', height: '16px' }}
+                            />
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{cs.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Flash Sale Detailed Configuration */}
                 {homepageForm.is_flash_deal && (
@@ -1517,7 +1640,7 @@ export default function ProductsPage() {
                         <span style={{ fontWeight: 600 }}>Flash Sale Status is currently Active</span>
                       </label>
                       <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#92400e' }}>
-                        When inactive or when the scheduled end time passes, the product automatically exits Flash Sale on the homepage.
+                        When inactive or when the scheduled end time passes, the product automatically exits Flash Sale on the homepage, and normal price is charged at checkout.
                       </p>
                     </div>
                   </div>

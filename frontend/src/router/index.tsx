@@ -56,7 +56,6 @@ import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 
-import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 
 // ============================================================
 // Router
@@ -165,7 +164,6 @@ const router = createBrowserRouter([
           { path: 'refunds', element: <RefundRequestPage /> },
           { path: 'refunds/:id', element: <RefundDetailPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
-          { path: 'rentals', element: <MyRentalsPage /> },
           { path: 'addresses', element: <AddressesPage /> },
           { path: 'payment-methods', element: <PaymentMethodsPage /> },
           { path: 'settings', element: <AccountSettingsPage /> },
@@ -205,9 +203,10 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ---- Dovi Auto (Category Domain) ----
-      { path: 'auto', element: <Navigate to="/categories/auto" replace /> },
-      { path: 'auto/*', element: <Navigate to="/categories/auto" replace /> },
+      // ---- Dovi Auto Redirects to Marketplace ----
+      { path: 'auto', element: <Navigate to="/products" replace /> },
+      { path: 'auto/*', element: <Navigate to="/products" replace /> },
+      { path: 'categories/auto', element: <Navigate to="/products" replace /> },
     ],
   },
 

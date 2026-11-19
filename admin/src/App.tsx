@@ -25,7 +25,6 @@ import Save2OwnContributionsPage from '@/pages/Save2Own/Save2OwnContributionsPag
 import Save2OwnParticipantsPage from '@/pages/Save2Own/Save2OwnParticipantsPage';
 import Save2OwnRefundsPage from '@/pages/Save2Own/Save2OwnRefundsPage';
 import PaymentAccountsPage from '@/pages/PaymentAccounts/PaymentAccountsPage';
-import AutoListingsPage from '@/pages/Auto/AutoListingsPage';
 import EmailManagementPage from '@/pages/EmailManagementPage';
 
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -57,7 +56,6 @@ export default function App() {
               <Route path="save2own/refunds" element={<Save2OwnRefundsPage />} />
               <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
               <Route path="payment-accounts" element={<PaymentAccountsPage />} />
-              <Route path="auto" element={<AutoListingsPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="categories" element={<CategoriesPage />} />

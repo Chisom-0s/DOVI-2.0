@@ -45,10 +45,6 @@ export default function CategoryPage() {
         setCategoryName(subCat.name);
         setCategoryDescription(subCat.description || `${subParentCat.name} › ${subCat.name}`);
         setSubcategories(getSubcategoriesForCategory(subParentCat.slug));
-      } else if (slug.toLowerCase() === 'auto') {
-        setCategoryName('DOVI Auto');
-        setCategoryDescription('Vehicles, motor parts, and automotive accessories.');
-        setSubcategories(getSubcategoriesForCategory('automotive-motor-accessories'));
       } else {
         try {
           const { data: catData } = await apiClient.get(`/api/v1/categories/${slug}/`);

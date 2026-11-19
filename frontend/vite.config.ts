@@ -50,6 +50,7 @@ function doviSharedDeliveryDbPlugin() {
         order_shipments: s.order_shipments || s.orderShipments || {},
         orderShipments: s.orderShipments || s.order_shipments || {},
         homepagePlacements: s.homepagePlacements || {},
+        homepageSections: s.homepageSections || [],
       };
       res.end(JSON.stringify(payload));
       return;
@@ -89,6 +90,9 @@ function doviSharedDeliveryDbPlugin() {
             homepagePlacements: incoming.homepagePlacements !== undefined
               ? { ...(current.homepagePlacements || {}), ...incoming.homepagePlacements }
               : (current.homepagePlacements || {}),
+            homepageSections: incoming.homepageSections !== undefined
+              ? incoming.homepageSections
+              : (current.homepageSections || []),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

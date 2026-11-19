@@ -15,7 +15,6 @@ const getCategoryIconUrl = (slug: string, iconUrl?: string | null): string => {
   if (s.includes('book') || s.includes('study')) return '/images/categories/books.jpg';
   if (s.includes('fashion') || s.includes('cloth')) return '/images/categories/fashion.jpg';
   if (s.includes('home') || s.includes('kitchen')) return '/images/categories/kitchen.jpg';
-  if (s.includes('auto') || s.includes('car')) return '/images/categories/auto.jpg';
   return '/images/categories/default.jpg';
 };
 

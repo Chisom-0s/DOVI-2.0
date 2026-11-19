@@ -60,7 +60,7 @@ frontend/
     │   ├── recently-viewed.ts        # Buyer recently viewed products
     │   ├── notifications.ts          # In-app notifications & unread counts
     │   ├── homepage.ts               # Homepage sections, banners & extensive mock fallback db
-    │   └── auto.ts                   # Dovi Auto cars, parts, accessories & rentals
+    │   └── auto.ts                   # Marketplace Products cars, parts, accessories & rentals
     ├── contexts/
     │   ├── AuthContext.tsx           # Authentication session & user state provider
     │   └── CartContext.tsx           # Real-time cart state, badge counter, drawer state
@@ -100,7 +100,7 @@ frontend/
     │   │   ├── VendorSection.tsx     # Merchant card on product detail page
     │   │   └── ShareButtons.tsx      # Native & web social sharing links
     │   └── auto/
-    │       └── AutoSubNav.tsx        # Sub-navigation bar for Dovi Auto marketplace
+    │       └── AutoSubNav.tsx        # Sub-navigation bar for Marketplace Products marketplace
     ├── pages/
     │   ├── Auth/                     # Login, Register, Forgot Password, Reset Password, Email Verify
     │   ├── Home/                     # Dynamic homepage builder consumer
@@ -113,7 +113,7 @@ frontend/
     │   ├── Dashboard/                # Buyer account dashboard (Overview, Profile, Addresses, etc.)
     │   ├── Save2Own/                 # Save2Own marketplace, goal creation & milestone tracking
     │   ├── VendorDashboard/          # Merchant Hub (Overview, Products, Orders, Store Setup)
-    │   └── Auto/                     # Dovi Auto (Cars, Parts, Accessories, Rentals, Bookings)
+    │   └── Auto/                     # Marketplace Products (Cars, Parts, Accessories, Rentals, Bookings)
     └── router/
         └── index.tsx                 # Centralized React Router configuration
 ```
@@ -290,7 +290,7 @@ frontend/
 | `/vendor/dashboard/products` | `VendorProductManager.tsx`| Vendor catalog manager, create/edit/delete products | **Fully Built & Wired** *(Calls `/products/my-products/`)* |
 | `/vendor/dashboard/orders` | `VendorOrderManager.tsx` | Order fulfillment board (dispatch/ship status updates)| **Fully Built & Wired** |
 
-### Group H: Dovi Auto & Rentals
+### Group H: Marketplace Products & Rentals
 | Route | Component | Purpose | Status |
 |---|---|---|---|
 | `/auto` | `AutoLandingPage.tsx` | Automotive marketplace landing | **Built with Mock Data** *(Backend `/auto/` does not exist)* |
@@ -340,7 +340,7 @@ The following flows have been tested and verified against the live PostgreSQL/Dj
 
 ## 5. What Is Built But Not Connected or Not Verified
 
-1. **Dovi Auto & Rentals Module (11 pages):**
+1. **Marketplace Products & Rentals Module (11 pages):**
    - The complete user interface for cars, parts, accessories, rental date picker, and booking flow is built in `src/pages/Auto/`.
    - **Status:** Not connected because `/api/v1/auto/` has no backend counterpart in Django. All API requests return 404s.
 2. **Dynamic Homepage Builder Backend Endpoint:**
@@ -448,7 +448,7 @@ Cross-referencing the original buyer-facing marketplace and vendor scope:
 | **Save2Own UI** | Goal creation, installment calculation, deposits, milestone tracker | **90% Complete** | End-to-end payment gateway callback verification |
 | **Merchant Hub** | Store onboarding, product manager, order status fulfillment | **85% Complete** | Build backend metrics endpoint for dashboard overview |
 | **Public Storefronts** | Vendor profile page (`/vendors/:id`) | **0% Complete** | Replace placeholder with vendor store component |
-| **Dovi Auto & Rentals** | Automotive marketplace & car rental bookings | **0% (Backend) / 100% (Frontend UI)** | Build `apps.auto` backend app or remove frontend routes if out of scope |
+| **Marketplace Products & Rentals** | Automotive marketplace & car rental bookings | **0% (Backend) / 100% (Frontend UI)** | Build `apps.auto` backend app or remove frontend routes if out of scope |
 | **Information Pages** | FAQ, Terms of Service, Contact Support | **0% Complete** | Build static content pages |
 | **Code Splitting** | Lazy loading route bundles | **0% Complete** | Wrap routes in `React.lazy()` and `Suspense` |
 | **Automated Testing** | Unit and integration test suite | **0% Complete** | Set up Vitest + React Testing Library |
@@ -458,5 +458,5 @@ Cross-referencing the original buyer-facing marketplace and vendor scope:
 ### Maintainer's Priority Action Plan
 1. **Fix Products API Query Parameters:** Update `src/api/products.ts` so `search` calls `/api/v1/products/?search=...` and category filtering passes the category UUID rather than the slug.
 2. **Replace Direct `fetch()` Calls:** Refactor the 4 raw `fetch()` calls in `CategoryGrid`, `CategoryPage`, `ProductListingPage`, and `VendorProductManager` to use `apiClient`.
-3. **Decide Scope on Dovi Auto:** Either implement `apps/auto` on the Django backend or disable the `/auto` navigation links until the core marketplace is launched.
+3. **Decide Scope on Marketplace Products:** Either implement `apps/auto` on the Django backend or disable the `/auto` navigation links until the core marketplace is launched.
 4. **Deploy Frontend:** Set up CI/CD pipeline deploying the `frontend/dist` build to Vercel, Netlify, or Cloudflare Pages with `VITE_API_BASE_URL` pointing to Render.

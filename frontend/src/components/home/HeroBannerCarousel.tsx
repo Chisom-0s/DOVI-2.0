@@ -66,16 +66,7 @@ export const STATIC_SLIDES: HeroSlide[] = [
     cta_text: 'Shop Beauty Care',
     cta_url: '/categories/beauty',
   },
-  {
-    id: 'slide-auto',
-    image_url: '/images/hero/hero_auto.jpg',
-    tag: 'AUTO & ACCESSORIES',
-    title: 'Performance Parts & Vehicle Care',
-    description: 'Durable tires, custom interior seat covers, dashcams, batteries, and repair tools.',
-    cta_text: 'Explore Auto Hub',
-    cta_url: '/categories/auto',
-  },
-];
+  ];
 
 export default function HeroBannerCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);

@@ -41,8 +41,6 @@ import type {
   Save2OwnContribution,
   PaymentAccount,
   PaymentAccountType,
-  AutoListing,
-  AutoListingSummary,
   AdminSave2OwnParticipant,
   Save2OwnUnlockCode,
   Save2OwnUnlockConfig,
@@ -444,24 +442,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     },
     config: {},
   },
-  {
-    id: 'sec-dovi-auto',
-    name: 'Featured Cars',
-    key: 'DOVI_AUTO',
-    title: 'Dovi Auto Hub',
-    subtitle: 'Premium car deals and accessories',
-    is_active: true,
-    visible: true,
-    sort_order: 9,
-    display_order: 9,
-    display_limit: 4,
-    configuration: {
-      layout: 'AUTO_LISTING_GRID',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  }
-];
+  ];
 
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
@@ -509,21 +490,7 @@ export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
     start_date: null,
     end_date: null,
   },
-  {
-    id: 'ban-hero-auto',
-    title: 'Dovi Auto Hub — Cars, Parts & Care',
-    subtitle: 'Verified foreign used and brand new vehicles with nationwide inspection.',
-    cta_text: 'Explore Dovi Auto',
-    cta_url: '/auto',
-    desktop_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80',
-    mobile_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
-    is_active: true,
-    display_order: 3,
-    slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
-  },
-];
+  ];
 
 function getStoredBanners(): HomepageBanner[] {
   try {
@@ -1500,8 +1467,7 @@ export const adminApi = {
         { id: 'cat-computers', name: 'Computers', slug: 'computers', parent: null, icon_url: '', children: [], product_count: 0 },
         { id: 'cat-audio', name: 'Audio & Music', slug: 'audio-video', parent: null, icon_url: '', children: [], product_count: 0 },
         { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', parent: null, icon_url: '', children: [], product_count: 0 },
-        { id: 'cat-auto', name: 'Dovi Auto (Cars)', slug: 'auto-cars', parent: null, icon_url: '', children: [], product_count: 0 },
-      ];
+              ];
     }
   },
 
@@ -2360,32 +2326,6 @@ export const adminApi = {
   },
 
   // --- Dovi Auto Admin Management ---
-  listAutoListings: async (params?: { page?: number; q?: string; type?: string }): Promise<PaginatedResponse<AutoListingSummary>> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/admin/auto/listings/', { params });
-      return data;
-    } catch {
-      return { count: 0, next: null, previous: null, results: [] };
-    }
-  },
-
-  updateAutoListing: async (id: string, payload: Partial<AutoListing>): Promise<AutoListing> => {
-    try {
-      const { data } = await apiClient.patch(`/api/v1/admin/auto/listings/${id}/`, payload);
-      return data;
-    } catch {
-      return { id, ...payload } as any;
-    }
-  },
-
-  deleteAutoListing: async (id: string): Promise<any> => {
-    try {
-      const { data } = await apiClient.delete(`/api/v1/admin/auto/listings/${id}/`);
-      return data;
-    } catch {
-      return { success: true };
-    }
-  },
 
   // --- Save2Own Participants & Identity Administration ---
   listSave2OwnParticipants: async (params?: {

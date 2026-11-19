@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
+import { getProductHomepagePlacement, isFlashSaleActiveNow } from '@/services/homepagePlacementService';
 import { notificationsApi } from '@/api/notifications';
 import { useAuth } from './AuthContext';
 
@@ -119,7 +120,7 @@ export function normalizeCart(raw: any): Cart {
       null;
     const effectiveDisplayName = prodName || matchedProduct?.name || 'Product';
 
-    const unitPrice =
+    let unitPrice =
       item.price ??
       item.unit_price ??
       matchedProduct?.price ??
@@ -127,6 +128,20 @@ export function normalizeCart(raw: any): Cart {
       item.product?.price ??
       item.product?.base_price ??
       '0';
+
+    // Verify flash sale pricing: If flash sale has expired, do not charge flash price!
+    if (effectiveProdId) {
+      const placement = getProductHomepagePlacement({ id: effectiveProdId, description: matchedProduct?.description });
+      if (placement?.flash_sale && !isFlashSaleActiveNow(placement.flash_sale)) {
+        if (placement.flash_sale.original_price != null && Number(placement.flash_sale.original_price) > 0) {
+          unitPrice = String(placement.flash_sale.original_price);
+        } else if (matchedProduct?.original_price) {
+          unitPrice = String(matchedProduct.original_price);
+        } else if (matchedProduct?.base_price) {
+          unitPrice = String(matchedProduct.base_price);
+        }
+      }
+    }
     const qty = Number(item.quantity) || 1;
     const numPrice = parseFloat(String(unitPrice)) || 0;
     const lineTotal = (numPrice * qty).toFixed(2);

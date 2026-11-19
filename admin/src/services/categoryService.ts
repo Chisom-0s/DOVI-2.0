@@ -284,8 +284,6 @@ export const LEGACY_CATEGORY_MAP: Record<
   // Automotive & Motor Accessories
   automotive: { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
   'automotive-motor-accessories': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories' },
-  'auto-cars': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
-  'cat-auto': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
 
   // Books & Stationery
   books: { categoryId: 'cat-books-stationery', categorySlug: 'books-stationery', subcategoryId: 'sub-books' },
