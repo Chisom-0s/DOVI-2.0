@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
-import { getProductHomepagePlacement, isFlashSaleActiveNow } from '@/services/homepagePlacementService';
+import { getProductHomepagePlacement, isFlashSaleActiveNow, isDiscountActiveNow } from '@/services/homepagePlacementService';
 import { notificationsApi } from '@/api/notifications';
 import { useAuth } from './AuthContext';
 
@@ -135,6 +135,14 @@ export function normalizeCart(raw: any): Cart {
       if (placement?.flash_sale && !isFlashSaleActiveNow(placement.flash_sale)) {
         if (placement.flash_sale.original_price != null && Number(placement.flash_sale.original_price) > 0) {
           unitPrice = String(placement.flash_sale.original_price);
+        } else if (matchedProduct?.original_price) {
+          unitPrice = String(matchedProduct.original_price);
+        } else if (matchedProduct?.base_price) {
+          unitPrice = String(matchedProduct.base_price);
+        }
+      } else if (placement?.discount_config && !isDiscountActiveNow(placement.discount_config)) {
+        if (placement.discount_config.original_price != null && Number(placement.discount_config.original_price) > 0) {
+          unitPrice = String(placement.discount_config.original_price);
         } else if (matchedProduct?.original_price) {
           unitPrice = String(matchedProduct.original_price);
         } else if (matchedProduct?.base_price) {

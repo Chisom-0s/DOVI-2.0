@@ -33,7 +33,7 @@ export default function LoginPage() {
       if (isOffline) {
         message = 'No internet signal';
       } else if (isNetwork) {
-        message = 'Unable to connect to backend server. Render may be waking up from sleep (takes 30-50s); please try again in a few moments.';
+        message = "We're having trouble connecting to the server. Please check your internet connection or try again in a moment.";
       } else if (!err?.message || err?.code === 'INVALID_CREDENTIALS') {
         message = 'Wrong credentials';
       }

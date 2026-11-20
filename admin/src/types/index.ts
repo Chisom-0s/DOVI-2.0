@@ -223,6 +223,9 @@ export interface ProductSummary {
   category?: CategorySummary;
   is_flash_deal?: boolean;
   flash_sale?: any;
+  is_discount?: boolean;
+  discount_config?: any;
+  is_featured?: boolean;
   is_trending?: boolean;
   is_best_seller?: boolean;
   is_hot_sale?: boolean;

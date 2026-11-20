@@ -1,11 +1,20 @@
 // ============================================================
 // DOVI 2.0 — Authoritative Homepage Promotional Placement Service
 // Admin-controlled placement for Best Sellers, Trending Now,
-// New Arrivals, Hot Sales, Flash Sales, and Custom Sections.
+// New Arrivals, Hot Sales, Flash Sales, Discounts, Featured Products,
+// Save2Own Promo CTA, and Custom Merchandising Sections.
 // ============================================================
 
 export interface FlashSaleConfig {
   flash_price: number | null;
+  original_price: number | null;
+  start_time: string | null; // ISO string
+  end_time: string | null;   // ISO string
+  is_active: boolean;
+}
+
+export interface DiscountConfig {
+  discount_price: number | null;
   original_price: number | null;
   start_time: string | null; // ISO string
   end_time: string | null;   // ISO string
@@ -19,15 +28,18 @@ export interface ProductHomepagePlacement {
   is_new_arrival: boolean;
   is_hot_sale: boolean;
   is_flash_deal: boolean;
+  is_discount: boolean;
+  is_featured: boolean;
   custom_section_ids?: string[];
   section_orders?: Record<string, number>; // sectionIdOrKey -> 0-based display index
   flash_sale?: FlashSaleConfig | null;
+  discount_config?: DiscountConfig | null;
   updated_at: string;
 }
 
 export interface MerchandisingSection {
   id: string;
-  key: string; // 'BEST_SELLERS' | 'TRENDING_NOW' | 'SPECIAL_PROMO' | 'NEW_ARRIVALS' | 'HOT_SALES' | 'FLASH_DEALS' | string
+  key: string; // 'BEST_SELLERS' | 'TRENDING_NOW' | 'SPECIAL_PROMO' | 'NEW_ARRIVALS' | 'HOT_SALES' | 'FLASH_DEALS' | 'DISCOUNTS' | 'FEATURED_PRODUCTS' | string
   name: string;
   title: string;
   subtitle: string;
@@ -39,12 +51,304 @@ export interface MerchandisingSection {
 }
 
 const STORAGE_KEYS = {
-  PLACEMENTS: 'dovi_homepage_placements_v1',
-  SECTIONS: 'dovi_merchandising_sections_v1',
+  PLACEMENTS: 'dovi_homepage_placements_v2',
+  SECTIONS: 'dovi_merchandising_sections_v2',
 };
 
 const memoryStore: Record<string, any> = {};
 
+// ============================================================
+// 18 Seeded Products Placements
+// Pre-populates all 18 existing catalog products into appropriate
+// sections so that no section is empty and all products are represented.
+// ============================================================
+export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement> = {
+  // 1. Luxury Golden Crystal LED Decorative Bulb (₦9,000)
+  '350a679b-746a-4102-9710-2599dcd3aeb0': {
+    product_id: '350a679b-746a-4102-9710-2599dcd3aeb0',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: true,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: true,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 2. Aroma Humidifier (₦35,500)
+  '3318868a-1e34-43f4-888e-c9d63d373509': {
+    product_id: '3318868a-1e34-43f4-888e-c9d63d373509',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: true,
+    is_featured: false,
+    discount_config: {
+      discount_price: 31000,
+      original_price: 35500,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 3. Intelligent Aromatherapy (₦20,000)
+  '2967f4f6-bf01-4001-bfb5-df287afabd56': {
+    product_id: '2967f4f6-bf01-4001-bfb5-df287afabd56',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: true,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: true,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 4. Flame aroma diffuser (₦25,000)
+  '23a9ba40-294a-4c8b-bef5-f0e1fa92abaa': {
+    product_id: '23a9ba40-294a-4c8b-bef5-f0e1fa92abaa',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: true,
+    is_discount: false,
+    is_featured: false,
+    flash_sale: {
+      flash_price: 21500,
+      original_price: 25000,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 5. TCL 55- inch Smart TV (₦500,000)
+  '0cd35e98-6eda-467d-8528-1ce1e8948f0f': {
+    product_id: '0cd35e98-6eda-467d-8528-1ce1e8948f0f',
+    is_best_seller: true,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: true,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 6. 2000 mAh rechargeable Hair Clippers (₦15,700)
+  '8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71': {
+    product_id: '8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: true,
+    is_flash_deal: true,
+    is_discount: false,
+    is_featured: false,
+    flash_sale: {
+      flash_price: 12900,
+      original_price: 15700,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 7. TCL 50-inch Smart TV (₦380,000)
+  '40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef': {
+    product_id: '40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: true,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 8. Yxahee Shoe Racks (₦10,360)
+  '3d2350c1-8325-4a02-b554-d24b650ad901': {
+    product_id: '3d2350c1-8325-4a02-b554-d24b650ad901',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: true,
+    is_featured: false,
+    discount_config: {
+      discount_price: 9200,
+      original_price: 10360,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 9. TCL 43” Android Smart TV - Frameless (₦305,000)
+  '66d4c89f-ea43-4fb3-904e-7de1ea7577e9': {
+    product_id: '66d4c89f-ea43-4fb3-904e-7de1ea7577e9',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: true,
+    is_featured: false,
+    discount_config: {
+      discount_price: 285000,
+      original_price: 305000,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 10. Oraimo watch muse (₦42,000)
+  '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d': {
+    product_id: '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+    is_best_seller: true,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: true,
+    is_discount: false,
+    is_featured: false,
+    flash_sale: {
+      flash_price: 36500,
+      original_price: 42000,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 11. Red Diamond (₦8,000)
+  '97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa': {
+    product_id: '97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: true,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 12. Nivea dry impact roll on for men 70hrs, 50ml (₦5,200)
+  '38897758-8093-46e3-a005-63a4581e3bb7': {
+    product_id: '38897758-8093-46e3-a005-63a4581e3bb7',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: true,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 13. Pyjamas (₦7,000)
+  '5de6a587-2191-4495-a0ec-bd2f0d30ba80': {
+    product_id: '5de6a587-2191-4495-a0ec-bd2f0d30ba80',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: true,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 14. Quality jeans (₦28,000)
+  'fc26c3d7-8e88-4f6b-b648-0b512b031e20': {
+    product_id: 'fc26c3d7-8e88-4f6b-b648-0b512b031e20',
+    is_best_seller: true,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: true,
+    is_featured: false,
+    discount_config: {
+      discount_price: 24500,
+      original_price: 28000,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 15. Baggy jeans (₦25,000)
+  'a0871326-206d-4888-b7af-df8b5f6d182a': {
+    product_id: 'a0871326-206d-4888-b7af-df8b5f6d182a',
+    is_best_seller: false,
+    is_trending: true,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 16. Syinix 8.5kg top load twin tub washing machine (₦165,000)
+  '915504e3-a5eb-46ce-be83-f7ece5e5707a': {
+    product_id: '915504e3-a5eb-46ce-be83-f7ece5e5707a',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: true,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: true,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 17. Tongue cleaner (₦1,500)
+  'a36c024a-77e4-4582-be28-b85aab404bfc': {
+    product_id: 'a36c024a-77e4-4582-be28-b85aab404bfc',
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: true,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+  // 18. Iniu 20000mah power bank (₦15,700)
+  '0023fd0f-715d-4578-94ad-e84efb1f3ba8': {
+    product_id: '0023fd0f-715d-4578-94ad-e84efb1f3ba8',
+    is_best_seller: true,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: true,
+    is_discount: false,
+    is_featured: false,
+    flash_sale: {
+      flash_price: 13500,
+      original_price: 15700,
+      start_time: '2026-01-01T00:00:00.000Z',
+      end_time: '2028-12-31T23:59:59.000Z',
+      is_active: true,
+    },
+    updated_at: '2026-11-20T12:00:00.000Z',
+  },
+};
+
+// ============================================================
+// Core Merchandising Sections
+// Ordered strictly according to merchandising design:
+// 1. Best Sellers
+// 2. Trending Now
+// 3. Save2Own Promotional CTA Card (SPECIAL_PROMO)
+// 4. New Arrivals
+// 5. Hot Sales
+// 6. Flash Sales
+// 7. Discounts
+// 8. Featured Products
+// ============================================================
 export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
   {
     id: 'sec-best-sellers',
@@ -55,7 +359,12 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     is_active: true,
     sort_order: 1,
     display_limit: 4,
-    product_ids: [],
+    product_ids: [
+      '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+      '0023fd0f-715d-4578-94ad-e84efb1f3ba8',
+      '0cd35e98-6eda-467d-8528-1ce1e8948f0f',
+      'fc26c3d7-8e88-4f6b-b648-0b512b031e20',
+    ],
     is_custom: false,
   },
   {
@@ -67,7 +376,14 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     is_active: true,
     sort_order: 2,
     display_limit: 6,
-    product_ids: [],
+    product_ids: [
+      '23a9ba40-294a-4c8b-bef5-f0e1fa92abaa',
+      '8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71',
+      'a0871326-206d-4888-b7af-df8b5f6d182a',
+      '3318868a-1e34-43f4-888e-c9d63d373509',
+      '3d2350c1-8325-4a02-b554-d24b650ad901',
+      '66d4c89f-ea43-4fb3-904e-7de1ea7577e9',
+    ],
     is_custom: false,
   },
   {
@@ -91,7 +407,12 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     is_active: true,
     sort_order: 4,
     display_limit: 4,
-    product_ids: [],
+    product_ids: [
+      '350a679b-746a-4102-9710-2599dcd3aeb0',
+      '915504e3-a5eb-46ce-be83-f7ece5e5707a',
+      '5de6a587-2191-4495-a0ec-bd2f0d30ba80',
+      '2967f4f6-bf01-4001-bfb5-df287afabd56',
+    ],
     is_custom: false,
   },
   {
@@ -103,7 +424,13 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     is_active: true,
     sort_order: 5,
     display_limit: 6,
-    product_ids: [],
+    product_ids: [
+      '40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef',
+      '8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71',
+      '38897758-8093-46e3-a005-63a4581e3bb7',
+      '97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa',
+      'a36c024a-77e4-4582-be28-b85aab404bfc',
+    ],
     is_custom: false,
   },
   {
@@ -115,7 +442,46 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     is_active: true,
     sort_order: 6,
     display_limit: 6,
-    product_ids: [],
+    product_ids: [
+      '0023fd0f-715d-4578-94ad-e84efb1f3ba8',
+      '8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71',
+      '23a9ba40-294a-4c8b-bef5-f0e1fa92abaa',
+      '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+    ],
+    is_custom: false,
+  },
+  {
+    id: 'sec-discounts',
+    key: 'DISCOUNTS',
+    name: 'Discounts',
+    title: 'Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
+    is_active: true,
+    sort_order: 7,
+    display_limit: 6,
+    product_ids: [
+      '66d4c89f-ea43-4fb3-904e-7de1ea7577e9',
+      '3318868a-1e34-43f4-888e-c9d63d373509',
+      'fc26c3d7-8e88-4f6b-b648-0b512b031e20',
+      '3d2350c1-8325-4a02-b554-d24b650ad901',
+    ],
+    is_custom: false,
+  },
+  {
+    id: 'sec-featured',
+    key: 'FEATURED_PRODUCTS',
+    name: 'Featured Products',
+    title: 'Featured Products',
+    subtitle: 'Hand-picked essentials curated for you',
+    is_active: true,
+    sort_order: 8,
+    display_limit: 6,
+    product_ids: [
+      '0cd35e98-6eda-467d-8528-1ce1e8948f0f',
+      '915504e3-a5eb-46ce-be83-f7ece5e5707a',
+      '350a679b-746a-4102-9710-2599dcd3aeb0',
+      '2967f4f6-bf01-4001-bfb5-df287afabd56',
+    ],
     is_custom: false,
   },
 ];
@@ -158,28 +524,46 @@ function writeLocal<T>(key: string, value: T): void {
 export function isFlashSaleActiveNow(flashSale?: FlashSaleConfig | null, asOfDate: Date = new Date()): boolean {
   if (!flashSale) return false;
   if (flashSale.is_active === false) return false;
-  if (flashSale.flash_price === null || flashSale.flash_price === undefined || flashSale.flash_price <= 0) {
-    return false;
-  }
-  const nowMs = asOfDate.getTime();
+  if (!flashSale.flash_price || flashSale.flash_price <= 0) return false;
+  if (flashSale.original_price && flashSale.flash_price >= flashSale.original_price) return false;
+
+  const now = asOfDate.getTime();
   if (flashSale.start_time) {
-    const startMs = new Date(flashSale.start_time).getTime();
-    if (!isNaN(startMs) && nowMs < startMs) {
-      return false; // Not yet started
-    }
+    const start = new Date(flashSale.start_time).getTime();
+    if (!isNaN(start) && now < start) return false;
   }
   if (flashSale.end_time) {
-    const endMs = new Date(flashSale.end_time).getTime();
-    if (!isNaN(endMs) && nowMs > endMs) {
-      return false; // Expired
-    }
+    const end = new Date(flashSale.end_time).getTime();
+    if (!isNaN(end) && now > end) return false;
   }
+
   return true;
 }
 
 /**
- * Parses embedded homepage metadata from a product's description.
- * Format: <!-- DOVI_HOMEPAGE: {...} -->
+ * Checks whether a configured Discount is currently active and within its valid time window.
+ */
+export function isDiscountActiveNow(discount?: DiscountConfig | null, asOfDate: Date = new Date()): boolean {
+  if (!discount) return false;
+  if (discount.is_active === false) return false;
+  if (!discount.discount_price || discount.discount_price <= 0) return false;
+  if (discount.original_price && discount.discount_price >= discount.original_price) return false;
+
+  const now = asOfDate.getTime();
+  if (discount.start_time) {
+    const start = new Date(discount.start_time).getTime();
+    if (!isNaN(start) && now < start) return false;
+  }
+  if (discount.end_time) {
+    const end = new Date(discount.end_time).getTime();
+    if (!isNaN(end) && now > end) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Extracts homepage merchandising metadata embedded in a product's description HTML comment.
  */
 export function parseHomepageMetadataFromDescription(description?: string | null): Partial<ProductHomepagePlacement> | null {
   if (!description) return null;
@@ -193,10 +577,10 @@ export function parseHomepageMetadataFromDescription(description?: string | null
 }
 
 /**
- * Embeds or updates homepage promotional placement metadata in product description HTML comment.
+ * Injects homepage metadata into a product description.
  */
-export function serializeProductDescriptionWithHomepage(
-  description: string,
+export function injectHomepageMetadataIntoDescription(
+  description: string = '',
   placement: Partial<ProductHomepagePlacement>
 ): string {
   const cleaned = (description || '').replace(/\s*<!--\s*DOVI_HOMEPAGE:\s*\{[\s\S]*?\}\s*-->\s*/gi, '').trim();
@@ -206,9 +590,12 @@ export function serializeProductDescriptionWithHomepage(
     is_new_arrival: Boolean(placement.is_new_arrival),
     is_hot_sale: Boolean(placement.is_hot_sale),
     is_flash_deal: Boolean(placement.is_flash_deal),
+    is_discount: Boolean(placement.is_discount),
+    is_featured: Boolean(placement.is_featured),
     custom_section_ids: placement.custom_section_ids || [],
     section_orders: placement.section_orders || {},
     flash_sale: placement.flash_sale || null,
+    discount_config: placement.discount_config || null,
     updated_at: placement.updated_at || new Date().toISOString(),
   });
   return `${cleaned}\n\n<!-- DOVI_HOMEPAGE: ${payload} -->`.trim();
@@ -216,16 +603,13 @@ export function serializeProductDescriptionWithHomepage(
 
 /**
  * Gets the current placement configuration for a product.
- * Checks:
- * 1. Embedded description metadata (highest cross-server fidelity)
- * 2. Shared local storage placement map
  */
 export function getProductHomepagePlacement(productOrId: { id?: string; description?: string } | string): ProductHomepagePlacement | null {
   const productId = typeof productOrId === 'string' ? productOrId : productOrId?.id;
   const desc = typeof productOrId === 'object' ? productOrId?.description : null;
 
   const fromDesc = parseHomepageMetadataFromDescription(desc);
-  const storeMap = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+  const storeMap = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
   const fromStore = productId ? storeMap[String(productId)] : null;
 
   if (fromDesc && fromStore) {
@@ -239,9 +623,12 @@ export function getProductHomepagePlacement(productOrId: { id?: string; descript
           is_new_arrival: Boolean(fromDesc.is_new_arrival),
           is_hot_sale: Boolean(fromDesc.is_hot_sale),
           is_flash_deal: Boolean(fromDesc.is_flash_deal),
+          is_discount: Boolean(fromDesc.is_discount),
+          is_featured: Boolean(fromDesc.is_featured),
           custom_section_ids: fromDesc.custom_section_ids || [],
           section_orders: fromDesc.section_orders || {},
           flash_sale: fromDesc.flash_sale || null,
+          discount_config: fromDesc.discount_config || null,
           updated_at: fromDesc.updated_at || new Date().toISOString(),
         }
       : fromStore;
@@ -255,9 +642,12 @@ export function getProductHomepagePlacement(productOrId: { id?: string; descript
       is_new_arrival: Boolean(fromDesc.is_new_arrival),
       is_hot_sale: Boolean(fromDesc.is_hot_sale),
       is_flash_deal: Boolean(fromDesc.is_flash_deal),
+      is_discount: Boolean(fromDesc.is_discount),
+      is_featured: Boolean(fromDesc.is_featured),
       custom_section_ids: fromDesc.custom_section_ids || [],
       section_orders: fromDesc.section_orders || {},
       flash_sale: fromDesc.flash_sale || null,
+      discount_config: fromDesc.discount_config || null,
       updated_at: fromDesc.updated_at || new Date().toISOString(),
     };
   }
@@ -273,7 +663,7 @@ export async function saveProductHomepagePlacement(
   placement: Omit<ProductHomepagePlacement, 'product_id' | 'updated_at'>
 ): Promise<ProductHomepagePlacement> {
   const idStr = String(productId).trim();
-  const map = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+  const map = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
   const record: ProductHomepagePlacement = {
     product_id: idStr,
     is_best_seller: Boolean(placement.is_best_seller),
@@ -281,9 +671,12 @@ export async function saveProductHomepagePlacement(
     is_new_arrival: Boolean(placement.is_new_arrival),
     is_hot_sale: Boolean(placement.is_hot_sale),
     is_flash_deal: Boolean(placement.is_flash_deal),
+    is_discount: Boolean(placement.is_discount),
+    is_featured: Boolean(placement.is_featured),
     custom_section_ids: placement.custom_section_ids || [],
     section_orders: placement.section_orders || {},
     flash_sale: placement.flash_sale || null,
+    discount_config: placement.discount_config || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -324,6 +717,8 @@ function syncPlacementToSections(placement: ProductHomepagePlacement) {
     NEW_ARRIVALS: placement.is_new_arrival,
     HOT_SALES: placement.is_hot_sale,
     FLASH_DEALS: placement.is_flash_deal,
+    DISCOUNTS: placement.is_discount,
+    FEATURED_PRODUCTS: placement.is_featured,
   };
 
   for (const s of sections) {
@@ -360,13 +755,13 @@ function syncPlacementToSections(placement: ProductHomepagePlacement) {
 // ============================================================
 
 /**
- * Returns all configured merchandising sections (core 5 + Save2Own promo + custom).
+ * Returns all configured merchandising sections (8 core + custom).
  */
 export function listMerchandisingSections(): MerchandisingSection[] {
   const stored = readLocal<MerchandisingSection[]>(STORAGE_KEYS.SECTIONS, []);
   if (!stored || stored.length === 0) {
     writeLocal(STORAGE_KEYS.SECTIONS, DEFAULT_CORE_SECTIONS);
-    return [...DEFAULT_CORE_SECTIONS];
+    return JSON.parse(JSON.stringify(DEFAULT_CORE_SECTIONS));
   }
 
   // Ensure all core sections exist
@@ -374,7 +769,7 @@ export function listMerchandisingSections(): MerchandisingSection[] {
   let added = false;
   for (const core of DEFAULT_CORE_SECTIONS) {
     if (!existingKeys.has(core.key)) {
-      stored.push(core);
+      stored.push(JSON.parse(JSON.stringify(core)));
       added = true;
     }
   }
@@ -453,7 +848,7 @@ export async function deleteCustomSection(sectionIdOrKey: string): Promise<boole
   writeLocal(STORAGE_KEYS.SECTIONS, filtered);
 
   // Clean custom section ID from all product placements
-  const placements = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+  const placements = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
   let placementsModified = false;
   for (const pid of Object.keys(placements)) {
     const p = placements[pid];
@@ -496,6 +891,8 @@ export async function assignProductToSection(sectionIdOrKey: string, productId: 
     is_new_arrival: false,
     is_hot_sale: false,
     is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
     updated_at: new Date().toISOString(),
   };
 
@@ -504,6 +901,8 @@ export async function assignProductToSection(sectionIdOrKey: string, productId: 
   if (s.key === 'NEW_ARRIVALS') placement.is_new_arrival = true;
   if (s.key === 'HOT_SALES') placement.is_hot_sale = true;
   if (s.key === 'FLASH_DEALS') placement.is_flash_deal = true;
+  if (s.key === 'DISCOUNTS') placement.is_discount = true;
+  if (s.key === 'FEATURED_PRODUCTS') placement.is_featured = true;
   if (s.is_custom) {
     const customs = new Set(placement.custom_section_ids || []);
     customs.add(s.id);
@@ -534,6 +933,8 @@ export async function removeProductFromSection(sectionIdOrKey: string, productId
     if (s.key === 'NEW_ARRIVALS') placement.is_new_arrival = false;
     if (s.key === 'HOT_SALES') placement.is_hot_sale = false;
     if (s.key === 'FLASH_DEALS') placement.is_flash_deal = false;
+    if (s.key === 'DISCOUNTS') placement.is_discount = false;
+    if (s.key === 'FEATURED_PRODUCTS') placement.is_featured = false;
     if (s.is_custom && placement.custom_section_ids) {
       placement.custom_section_ids = placement.custom_section_ids.filter((id) => id !== s.id && id !== s.key);
     }
@@ -627,7 +1028,7 @@ async function persistMerchandisingToServer(sections: MerchandisingSection[]) {
  */
 export async function syncHomepagePlacementsFromServer(): Promise<Record<string, ProductHomepagePlacement>> {
   if (typeof window === 'undefined' || typeof fetch === 'undefined') {
-    return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+    return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
   }
   try {
     const res = await fetch('/__dovi_delivery_db__', {
@@ -638,7 +1039,7 @@ export async function syncHomepagePlacementsFromServer(): Promise<Record<string,
       const data = await res.json();
       const serverPlacements = data?.homepagePlacements;
       if (serverPlacements && typeof serverPlacements === 'object') {
-        const local = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+        const local = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
         const merged = { ...local, ...serverPlacements };
         writeLocal(STORAGE_KEYS.PLACEMENTS, merged);
       }
@@ -648,5 +1049,7 @@ export async function syncHomepagePlacementsFromServer(): Promise<Record<string,
       }
     }
   } catch {}
-  return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, {});
+  return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
 }
+
+export const serializeProductDescriptionWithHomepage = injectHomepageMetadataIntoDescription;

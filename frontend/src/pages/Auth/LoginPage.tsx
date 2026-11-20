@@ -51,7 +51,7 @@ export default function LoginPage() {
       } else if (apiErr?.code === 'RATE_LIMITED' || apiErr?.code === 'SERVER_WAKING_UP') {
         setError({
           error: true,
-          message: apiErr.message || 'Connecting to server. Render may be waking up from sleep (takes 30-50s); please try again in a few moments.',
+          message: apiErr.message || "We're having trouble connecting right now. Please try again in a moment.",
           code: apiErr.code,
         });
       } else {

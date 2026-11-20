@@ -317,14 +317,30 @@ export function normalizeApiError(error: unknown): APIError {
         message: `Request failed with status ${status}.`,
         code: 'HTTP_ERROR',
       };
-    } else if (error.request) {
+    } else if (error.request || (typeof navigator !== 'undefined' && !navigator.onLine)) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
+
+      if (isOffline) {
+        return {
+          error: true,
+          message: 'You appear to be offline. Please check your internet connection.',
+          code: 'OFFLINE',
+        };
+      }
+
+      if (isTimeout) {
+        return {
+          error: true,
+          message: 'The server took too long to respond. Please try again.',
+          code: 'TIMEOUT',
+        };
+      }
+
       return {
         error: true,
-        message: isOffline
-          ? 'No internet signal'
-          : 'Unable to connect to backend server. Please verify network or CORS authorization.',
-        code: 'NETWORK_ERROR',
+        message: "We're having trouble connecting to the administration service. Please try again in a moment.",
+        code: 'SERVER_UNAVAILABLE',
       };
     }
   }

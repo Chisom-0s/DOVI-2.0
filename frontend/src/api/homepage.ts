@@ -8,6 +8,7 @@ import { enrichProductWithCategory } from '@/services/categoryService';
 import {
   getProductHomepagePlacement,
   isFlashSaleActiveNow,
+  isDiscountActiveNow,
   syncHomepagePlacementsFromServer,
   listMerchandisingSections,
 } from '@/services/homepagePlacementService';
@@ -104,10 +105,10 @@ const SEED_SECTIONS: HomepageSection[] = [
   },
   {
     id: 'sec-flash-deals',
-    name: 'Flash Deals',
+    name: 'Flash Sales',
     key: 'FLASH_DEALS',
     title: 'Flash Sales',
-    subtitle: 'Limited time offers — ending soon!',
+    subtitle: 'Limited-time special prices — ending soon!',
     is_active: true,
     visible: true,
     sort_order: 6,
@@ -115,6 +116,40 @@ const SEED_SECTIONS: HomepageSection[] = [
     display_limit: 6,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-discounts',
+    name: 'Discounts',
+    key: 'DISCOUNTS',
+    title: 'Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
+    is_active: true,
+    visible: true,
+    sort_order: 7,
+    display_order: 7,
+    display_limit: 6,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-featured',
+    name: 'Featured Products',
+    key: 'FEATURED_PRODUCTS',
+    title: 'Featured Products',
+    subtitle: 'Hand-picked essentials curated for you',
+    is_active: true,
+    visible: true,
+    sort_order: 8,
+    display_order: 8,
+    display_limit: 6,
+    configuration: {
+      layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
     },
     config: {},
@@ -396,6 +431,26 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
       candidates = realProducts.filter(
         (p) => (Boolean(p.is_flash_deal) || orderedIds.includes(p.id)) &&
                isFlashSaleActiveNow(p.flash_sale) &&
+               (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+               p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'DISCOUNTS': {
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_discount) || orderedIds.includes(p.id)) &&
+               isDiscountActiveNow(p.discount_config) &&
+               (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+               p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'FEATURED_PRODUCTS':
+    case 'FEATURED': {
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_featured) || orderedIds.includes(p.id)) &&
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );

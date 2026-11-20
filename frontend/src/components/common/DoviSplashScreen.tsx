@@ -15,14 +15,10 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
     }, 100);
 
     // 2. Splash screen duration
-    const fadeTimer = setTimeout(() => {
-      setIsFadingOut(true);
-    }, 2200);
+    const fadeTimer = setTimeout(() => { setIsFadingOut(true); }, 1000);
 
     // 3. Complete callback triggers after fade-out transition concludes (500ms transition)
-    const completeTimer = setTimeout(() => {
-      onComplete();
-    }, 2700);
+    const completeTimer = setTimeout(() => { onComplete(); }, 1400);
 
     return () => {
       clearTimeout(animTimer);

@@ -97,9 +97,13 @@ apiClient.interceptors.response.use(
     const originalUrl = originalRequest?.url || '';
     const isAuthEndpoint = originalUrl.includes('/auth/login/') || originalUrl.includes('/auth/token/') || originalUrl.includes('/auth/register/');
 
+    const method = (originalRequest?.method || 'get').toLowerCase();
+    const isSafeIdempotent = method === 'get' || method === 'head' || method === 'options';
     const isNetworkError = !error.response && Boolean(error.request);
     const retryCount = originalRequest._retryCount || 0;
-    if (!isAuthEndpoint && isNetworkError && retryCount < 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
+
+    // Only auto-retry safe idempotent read requests (GET) to avoid duplicate transactions/orders/payments
+    if (isSafeIdempotent && !isAuthEndpoint && isNetworkError && retryCount < 2 && (typeof navigator === 'undefined' || navigator.onLine)) {
       originalRequest._retryCount = retryCount + 1;
       const delay = retryCount === 0 ? 1500 : 3000;
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -293,14 +297,16 @@ export function normalizeApiError(error: unknown): APIError {
       if (status >= 500) {
         return {
           error: true,
-          message: 'Server error. Please try again later.',
+          message: status === 502 || status === 503 || status === 504
+            ? "We're having trouble connecting to our servers right now. Please try again in a moment."
+            : "Something went wrong on our end. Please try again in a moment.",
           code: 'SERVER_ERROR',
         };
       }
       if (status === 429) {
         return {
           error: true,
-          message: 'Server is warming up or receiving high traffic. Please wait 10-15 seconds and try again.',
+          message: 'We are receiving high traffic right now. Please wait a few moments and try again.',
           code: 'RATE_LIMITED',
         };
       }
@@ -331,17 +337,29 @@ export function normalizeApiError(error: unknown): APIError {
         code: 'HTTP_ERROR',
       };
     } else if (error.request || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
+
+      if (isOffline) {
         return {
           error: true,
-          message: 'No internet connection. Please check your network.',
+          message: 'You appear to be offline. Please check your internet connection and try again.',
           code: 'OFFLINE',
         };
       }
+
+      if (isTimeout) {
+        return {
+          error: true,
+          message: 'The server took too long to respond. Please check your connection and try again.',
+          code: 'TIMEOUT',
+        };
+      }
+
       return {
         error: true,
-        message: 'Unable to connect to backend server. Render may be waking up from sleep (takes 30-50s); please try again in a few moments.',
-        code: 'SERVER_WAKING_UP',
+        message: "We're having trouble connecting to our servers right now. Please check your internet connection or try again in a moment.",
+        code: 'SERVER_UNAVAILABLE',
       };
     }
   }

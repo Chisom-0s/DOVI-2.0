@@ -6,6 +6,8 @@ import {
   saveProductHomepagePlacement,
   serializeProductDescriptionWithHomepage,
   listMerchandisingSections,
+  assignProductToSection,
+  removeProductFromSection,
   type ProductHomepagePlacement,
   type MerchandisingSection,
 } from '@/services/homepagePlacementService';
@@ -118,6 +120,8 @@ export default function ProductsPage() {
   // Archive Confirm Modal / State
   const [productToArchive, setProductToArchive] = useState<ProductSummary | null>(null);
   const [isArchivePending, setIsArchivePending] = useState(false);
+  const [quickSectionsProduct, setQuickSectionsProduct] = useState<ProductSummary | null>(null);
+  const [quickSectionsLoading, setQuickSectionsLoading] = useState(false);
 
   // Product Create/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -153,24 +157,38 @@ export default function ProductsPage() {
     is_new_arrival: boolean;
     is_hot_sale: boolean;
     is_flash_deal: boolean;
+    is_discount: boolean;
+    is_featured: boolean;
     custom_section_ids: string[];
     flash_price: string;
     original_price: string;
     start_time: string;
     end_time: string;
     flash_active: boolean;
+    discount_price: string;
+    discount_original_price: string;
+    discount_start_time: string;
+    discount_end_time: string;
+    discount_active: boolean;
   }>({
     is_best_seller: false,
     is_trending: false,
     is_new_arrival: false,
     is_hot_sale: false,
     is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
     custom_section_ids: [],
     flash_price: '',
     original_price: '',
     start_time: '',
     end_time: '',
     flash_active: true,
+    discount_price: '',
+    discount_original_price: '',
+    discount_start_time: '',
+    discount_end_time: '',
+    discount_active: true,
   });
 
   const [availableCustomSections, setAvailableCustomSections] = useState<MerchandisingSection[]>([]);
@@ -377,6 +395,8 @@ export default function ProductsPage() {
         is_new_arrival: Boolean(existingPlacement ? existingPlacement.is_new_arrival : fullProd.is_new_arrival),
         is_hot_sale: Boolean(existingPlacement ? existingPlacement.is_hot_sale : fullProd.is_hot_sale),
         is_flash_deal: Boolean(existingPlacement ? existingPlacement.is_flash_deal : fullProd.is_flash_deal),
+        is_discount: Boolean(existingPlacement ? existingPlacement.is_discount : (fullProd as any).is_discount),
+        is_featured: Boolean(existingPlacement ? existingPlacement.is_featured : (fullProd as any).is_featured),
         custom_section_ids: existingPlacement?.custom_section_ids || [],
         flash_price: existingPlacement?.flash_sale?.flash_price != null ? String(existingPlacement.flash_sale.flash_price) : '',
         original_price: existingPlacement?.flash_sale?.original_price != null
@@ -385,6 +405,13 @@ export default function ProductsPage() {
         start_time: existingPlacement?.flash_sale?.start_time ? existingPlacement.flash_sale.start_time.slice(0, 16) : '',
         end_time: existingPlacement?.flash_sale?.end_time ? existingPlacement.flash_sale.end_time.slice(0, 16) : '',
         flash_active: existingPlacement?.flash_sale?.is_active !== false,
+        discount_price: existingPlacement?.discount_config?.discount_price != null ? String(existingPlacement.discount_config.discount_price) : '',
+        discount_original_price: existingPlacement?.discount_config?.original_price != null
+          ? String(existingPlacement.discount_config.original_price)
+          : (fullProd.base_price ? String(fullProd.base_price) : ''),
+        discount_start_time: existingPlacement?.discount_config?.start_time ? existingPlacement.discount_config.start_time.slice(0, 16) : '',
+        discount_end_time: existingPlacement?.discount_config?.end_time ? existingPlacement.discount_config.end_time.slice(0, 16) : '',
+        discount_active: existingPlacement?.discount_config?.is_active !== false,
       });
       setAvailableCustomSections(listMerchandisingSections().filter((s) => s.is_custom));
 
@@ -655,6 +682,8 @@ export default function ProductsPage() {
       is_new_arrival: homepageForm.is_new_arrival,
       is_hot_sale: homepageForm.is_hot_sale,
       is_flash_deal: homepageForm.is_flash_deal,
+      is_discount: homepageForm.is_discount,
+      is_featured: homepageForm.is_featured,
       custom_section_ids: homepageForm.custom_section_ids || [],
       flash_sale: homepageForm.is_flash_deal
         ? {
@@ -663,6 +692,15 @@ export default function ProductsPage() {
             start_time: homepageForm.start_time ? new Date(homepageForm.start_time).toISOString() : null,
             end_time: homepageForm.end_time ? new Date(homepageForm.end_time).toISOString() : null,
             is_active: homepageForm.flash_active,
+          }
+        : null,
+      discount_config: homepageForm.is_discount
+        ? {
+            discount_price: parsePriceNumber(homepageForm.discount_price),
+            original_price: parsePriceNumber(homepageForm.discount_original_price || form.base_price),
+            start_time: homepageForm.discount_start_time ? new Date(homepageForm.discount_start_time).toISOString() : null,
+            end_time: homepageForm.discount_end_time ? new Date(homepageForm.discount_end_time).toISOString() : null,
+            is_active: homepageForm.discount_active,
           }
         : null,
     };
@@ -933,6 +971,7 @@ export default function ProductsPage() {
                   <th style={tableHeaderCellStyles}>Product Details</th>
                   <th style={tableHeaderCellStyles}>Category &amp; Subcategory</th>
                   <th style={tableHeaderCellStyles}>Parcel Classification</th>
+                      <th style={tableHeaderCellStyles}>Homepage Sections</th>
                   <th style={tableHeaderCellStyles}>Base Price</th>
                   <th style={tableHeaderCellStyles}>Stock Qty</th>
                   <th style={tableHeaderCellStyles}>Status</th>
@@ -1030,6 +1069,73 @@ export default function ProductsPage() {
                           </span>
                         )}
                       </td>
+                      <td style={tableCellStyles}>
+                        {(() => {
+                          const plc = getProductHomepagePlacement({ id: p.id, description: p.description });
+                          const assignedSections: { label: string; bg: string; color: string }[] = [];
+                          if (plc?.is_best_seller) assignedSections.push({ label: '🌟 Best Sellers', bg: '#fef9c3', color: '#854d0e' });
+                          if (plc?.is_trending) assignedSections.push({ label: '🔥 Trending', bg: '#f3e8ff', color: '#6b21a8' });
+                          if (plc?.is_new_arrival) assignedSections.push({ label: '✨ New Arrival', bg: '#ecfdf5', color: '#065f46' });
+                          if (plc?.is_hot_sale) assignedSections.push({ label: '🏷️ Hot Sale', bg: '#dbeafe', color: '#1e3a8a' });
+                          if (plc?.is_flash_deal) assignedSections.push({ label: '⚡ Flash Sale', bg: '#fef3c7', color: '#92400e' });
+                          if (plc?.is_discount) assignedSections.push({ label: '💰 Discount', bg: '#e0e7ff', color: '#3730a3' });
+                          if (plc?.is_featured) assignedSections.push({ label: '⭐ Featured', bg: '#ccfbf1', color: '#115e59' });
+                          if (plc?.custom_section_ids && plc.custom_section_ids.length > 0) {
+                            plc.custom_section_ids.forEach((csId) => {
+                              assignedSections.push({ label: `📌 ${csId.replace(/^sec-custom-/, 'Custom ')}`, bg: '#f1f5f9', color: '#334155' });
+                            });
+                          }
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
+                                {assignedSections.length > 0 ? (
+                                  assignedSections.map((sec, idx) => (
+                                    <span
+                                      key={idx}
+                                      style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: 700,
+                                        backgroundColor: sec.bg,
+                                        color: sec.color,
+                                        padding: '2px 7px',
+                                        borderRadius: '999px',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {sec.label}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>None</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setQuickSectionsProduct(p)}
+                                style={{
+                                  alignSelf: 'flex-start',
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  backgroundColor: '#ffffff',
+                                  color: '#0f172a',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <span>⚡</span>
+                                <span>Sections</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
                       <td style={{ ...tableCellStyles, fontWeight: 700 }}>
                         {formatPrice(p.price || (p as any).base_price)}
                       </td>
@@ -1645,6 +1751,99 @@ export default function ProductsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Discount Configuration Drawer */}
+                {homepageForm.is_discount && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      backgroundColor: '#eef2ff',
+                      borderRadius: '8px',
+                      border: '1px solid #c7d2fe',
+                    }}
+                  >
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#312e81' }}>
+                        💰 Discount Pricing Configuration
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#4338ca' }}>
+                        Set the discounted price and optional start/end datetimes. Discount price must be strictly lower than the original price.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Discounted Price (₦)*
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={homepageForm.discount_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_price: e.target.value }))}
+                          placeholder="e.g. 25000"
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                          required={homepageForm.is_discount}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Original / Regular Price (₦)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={homepageForm.discount_original_price || form.base_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_original_price: e.target.value }))}
+                          placeholder={form.base_price || 'Base price'}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Start Time (Optional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.discount_start_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_start_time: e.target.value }))}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          End Time (Optional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.discount_end_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_end_time: e.target.value }))}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={homepageForm.discount_active}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_active: e.target.checked }))}
+                          style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+                        />
+                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#312e81' }}>
+                          Discount Active (Immediately available on website)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SECTION 3: SPECIFICATIONS (COLLAPSIBLE) */}
@@ -2032,6 +2231,104 @@ export default function ProductsPage() {
       )}
 
       {/* Delete Confirmation Dialog */}
+      {/* Quick Sections Management Modal */}
+      {quickSectionsProduct && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>
+                  Homepage Sections
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  {quickSectionsProduct.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickSectionsProduct(null)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0' }}>
+              Toggle which homepage sections this product appears in. Changes are saved immediately.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {listMerchandisingSections().filter((s) => s.key !== 'SPECIAL_PROMO').map((sec) => {
+                const isAssigned = sec.product_ids.includes(quickSectionsProduct.id);
+                return (
+                  <label
+                    key={sec.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      backgroundColor: isAssigned ? '#fff7ed' : '#f8fafc',
+                      border: isAssigned ? '1.5px solid #ff7a00' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: quickSectionsLoading ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        disabled={quickSectionsLoading}
+                        onChange={async () => {
+                          setQuickSectionsLoading(true);
+                          try {
+                            if (isAssigned) {
+                              await removeProductFromSection(sec.id, quickSectionsProduct.id);
+                              toast.success(`Removed from ${sec.name}`);
+                            } else {
+                              await assignProductToSection(sec.id, quickSectionsProduct.id);
+                              toast.success(`Assigned to ${sec.name}`);
+                            }
+                          } catch {
+                            toast.error('Failed to update section.');
+                          } finally {
+                            setQuickSectionsLoading(false);
+                          }
+                        }}
+                        style={{ width: '18px', height: '18px', accentColor: '#ff7a00' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                          {sec.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {sec.title} • {sec.product_ids.length} products
+                        </div>
+                      </div>
+                    </div>
+                    {isAssigned && (
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#c2410c', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: '999px' }}>
+                        Active on Homepage
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+
+            <div style={{ ...modalActionsStyles, marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setQuickSectionsProduct(null)}
+                style={modalCancelBtnStyles}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {productToArchive && (
         <div style={modalBackdropStyles}>
           <div style={modalContentStyles}>
