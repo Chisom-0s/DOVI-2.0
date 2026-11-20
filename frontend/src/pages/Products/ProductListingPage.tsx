@@ -7,6 +7,7 @@ import { SkeletonCard } from '@/components/common/Skeleton';
 import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 import { getActiveStorefrontCategories, type CategoryItem } from '@/utils/categories';
+import { SEED_REAL_PRODUCTS } from '@/api/homepage';
 import {
   getSubcategoriesForCategory,
   findMainCategory,
@@ -34,11 +35,11 @@ export default function ProductListingPage() {
   const inStockParam = searchParams.get('in_stock') === 'true';
   const searchParam = searchParams.get('q') || searchParams.get('search') || '';
 
-  // Synchronous cache seed for instant 0ms mount
+  // Synchronous cache seed for instant 0ms mount (sessionStorage -> localStorage -> SEED_REAL_PRODUCTS)
   const [products, setProducts] = useState<ProductSummary[]>(() => {
     if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam) {
       try {
-        const cached = sessionStorage.getItem('dovi_real_products_cache');
+        const cached = sessionStorage.getItem('dovi_real_products_cache') || localStorage.getItem('dovi_real_products_cache');
         if (cached) {
           const list = JSON.parse(cached);
           if (Array.isArray(list) && list.length > 0) {
@@ -50,6 +51,9 @@ export default function ProductListingPage() {
           }
         }
       } catch {}
+      if (SEED_REAL_PRODUCTS && SEED_REAL_PRODUCTS.length > 0) {
+        return SEED_REAL_PRODUCTS;
+      }
     }
     return [];
   });
@@ -484,44 +488,7 @@ export default function ProductListingPage() {
 
       {/* Main Listing Content */}
       <div style={mainContentStyles}>
-        {/* Horizontal Category Quick-Bar Matching Home Page */}
-        <div style={categoryQuickBarWrapperStyles} className="category-quick-bar">
-          <button
-            type="button"
-            onClick={() => updateFilters({ category: null, subcategory: null })}
-            style={{
-              ...categoryQuickPillStyles,
-              backgroundColor: !categoryParam ? 'var(--color-primary)' : '#ffffff',
-              color: !categoryParam ? '#ffffff' : 'var(--color-text)',
-              borderColor: !categoryParam ? 'var(--color-primary)' : 'var(--color-border)',
-              fontWeight: !categoryParam ? 700 : 500,
-            }}
-          >
-            🛍️ All Categories
-          </button>
-          {categories.map(cat => {
-            const isSelected = categoryParam === cat.slug;
-            return (
-              <button
-                key={cat.slug}
-                type="button"
-                onClick={() => updateFilters({ category: isSelected ? null : cat.slug, subcategory: null })}
-                style={{
-                  ...categoryQuickPillStyles,
-                  backgroundColor: isSelected ? 'var(--color-primary)' : '#ffffff',
-                  color: isSelected ? '#ffffff' : 'var(--color-text)',
-                  borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
-                  fontWeight: isSelected ? 700 : 500,
-                }}
-              >
-                {cat.icon && <span style={{ marginRight: '6px' }}>{cat.icon}</span>}
-                <span>{cat.name}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Horizontal Subcategory Quick-Bar when a Main Category is selected */}
+{/* Horizontal Subcategory Quick-Bar when a Main Category is selected */}
         {categoryParam && activeSubcategories.length > 0 && (
           <div
             style={{
@@ -530,7 +497,7 @@ export default function ProductListingPage() {
               gap: '8px',
               overflowX: 'auto',
               padding: '8px 12px',
-              marginTop: '-16px',
+              marginTop: '0px',
               marginBottom: 'var(--space-2)',
               backgroundColor: 'var(--color-bg-subtle)',
               borderRadius: 'var(--radius-md)',
@@ -1583,17 +1550,7 @@ const emptyStyles: React.CSSProperties = {
   color: 'var(--color-text-muted)',
 };
 
-const categoryQuickBarWrapperStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  overflowX: 'auto',
-  paddingBottom: '10px',
-  marginBottom: 'var(--space-4)',
-  scrollbarWidth: 'none',
-  msOverflowStyle: 'none',
-  WebkitOverflowScrolling: 'touch',
-};
+
 
 const categoryQuickPillStyles: React.CSSProperties = {
   display: 'inline-flex',

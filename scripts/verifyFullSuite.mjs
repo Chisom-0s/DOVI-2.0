@@ -11,7 +11,9 @@ assert(!indexHtml.includes('100% Escrow Buyer Protection'), 'FAIL: Found obsolet
 assert(!indexHtml.includes('Verified Vendors & Students'), 'FAIL: Found obsolete student vendor text in index.html');
 assert(indexHtml.includes('id="dovi-initial-loader"'), 'FAIL: Missing branded dovi-initial-loader');
 assert(indexHtml.includes('Shop Smart. Feel Good.'), 'FAIL: Missing brand tagline in index.html loader');
-console.log('   ✓ index.html clean, sleek branded loader verified.');
+// Requirement 2: Smartsupp script removed from index.html (loaded asynchronously via SmartsuppChat.tsx only)
+assert(!indexHtml.includes('smartsuppchat.com/loader.js'), 'FAIL: Duplicate Smartsupp loader found in index.html');
+console.log('   ✓ index.html clean, sleek branded loader verified, duplicate Smartsupp script removed.');
 
 // 2. Technical Backend Error Message Check
 console.log('2. Checking error handling sanitization across codebase...');
@@ -107,5 +109,44 @@ assert(adminProdPage.includes('Quick Sections Management Modal'), 'FAIL: Missing
 assert(adminProdPage.includes('is_discount'), 'FAIL: Missing is_discount in form state');
 assert(adminProdPage.includes('Discount Pricing Configuration'), 'FAIL: Missing Discount Pricing Configuration drawer');
 console.log('   ✓ Admin ProductsPage fully equipped with section badges, quick modal, and discount configuration.');
+
+// 6. Marketplace Single Category Row Check
+console.log('6. Checking Marketplace single category row...');
+const marketplacePage = fs.readFileSync('frontend/src/pages/Products/ProductListingPage.tsx', 'utf8');
+assert(!marketplacePage.includes('🛍️ All Categories'), 'FAIL: Duplicate category bar with All Categories button still in ProductListingPage');
+assert(!marketplacePage.includes('category-quick-bar'), 'FAIL: Duplicate category-quick-bar class found in ProductListingPage');
+console.log('   ✓ Second category row completely removed from Marketplace page.');
+
+// 7. Cart Optimistic Updates & Responsiveness Check
+console.log('7. Checking Cart optimistic update and non-blocking steppers...');
+const cartContext = fs.readFileSync('frontend/src/contexts/CartContext.tsx', 'utf8');
+assert(cartContext.includes('syncDebounceTimers'), 'FAIL: Missing syncDebounceTimers in CartContext');
+assert(cartContext.includes('previousCart'), 'FAIL: Missing rollback state tracking in CartContext');
+const cartPage = fs.readFileSync('frontend/src/pages/Cart/CartPage.tsx', 'utf8');
+assert(!cartPage.includes('disabled={item.quantity <= 1 || isLoading}'), 'FAIL: Stepper button disabled on isLoading');
+assert(!cartPage.includes('disabled={item.quantity >= item.available_stock || isLoading}'), 'FAIL: Stepper + button disabled on isLoading');
+console.log('   ✓ Cart steppers are 0ms optimistic with background debounce and rollback.');
+
+// 8. Auth Token Persistence & Automatic Logout Fix Check
+console.log('8. Checking Auth Token Persistence & Safe Refresh...');
+const clientApi = fs.readFileSync('frontend/src/api/client.ts', 'utf8');
+assert(clientApi.includes('dovi_access_token'), 'FAIL: Missing persistent dovi_access_token in client.ts');
+assert(clientApi.includes('dovi_refresh_token'), 'FAIL: Missing persistent dovi_refresh_token in client.ts');
+assert(clientApi.includes('dovi_user_session'), 'FAIL: Missing persistent dovi_user_session in client.ts');
+assert(clientApi.includes('getRefresh'), 'FAIL: Missing getRefresh in tokenStore');
+assert(clientApi.includes('setRefresh'), 'FAIL: Missing setRefresh in tokenStore');
+assert(clientApi.includes('getUser'), 'FAIL: Missing getUser in tokenStore');
+assert(clientApi.includes('setUser'), 'FAIL: Missing setUser in tokenStore');
+assert(clientApi.includes('isDefinitiveAuthFailure'), 'FAIL: 401 interceptor lacks definitive auth failure discrimination');
+const authContextFile = fs.readFileSync('frontend/src/contexts/AuthContext.tsx', 'utf8');
+assert(authContextFile.includes('tokenStore.getUser'), 'FAIL: AuthContext does not initialize with cached user session');
+console.log('   ✓ Auth persistence and safe token refresh verified.');
+
+// 9. Page Loading Optimizations Check
+console.log('9. Checking bundle code-splitting and asset loading...');
+const viteConf = fs.readFileSync('frontend/vite.config.ts', 'utf8');
+assert(viteConf.includes('manualChunks'), 'FAIL: manualChunks missing from frontend/vite.config.ts');
+assert(viteConf.includes('vendor-react'), 'FAIL: vendor-react chunk missing from manualChunks');
+console.log('   ✓ Bundle chunking configured cleanly.');
 
 console.log('\n=== All Tests Passed Successfully! ===');

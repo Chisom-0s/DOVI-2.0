@@ -3,18 +3,79 @@ import type { APIError, AuthTokens } from '@/types';
 
 // ============================================================
 // Token storage
-// Access token: in memory only (never localStorage)
-// Refresh token: httpOnly cookie set by Django (not accessible from JS)
+// Persisted in localStorage and synchronized with in-memory cache
+// Ensures sessions survive page refreshes, mobile app backgrounding,
+// and background tab idling.
 // ============================================================
-let accessToken: string | null = null;
+const ACCESS_TOKEN_KEY = 'dovi_access_token';
+const REFRESH_TOKEN_KEY = 'dovi_refresh_token';
+const USER_SESSION_KEY = 'dovi_user_session';
+
+let inMemoryAccessToken: string | null = typeof window !== 'undefined' ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+let inMemoryRefreshToken: string | null = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_TOKEN_KEY) : null;
 
 export const tokenStore = {
-  get: () => accessToken,
+  get: (): string | null => {
+    if (!inMemoryAccessToken && typeof window !== 'undefined') {
+      inMemoryAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    }
+    return inMemoryAccessToken;
+  },
   set: (token: string | null) => {
-    accessToken = token;
+    inMemoryAccessToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+      }
+    }
+  },
+  getRefresh: (): string | null => {
+    if (!inMemoryRefreshToken && typeof window !== 'undefined') {
+      inMemoryRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    }
+    return inMemoryRefreshToken;
+  },
+  setRefresh: (token: string | null) => {
+    inMemoryRefreshToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
+    }
+  },
+  getUser: <T = any>(): T | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem(USER_SESSION_KEY);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+  setUser: (user: any | null) => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (user) {
+        localStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(USER_SESSION_KEY);
+      }
+    } catch {
+      // ignore serialization error
+    }
   },
   clear: () => {
-    accessToken = null;
+    inMemoryAccessToken = null;
+    inMemoryRefreshToken = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      localStorage.removeItem(USER_SESSION_KEY);
+    }
   },
 };
 
@@ -74,15 +135,25 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 // ============================================================
 // Response interceptor — handle 401 (token refresh) and 403
 // ============================================================
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+type RefreshSubscriber = {
+  resolve: (token: string) => void;
+  reject: (err: any) => void;
+};
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+let isRefreshing = false;
+let refreshSubscribers: RefreshSubscriber[] = [];
+
+function subscribeTokenRefresh(subscriber: RefreshSubscriber) {
+  refreshSubscribers.push(subscriber);
 }
 
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers.forEach(sub => sub.resolve(token));
+  refreshSubscribers = [];
+}
+
+function onRefreshFailed(err: any) {
+  refreshSubscribers.forEach(sub => sub.reject(err));
   refreshSubscribers = [];
 }
 
@@ -112,14 +183,26 @@ apiClient.interceptors.response.use(
 
     // 401 — attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = tokenStore.getRefresh();
+
+      // If no refresh token exists, reject without attempting refresh
+      if (!refreshToken) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise(resolve => {
-          subscribeTokenRefresh(token => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            resolve(apiClient(originalRequest));
+        // Queue this request until ongoing refresh completes
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh({
+            resolve: (token: string) => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
+              resolve(apiClient(originalRequest));
+            },
+            reject: (err: any) => {
+              reject(err);
+            },
           });
         });
       }
@@ -129,20 +212,41 @@ apiClient.interceptors.response.use(
 
       try {
         const { data } = await axios.post<AuthTokens>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth/token/refresh/`,
-          {},
-          { withCredentials: true }
+          `${getApiBaseUrl().replace(/\/+$/, '')}/api/v1/auth/token/refresh/`,
+          { refresh: refreshToken },
+          { withCredentials: true, timeout: 30000 }
         );
-        tokenStore.set(data.access);
-        onRefreshed(data.access);
+
+        const newAccessToken = data.access;
+        const newRefreshToken = data.refresh || refreshToken;
+
+        tokenStore.set(newAccessToken);
+        tokenStore.setRefresh(newRefreshToken);
+
+        onRefreshed(newAccessToken);
+
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${data.access}`;
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
         return apiClient(originalRequest);
-      } catch {
-        tokenStore.clear();
-        // Redirect to login — fire event so AuthContext can react
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+      } catch (refreshErr: any) {
+        onRefreshFailed(refreshErr);
+
+        // ONLY clear tokens and trigger logout if server explicitly confirms the token is invalid/expired (HTTP 401 or 400 invalid token)
+        const isDefinitiveAuthFailure =
+          refreshErr.response &&
+          (refreshErr.response.status === 401 ||
+            (refreshErr.response.status === 400 &&
+              JSON.stringify(refreshErr.response.data || {}).toLowerCase().includes('token')));
+
+        if (isDefinitiveAuthFailure) {
+          console.warn('[client] Refresh token is definitively expired or invalid. Logging out.');
+          tokenStore.clear();
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+        } else {
+          console.warn('[client] Token refresh failed due to temporary network or server error. Preserving session.');
+        }
+
         return Promise.reject(error);
       } finally {
         isRefreshing = false;

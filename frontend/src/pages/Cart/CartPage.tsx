@@ -256,7 +256,7 @@ export default function CartPage() {
                       <button
                         onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
                         style={qtyBtnStyles}
-                        disabled={item.quantity <= 1 || isLoading}
+                        disabled={item.quantity <= 1}
                         aria-label="Decrease quantity"
                       >
                         −
@@ -265,7 +265,7 @@ export default function CartPage() {
                       <button
                         onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
                         style={qtyBtnStyles}
-                        disabled={isLoading}
+                        disabled={Boolean(item.available_stock && item.quantity >= item.available_stock)}
                         aria-label="Increase quantity"
                       >
                         +

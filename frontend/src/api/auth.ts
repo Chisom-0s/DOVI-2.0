@@ -1,6 +1,6 @@
 // Auth API — POST /api/v1/auth/*
 // Stub: functions will be implemented in Phase 1
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
 import type { AuthTokens, LoginRequest, RegisterRequest, User } from '@/types';
 
 export const authApi = {
@@ -39,9 +39,11 @@ export const authApi = {
     }
   },
 
-  refreshToken: async (): Promise<AuthTokens> => {
+  refreshToken: async (refresh?: string): Promise<AuthTokens> => {
     try {
-      const { data } = await apiClient.post('/api/v1/auth/token/refresh/');
+      const activeRefresh = refresh || tokenStore.getRefresh();
+      const payload = activeRefresh ? { refresh: activeRefresh } : {};
+      const { data } = await apiClient.post('/api/v1/auth/token/refresh/', payload);
       return data;
     } catch (err) {
       throw normalizeApiError(err);

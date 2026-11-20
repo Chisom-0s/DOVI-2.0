@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import toast from 'react-hot-toast';
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
@@ -280,6 +281,7 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const syncDebounceTimers = useRef<Map<string, any>>(new Map());
   const { user } = useAuth();
   const [cart, setCart] = useState<Cart>(() => loadGuestCart());
   const [isLoading, setIsLoading] = useState(false);
@@ -533,11 +535,55 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const updateQty = useCallback(
     async (itemId: string, quantity: number) => {
       if (quantity < 1) return;
-      setIsLoading(true);
+
+      // Find current item to check stock limits
+      const currentItem = cart.items.find(i => i.id === itemId);
+      const stock = currentItem?.available_stock ?? (currentItem as any)?.stock;
+      if (stock !== undefined && stock !== null && Number(stock) > 0 && quantity > Number(stock)) {
+        toast.error(`Only ${stock} unit${Number(stock) > 1 ? 's' : ''} available in stock.`);
+        return;
+      }
+
+      // Snapshot for optimistic rollback if backend rejects
+      const previousCart = cart;
+
+      // 1. Immediate optimistic UI state update (0ms perceived latency)
+      setCart(prev => {
+        const updatedItems = prev.items.map(it => {
+          if (it.id !== itemId) return it;
+          const unit = parseFloat(String(it.unit_price ?? it.price ?? '0')) || 0;
+          return {
+            ...it,
+            quantity,
+            line_total: (unit * quantity).toFixed(2),
+          };
+        });
+        return normalizeCart({ ...prev, items: updatedItems });
+      });
+
+      window.dispatchEvent(new CustomEvent('cart:updated'));
 
       const isGuestItem = itemId.startsWith('guest_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
 
-      if (user && !isGuestItem) {
+      // Local / Guest item persistence
+      if (!user || isGuestItem) {
+        const currentGuest = loadGuestCart();
+        const target = currentGuest.items.find(i => i.id === itemId);
+        if (target) {
+          target.quantity = quantity;
+          saveGuestCart(currentGuest);
+        }
+        return;
+      }
+
+      // 2. Authenticated user: Background sync with debounce to prevent network congestion on rapid taps
+      const existingTimer = syncDebounceTimers.current.get(itemId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const timer = setTimeout(async () => {
+        syncDebounceTimers.current.delete(itemId);
         try {
           const updated = await cartApi.updateItem(itemId, quantity);
           const normalized = normalizeCart(updated);
@@ -548,42 +594,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             setCart(normalized);
           }
           window.dispatchEvent(new CustomEvent('cart:updated'));
-        } catch (err) {
-          console.error('Failed to update cart item quantity:', err);
-          throw err;
-        } finally {
-          setIsLoading(false);
+        } catch (err: any) {
+          console.error('Failed to sync cart item quantity with server:', err);
+          // Reconcile / rollback to previous state
+          setCart(previousCart);
+          window.dispatchEvent(new CustomEvent('cart:updated'));
+          toast.error(err?.message || 'Could not update quantity. Please try again.');
         }
-        return;
-      }
+      }, 350);
 
-      // Guest / Local item
-      const currentGuest = loadGuestCart();
-      const target = currentGuest.items.find(i => i.id === itemId);
-      if (target) {
-        target.quantity = quantity;
-        saveGuestCart(currentGuest);
-        if (user) {
-          setCart(prev => {
-            const updatedItems = prev.items.map(it =>
-              it.id === itemId
-                ? {
-                    ...it,
-                    quantity,
-                    line_total: String((parseFloat(String(it.unit_price || 0)) || 0) * quantity),
-                  }
-                : it
-            );
-            return normalizeCart({ ...prev, items: updatedItems });
-          });
-        } else {
-          setCart(normalizeCart(currentGuest));
-        }
-        window.dispatchEvent(new CustomEvent('cart:updated'));
-      }
-      setIsLoading(false);
+      syncDebounceTimers.current.set(itemId, timer);
     },
-    [user]
+    [cart, user]
   );
 
   const removeItem = useCallback(
