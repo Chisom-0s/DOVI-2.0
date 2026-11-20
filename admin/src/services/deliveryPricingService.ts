@@ -49,7 +49,7 @@ export const DEFAULT_SEED_ROUTES: DeliveryRoute[] = [
 
   // Delta
   { id: 'route_asaba', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Asaba', small_parcel_rate: 1500, heavy_parcel_rate: 4000, furniture_bulky_rate: 12000, combined_furniture_rate: 17000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: 'Same day - 1 business day', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_warri', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Warri', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  { id: 'route_warri', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Warri', small_parcel_rate: 5000, heavy_parcel_rate: 8500, furniture_bulky_rate: 20000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
 
   // Imo
   { id: 'route_owerri', dispatch_origin: 'Onitsha', destination_state: 'Imo', destination_city: 'Owerri', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
@@ -235,18 +235,20 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
       // resurrected routes the admin had deleted/edited (stale localStorage copies won),
       // causing customers to be priced against outdated or phantom routes.
       // Bootstrap: if the shared store is empty but this browser has routes, keep them and push them up.
+      const destKey = (r: DeliveryRoute) => `${canonicalStateKey(r.destination_state)}|${canonicalCityKey(r.destination_city)}`;
       const mergedMap = new Map<string, DeliveryRoute>();
       for (const r of local.routes || []) {
-        if (r && r.id && r.destination_state) {
-          mergedMap.set(r.id, r);
+        if (r && r.destination_state) {
+          mergedMap.set(destKey(r), r);
         }
       }
       const serverRoutes = Array.isArray(serverData.routes) ? serverData.routes : [];
       for (const r of serverRoutes) {
-        if (r && r.id && r.destination_state) {
-          const existing = mergedMap.get(r.id);
+        if (r && r.destination_state) {
+          const key = destKey(r);
+          const existing = mergedMap.get(key);
           if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
-            mergedMap.set(r.id, r);
+            mergedMap.set(key, r);
           }
         }
       }
@@ -683,8 +685,28 @@ export function canonicalStateKey(value: string | null | undefined): string {
 }
 
 export function canonicalCityKey(value: string | null | undefined): string {
-  const norm = normalizeLocationName(value);
-  return CITY_KEY_ALIASES[norm] || norm;
+  let norm = normalizeLocationName(value);
+  if (!norm) return '';
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip trailing 'state'
+  norm = norm.replace(/\bstate\b/g, '').replace(/\s+/g, ' ').trim();
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip state suffix if present (e.g. 'warri delta' -> 'warri', 'awka anambra' -> 'awka')
+  for (const st of NIGERIAN_STATES) {
+    const stNorm = normalizeLocationName(st);
+    if (stNorm && norm.endsWith(stNorm)) {
+      norm = norm.slice(0, -stNorm.length).trim();
+      break;
+    }
+  }
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip generic city/town qualifiers if not already an alias
+  const stripped = norm.replace(/\b(city|town|lga)\b/g, '').replace(/\s+/g, ' ').trim();
+  if (CITY_KEY_ALIASES[stripped]) return CITY_KEY_ALIASES[stripped];
+  return stripped || norm;
 }
 
 /** Maps any user/admin supplied state string to the canonical entry in NIGERIAN_STATES (or '' if unknown). */
@@ -1241,19 +1263,28 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       groupQuoteReason = `Delivery rate not configured for ${destinationCity || 'destination'}, ${destinationState || 'state'}.`;
     } else if (exceedsHeavyLimit) {
       groupQuoteReason = `Combined parcel weight (${combinedWeight} kg) exceeds standard Heavy Parcel limit (${maxHeavyWeight} kg). Manual cargo quotation required.`;
-    } else if (effectiveClass === 'SMALL_PARCEL') {
-      if (route.small_parcel_rate !== null && route.small_parcel_rate >= 0) {
-        baseFee = Number(route.small_parcel_rate);
-      } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
-      }
     } else {
-      if (route.heavy_parcel_rate !== null && route.heavy_parcel_rate >= 0) {
-        baseFee = Number(route.heavy_parcel_rate);
+      const confSmall = route?.small_parcel_rate !== null && route?.small_parcel_rate !== undefined && Number(route.small_parcel_rate) >= 0 ? Number(route.small_parcel_rate) : null;
+      const confHeavy = route?.heavy_parcel_rate !== null && route?.heavy_parcel_rate !== undefined && Number(route.heavy_parcel_rate) >= 0 ? Number(route.heavy_parcel_rate) : null;
+      const confBulky = route?.furniture_bulky_rate !== null && route?.furniture_bulky_rate !== undefined && Number(route.furniture_bulky_rate) >= 0 ? Number(route.furniture_bulky_rate) : null;
+
+      const resSmall = confSmall ?? (confHeavy !== null ? Math.round(confHeavy * 0.5) : (confBulky !== null ? Math.round(confBulky * 0.25) : null));
+      const resHeavy = confHeavy ?? (confSmall !== null ? Math.round(confSmall * 2.2) : (confBulky !== null ? Math.round(confBulky * 0.5) : null));
+
+      if (effectiveClass === 'SMALL_PARCEL') {
+        if (resSmall !== null) {
+          baseFee = resSmall;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        if (resHeavy !== null) {
+          baseFee = resHeavy;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       }
     }
 
@@ -2044,9 +2075,10 @@ export function resolveProductDeliveryAttributes(
  */
 export function calculateConsolidatedDelivery(
   itemsOrParams: any[] | CalculateOrderDeliveryParams,
-  destinationState = 'Lagos',
-  destinationCity = 'Lagos',
-  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+  destinationState = '',
+  destinationCity = '',
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN,
+  routeOverride?: DeliveryRoute | null
 ): DeliveryCalculationResult {
   if (!Array.isArray(itemsOrParams) && itemsOrParams && Array.isArray(itemsOrParams.items)) {
     return calculateOrderDelivery(itemsOrParams);
@@ -2102,6 +2134,7 @@ export function calculateConsolidatedDelivery(
     destinationState,
     destinationCity,
     dispatchOrigin,
+    ...(routeOverride !== undefined ? { routeOverride } : {}),
   });
 }
 

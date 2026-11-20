@@ -7,7 +7,6 @@ import {
   findRouteInList,
   canonicalStateKey,
   canonicalCityKey,
-  normalizeLocationName,
   calculateOrderDelivery,
   calculateConsolidatedDelivery as calcConsolidatedFromItems,
   getOrderShipments,
@@ -52,14 +51,6 @@ function adaptBackendRoute(r: any): DeliveryRoute {
   };
 }
 
-function routeIdentity(r: DeliveryRoute): string {
-  return [
-    normalizeLocationName(r.dispatch_origin),
-    canonicalStateKey(r.destination_state),
-    canonicalCityKey(r.destination_city),
-  ].join('|');
-}
-
 /**
  * Single loader for the customer-facing route list. Combines the backend routes (if the
  * endpoint exists and has data) with the shared admin store. When both describe the same
@@ -67,8 +58,11 @@ function routeIdentity(r: DeliveryRoute): string {
  */
 async function loadActiveRoutes(): Promise<DeliveryRoute[]> {
   await syncDeliveryStoreFromServer();
+  const destKey = (r: DeliveryRoute) => `${canonicalStateKey(r.destination_state)}|${canonicalCityKey(r.destination_city)}`;
   const merged = new Map<string, DeliveryRoute>();
-  for (const r of listDeliveryRoutes(false)) merged.set(routeIdentity(r), r);
+  for (const r of listDeliveryRoutes(false)) {
+    if (r.is_active && r.destination_state) merged.set(destKey(r), r);
+  }
 
   try {
     const { data } = await apiClient.get('/api/v1/delivery/routes/', { params: { active_only: true } });
@@ -76,7 +70,7 @@ async function loadActiveRoutes(): Promise<DeliveryRoute[]> {
     for (const raw of list) {
       const r = adaptBackendRoute(raw);
       if (!r.is_active || !r.destination_state) continue;
-      const key = routeIdentity(r);
+      const key = destKey(r);
       const existing = merged.get(key);
       if (!existing || new Date(r.updated_at).getTime() > new Date(existing.updated_at).getTime()) {
         merged.set(key, r);
@@ -185,6 +179,7 @@ export const deliveryApi = {
     destinationCity = '',
     dispatchOrigin = 'Onitsha'
   ): Promise<DeliveryCalculationResult> => {
+    const origin = (dispatchOrigin && dispatchOrigin.trim()) || 'Onitsha';
     // The SAME route list that populates the checkout selectors is used for pricing,
     // so a destination the customer can pick is always priced against its configured route.
     const routes = await loadActiveRoutes();
@@ -194,16 +189,16 @@ export const deliveryApi = {
         routes,
         params.destinationState,
         params.destinationCity,
-        params.dispatchOrigin || dispatchOrigin
+        params.dispatchOrigin || origin
       ).route;
       return calculateOrderDelivery({ ...params, routeOverride: params.routeOverride ?? route });
     }
-    const route = findRouteInList(routes, destinationState, destinationCity, dispatchOrigin).route;
+    const route = findRouteInList(routes, destinationState, destinationCity, origin).route;
     return calcConsolidatedFromItems(
       itemsOrParams,
       destinationState,
       destinationCity,
-      dispatchOrigin,
+      origin,
       route
     );
   },

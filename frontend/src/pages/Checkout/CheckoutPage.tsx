@@ -12,6 +12,7 @@ import {
   listConfiguredCitiesForState,
   selectDestinationState,
   canonicalCityKey,
+  canonicalStateKey,
 } from '@/services/deliveryPricingService';
 import type {
   Address,
@@ -171,8 +172,7 @@ export default function CheckoutPage() {
       .calculateConsolidatedDelivery(
         effectiveItems,
         destinationState,
-        destinationCity,
-        ''
+        destinationCity
       )
       .then((res) => {
         if (!cancelled) {
@@ -415,7 +415,27 @@ export default function CheckoutPage() {
   const whatsAppMessage = `Hello DOVI Support, I want to place an order, but my delivery location is not currently listed. My location is ${destinationCity || '[Town/City]'}, ${destinationState || '[State]'}${cartRefText}. Please help me arrange delivery and confirm the delivery fee.`;
   const whatsAppUrl = `https://wa.me/${DOVI_SUPPORT_WHATSAPP}?text=${encodeURIComponent(whatsAppMessage)}`;
 
-  const isDestinationUnconfigured = hasDestination && deliveryCalculation && (deliveryCalculation.requires_manual_quote || deliveryFee === null);
+  const isDestinationUnconfigured =
+    hasDestination &&
+    !isCalculatingDelivery &&
+    Boolean(
+      deliveryCalculation
+        ? !deliveryCalculation.route_found
+        : !activeRoutes.some(
+            (r) =>
+              canonicalStateKey(r.destination_state) === canonicalStateKey(destinationState) &&
+              canonicalCityKey(r.destination_city) === canonicalCityKey(destinationCity)
+          )
+    );
+
+  const isSpecialCargoQuoteRequired =
+    hasDestination &&
+    !isCalculatingDelivery &&
+    Boolean(
+      deliveryCalculation &&
+        deliveryCalculation.route_found &&
+        (deliveryCalculation.requires_manual_quote || deliveryFee === null)
+    );
 
   return (
     <div className="container" style={pageStyles}>
@@ -860,6 +880,49 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : isSpecialCargoQuoteRequired ? (
+            /* Configured Destination: Special Cargo Quote Advice */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+              <div
+                style={{
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '12px',
+                  color: '#1e40af',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Special Cargo Delivery Arrangement</strong>
+                <p style={{ margin: '4px 0 0' }}>
+                  Delivery to {destinationCity}, {destinationState} is active and configured. Because of the volume or nature of items in your cart ({deliveryCalculation?.manual_quote_reasons.join(', ')}), specialized freight arrangement is required. Please contact our logistics support team on WhatsApp to confirm delivery details.
+                </p>
+              </div>
+
+              <a
+                href={whatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  backgroundColor: '#25D366',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.3)',
+                  transition: 'opacity 0.15s ease',
+                }}
+              >
+                <span>💬</span> Arrange Cargo Delivery via WhatsApp
+              </a>
             </div>
           ) : (
             /* Configured Destination: Active Proceed to Payment Button */
