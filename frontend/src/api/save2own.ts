@@ -577,14 +577,14 @@ export const save2ownApi = {
         plan = (payload.get('contribution_plan') as string) || 'WEEKLY';
         targetDate = (payload.get('target_date') as string) || '';
         quantity = parseInt((payload.get('quantity') as string) || '1', 10) || 1;
-        variantId = (payload.get('variant') as string) || (payload.get('variant_id') as string) || '';
+        variantId = (payload.get('variant_id') as string) || (payload.get('variant') as string) || '';
 
-        // Ensure both variant and variant_id are present for backend compatibility
-        if (!reqFormData.get('variant') && variantId) {
-          reqFormData.append('variant', variantId);
-        }
-        if (!reqFormData.get('variant_id') && variantId) {
-          reqFormData.append('variant_id', variantId);
+        // CRITICAL FIX: Django model serializer defines variant_id as write-only field.
+        // Passing 'variant' triggers a 500 TypeError in Django.
+        // Ensure 'variant' is completely stripped and ONLY 'variant_id' is sent.
+        reqFormData.delete('variant');
+        if (variantId) {
+          reqFormData.set('variant_id', variantId);
         }
         if (!reqFormData.get('terms_acknowledged')) {
           reqFormData.append('terms_acknowledged', 'true');
@@ -615,7 +615,7 @@ export const save2ownApi = {
         targetDate = payload.target_date || '';
         quantity = payload.quantity || 1;
 
-        reqFormData.append('variant', variantId);
+        // CRITICAL FIX: ONLY append 'variant_id', NEVER 'variant'
         reqFormData.append('variant_id', variantId);
         if (payload.product_id) reqFormData.append('product_id', payload.product_id);
         reqFormData.append('quantity', String(quantity));
