@@ -20,6 +20,10 @@ function doviSharedDeliveryDbPlugin() {
       categories: null,
       productCategoryAssignments: {},
       homepagePlacements: {},
+      save2ownGoals: [],
+      save2ownParticipants: [],
+      save2ownContributions: [],
+      save2ownRefunds: [],
     };
   };
   const writeStore = (data: unknown) => {
@@ -51,6 +55,10 @@ function doviSharedDeliveryDbPlugin() {
         orderShipments: s.orderShipments || s.order_shipments || {},
         homepagePlacements: s.homepagePlacements || {},
         homepageSections: s.homepageSections || [],
+        save2ownGoals: s.save2ownGoals || [],
+        save2ownParticipants: s.save2ownParticipants || [],
+        save2ownContributions: s.save2ownContributions || [],
+        save2ownRefunds: s.save2ownRefunds || [],
       };
       res.end(JSON.stringify(payload));
       return;
@@ -93,6 +101,10 @@ function doviSharedDeliveryDbPlugin() {
             homepageSections: incoming.homepageSections !== undefined
               ? incoming.homepageSections
               : (current.homepageSections || []),
+            save2ownGoals: incoming.save2ownGoals !== undefined ? incoming.save2ownGoals : (current.save2ownGoals || []),
+            save2ownParticipants: incoming.save2ownParticipants !== undefined ? incoming.save2ownParticipants : (current.save2ownParticipants || []),
+            save2ownContributions: incoming.save2ownContributions !== undefined ? incoming.save2ownContributions : (current.save2ownContributions || []),
+            save2ownRefunds: incoming.save2ownRefunds !== undefined ? incoming.save2ownRefunds : (current.save2ownRefunds || []),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

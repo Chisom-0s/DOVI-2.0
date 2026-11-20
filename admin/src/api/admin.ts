@@ -512,6 +512,51 @@ function saveStoredBanners(banners: HomepageBanner[]) {
   } catch {}
 }
 
+
+// ============================================================
+// Shared Save2Own Database Synchronization (Admin)
+// ============================================================
+async function getSharedSave2OwnDb(): Promise<{
+  save2ownGoals: any[];
+  save2ownParticipants: any[];
+  save2ownContributions: any[];
+  save2ownRefunds: any[];
+}> {
+  try {
+    const res = await fetch('/__dovi_delivery_db__');
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        save2ownGoals: Array.isArray(data.save2ownGoals) ? data.save2ownGoals : [],
+        save2ownParticipants: Array.isArray(data.save2ownParticipants) ? data.save2ownParticipants : [],
+        save2ownContributions: Array.isArray(data.save2ownContributions) ? data.save2ownContributions : [],
+        save2ownRefunds: Array.isArray(data.save2ownRefunds) ? data.save2ownRefunds : [],
+      };
+    }
+  } catch {}
+  return {
+    save2ownGoals: JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]'),
+    save2ownParticipants: JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]'),
+    save2ownContributions: JSON.parse(localStorage.getItem('dovi_global_s2o_contribs') || '[]'),
+    save2ownRefunds: [],
+  };
+}
+
+export async function syncSharedSave2OwnDb(partial: {
+  save2ownGoals?: any[];
+  save2ownParticipants?: any[];
+  save2ownContributions?: any[];
+  save2ownRefunds?: any[];
+}) {
+  try {
+    await fetch('/__dovi_delivery_db__', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+  } catch {}
+}
+
 export const adminApi = {
 // --- Homepage Banners CMS ---
   listHomepageBanners: async (): Promise<HomepageBanner[]> => {
@@ -797,7 +842,7 @@ export const adminApi = {
       return null;
     };
 
-    const [orders, users, vendors, products, refunds, goals, contributions, payments, serverOverview] =
+    const [orders, users, vendors, products, refunds, goals, contributions, payments, deliveries, serverOverview] =
       await Promise.all([
         load('Orders', ['/api/v1/orders/']),
         load('Users', ['/api/v1/admin/users/']),
@@ -807,6 +852,7 @@ export const adminApi = {
         load('Save2Own goals', ['/api/v1/admin/save2own/goals/', '/api/v1/save2own/goals/']),
         load('Save2Own contributions', ['/api/v1/admin/save2own/contributions/']),
         load('Payments', ['/api/v1/admin/payments/']),
+        load('Deliveries', ['/api/v1/delivery/', '/api/v1/admin/delivery/']),
         apiClient
           .get('/api/v1/admin/analytics/overview/')
           .then((r) => r.data)
@@ -839,6 +885,7 @@ export const adminApi = {
       refunds: refunds || [],
       goals: goals || [],
       contributions: contributions || [],
+      deliveries: deliveries || [],
       range,
     });
 
@@ -2331,40 +2378,136 @@ export const adminApi = {
   listSave2OwnParticipants: async (params?: {
     page?: number;
     q?: string;
+    search?: string;
     status?: string;
     identity_locked?: string;
   }): Promise<PaginatedResponse<AdminSave2OwnParticipant>> => {
+    let serverParts: any[] = [];
+    const queryParams: Record<string, any> = {};
+    if (params?.page) queryParams.page = params.page;
+    if (params?.status) queryParams.status = params.status;
+    if (params?.q || params?.search) queryParams.search = params.search || params.q;
+
     try {
-      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
-      return data;
-    } catch {
-      let list = getStoredParticipants();
-      if (params?.status) {
-        list = list.filter((p) => (p.goal_status || '').toUpperCase() === params.status!.toUpperCase());
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params: queryParams });
+      if (data && Array.isArray(data.results)) {
+        serverParts = data.results;
+      } else if (Array.isArray(data)) {
+        serverParts = data;
       }
-      if (params?.identity_locked !== undefined && params?.identity_locked !== '') {
-        const isLocked = params.identity_locked === 'true';
-        list = list.filter((p) => Boolean(p.identity_locked) === isLocked);
-      }
-      if (params?.q) {
-        const q = params.q.toLowerCase();
-        list = list.filter(
-          (p) =>
-            p.full_name?.toLowerCase().includes(q) ||
-            p.email?.toLowerCase().includes(q) ||
-            p.phone_number?.toLowerCase().includes(q) ||
-            p.goal_id?.toLowerCase().includes(q) ||
-            p.product_name?.toLowerCase().includes(q)
-        );
-      }
-      const page = params?.page || 1;
-      return {
-        count: list.length,
-        next: null,
-        previous: null,
-        results: list.slice((page - 1) * 20, page * 20),
-      };
+    } catch (err) {
+      console.warn('[adminApi] Backend participants endpoint unavailable, merging shared records:', err);
     }
+
+    // Merge with shared DB and derived participants from goals
+    let sharedParts: any[] = [];
+    let sharedGoals: any[] = [];
+    try {
+      const db = await getSharedSave2OwnDb();
+      sharedParts = db.save2ownParticipants || [];
+      sharedGoals = db.save2ownGoals || [];
+    } catch {}
+
+    const localStoredParts = getStoredParticipants();
+
+    const normalizeParticipant = (p: any): AdminSave2OwnParticipant => {
+      const id = String(p.id || p.participant_id || p.goal_id || p.goal || 'part-anon');
+      return {
+        id,
+        user_id: String(p.user_id || p.user || p.buyer || id),
+        user_email: p.user_email || p.email || '',
+        goal_id: String(p.goal_id || p.goal || ''),
+        goal_reference: p.goal_reference || p.reference_code || (p.goal_id ? `DOV-S2O-${String(p.goal_id).slice(0, 6).toUpperCase()}` : 'S2O-GOAL'),
+        product_name: p.product_name || p.product?.name || 'Save2Own Item',
+        target_amount: String(p.target_amount || '0.00'),
+        saved_amount: String(p.saved_amount || p.total_contributed || '0.00'),
+        remaining_amount: String(p.remaining_amount || '0.00'),
+        progress_percent: p.progress_percent || p.progress_percentage || 0,
+        goal_status: (p.goal_status || p.status || 'ACTIVE').toUpperCase(),
+        full_name: p.full_name || p.registered_name || p.name || 'Save2Own Customer',
+        email: p.email || p.user_email || '',
+        phone: p.phone || p.phone_number || '',
+        phone_number: p.phone_number || p.phone || '',
+        whatsapp_number: p.whatsapp_number || p.phone || '',
+        address: p.address || p.residential_address || '',
+        city: p.city || 'Lagos',
+        state: p.state || 'Lagos',
+        country: p.country || 'Nigeria',
+        selfie_url: p.selfie_url || p.selfie || null,
+        identity_locked: p.identity_locked !== false,
+        identity_locked_at: p.identity_locked_at || p.created_at || null,
+        identity_unlocked_at: p.identity_unlocked_at || null,
+        identity_unlock_expires_at: p.identity_unlock_expires_at || null,
+        created_at: p.created_at || new Date().toISOString(),
+        updated_at: p.updated_at || new Date().toISOString(),
+      };
+    };
+
+    const partsMap = new Map<string, AdminSave2OwnParticipant>();
+    [...serverParts, ...sharedParts, ...localStoredParts].forEach((raw) => {
+      if (raw) {
+        const norm = normalizeParticipant(raw);
+        const key = norm.id || norm.email || norm.goal_id;
+        if (key && !partsMap.has(key)) {
+          partsMap.set(key, norm);
+        }
+      }
+    });
+
+    sharedGoals.forEach((g: any) => {
+      const gPart = g.participant;
+      const key = gPart?.id || gPart?.email || g.id;
+      if (key && !partsMap.has(key)) {
+        partsMap.set(key, normalizeParticipant({
+          id: gPart?.id || `part-${g.id}`,
+          user: g.buyer || g.user_id,
+          goal: g.id,
+          goal_reference: g.reference_code,
+          product_name: g.product?.name || g.product_name,
+          target_amount: g.target_amount,
+          saved_amount: g.saved_amount || g.total_contributed,
+          goal_status: g.status,
+          full_name: gPart?.full_name || 'Save2Own Customer',
+          email: gPart?.email || '',
+          phone: gPart?.phone || gPart?.whatsapp_number || '',
+          whatsapp_number: gPart?.whatsapp_number || '',
+          address: gPart?.address || gPart?.residential_address || '',
+          identity_locked: gPart?.identity_locked ?? true,
+          created_at: g.created_at,
+          updated_at: g.updated_at,
+        }));
+      }
+    });
+
+    let list = Array.from(partsMap.values());
+
+    if (params?.status) {
+      const targetStatus = params.status.toUpperCase();
+      list = list.filter((p) => p.goal_status === targetStatus);
+    }
+    if (params?.identity_locked !== undefined && params?.identity_locked !== '') {
+      const isLocked = params.identity_locked === 'true';
+      list = list.filter((p) => p.identity_locked === isLocked);
+    }
+    const qTerm = (params?.search || params?.q || '').toLowerCase().trim();
+    if (qTerm) {
+      list = list.filter(
+        (p) =>
+          p.full_name?.toLowerCase().includes(qTerm) ||
+          p.email?.toLowerCase().includes(qTerm) ||
+          p.phone_number?.toLowerCase().includes(qTerm) ||
+          p.goal_reference?.toLowerCase().includes(qTerm) ||
+          p.product_name?.toLowerCase().includes(qTerm)
+      );
+    }
+
+    const page = params?.page || 1;
+    return {
+      count: list.length,
+      next: null,
+      previous: null,
+      results: list.slice((page - 1) * 20, page * 20),
+    };
   },
 
   getSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {

@@ -49,6 +49,7 @@ export interface RawAnalyticsInput {
   refunds: any[];
   goals: any[];
   contributions: any[];
+  deliveries?: any[];
   range?: AnalyticsRange;
   now?: Date;
 }
@@ -70,21 +71,26 @@ export interface AnalyticsOverviewResult {
     other: number;
   };
   revenue: {
-    /** marketplace order revenue in the selected range (revenue statuses only) */
     range_total: number;
     today: number;
     week: number;
     month: number;
     refunded_in_range: number;
     net_range_total: number;
-    /** verified successful payments in range (cross-check; null when payments list unavailable) */
     verified_payments_total: number | null;
     revenue_basis: 'orders';
   };
   save2own: {
     goals_by_status: Record<string, number>;
     active_goals: number;
+    paused_goals: number;
+    completed_goals: number;
+    draft_goals: number;
+    cancelled_goals: number;
+    suspended_goals: number;
+    payment_review_goals: number;
     total_goals: number;
+    total_participants: number;
     confirmed_contributions: number;
     pending_contributions: number;
     rejected_contributions: number;
@@ -92,9 +98,41 @@ export interface AnalyticsOverviewResult {
     confirmed_amount: number;
     pending_amount: number;
   };
-  refunds: { pending: number; by_status: Record<string, number> };
-  recent_orders: Array<{ reference: string; total: string; status: string; created_at: string }>;
-  recent_users: Array<{ id: string; email: string; first_name: string; last_name: string; date_joined: string }>;
+  deliveries?: {
+    total: number;
+    pending: number;
+    in_transit: number;
+    delivered: number;
+    cancelled: number;
+    fees_collected: number;
+    by_destination: Record<string, number>;
+  };
+  payments_summary?: {
+    total_attempts: number;
+    successful: number;
+    pending: number;
+    failed: number;
+    refunded: number;
+    verified_amount: number;
+    outstanding_amount: number;
+  };
+  refunds: {
+    pending: number;
+    by_status: Record<string, number>;
+  };
+  recent_orders: Array<{
+    reference: string;
+    total: string;
+    status: string;
+    created_at: string;
+  }>;
+  recent_users: Array<{
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    date_joined: string;
+  }>;
   warnings: string[];
 }
 
@@ -301,7 +339,14 @@ export function computeAnalytics(input: RawAnalyticsInput): AnalyticsOverviewRes
         (goalsByStatus['IN_PROGRESS'] || 0) +
         (goalsByStatus['ONGOING'] || 0) +
         (goalsByStatus['OPEN'] || 0),
+      paused_goals: goalsByStatus['PAUSED'] || 0,
+      completed_goals: goalsByStatus['COMPLETED'] || 0,
+      draft_goals: goalsByStatus['DRAFT'] || 0,
+      cancelled_goals: goalsByStatus['CANCELLED'] || 0,
+      suspended_goals: goalsByStatus['SUSPENDED'] || 0,
+      payment_review_goals: goalsByStatus['PAYMENT_REVIEW'] || 0,
       total_goals: goals.length,
+      total_participants: new Set(goals.map((g) => g.participant?.id || g.participant?.email || g.buyer || g.user_id || g.id)).size,
       confirmed_contributions: confirmed.length,
       pending_contributions: pendingC.length,
       rejected_contributions: rejectedC.length,
@@ -309,6 +354,40 @@ export function computeAnalytics(input: RawAnalyticsInput): AnalyticsOverviewRes
       confirmed_amount: round2(confirmed.reduce((a, c) => a + toNumber(c?.amount), 0)),
       pending_amount: round2(pendingC.reduce((a, c) => a + toNumber(c?.amount), 0)),
     },
+    deliveries: (() => {
+      const delList = input.deliveries || [];
+      const fees = delList.reduce((acc: number, d: any) => acc + toNumber(d?.delivery_fee || d?.fee || 0), 0);
+      const byDest: Record<string, number> = {};
+      delList.forEach((d) => {
+        const dest = d.destination_state || d.state || 'Other';
+        byDest[dest] = (byDest[dest] || 0) + 1;
+      });
+      return {
+        total: delList.length,
+        pending: delList.filter((d) => ['PENDING', 'AWAITING_DISPATCH'].includes((d.status || '').toUpperCase())).length,
+        in_transit: delList.filter((d) => ['IN_TRANSIT', 'PICKED_UP', 'DISPATCHED', 'OUT_FOR_DELIVERY'].includes((d.status || '').toUpperCase())).length,
+        delivered: delList.filter((d) => (d.status || '').toUpperCase() === 'DELIVERED').length,
+        cancelled: delList.filter((d) => (d.status || '').toUpperCase() === 'CANCELLED').length,
+        fees_collected: round2(fees),
+        by_destination: byDest,
+      };
+    })(),
+    payments_summary: (() => {
+      const pList = input.payments || [];
+      const succ = pList.filter((p) => ['SUCCESSFUL', 'SUCCESS', 'PAID', 'VERIFIED'].includes((p.status || '').toUpperCase()));
+      const pend = pList.filter((p) => ['PENDING', 'INITIALIZED', 'PROCESSING'].includes((p.status || '').toUpperCase()));
+      const fail = pList.filter((p) => ['FAILED', 'REJECTED', 'ABANDONED'].includes((p.status || '').toUpperCase()));
+      const ref = pList.filter((p) => ['REFUNDED', 'REVERSED'].includes((p.status || '').toUpperCase()));
+      return {
+        total_attempts: pList.length,
+        successful: succ.length,
+        pending: pend.length,
+        failed: fail.length,
+        refunded: ref.length,
+        verified_amount: round2(succ.reduce((a: number, p: any) => a + toNumber(p?.amount), 0)),
+        outstanding_amount: round2(pend.reduce((a: number, p: any) => a + toNumber(p?.amount), 0)),
+      };
+    })(),
     refunds: {
       pending: (refundsByStatus['PENDING'] || 0) + (refundsByStatus['UNDER_REVIEW'] || 0),
       by_status: refundsByStatus,

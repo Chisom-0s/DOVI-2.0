@@ -453,9 +453,9 @@ export default function Save2OwnCreateGoalPage() {
         apiErr?.code === 'SERVER_ERROR' ||
         apiErr?.code === 'INTERNAL_SERVER_ERROR'
       ) {
-        toast.error('Could not create goal. You may already have an active Save2Own goal in progress.');
+        toast.error(apiErr?.message || 'Server error while registering Save2Own goal. Please try again.');
       } else {
-        toast.error(apiErr?.message || 'Failed to register Save2Own goal.');
+        toast.error(apiErr?.message || 'Failed to register Save2Own goal. Please verify all details.');
       }
     } finally {
       setIsSubmitting(false);

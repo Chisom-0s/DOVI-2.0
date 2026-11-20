@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ordersApi } from '@/api/orders';
 import { notificationsApi } from '@/api/notifications';
+import { save2ownApi } from '@/api/save2own';
+import type { Save2OwnGoalSummary } from '@/types';
 import { formatPrice } from '@/utils/currency';
 import type { OrderSummary, Notification } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -11,6 +13,8 @@ export default function DashboardOverviewPage() {
   const { user } = useAuth();
   const [recentOrders, setRecentOrders] = useState<OrderSummary[]>([]);
   const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
+  const [activeGoals, setActiveGoals] = useState<Save2OwnGoalSummary[]>([]);
+  const [isLoadingGoals, setIsLoadingGoals] = useState(true);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
 
@@ -39,6 +43,18 @@ export default function DashboardOverviewPage() {
 
     loadOrders();
     loadNotifications();
+
+    const loadGoals = async () => {
+      try {
+        const data = await save2ownApi.listGoals();
+        setActiveGoals((data.results || []).filter(g => !['COMPLETED', 'CANCELLED'].includes((g.status || '').toUpperCase())));
+      } catch (err) {
+        console.warn('Failed to load active Save2Own goals on dashboard overview:', err);
+      } finally {
+        setIsLoadingGoals(false);
+      }
+    };
+    loadGoals();
   }, []);
 
   const formatCurrency = (val: string) => formatPrice(val);
@@ -67,6 +83,71 @@ export default function DashboardOverviewPage() {
       </div>
 
       <div style={gridStyles}>
+        {/* Active Save2Own Goal Card */}
+        <div style={widgetCardStyles}>
+          <div style={widgetHeaderStyles}>
+            <h3 style={widgetTitleStyles}>Save2Own Savings Goal</h3>
+            <Link to="/save2own/goals" style={widgetLinkStyles}>View Goals</Link>
+          </div>
+
+          {isLoadingGoals ? (
+            <div style={listContainerStyles}>
+              <Skeleton width="100%" height="80px" borderRadius="var(--radius-md)" />
+            </div>
+          ) : activeGoals.length === 0 ? (
+            <div style={emptyStyles}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+              <p style={emptyTextStyles}>No active Save2Own goal in progress.</p>
+              <Link to="/products" style={actionLinkStyles}>Browse Eligible Items</Link>
+            </div>
+          ) : (
+            <div style={listContainerStyles}>
+              {activeGoals.slice(0, 2).map((goal) => (
+                <Link
+                  key={goal.id}
+                  to={`/save2own/goals/${goal.id}`}
+                  style={{ ...orderItemStyles, display: 'block', padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <strong style={{ fontSize: '13px', color: 'var(--color-text-main)' }}>{goal.product?.name || 'Selected Item'}</strong>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(39, 174, 96, 0.12)',
+                        color: 'var(--color-success)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {goal.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+                    <span>Saved: <strong style={{ color: 'var(--color-text-main)' }}>{formatCurrency(goal.total_contributed || '0')}</strong></span>
+                    <span>Target: {formatCurrency(goal.target_amount)}</span>
+                  </div>
+                  <div style={{ height: '6px', width: '100%', backgroundColor: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.min(100, Math.max(0, goal.progress_percentage || 0))}%`,
+                        backgroundColor: '#ff7a00',
+                        borderRadius: '3px',
+                      }}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Recent Orders Card */}
         <div style={widgetCardStyles}>
           <div style={widgetHeaderStyles}>

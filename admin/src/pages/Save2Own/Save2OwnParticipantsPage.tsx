@@ -331,6 +331,7 @@ export default function Save2OwnParticipantsPage() {
               <option value="PAYMENT_REVIEW">Payment Review</option>
               <option value="PRICE_CHANGED">Price Shifted</option>
               <option value="SUSPENDED">Suspended</option>
+              <option value="DRAFT">Draft</option>
             </select>
           </div>
 
@@ -418,7 +419,7 @@ export default function Save2OwnParticipantsPage() {
                   {/* Product & Goal Reference */}
                   <td style={tdStyles}>
                     <Link
-                      to={`/save2own/${p.goal_id}`}
+                      to={`/save2own/${p.goal_id || p.id}`}
                       style={{ fontSize: '12px', fontWeight: 700, color: '#ff7a00', textDecoration: 'none' }}
                     >
                       {p.product_name}

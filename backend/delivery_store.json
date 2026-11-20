@@ -3282,5 +3282,9 @@
       ],
       "is_custom": false
     }
-  ]
+  ],
+  "save2ownGoals": [],
+  "save2ownParticipants": [],
+  "save2ownContributions": [],
+  "save2ownRefunds": []
 }

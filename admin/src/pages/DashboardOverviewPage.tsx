@@ -270,6 +270,128 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
+      {/* Save2Own & Delivery Analytics Summary Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        {/* Save2Own Lifecycle & Participants */}
+        <div style={cardStyles}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={cardTitleStyles}>Save2Own Goals &amp; Participants</h3>
+            <a href="/save2own" style={{ fontSize: '12px', color: '#ff7a00', fontWeight: 600, textDecoration: 'none' }}>
+              Participants ({data.save2own?.total_participants ?? 0}) →
+            </a>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Active Goals</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{data.save2own?.active_goals ?? 0}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Accumulating savings</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Paused Goals</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{data.save2own?.paused_goals ?? 0}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Temporary hold</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Completed</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#8b5cf6', marginTop: '2px' }}>{data.save2own?.completed_goals ?? 0}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>100% Funded &amp; Ordered</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Draft / New</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#6b7280', marginTop: '2px' }}>{data.save2own?.draft_goals ?? 0}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Pending activation</div>
+            </div>
+          </div>
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+            <span>Verified Savings Capital: <strong style={{ color: '#10b981' }}>{formatCurrency(data.save2own?.confirmed_amount)}</strong></span>
+            <span>Pending Review: <strong style={{ color: '#f59e0b' }}>{formatCurrency(data.save2own?.pending_amount)}</strong></span>
+          </div>
+        </div>
+
+        {/* Deliveries & Fulfillment Status */}
+        <div style={cardStyles}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={cardTitleStyles}>Delivery &amp; Logistics Overview</h3>
+            <a href="/delivery/routes" style={{ fontSize: '12px', color: '#ff7a00', fontWeight: 600, textDecoration: 'none' }}>
+              Delivery Routes →
+            </a>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Total Deliveries</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>{data.deliveries?.total ?? orders.total}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Direct to destination</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>In Transit</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#0ea5e9', marginTop: '2px' }}>{data.deliveries?.in_transit ?? orders.in_fulfilment}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Dispatched &amp; En Route</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Delivered</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{data.deliveries?.delivered ?? orders.completed}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Successfully fulfilled</div>
+            </div>
+            <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Fees Collected</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#1f2937', marginTop: '4px' }}>{formatCurrency(data.deliveries?.fees_collected ?? 0)}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>Admin route rates</div>
+            </div>
+          </div>
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', fontSize: '12px', color: '#6b7280' }}>
+            <span>Fulfillment Model: <strong>Direct to Customer Destination</strong> (Strictly No Hubs)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Verification & Financial Integrity Summary */}
+      <div style={{ ...cardStyles, marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={cardTitleStyles}>Payment Analytics &amp; Financial Verification</h3>
+          <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+            🛡️ Verified Revenue Basis: Actual Transactions
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+          <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+            <div style={{ fontSize: '11px', color: '#065f46', textTransform: 'uppercase', fontWeight: 700 }}>Verified Collections</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#047857', marginTop: '4px' }}>
+              {formatCurrency(data.payments_summary?.verified_amount ?? data.revenue?.range_total)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#059669', marginTop: '2px' }}>
+              {data.payments_summary?.successful ?? orders.completed} successful transactions
+            </div>
+          </div>
+          <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
+            <div style={{ fontSize: '11px', color: '#92400e', textTransform: 'uppercase', fontWeight: 700 }}>Pending Payment Value</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#b45309', marginTop: '4px' }}>
+              {formatCurrency(data.payments_summary?.outstanding_amount ?? 0)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#d97706', marginTop: '2px' }}>
+              {data.payments_summary?.pending ?? orders.pending} sessions awaiting confirmation
+            </div>
+          </div>
+          <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+            <div style={{ fontSize: '11px', color: '#991b1b', textTransform: 'uppercase', fontWeight: 700 }}>Failed / Rejected Attempts</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#dc2626', marginTop: '4px' }}>
+              {data.payments_summary?.failed ?? 0}
+            </div>
+            <div style={{ fontSize: '11px', color: '#b91c1c', marginTop: '2px' }}>
+              Excluded from revenue totals
+            </div>
+          </div>
+          <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe' }}>
+            <div style={{ fontSize: '11px', color: '#5b21b6', textTransform: 'uppercase', fontWeight: 700 }}>Refunds Processed</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#6d28d9', marginTop: '4px' }}>
+              {formatCurrency(data.revenue?.refunded_in_range ?? 0)}
+            </div>
+            <div style={{ fontSize: '11px', color: '#7c3aed', marginTop: '2px' }}>
+              {data.refunds?.pending ?? 0} pending review
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Lists Row: Recent Orders & Recent Users */}
       <div style={listsGridStyles}>
         {/* Recent Orders */}
@@ -292,7 +414,7 @@ export default function DashboardOverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.recent_orders.map((o) => (
+                  {data.recent_orders.map((o: any) => (
                     <tr key={o.reference} style={tableRowStyles}>
                       <td style={{ ...tableCellStyles, fontWeight: 700 }}>
                         <a href={`/orders?ref=${o.reference}`} style={{ color: '#ff7a00', textDecoration: 'none' }}>
@@ -324,7 +446,7 @@ export default function DashboardOverviewPage() {
           </div>
           {data.recent_users && data.recent_users.length > 0 ? (
             <div style={listWrapperStyles}>
-              {data.recent_users.map((u) => (
+              {data.recent_users.map((u: any) => (
                 <div key={u.id} style={userItemStyles}>
                   <div style={userAvatarStyles}>
                     {u.first_name?.[0]?.toUpperCase() ?? u.email?.[0]?.toUpperCase() ?? 'U'}
