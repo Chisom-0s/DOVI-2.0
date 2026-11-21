@@ -149,7 +149,7 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
           boxSizing: 'border-box',
         }}
       >
-        Powered by Malc Nexus Technologies Limited.
+        Powered by DOVIGRADE VENTURES LTD.
       </div>
     </div>
   );
