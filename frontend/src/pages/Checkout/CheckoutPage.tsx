@@ -21,6 +21,7 @@ import type {
   DeliveryRoute,
 } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
+import { getProductImageUrl, CLEAN_PRODUCT_PLACEHOLDER } from '@/utils/image';
 
 const DOVI_SUPPORT_WHATSAPP = '2347067402413';
 
@@ -698,11 +699,11 @@ export default function CheckoutPage() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <img
-                      src={item.product?.primary_image_url || (item as any).imageUrl || '/logo.jpg?v=2'}
-                      alt={item.product?.name || 'Item'}
-                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px' }}
+                      src={getProductImageUrl(item.product || { ...item, id: item.product_id || item.id, name: item.product_name })}
+                      alt={item.product?.name || item.product_name || 'Item'}
+                      style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px' }}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                        (e.target as HTMLImageElement).src = CLEAN_PRODUCT_PLACEHOLDER;
                       }}
                     />
                     <div>

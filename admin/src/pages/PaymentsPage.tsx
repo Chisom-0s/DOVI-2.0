@@ -16,8 +16,18 @@ export default function PaymentsPage() {
   // Row Selection State for Exporting
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
 
-  // Selected Payment (Inspect Only - Read-only details)
+  // Selected Payment for Review Modal
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+
+  // Rejection modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [paymentToReject, setPaymentToReject] = useState<Payment | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('Payment not received in DOVI bank account');
+  const [customRejectionReason, setCustomRejectionReason] = useState('');
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  // Receipt image zoom modal
+  const [zoomedReceiptUrl, setZoomedReceiptUrl] = useState<string | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -32,10 +42,10 @@ export default function PaymentsPage() {
         status: statusFilter || undefined,
       });
       setPayments(res.results || []);
-      setTotalPages(Math.ceil(res.count / 20) || 1);
+      setTotalPages(Math.ceil((res.count || 1) / 20) || 1);
     } catch (err: any) {
       setError(err);
-      toast.error('Failed to load payment logs.');
+      toast.error('Failed to load payments.');
     } finally {
       if (showSkeleton) setIsLoading(false);
     }
@@ -69,6 +79,60 @@ export default function PaymentsPage() {
       next.add(id);
     }
     setSelectedPaymentIds(next);
+  };
+
+  const handleApprovePayment = async (payment: Payment) => {
+    if (!window.confirm(`Approve payment of ${formatCurrency(payment.amount, payment.currency)} for order ${payment.order_reference}?`)) {
+      return;
+    }
+
+    setIsProcessingAction(true);
+    try {
+      await adminApi.verifyPayment(payment.id || payment.order_reference || '');
+      toast.success(`Payment for order ${payment.order_reference} approved! Order updated to Processing.`);
+      if (selectedPayment?.id === payment.id) {
+        setSelectedPayment(null);
+      }
+      await fetchPayments(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to approve payment.');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleOpenRejectModal = (payment: Payment) => {
+    setPaymentToReject(payment);
+    setRejectionReason('Payment not received in DOVI bank account');
+    setCustomRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!paymentToReject) return;
+    const finalReason = rejectionReason === 'Other' ? customRejectionReason.trim() : rejectionReason;
+    if (!finalReason) {
+      toast.error('Please specify a rejection reason.');
+      return;
+    }
+
+    setIsProcessingAction(true);
+    try {
+      await adminApi.rejectPayment(paymentToReject.id || paymentToReject.order_reference || '', {
+        rejection_reason: finalReason,
+      });
+      toast.success(`Payment rejected for order ${paymentToReject.order_reference}.`);
+      setShowRejectModal(false);
+      setPaymentToReject(null);
+      if (selectedPayment?.id === paymentToReject.id) {
+        setSelectedPayment(null);
+      }
+      await fetchPayments(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reject payment.');
+    } finally {
+      setIsProcessingAction(false);
+    }
   };
 
   const handleExportSelectedDocx = () => {
@@ -109,12 +173,15 @@ export default function PaymentsPage() {
     toast.success(`Exported ${payments.length} transactions to PDF`);
   };
 
+  const pendingCount = payments.filter(
+    (p) => (p.status || '').toUpperCase() === 'PENDING_VERIFICATION' || (p.status || '').toUpperCase() === 'PENDING'
+  ).length;
+
   if (isLoading) {
     return (
       <div style={containerStyles}>
         <div style={titleHeaderStyles}>
-          <h2 style={titleStyles}>Payment Monitoring</h2>
-          <span style={viewOnlyBadgeStyles}>View-Only logs</span>
+          <h2 style={titleStyles}>Payment Verification Console</h2>
         </div>
         <Skeleton width="100%" height="300px" borderRadius="12px" />
       </div>
@@ -125,53 +192,107 @@ export default function PaymentsPage() {
     <div style={containerStyles}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div style={titleHeaderStyles}>
-          <h2 style={titleStyles}>Payment Monitoring</h2>
-          <span style={viewOnlyBadgeStyles}>Read-Only logs</span>
+          <div>
+            <h2 style={titleStyles}>Payment Verification Console</h2>
+            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
+              Verify customer manual bank transfers, inspect payment receipts, approve or reject transactions.
+            </p>
+          </div>
         </div>
 
         {/* Action Export Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {selectedPaymentIds.size > 0 && (
             <>
-              <button
-                type="button"
-                onClick={handleExportSelectedDocx}
-                style={exportBtnStyles}
-              >
+              <button type="button" onClick={handleExportSelectedDocx} style={exportBtnStyles}>
                 📄 Export Selected ({selectedPaymentIds.size}) DOCX
               </button>
-              <button
-                type="button"
-                onClick={handleExportSelectedPdf}
-                style={exportBtnStyles}
-              >
+              <button type="button" onClick={handleExportSelectedPdf} style={exportBtnStyles}>
                 📕 Export Selected ({selectedPaymentIds.size}) PDF
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={handleExportAllDocx}
-            style={secondaryExportBtnStyles}
-          >
-            📥 Export All Transactions DOCX
+          <button type="button" onClick={handleExportAllDocx} style={secondaryExportBtnStyles}>
+            📥 Export All DOCX
           </button>
-          <button
-            type="button"
-            onClick={handleExportAllPdf}
-            style={secondaryExportBtnStyles}
-          >
-            📥 Export All Transactions PDF
+          <button type="button" onClick={handleExportAllPdf} style={secondaryExportBtnStyles}>
+            📥 Export All PDF
           </button>
         </div>
       </div>
 
       <ApiErrorMessage error={error} />
 
-      {/* Filter / Search Bar */}
+      {/* Filter / Status Tabs */}
       <div style={filterBarStyles}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('');
+              setPage(1);
+            }}
+            style={{
+              ...tabButtonStyles,
+              backgroundColor: statusFilter === '' ? 'var(--color-primary, #ff7a00)' : '#f3f4f6',
+              color: statusFilter === '' ? '#ffffff' : '#374151',
+              fontWeight: statusFilter === '' ? 700 : 500,
+            }}
+          >
+            All Submissions
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('PENDING_VERIFICATION');
+              setPage(1);
+            }}
+            style={{
+              ...tabButtonStyles,
+              backgroundColor: statusFilter === 'PENDING_VERIFICATION' ? '#f59e0b' : '#f3f4f6',
+              color: statusFilter === 'PENDING_VERIFICATION' ? '#ffffff' : '#374151',
+              fontWeight: statusFilter === 'PENDING_VERIFICATION' ? 700 : 500,
+            }}
+          >
+            Pending Verification {pendingCount > 0 && `(${pendingCount})`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('VERIFIED');
+              setPage(1);
+            }}
+            style={{
+              ...tabButtonStyles,
+              backgroundColor: statusFilter === 'VERIFIED' ? '#10b981' : '#f3f4f6',
+              color: statusFilter === 'VERIFIED' ? '#ffffff' : '#374151',
+              fontWeight: statusFilter === 'VERIFIED' ? 700 : 500,
+            }}
+          >
+            Verified / Approved
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('REJECTED');
+              setPage(1);
+            }}
+            style={{
+              ...tabButtonStyles,
+              backgroundColor: statusFilter === 'REJECTED' ? '#ef4444' : '#f3f4f6',
+              color: statusFilter === 'REJECTED' ? '#ffffff' : '#374151',
+              fontWeight: statusFilter === 'REJECTED' ? 700 : 500,
+            }}
+          >
+            Rejected
+          </button>
+        </div>
+
         <div style={filterWrapperStyles}>
-          <label style={filterLabelStyles}>Payment Status:</label>
+          <label style={filterLabelStyles}>Detailed Filter:</label>
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -180,26 +301,27 @@ export default function PaymentsPage() {
             }}
             style={selectStyles}
           >
-            <option value="">All Payments</option>
-            <option value="PENDING">Pending Transaction</option>
-            <option value="SUCCESSFUL">Successful</option>
+            <option value="">All Statuses</option>
+            <option value="PENDING_VERIFICATION">Pending Verification</option>
+            <option value="VERIFIED">Verified / Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="SUCCESSFUL">Legacy Successful</option>
             <option value="FAILED">Failed</option>
-            <option value="REFUNDED">Refunded</option>
           </select>
         </div>
       </div>
 
-      {/* Warning indicator */}
+      {/* Verification Notice */}
       <div style={infoAlertStyles}>
-        🔒 <strong>Administrative Notice:</strong> This log is strictly for transaction reconciliation. Payment gateway statuses are pulled in real-time from OPay and Flutterwave integration webhooks. No manual manipulation is allowed.
+        💳 <strong>Manual Bank Transfer Verification:</strong> DOVI operates strictly on verified bank transfers. When a customer submits their payment receipt, compare it against your bank statement before approving. Approving a payment will immediately advance the customer&apos;s order to Processing.
       </div>
 
       {/* Payments Table */}
       {payments.length === 0 ? (
         <EmptyState
           icon="💳"
-          title="No Payments Logged"
-          subtitle="Try adjusting your status filters."
+          title="No Payments Found"
+          subtitle="Try adjusting your status filter."
         />
       ) : (
         <div style={tableCardStyles}>
@@ -217,47 +339,134 @@ export default function PaymentsPage() {
                   </th>
                   <th style={tableHeaderCellStyles}>Payment Ref</th>
                   <th style={tableHeaderCellStyles}>Order Ref</th>
-                  <th style={tableHeaderCellStyles}>Gateway Provider</th>
+                  <th style={tableHeaderCellStyles}>Sender Bank &amp; Name</th>
                   <th style={tableHeaderCellStyles}>Amount</th>
-                  <th style={tableHeaderCellStyles}>Date Initiated</th>
+                  <th style={tableHeaderCellStyles}>Receipt</th>
+                  <th style={tableHeaderCellStyles}>Date Submitted</th>
                   <th style={tableHeaderCellStyles}>Status</th>
-                  <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Details</th>
+                  <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
-                  <tr key={p.id} style={tableRowStyles}>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedPaymentIds.has(p.id)}
-                        onChange={() => handleToggleSelectPayment(p.id)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    </td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>{p.reference}</td>
-                    <td style={tableCellStyles}>
-                      <a href={`/orders?ref=${p.order_reference}`} style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
-                        {p.order_reference}
-                      </a>
-                    </td>
-                    <td style={tableCellStyles}>{p.provider}</td>
-                    <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(p.amount, p.currency)}</td>
-                    <td style={tableCellStyles}>{new Date(p.created_at).toLocaleString()}</td>
-                    <td style={tableCellStyles}>
-                      <span style={statusBadgeStyles(p.status)}>{p.status}</span>
-                    </td>
-                    <td style={{ ...tableCellStyles, textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPayment(p)}
-                        style={viewBtnStyles}
-                      >
-                        Inspect
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {payments.map((p) => {
+                  const isPending =
+                    (p.status || '').toUpperCase() === 'PENDING_VERIFICATION' ||
+                    (p.status || '').toUpperCase() === 'PENDING';
+
+                  return (
+                    <tr key={p.id} style={tableRowStyles}>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedPaymentIds.has(p.id)}
+                          onChange={() => handleToggleSelectPayment(p.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                        {p.reference || p.payment_reference || p.id}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <a
+                          href={`/orders?ref=${p.order_reference}`}
+                          style={{ color: 'var(--color-primary)', fontWeight: 700 }}
+                        >
+                          {p.order_reference}
+                        </a>
+                      </td>
+                      <td style={tableCellStyles}>
+                        <div style={{ fontWeight: 600 }}>{p.sender_bank || 'Bank Transfer'}</div>
+                        {p.sender_account_name && (
+                          <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                            {p.sender_account_name}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                        {formatCurrency(p.amount, p.currency)}
+                      </td>
+                      <td style={tableCellStyles}>
+                        {p.payment_proof_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setZoomedReceiptUrl(p.payment_proof_url || null)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <img
+                              src={p.payment_proof_url}
+                              alt="Receipt"
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                objectFit: 'cover',
+                                borderRadius: '4px',
+                                border: '1px solid #cbd5e1',
+                              }}
+                            />
+                            <span style={{ fontSize: '11px', color: '#2563eb', textDecoration: 'underline' }}>
+                              View
+                            </span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#9ca3af' }}>No file</span>
+                        )}
+                      </td>
+                      <td style={tableCellStyles}>
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <span style={statusBadgeStyles(p.status)}>{p.status}</span>
+                      </td>
+                      <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPayment(p)}
+                            style={viewBtnStyles}
+                          >
+                            Review
+                          </button>
+                          {isPending && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApprovePayment(p)}
+                                disabled={isProcessingAction}
+                                style={{
+                                  ...actionBtnStyles,
+                                  backgroundColor: '#10b981',
+                                  color: '#ffffff',
+                                }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRejectModal(p)}
+                                disabled={isProcessingAction}
+                                style={{
+                                  ...actionBtnStyles,
+                                  backgroundColor: '#ef4444',
+                                  color: '#ffffff',
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -268,16 +477,18 @@ export default function PaymentsPage() {
               <button
                 type="button"
                 disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
+                onClick={() => setPage((p) => p - 1)}
                 style={pageBtnStyles}
               >
                 Previous
               </button>
-              <span style={pageLabelStyles}>Page {page} of {totalPages}</span>
+              <span style={pageLabelStyles}>
+                Page {page} of {totalPages}
+              </span>
               <button
                 type="button"
                 disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
+                onClick={() => setPage((p) => p + 1)}
                 style={pageBtnStyles}
               >
                 Next
@@ -287,60 +498,338 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* Inspect Payment Modal (Strictly Read Only) */}
+      {/* Review / Inspect Payment Modal */}
       {selectedPayment && (
         <div style={modalBackdropStyles}>
-          <div style={modalContentStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '600px' }}>
             <div style={modalHeaderStyles}>
-              <h3 style={modalTitleStyles}>Transaction Reconciliation</h3>
-              <button type="button" onClick={() => setSelectedPayment(null)} style={closeBtnStyles}>&times;</button>
+              <h3 style={modalTitleStyles}>Review Payment Submission</h3>
+              <button
+                type="button"
+                onClick={() => setSelectedPayment(null)}
+                style={closeBtnStyles}
+              >
+                &times;
+              </button>
             </div>
 
             <div style={detailsGridStyles}>
               <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Internal Payment Ref</span>
-                <span style={detailValueStyles}>{selectedPayment.reference}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Order Reference Link</span>
-                <span style={detailValueStyles}>{selectedPayment.order_reference}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Gateway Provider</span>
-                <span style={detailValueStyles}>{selectedPayment.provider}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>External Gateway Ref</span>
-                <span style={detailValueStyles}>{selectedPayment.provider_reference || 'Pending/None'}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Total Amount Charged</span>
-                <span style={detailValueStyles}>{formatCurrency(selectedPayment.amount, selectedPayment.currency)}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Initiation Timestamp</span>
-                <span style={detailValueStyles}>{new Date(selectedPayment.created_at).toLocaleString()}</span>
-              </div>
-              <div style={detailItemStyles}>
-                <span style={detailLabelStyles}>Gateway Verif Timestamp</span>
+                <span style={detailLabelStyles}>Order Reference</span>
                 <span style={detailValueStyles}>
-                  {selectedPayment.verified_at ? new Date(selectedPayment.verified_at).toLocaleString() : 'Unverified'}
+                  <a
+                    href={`/orders?ref=${selectedPayment.order_reference}`}
+                    style={{ color: 'var(--color-primary)', fontWeight: 700 }}
+                  >
+                    {selectedPayment.order_reference}
+                  </a>
                 </span>
               </div>
+
+              <div style={detailItemStyles}>
+                <span style={detailLabelStyles}>Payment Reference</span>
+                <span style={detailValueStyles}>
+                  {selectedPayment.reference || selectedPayment.payment_reference || selectedPayment.id}
+                </span>
+              </div>
+
+              <div style={detailItemStyles}>
+                <span style={detailLabelStyles}>Amount Payable</span>
+                <span style={{ ...detailValueStyles, fontSize: '16px', color: '#0f172a' }}>
+                  {formatCurrency(selectedPayment.amount, selectedPayment.currency)}
+                </span>
+              </div>
+
+              <div style={detailItemStyles}>
+                <span style={detailLabelStyles}>Sender Bank</span>
+                <span style={detailValueStyles}>
+                  {selectedPayment.sender_bank || 'Manual Bank Transfer'}
+                </span>
+              </div>
+
+              <div style={detailItemStyles}>
+                <span style={detailLabelStyles}>Sender Account Name</span>
+                <span style={detailValueStyles}>
+                  {selectedPayment.sender_account_name || 'Not provided'}
+                </span>
+              </div>
+
+              {selectedPayment.transaction_reference && (
+                <div style={detailItemStyles}>
+                  <span style={detailLabelStyles}>Transaction Narration / ID</span>
+                  <span style={detailValueStyles}>{selectedPayment.transaction_reference}</span>
+                </div>
+              )}
+
+              <div style={detailItemStyles}>
+                <span style={detailLabelStyles}>Submission Date</span>
+                <span style={detailValueStyles}>
+                  {new Date(selectedPayment.created_at).toLocaleString()}
+                </span>
+              </div>
+
               <div style={{ ...detailItemStyles, border: 'none' }}>
                 <span style={detailLabelStyles}>Current Status</span>
                 <span style={{ display: 'inline-block' }}>
-                  <span style={statusBadgeStyles(selectedPayment.status)}>{selectedPayment.status}</span>
+                  <span style={statusBadgeStyles(selectedPayment.status)}>
+                    {selectedPayment.status}
+                  </span>
                 </span>
               </div>
+
+              {selectedPayment.rejection_reason && (
+                <div
+                  style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: '#991b1b',
+                    fontSize: '13px',
+                  }}
+                >
+                  <strong>Rejection Reason:</strong> {selectedPayment.rejection_reason}
+                </div>
+              )}
+
+              {/* Receipt Preview */}
+              {selectedPayment.payment_proof_url ? (
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Uploaded Payment Receipt:
+                  </span>
+                  <div style={{ textAlign: 'center' }}>
+                    <img
+                      src={selectedPayment.payment_proof_url}
+                      alt="Uploaded Receipt"
+                      style={{
+                        maxHeight: '260px',
+                        maxWidth: '100%',
+                        objectFit: 'contain',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setZoomedReceiptUrl(selectedPayment.payment_proof_url || null)}
+                    />
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                      (Click image to zoom full screen)
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>
+                  No payment receipt image uploaded.
+                </div>
+              )}
             </div>
 
             <div style={modalActionsStyles}>
-              <span style={readOnlyPromptStyles}>🔒 Log is locked and immutable</span>
-              <button type="button" onClick={() => setSelectedPayment(null)} style={modalCloseBtnStyles}>
-                Close Inspect
+              {((selectedPayment.status || '').toUpperCase() === 'PENDING_VERIFICATION' ||
+                (selectedPayment.status || '').toUpperCase() === 'PENDING') ? (
+                <div style={{ display: 'flex', gap: '8px', width: '100%', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRejectModal(selectedPayment)}
+                    disabled={isProcessingAction}
+                    style={{
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Reject Payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApprovePayment(selectedPayment)}
+                    disabled={isProcessingAction}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Approve Payment
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment(null)}
+                  style={modalCloseBtnStyles}
+                >
+                  Close
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && paymentToReject && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '460px' }}>
+            <div style={modalHeaderStyles}>
+              <h3 style={{ ...modalTitleStyles, color: '#dc2626' }}>Reject Payment</h3>
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                style={closeBtnStyles}
+              >
+                &times;
               </button>
             </div>
+
+            <p style={{ fontSize: '13px', color: '#4b5563', lineHeight: 1.5 }}>
+              Select the reason why the payment for order <strong>{paymentToReject.order_reference}</strong> is being rejected. This reason will be displayed to the customer so they can resolve the issue and submit a new receipt.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                Rejection Reason:
+              </label>
+              <select
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="Payment not received in DOVI bank account">
+                  Payment not received in DOVI bank account
+                </option>
+                <option value="Amount transferred is less than required order total">
+                  Amount transferred is less than required order total
+                </option>
+                <option value="Receipt image is blurry, cropped, or illegible">
+                  Receipt image is blurry, cropped, or illegible
+                </option>
+                <option value="Sender name does not match transaction record">
+                  Sender name does not match transaction record
+                </option>
+                <option value="Duplicate or fraudulent transaction receipt">
+                  Duplicate or fraudulent transaction receipt
+                </option>
+                <option value="Other">Other (custom explanation)</option>
+              </select>
+
+              {rejectionReason === 'Other' && (
+                <textarea
+                  rows={3}
+                  placeholder="Specify detailed reason for rejection..."
+                  value={customRejectionReason}
+                  onChange={(e) => setCustomRejectionReason(e.target.value)}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    resize: 'none',
+                  }}
+                />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                style={{
+                  backgroundColor: '#f3f4f6',
+                  color: '#4b5563',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isProcessingAction}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {isProcessingAction ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zoom Receipt Modal */}
+      {zoomedReceiptUrl && (
+        <div
+          style={{ ...modalBackdropStyles, zIndex: 1000 }}
+          onClick={() => setZoomedReceiptUrl(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <img
+              src={zoomedReceiptUrl}
+              alt="Receipt Full View"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setZoomedReceiptUrl(null)}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                color: '#ffffff',
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                fontSize: '20px',
+                cursor: 'pointer',
+              }}
+            >
+              &times;
+            </button>
           </div>
         </div>
       )}
@@ -349,17 +838,18 @@ export default function PaymentsPage() {
 }
 
 // Badge status helper
-const statusBadgeStyles = (status: string): React.CSSProperties => {
+const statusBadgeStyles = (status?: string): React.CSSProperties => {
+  const s = (status || '').toUpperCase();
   let backgroundColor = '#e5e7eb';
   let color = '#4b5563';
 
-  if (status === 'SUCCESSFUL') {
+  if (s === 'VERIFIED' || s === 'SUCCESS' || s === 'SUCCESSFUL') {
     backgroundColor = '#d1fae5';
     color = '#065f46';
-  } else if (status === 'PENDING') {
+  } else if (s === 'PENDING_VERIFICATION' || s === 'PENDING') {
     backgroundColor = '#fef3c7';
     color = '#92400e';
-  } else if (status === 'FAILED' || status === 'REFUNDED') {
+  } else if (s === 'REJECTED' || s === 'FAILED' || s === 'REFUNDED') {
     backgroundColor = '#fee2e2';
     color = '#991b1b';
   }
@@ -367,9 +857,9 @@ const statusBadgeStyles = (status: string): React.CSSProperties => {
   return {
     backgroundColor,
     color,
-    padding: '2px 8px',
+    padding: '3px 8px',
     borderRadius: '4px',
-    fontSize: '10px',
+    fontSize: '11px',
     fontWeight: 700,
     textTransform: 'uppercase',
   };
@@ -397,23 +887,21 @@ const titleStyles: React.CSSProperties = {
   margin: 0,
 };
 
-const viewOnlyBadgeStyles: React.CSSProperties = {
-  fontSize: '10px',
-  fontWeight: 700,
-  backgroundColor: '#f3f4f6',
-  color: '#9ca3af',
-  padding: '4px 10px',
-  borderRadius: '9999px',
-  textTransform: 'uppercase',
-  border: '1px solid #e5e7eb',
-};
-
 const filterBarStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
   flexWrap: 'wrap',
   gap: '16px',
+};
+
+const tabButtonStyles: React.CSSProperties = {
+  padding: '6px 14px',
+  borderRadius: '8px',
+  border: 'none',
+  fontSize: '13px',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
 };
 
 const filterWrapperStyles: React.CSSProperties = {
@@ -484,7 +972,7 @@ const tableRowStyles: React.CSSProperties = {
 };
 
 const tableCellStyles: React.CSSProperties = {
-  padding: '16px var(--space-4)',
+  padding: '14px var(--space-4)',
   color: '#374151',
 };
 
@@ -492,10 +980,19 @@ const viewBtnStyles: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 700,
   color: '#ff7a00',
-  border: '1px solid rgba(255,122,0,0.2)',
+  border: '1px solid rgba(255,122,0,0.25)',
   padding: '4px 10px',
-  borderRadius: '9999px',
-  backgroundColor: 'transparent',
+  borderRadius: '6px',
+  backgroundColor: 'rgba(255,122,0,0.05)',
+  cursor: 'pointer',
+};
+
+const actionBtnStyles: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 700,
+  border: 'none',
+  padding: '4px 10px',
+  borderRadius: '6px',
   cursor: 'pointer',
 };
 
@@ -543,6 +1040,8 @@ const modalContentStyles: React.CSSProperties = {
   padding: '24px',
   maxWidth: '480px',
   width: '100%',
+  maxHeight: '90vh',
+  overflowY: 'auto',
   boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
 };
 
@@ -601,17 +1100,11 @@ const modalActionsStyles: React.CSSProperties = {
   marginTop: '24px',
 };
 
-const readOnlyPromptStyles: React.CSSProperties = {
-  fontSize: '11px',
-  color: '#9ca3af',
-  fontWeight: 600,
-};
-
 const modalCloseBtnStyles: React.CSSProperties = {
   backgroundColor: '#f3f4f6',
   color: '#4b5563',
   padding: '8px 16px',
-  borderRadius: '9999px',
+  borderRadius: '8px',
   fontSize: '12px',
   fontWeight: 700,
   cursor: 'pointer',

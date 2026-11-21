@@ -1078,28 +1078,18 @@ export function parseHomepageMetadataFromDescription(description?: string | null
 }
 
 /**
- * Injects homepage metadata into a product description.
+ * Sanitizes a product description by removing internal metadata comments.
+ * Internal homepage metadata is preserved authoritatively in dedicated storage,
+ * never polluting customer-facing descriptions.
  */
 export function injectHomepageMetadataIntoDescription(
   description: string = '',
-  placement: Partial<ProductHomepagePlacement>
+  _placement?: Partial<ProductHomepagePlacement>
 ): string {
-  const cleaned = (description || '').replace(/\s*<!--\s*DOVI_HOMEPAGE:\s*\{[\s\S]*?\}\s*-->\s*/gi, '').trim();
-  const payload = JSON.stringify({
-    is_best_seller: Boolean(placement.is_best_seller),
-    is_trending: Boolean(placement.is_trending),
-    is_new_arrival: Boolean(placement.is_new_arrival),
-    is_hot_sale: Boolean(placement.is_hot_sale),
-    is_flash_deal: Boolean(placement.is_flash_deal),
-    is_discount: Boolean(placement.is_discount),
-    is_featured: Boolean(placement.is_featured),
-    custom_section_ids: placement.custom_section_ids || [],
-    section_orders: placement.section_orders || {},
-    flash_sale: placement.flash_sale || null,
-    discount_config: placement.discount_config || null,
-    updated_at: placement.updated_at || new Date().toISOString(),
-  });
-  return `${cleaned}\n\n<!-- DOVI_HOMEPAGE: ${payload} -->`.trim();
+  return (description || '')
+    .replace(/\s*<!--[\s\S]*?-->\s*/gi, '')
+    .replace(/DOVI_HOMEPAGE:\s*\{[\s\S]*?\}/gi, '')
+    .trim();
 }
 
 /**

@@ -29,9 +29,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // ============================================================
 // AuthProvider
 // Session strategy:
-//   - Access token: in memory via tokenStore (not localStorage)
-//   - Refresh token: httpOnly cookie (set by Django, not readable from JS)
+//   - Access token: in memory via tokenStore (and cached in localStorage)
+//   - Refresh token: localStorage + httpOnly cookie
 //   - On mount: attempt token refresh to restore session after page reload
+//   - Proactive refresh every 10 minutes to prevent unexpected logout
 // ============================================================
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => tokenStore.getUser<User>());
@@ -115,6 +116,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ----------------------------------------------------------
+  // Proactive token refresh (every 10 minutes) while user is logged in
+  // ----------------------------------------------------------
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      const refresh = tokenStore.getRefresh();
+      if (!refresh) return;
+
+      try {
+        const tokens = await authApi.refreshToken(refresh);
+        tokenStore.set(tokens.access);
+        if (tokens.refresh) {
+          tokenStore.setRefresh(tokens.refresh);
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Proactive token refresh failed.', err);
+      }
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // ----------------------------------------------------------
   // login()
   // ----------------------------------------------------------
   const login = useCallback(async (credentials: LoginRequest): Promise<User> => {
@@ -133,7 +158,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     } catch (e) {}
     return result.user;
-    // Note: Django sets the refresh token as an httpOnly cookie
   }, []);
 
   // ----------------------------------------------------------

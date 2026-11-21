@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
 import { productsApi } from '@/api/products';
+import { SEED_REAL_PRODUCTS } from '@/api/homepage';
 import { getProductHomepagePlacement, isFlashSaleActiveNow, isDiscountActiveNow } from '@/services/homepagePlacementService';
 import { notificationsApi } from '@/api/notifications';
 import { useAuth } from './AuthContext';
@@ -55,7 +56,7 @@ export function getCartItemMeta(variantId?: string, productName?: string, produc
 export function findKnownProduct(variantId?: string, productName?: string, productId?: string): any | null {
   // 1. Check local cart product registry
   const meta = getCartItemMeta(variantId, productName, productId);
-  if (meta && meta.productId) {
+  if (meta && meta.productId && meta.imageUrl) {
     return {
       id: meta.productId,
       name: meta.name,
@@ -65,25 +66,42 @@ export function findKnownProduct(variantId?: string, productName?: string, produ
     };
   }
 
+  // Helper searcher
+  const searchList = (list: any[]) => {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    if (productId) {
+      const byId = list.find((p: any) => p && (p.id === productId || p.uuid === productId));
+      if (byId) return byId;
+    }
+    if (variantId) {
+      const byVar = list.find((p: any) => p && Array.isArray(p.variants) && p.variants.some((v: any) => v && v.id === variantId));
+      if (byVar) return byVar;
+    }
+    if (productName) {
+      const norm = productName.toLowerCase().trim();
+      const byName = list.find((p: any) => p && p.name && p.name.toLowerCase().trim() === norm);
+      if (byName) return byName;
+    }
+    return null;
+  };
+
   // 2. Check cached real backend products from sessionStorage
   try {
-    const cachedReal = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
-    if (Array.isArray(cachedReal)) {
-      if (variantId) {
-        const byVar = cachedReal.find((p: any) => Array.isArray(p.variants) && p.variants.some((v: any) => v.id === variantId));
-        if (byVar) return byVar;
-      }
-      if (productName) {
-        const norm = productName.toLowerCase().trim();
-        const byName = cachedReal.find((p: any) => p.name?.toLowerCase().trim() === norm);
-        if (byName) return byName;
-      }
-      if (productId) {
-        const byId = cachedReal.find((p: any) => p.id === productId);
-        if (byId) return byId;
-      }
-    }
+    const fromSession = JSON.parse(sessionStorage.getItem('dovi_real_products_cache') || '[]');
+    const hit = searchList(fromSession);
+    if (hit) return hit;
   } catch {}
+
+  // 3. Check cached real backend products from localStorage
+  try {
+    const fromLocal = JSON.parse(localStorage.getItem('dovi_real_products_cache') || '[]');
+    const hit = searchList(fromLocal);
+    if (hit) return hit;
+  } catch {}
+
+  // 4. Check SEED_REAL_PRODUCTS catalog
+  const hitSeed = searchList(SEED_REAL_PRODUCTS);
+  if (hitSeed) return hitSeed;
 
   return null;
 }

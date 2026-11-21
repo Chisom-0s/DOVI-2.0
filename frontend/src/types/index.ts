@@ -407,8 +407,16 @@ export interface OrderSummary {
 // ----------------------------------------------------------
 // PAYMENTS
 // ----------------------------------------------------------
-export type PaymentStatus = 'PENDING' | 'SUCCESSFUL' | 'FAILED' | 'REFUNDED';
-export type PaymentProvider = 'FLUTTERWAVE' | 'OPAY';
+export type PaymentStatus =
+  | 'PENDING'
+  | 'PENDING_VERIFICATION'
+  | 'VERIFIED'
+  | 'SUCCESS'
+  | 'SUCCESSFUL'
+  | 'FAILED'
+  | 'REJECTED'
+  | 'REFUNDED';
+export type PaymentProvider = 'BANK_TRANSFER' | 'MANUAL_TRANSFER' | 'FLUTTERWAVE' | 'OPAY';
 
 export interface PaymentMethod {
   id: PaymentProvider;
@@ -426,10 +434,17 @@ export interface Payment {
   status: PaymentStatus;
   amount: string;
   currency: string;
-  payment_link: string | null;
-  provider_reference: string | null;
+  payment_link?: string | null;
+  provider_reference?: string | null;
+  sender_bank?: string;
+  sender_account_name?: string;
+  payment_proof_url?: string;
+  transaction_reference?: string;
+  notes?: string;
+  verified_by?: string | null;
+  rejection_reason?: string | null;
   created_at: string;
-  verified_at: string | null;
+  verified_at?: string | null;
 }
 
 export interface PaymentInitResponse {
@@ -1000,6 +1015,7 @@ export interface Order {
 }
 
 export interface CheckoutSession {
+  order_reference?: string;
   shipments?: OrderShipment[];
   shipment_count?: number;
   delivery_calculation?: DeliveryCalculationResult;

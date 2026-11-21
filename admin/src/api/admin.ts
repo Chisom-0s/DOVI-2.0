@@ -1767,41 +1767,167 @@ export const adminApi = {
     }
   },
 
-  // --- Payments Monitoring ---
+  // --- Payments Verification & Monitoring ---
   listPayments: async (params?: { page?: number; status?: string; provider?: string }): Promise<PaginatedResponse<Payment>> => {
+    let submittedPayments: Payment[] = [];
+    try {
+      const raw = localStorage.getItem('dovi_payments_submissions');
+      if (raw) {
+        submittedPayments = JSON.parse(raw);
+      }
+    } catch {}
+
     try {
       const { data } = await apiClient.get('/api/v1/admin/payments/', { params });
-      return data;
-    } catch {
-      // Derive payment logs from /api/v1/orders/
-      try {
-        const { data } = await apiClient.get('/api/v1/orders/', { params: { page: params?.page } });
-        const orders: any[] = Array.isArray(data) ? data : (data?.results || []);
-        const payments: Payment[] = orders.map((o: any) => ({
-          id: `pay-${o.id}`,
-          order_id: o.id,
-          order_reference: o.reference_code || o.reference || `ORD-${o.id.substring(0, 8)}`,
-          amount: String(o.total_amount || '0'),
-          currency: 'NGN',
-          provider: 'FLUTTERWAVE',
-          payment_reference: `PAY-${o.reference_code || o.id.substring(0, 8)}`,
-          status: (o.status === 'PAID' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'SUCCESS' : o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
-          created_at: o.created_at || new Date().toISOString(),
-        }));
-        let filtered = payments;
+      if (data && Array.isArray(data.results)) {
+        const combined = [
+          ...submittedPayments,
+          ...data.results.filter((p: any) => !submittedPayments.some((s) => s.order_reference === p.order_reference)),
+        ];
+        let filtered = combined;
         if (params?.status) {
-          filtered = filtered.filter((p) => p.status.toLowerCase() === params.status?.toLowerCase());
+          filtered = filtered.filter((p) => (p.status || '').toLowerCase() === params.status?.toLowerCase());
         }
         return {
-          count: data?.count ?? filtered.length,
-          next: data?.next || null,
-          previous: data?.previous || null,
+          count: filtered.length,
+          next: null,
+          previous: null,
           results: filtered,
         };
-      } catch {
-        return { count: 0, next: null, previous: null, results: [] };
       }
+    } catch {}
+
+    // Fallback: combine submitted payments with orders
+    try {
+      const { data } = await apiClient.get('/api/v1/orders/', { params: { page: params?.page } });
+      const orders: any[] = Array.isArray(data) ? data : (data?.results || []);
+      const orderPayments: Payment[] = orders.map((o: any) => {
+        const orderRef = o.reference_code || o.reference || `ORD-${o.id.substring(0, 8)}`;
+        const existingSub = submittedPayments.find((s) => s.order_reference === orderRef);
+        if (existingSub) return existingSub;
+
+        return {
+          id: `pay-${o.id}`,
+          order_id: o.id,
+          order_reference: orderRef,
+          amount: String(o.total_amount || '0'),
+          currency: 'NGN',
+          provider: 'BANK_TRANSFER' as const,
+          payment_reference: `PAY-${orderRef}`,
+          status: o.status === 'PENDING_VERIFICATION' ? 'PENDING_VERIFICATION' :
+                  (o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'VERIFIED' :
+                  o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
+          created_at: o.created_at || new Date().toISOString(),
+        };
+      });
+
+      const all = [
+        ...submittedPayments,
+        ...orderPayments.filter((op) => !submittedPayments.some((sp) => sp.order_reference === op.order_reference)),
+      ];
+      let filtered = all;
+      if (params?.status) {
+        filtered = filtered.filter((p) => (p.status || '').toLowerCase() === params.status?.toLowerCase());
+      }
+      return {
+        count: filtered.length,
+        next: null,
+        previous: null,
+        results: filtered,
+      };
+    } catch {
+      let filtered = submittedPayments;
+      if (params?.status) {
+        filtered = filtered.filter((p) => (p.status || '').toLowerCase() === params.status?.toLowerCase());
+      }
+      return { count: filtered.length, next: null, previous: null, results: filtered };
     }
+  },
+
+  verifyPayment: async (id: string, payload?: { notes?: string }): Promise<any> => {
+    try {
+      await apiClient.post(`/api/v1/admin/payments/${id}/verify/`, payload);
+    } catch {}
+
+    try {
+      const raw = localStorage.getItem('dovi_payments_submissions');
+      if (raw) {
+        const list: Payment[] = JSON.parse(raw);
+        const updated = list.map((p) => {
+          if (p.id === id || p.reference === id || p.order_reference === id) {
+            return {
+              ...p,
+              status: 'VERIFIED' as const,
+              verified_at: new Date().toISOString(),
+              verified_by: 'Administrator',
+              notes: payload?.notes || p.notes,
+            };
+          }
+          return p;
+        });
+        localStorage.setItem('dovi_payments_submissions', JSON.stringify(updated));
+      }
+
+      const ordersRaw = localStorage.getItem('dovi_orders');
+      if (ordersRaw) {
+        const orders = JSON.parse(ordersRaw);
+        if (Array.isArray(orders)) {
+          const updated = orders.map((o: any) => {
+            if (o.reference_code === id || o.reference === id || o.id === id || `pay-${o.id}` === id) {
+              return { ...o, status: 'PROCESSING', payment_status: 'PAID' };
+            }
+            return o;
+          });
+          localStorage.setItem('dovi_orders', JSON.stringify(updated));
+        }
+      }
+    } catch {}
+
+    addAuditLogEntry('PAYMENT_VERIFIED', `Verified bank transfer payment ${id}`, id);
+    return { success: true, message: 'Payment verified successfully.' };
+  },
+
+  rejectPayment: async (id: string, payload: { rejection_reason: string }): Promise<any> => {
+    try {
+      await apiClient.post(`/api/v1/admin/payments/${id}/reject/`, payload);
+    } catch {}
+
+    try {
+      const raw = localStorage.getItem('dovi_payments_submissions');
+      if (raw) {
+        const list: Payment[] = JSON.parse(raw);
+        const updated = list.map((p) => {
+          if (p.id === id || p.reference === id || p.order_reference === id) {
+            return {
+              ...p,
+              status: 'REJECTED' as const,
+              rejection_reason: payload.rejection_reason,
+              verified_by: 'Administrator',
+              verified_at: new Date().toISOString(),
+            };
+          }
+          return p;
+        });
+        localStorage.setItem('dovi_payments_submissions', JSON.stringify(updated));
+      }
+
+      const ordersRaw = localStorage.getItem('dovi_orders');
+      if (ordersRaw) {
+        const orders = JSON.parse(ordersRaw);
+        if (Array.isArray(orders)) {
+          const updated = orders.map((o: any) => {
+            if (o.reference_code === id || o.reference === id || o.id === id || `pay-${o.id}` === id) {
+              return { ...o, status: 'PAYMENT_FAILED', payment_status: 'REJECTED' };
+            }
+            return o;
+          });
+          localStorage.setItem('dovi_orders', JSON.stringify(updated));
+        }
+      }
+    } catch {}
+
+    addAuditLogEntry('PAYMENT_REJECTED', `Rejected bank transfer payment ${id}: ${payload.rejection_reason}`, id);
+    return { success: true, message: 'Payment rejected.' };
   },
 
   getPayment: async (ref: string): Promise<Payment> => {
@@ -1810,6 +1936,13 @@ export const adminApi = {
       return data;
     } catch {
       try {
+        const raw = localStorage.getItem('dovi_payments_submissions');
+        if (raw) {
+          const list: Payment[] = JSON.parse(raw);
+          const found = list.find((p) => p.id === ref || p.reference === ref || p.order_reference === ref);
+          if (found) return found;
+        }
+
         const orderId = ref.startsWith('pay-') ? ref.slice(4) : ref;
         const { data: o } = await apiClient.get(`/api/v1/orders/${orderId}/`);
         return {
@@ -1818,9 +1951,11 @@ export const adminApi = {
           order_reference: o.reference_code || o.reference || `ORD-${o.id.substring(0, 8)}`,
           amount: String(o.total_amount || '0'),
           currency: 'NGN',
-          provider: 'FLUTTERWAVE',
+          provider: 'BANK_TRANSFER',
           payment_reference: `PAY-${o.reference_code || o.id.substring(0, 8)}`,
-          status: (o.status === 'PAID' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'SUCCESS' : o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
+          status: o.status === 'PENDING_VERIFICATION' ? 'PENDING_VERIFICATION' :
+                  (o.status === 'PAID' || o.status === 'PROCESSING' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'VERIFIED' :
+                  o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
           created_at: o.created_at || new Date().toISOString(),
         };
       } catch {}
@@ -1830,9 +1965,9 @@ export const adminApi = {
         order_reference: ref,
         amount: '0.00',
         currency: 'NGN',
-        provider: 'FLUTTERWAVE',
+        provider: 'BANK_TRANSFER',
         payment_reference: ref,
-        status: 'PENDING',
+        status: 'PENDING_VERIFICATION',
         created_at: new Date().toISOString(),
       };
     }

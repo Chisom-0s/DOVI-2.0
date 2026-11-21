@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
+import FlashSalesMarquee from '@/components/home/FlashSalesMarquee';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import type { HomepageSection, ProductSummary } from '@/types';
 import {
@@ -122,6 +123,10 @@ export default function HomePage() {
         );
       }
       return null;
+    }
+
+    if (section.key === 'FLASH_DEALS') {
+      return <FlashSalesMarquee products={products} />;
     }
 
     switch (layout) {

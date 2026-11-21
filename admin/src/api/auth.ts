@@ -8,7 +8,27 @@ export const authApi = {
       const access = data.access || data.tokens?.access || '';
       const refresh = data.refresh || data.tokens?.refresh || '';
       tokenStore.set(access);
+      if (refresh) {
+        tokenStore.setRefresh(refresh);
+      }
       return { access, refresh };
+    } catch (err) {
+      throw normalizeApiError(err);
+    }
+  },
+
+  refreshToken: async (refresh?: string): Promise<AuthTokens> => {
+    try {
+      const storedRefresh = refresh || tokenStore.getRefresh();
+      const { data } = await apiClient.post<AuthTokens>(
+        '/api/v1/auth/token/refresh/',
+        storedRefresh ? { refresh: storedRefresh } : {}
+      );
+      tokenStore.set(data.access);
+      if (data.refresh) {
+        tokenStore.setRefresh(data.refresh);
+      }
+      return data;
     } catch (err) {
       throw normalizeApiError(err);
     }

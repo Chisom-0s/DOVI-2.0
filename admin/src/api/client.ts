@@ -6,7 +6,10 @@ import type { APIError, AuthTokens } from '@/types';
 // Token storage (persisted in localStorage for Admin SPA)
 // ============================================================
 const ADMIN_TOKEN_KEY = 'dovi_admin_token';
+const ADMIN_REFRESH_TOKEN_KEY = 'dovi_admin_refresh_token';
+const ADMIN_USER_KEY = 'dovi_admin_user';
 let accessToken: string | null = null;
+let refreshToken: string | null = null;
 
 export const tokenStore = {
   get: () => {
@@ -30,15 +33,54 @@ export const tokenStore = {
       }
     } catch {}
   },
+  getRefresh: () => {
+    if (refreshToken) return refreshToken;
+    try {
+      const stored = localStorage.getItem(ADMIN_REFRESH_TOKEN_KEY);
+      if (stored) {
+        refreshToken = stored;
+        return stored;
+      }
+    } catch {}
+    return null;
+  },
+  setRefresh: (token: string | null) => {
+    refreshToken = token;
+    try {
+      if (token) {
+        localStorage.setItem(ADMIN_REFRESH_TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
+      }
+    } catch {}
+  },
+  getUser: <T>(): T | null => {
+    try {
+      const raw = localStorage.getItem(ADMIN_USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  },
+  setUser: <T>(user: T | null) => {
+    try {
+      if (user) {
+        localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(ADMIN_USER_KEY);
+      }
+    } catch {}
+  },
   clear: () => {
     accessToken = null;
+    refreshToken = null;
     try {
       localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_REFRESH_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
     } catch {}
   },
 };
-
-
 
 /**
  * Sends a background health ping to warm up Render's free tier container
@@ -61,6 +103,7 @@ export function warmupBackend() {
 const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   withCredentials: true, // required for httpOnly refresh cookie
+  timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -107,6 +150,12 @@ apiClient.interceptors.response.use(
 
     // 401 — attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const storedRefresh = tokenStore.getRefresh();
+
+      if (!storedRefresh) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // Queue this request until refresh completes
         return new Promise(resolve => {
@@ -124,20 +173,30 @@ apiClient.interceptors.response.use(
 
       try {
         const { data } = await axios.post<AuthTokens>(
-          `${import.meta.env.VITE_API_BASE_URL}/api/v1/auth/token/refresh/`,
-          {},
-          { withCredentials: true }
+          `${(import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')}/api/v1/auth/token/refresh/`,
+          { refresh: storedRefresh },
+          { withCredentials: true, timeout: 30000 }
         );
         tokenStore.set(data.access);
+        if (data.refresh) {
+          tokenStore.setRefresh(data.refresh);
+        }
         onRefreshed(data.access);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${data.access}`;
         }
         return apiClient(originalRequest);
-      } catch {
-        tokenStore.clear();
-        // Redirect to login — fire event so AdminAuthContext can react
-        window.dispatchEvent(new CustomEvent('auth:logout'));
+      } catch (refreshErr: any) {
+        const isAuthRejection =
+          refreshErr?.response?.status === 401 ||
+          (refreshErr?.response?.status === 400 &&
+            String(JSON.stringify(refreshErr?.response?.data || '')).toLowerCase().includes('token'));
+
+        if (isAuthRejection) {
+          tokenStore.clear();
+          // Redirect to login — fire event so AdminAuthContext can react
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+        }
         return Promise.reject(error);
       } finally {
         isRefreshing = false;

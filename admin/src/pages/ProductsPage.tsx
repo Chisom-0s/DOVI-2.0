@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { sanitizeProductDescription } from '@/utils/productDescription';
 import {
   getProductHomepagePlacement,
   saveProductHomepagePlacement,
-  serializeProductDescriptionWithHomepage,
   listMerchandisingSections,
   assignProductToSection,
   removeProductFromSection,
@@ -704,7 +704,8 @@ export default function ProductsPage() {
           }
         : null,
     };
-    formattedDescription = serializeProductDescriptionWithHomepage(formattedDescription, placementPayload);
+    // Keep description strictly clean of internal metadata comments
+    formattedDescription = sanitizeProductDescription(formattedDescription);
 
     // Delivery Classification & Attributes metadata embedding (kept separate from product category)
     formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
