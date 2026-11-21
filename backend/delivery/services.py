@@ -54,15 +54,6 @@ def find_active_route(destination_state: str, destination_city: str = '', origin
         destination_city__in=['', 'All Cities', 'Statewide', destination_state.strip()],
         is_active=True,
     ).first()
-        if city_match:
-            return city_match
-
-    return DeliveryRoute.objects.filter(
-        origin__iexact=norm_origin,
-        destination_state__iexact=norm_state,
-        destination_city__in=['', 'All Cities', 'Statewide'],
-        is_active=True,
-    ).first()
 
 
 def calculate_order_delivery(

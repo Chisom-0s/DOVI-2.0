@@ -80,15 +80,22 @@ export default function OrderHistoryPage() {
                 </div>
 
                 <div style={orderCenterStyles}>
-                  <span
-                    className="status-badge"
-                    style={{
-                      backgroundColor: statusColor(order.status).bg,
-                      color: statusColor(order.status).text,
-                    }}
-                  >
-                    {order.status.replace(/_/g, ' ')}
-                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span
+                      className="status-badge"
+                      style={{
+                        backgroundColor: statusColor(order.status).bg,
+                        color: statusColor(order.status).text,
+                      }}
+                    >
+                      {order.status.replace(/_/g, ' ')}
+                    </span>
+                    {order.payment_status && (
+                      <span style={paymentBadgeStyle(order.payment_status)}>
+                        {order.payment_status.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
                   <span style={itemCountStyles}>
                     {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
                   </span>
@@ -293,3 +300,49 @@ const primaryBtnStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-sm)',
 };
+
+function paymentBadgeStyle(status: string) {
+  const s = (status || '').toUpperCase();
+  if (s === 'PAID' || s === 'VERIFIED') {
+    return {
+      backgroundColor: '#d1fae5',
+      color: '#065f46',
+      fontSize: '10px',
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: '4px',
+      textTransform: 'uppercase' as const,
+    };
+  }
+  if (s === 'PENDING_VERIFICATION') {
+    return {
+      backgroundColor: '#dbeafe',
+      color: '#1e40af',
+      fontSize: '10px',
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: '4px',
+      textTransform: 'uppercase' as const,
+    };
+  }
+  if (s === 'REJECTED' || s === 'FAILED') {
+    return {
+      backgroundColor: '#fee2e2',
+      color: '#991b1b',
+      fontSize: '10px',
+      fontWeight: 700,
+      padding: '2px 8px',
+      borderRadius: '4px',
+      textTransform: 'uppercase' as const,
+    };
+  }
+  return {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    fontSize: '10px',
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: '4px',
+    textTransform: 'uppercase' as const,
+  };
+}

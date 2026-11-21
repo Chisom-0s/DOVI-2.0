@@ -343,10 +343,22 @@ export interface DeliveryGroup {
 // ----------------------------------------------------------
 export type OrderStatus =
   | 'PENDING_PAYMENT'
+  | 'ORDER_PLACED'
+  | 'AWAITING_DELIVERY_CONFIRMATION'
+  | 'DELIVERY_FEE_CONFIRMED'
   | 'PAID'
   | 'PROCESSING'
+  | 'SOURCING_PRODUCTS'
+  | 'AWAITING_PRODUCTS_AT_HUB'
+  | 'PRODUCTS_RECEIVED'
+  | 'QUALITY_CHECK'
+  | 'READY_FOR_PACKAGING'
+  | 'PACKAGED'
+  | 'READY_FOR_DISPATCH'
   | 'SHIPPED'
+  | 'DISPATCHED'
   | 'IN_TRANSIT'
+  | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'RECEIVED'
   | 'COMPLETED'
@@ -397,8 +409,11 @@ export interface Order {
 export interface OrderSummary {
   id: string;
   reference: string;
+  reference_code?: string;
   order_reference?: string;
-  status: OrderStatus;
+  status: OrderStatus | string;
+  payment_status?: string;
+  payment_evidence?: Payment | null;
   item_count: number;
   total: string;
   created_at: string;

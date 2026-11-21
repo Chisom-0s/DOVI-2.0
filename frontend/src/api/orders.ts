@@ -2,6 +2,10 @@
 import apiClient, { normalizeApiError } from './client';
 import { getLocalOrdersMap, saveLocalOrder } from './checkout';
 import {
+  syncPaymentsAndOrdersFromServer,
+  getPaymentByOrderRef,
+} from '@/services/orderPaymentSync';
+import {
   syncDeliveryStoreFromServer,
   getOrderShipments,
   deriveOverallOrderStatus,
@@ -115,6 +119,7 @@ function enrichOrderWithShipments(order: Order): Order {
 export const ordersApi = {
   list: async (page?: number): Promise<PaginatedResponse<OrderSummary>> => {
     await syncDeliveryStoreFromServer();
+    await syncPaymentsAndOrdersFromServer().catch(() => {});
     const localOrders = Object.values(getLocalOrdersMap());
     const uniqueLocalMap = new Map<string, Order>();
     for (const lo of localOrders) {
@@ -128,14 +133,23 @@ export const ordersApi = {
       const seenRefs = new Set<string>();
       const merged: OrderSummary[] = [];
 
-      // Include any local / manual-quote orders first
+      // Include local orders first
       for (const lo of uniqueLocalMap.values()) {
-        seenRefs.add(lo.reference);
+        const ref = lo.reference || lo.id;
+        seenRefs.add(ref);
+        const payment = getPaymentByOrderRef(ref);
+        const pStatus =
+          payment?.status === 'VERIFIED'
+            ? 'PAID'
+            : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
+
         merged.push({
           id: lo.id,
           reference: lo.reference,
           order_reference: lo.reference,
           status: lo.status,
+          payment_status: pStatus,
+          payment_evidence: payment || null,
           item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
           total: lo.total,
           created_at: lo.created_at,
@@ -155,9 +169,17 @@ export const ordersApi = {
               status = 'DELIVERED';
             }
           }
+          const payment = getPaymentByOrderRef(ref);
+          const pStatus =
+            payment?.status === 'VERIFIED'
+              ? 'PAID'
+              : payment?.status || r.payment_status || 'PENDING_PAYMENT';
+
           merged.push({
             ...r,
             status,
+            payment_status: pStatus,
+            payment_evidence: payment || null,
           });
         }
       }
@@ -170,15 +192,21 @@ export const ordersApi = {
       };
     } catch (err) {
       if (uniqueLocalMap.size > 0) {
-        const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => ({
-          id: lo.id,
-          reference: lo.reference,
-          order_reference: lo.reference,
-          status: lo.status,
-          item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
-          total: lo.total,
-          created_at: lo.created_at,
-        }));
+        const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => {
+          const ref = lo.reference || lo.id;
+          const payment = getPaymentByOrderRef(ref);
+          return {
+            id: lo.id,
+            reference: lo.reference,
+            order_reference: lo.reference,
+            status: lo.status,
+            payment_status: payment?.status === 'VERIFIED' ? 'PAID' : payment?.status || lo.payment_status || 'PENDING_PAYMENT',
+            payment_evidence: payment || null,
+            item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
+            total: lo.total,
+            created_at: lo.created_at,
+          };
+        });
         return {
           count: localSummaries.length,
           next: null,
@@ -192,16 +220,34 @@ export const ordersApi = {
 
   getByRef: async (ref: string): Promise<Order> => {
     await syncDeliveryStoreFromServer();
+    await syncPaymentsAndOrdersFromServer().catch(() => {});
+    const payment = getPaymentByOrderRef(ref);
+
+    let rawOrder: any = null;
     try {
       const { data } = await apiClient.get(`/api/v1/orders/${ref}/`);
-      return enrichOrderWithShipments(data);
+      rawOrder = data;
     } catch (err) {
       const localOrder = getLocalOrdersMap()[ref];
       if (localOrder) {
-        return enrichOrderWithShipments(localOrder);
+        rawOrder = localOrder;
+      } else {
+        throw normalizeApiError(err);
       }
-      throw normalizeApiError(err);
     }
+
+    const enriched = enrichOrderWithShipments(rawOrder);
+    if (payment) {
+      enriched.payment_status = payment.status === 'VERIFIED' ? 'PAID' : payment.status;
+      (enriched as any).payment_evidence = payment;
+      if (
+        payment.status === 'VERIFIED' &&
+        (enriched.status === 'PENDING_PAYMENT' || enriched.status === 'ORDER_PLACED')
+      ) {
+        enriched.status = 'PROCESSING';
+      }
+    }
+    return enriched;
   },
 
   respondToDeliveryQuote: async (

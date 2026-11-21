@@ -9,6 +9,7 @@ import type {
   OrderShipment,
   ShipmentFulfillmentStatus,
 } from '@/types';
+import { getPaymentByOrderRef } from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
   getOrderShipments,
@@ -42,6 +43,13 @@ export default function OrdersPage() {
   const [orderShipments, setOrderShipments] = useState<OrderShipment[]>([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isActionPending, setIsActionPending] = useState(false);
+
+  // Payment verification modal & receipt zoom preview state
+  const [zoomedReceiptUrl, setZoomedReceiptUrl] = useState<string | null>(null);
+  const [showRejectPaymentModal, setShowRejectPaymentModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('Payment not received in DOVI bank account');
+  const [customRejectionReason, setCustomRejectionReason] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
 
   // Per-shipment form drafts (transport arrangement, notes, tracking, manual quote fee)
   const [shipmentDrafts, setShipmentDrafts] = useState<
@@ -286,9 +294,30 @@ export default function OrdersPage() {
         }
       }
 
+      const targetRef = summary.reference || summary.reference_code || orderId;
+      const paymentEvidence =
+        (detail as any)?.payment_evidence ||
+        summary.payment_evidence ||
+        getPaymentByOrderRef(targetRef) ||
+        getPaymentByOrderRef(orderId);
+
+      const resolvedPaymentStatus =
+        paymentEvidence?.status === 'VERIFIED'
+          ? 'PAID'
+          : paymentEvidence?.status ||
+            detail?.payment_status ||
+            summary.payment_status ||
+            'PENDING_PAYMENT';
+
       const resolvedOrder: Order =
         detail && detail.id && (detail.items?.length || !summary.items?.length)
-          ? { ...summary, ...detail, items: detail.items?.length ? detail.items : summary.items || [] }
+          ? {
+              ...summary,
+              ...detail,
+              items: detail.items?.length ? detail.items : summary.items || [],
+              payment_status: resolvedPaymentStatus,
+              payment_evidence: paymentEvidence || null,
+            }
           : {
               id: summary.id || summary.reference || 'ord-inspect',
               reference: summary.reference || summary.reference_code || 'ORD-UNKNOWN',
@@ -300,7 +329,8 @@ export default function OrdersPage() {
               subtotal: summary.subtotal || summary.total || '0',
               delivery_fee: summary.delivery_fee || '0',
               total: summary.total || summary.total_amount || '0',
-              payment_status: summary.payment_status || 'PAID',
+              payment_status: resolvedPaymentStatus,
+              payment_evidence: paymentEvidence || null,
               payment_method: summary.payment_method || 'Bank Transfer',
               tracking: summary.tracking || [],
               can_cancel: false,
@@ -326,8 +356,69 @@ export default function OrdersPage() {
     }
   };
 
+  const handleApproveOrderPayment = async () => {
+    if (!selectedOrder) return;
+    const ref = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+    if (
+      !window.confirm(
+        `Approve bank transfer payment for Order #${ref}? This will mark payment as PAID and advance order fulfillment to PROCESSING.`
+      )
+    ) {
+      return;
+    }
+    setIsActionPending(true);
+    try {
+      await adminApi.verifyPayment(ref, { notes: paymentNotes || 'Verified by Admin in Order Hub' });
+      toast.success(`Payment for Order #${ref} approved! Status updated to Paid and Processing.`);
+      const updatedOrder = await adminApi.getOrder(ref);
+      setSelectedOrder(updatedOrder);
+      await fetchOrders(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to approve payment.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleRejectOrderPayment = async () => {
+    if (!selectedOrder) return;
+    const ref = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+    const reason = rejectionReason === 'Other' ? customRejectionReason.trim() : rejectionReason;
+    if (!reason) {
+      toast.error('Please specify a rejection reason.');
+      return;
+    }
+    setIsActionPending(true);
+    try {
+      await adminApi.rejectPayment(ref, { rejection_reason: reason });
+      toast.success(`Payment rejected for Order #${ref}. Customer has been notified.`);
+      setShowRejectPaymentModal(false);
+      const updatedOrder = await adminApi.getOrder(ref);
+      setSelectedOrder(updatedOrder);
+      await fetchOrders(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reject payment.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedOrder) return;
+
+    // Enforce Requirement 4: Separation of Payment Status and Order Status
+    // Rule: An order cannot transition to READY_FOR_DISPATCH, DISPATCHED or DELIVERED unless payment status is PAID
+    const pStatus = ((selectedOrder as any).payment_status || '').toUpperCase();
+    const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
+    if (
+      ['READY_FOR_DISPATCH', 'DISPATCHED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(newStatus) &&
+      !isPaid
+    ) {
+      toast.error(
+        `Cannot advance order to ${newStatus.replace(/_/g, ' ')}: Customer payment is currently ${pStatus || 'PENDING_PAYMENT'}. Payment must be verified and approved before proceeding with dispatch or delivery.`
+      );
+      return;
+    }
 
     // Enforce Section 6 Rule: Do not mark an order as DELIVERED until all required shipments have been delivered
     if (
@@ -618,6 +709,7 @@ export default function OrdersPage() {
                   <th style={tableHeaderCellStyles}>Subtotal</th>
                   <th style={tableHeaderCellStyles}>Delivery Fee</th>
                   <th style={tableHeaderCellStyles}>Total Payable</th>
+                  <th style={tableHeaderCellStyles}>Payment Status</th>
                   <th style={tableHeaderCellStyles}>Delivery Status</th>
                   <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
                 </tr>
@@ -682,6 +774,11 @@ export default function OrdersPage() {
                       </td>
                       <td style={{ ...tableCellStyles, fontWeight: 800, color: '#111827' }}>
                         {formatCurrency(total)}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <span style={paymentBadgeStyles(o.payment_status)}>
+                          {(o.payment_status || 'PENDING_PAYMENT').replace(/_/g, ' ')}
+                        </span>
                       </td>
                       <td style={tableCellStyles}>
                         <span style={statusBadgeStyles(o.status)}>
@@ -796,6 +893,12 @@ export default function OrdersPage() {
                       selectedOrder.status}
                   </span>
                 </div>
+                <div style={detailItemStyles}>
+                  <span style={detailLabelStyles}>Payment Status</span>
+                  <span style={paymentBadgeStyles((selectedOrder as any).payment_status)}>
+                    {((selectedOrder as any).payment_status || 'PENDING_PAYMENT').replace(/_/g, ' ')}
+                  </span>
+                </div>
                 <div style={{ ...detailItemStyles, border: 'none' }}>
                   <span style={detailLabelStyles}>Product Subtotal</span>
                   <span style={detailValueStyles}>{formatCurrency(selectedOrder.subtotal)}</span>
@@ -905,6 +1008,309 @@ export default function OrdersPage() {
                 </div>
               </div>
             </div>
+
+            {/* BANK TRANSFER PAYMENT VERIFICATION CARD */}
+            {(() => {
+              const targetRef = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+              const payment =
+                (selectedOrder as any).payment_evidence ||
+                getPaymentByOrderRef(targetRef) ||
+                getPaymentByOrderRef(selectedOrder.id);
+              const orderTotal = (selectedOrder as any).total_amount || selectedOrder.total || '0';
+              const pStatus = ((selectedOrder as any).payment_status || payment?.status || 'PENDING_PAYMENT').toUpperCase();
+              const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
+              const isRejected = pStatus === 'REJECTED';
+              const isPendingVerification = pStatus === 'PENDING_VERIFICATION';
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '14px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#111827' }}>
+                        💳 Bank Transfer Payment Verification
+                      </h4>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+                        Inspect submitted customer payment evidence, sender bank details, and verify transaction receipt before fulfillment.
+                      </p>
+                    </div>
+                    <span style={paymentBadgeStyles(pStatus)}>
+                      {pStatus.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '12px',
+                        backgroundColor: '#f9fafb',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Expected Order Total</div>
+                        <strong style={{ fontSize: '14px', color: '#111827' }}>{formatCurrency(orderTotal)}</strong>
+                      </div>
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Declared Payment Amount</div>
+                        <strong
+                          style={{
+                            fontSize: '14px',
+                            color:
+                              payment?.amount && Number(payment.amount) >= Number(orderTotal)
+                                ? '#16a34a'
+                                : payment?.amount
+                                ? '#d97706'
+                                : '#6b7280',
+                          }}
+                        >
+                          {payment?.amount ? formatCurrency(payment.amount) : 'Not Submitted'}
+                        </strong>
+                      </div>
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Sender Bank</div>
+                        <strong style={{ color: '#111827' }}>{payment?.sender_bank || 'Not provided'}</strong>
+                      </div>
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Sender Account Name</div>
+                        <strong style={{ color: '#111827' }}>{payment?.sender_account_name || 'Not provided'}</strong>
+                      </div>
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Transaction Reference / Narration</div>
+                        <span style={{ fontFamily: 'monospace', color: '#111827' }}>
+                          {payment?.transaction_reference || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <div style={{ color: '#6b7280', marginBottom: '2px' }}>Submission Date & Time</div>
+                        <span style={{ color: '#111827' }}>
+                          {payment?.created_at ? new Date(payment.created_at).toLocaleString() : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {isPaid && (
+                      <div
+                        style={{
+                          backgroundColor: '#ecfdf5',
+                          border: '1px solid #a7f3d0',
+                          padding: '10px 14px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          color: '#065f46',
+                        }}
+                      >
+                        <strong>✓ Payment Confirmed & Verified</strong>
+                        {payment?.verified_by && ` by ${payment.verified_by}`}
+                        {payment?.verified_at && ` on ${new Date(payment.verified_at).toLocaleString()}`}.
+                        {payment?.notes && <div style={{ marginTop: '4px' }}>Note: {payment.notes}</div>}
+                      </div>
+                    )}
+
+                    {isRejected && (
+                      <div
+                        style={{
+                          backgroundColor: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          padding: '10px 14px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          color: '#991b1b',
+                        }}
+                      >
+                        <strong>✕ Payment Verification Unsuccessful / Rejected:</strong>{' '}
+                        {payment?.rejection_reason || 'Declined by Administrator'}
+                        {payment?.verified_at && ` (${new Date(payment.verified_at).toLocaleString()})`}.
+                        <div style={{ marginTop: '4px', fontSize: '11px', color: '#b91c1c' }}>
+                          The customer has been notified and can resubmit their payment proof from their order page.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Receipt Image Preview */}
+                    {payment?.payment_proof_url ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          padding: '12px',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '80px',
+                            height: '80px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid #cbd5e1',
+                            cursor: 'pointer',
+                            backgroundColor: '#f1f5f9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                          onClick={() => setZoomedReceiptUrl(payment.payment_proof_url!)}
+                        >
+                          <img
+                            src={payment.payment_proof_url}
+                            alt="Receipt proof"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                            Customer Transfer Receipt / Teller
+                          </div>
+                          <p style={{ margin: '2px 0 8px 0', fontSize: '12px', color: '#6b7280' }}>
+                            Click below to inspect the full receipt in zoom modal.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setZoomedReceiptUrl(payment.payment_proof_url!)}
+                            style={{
+                              padding: '5px 12px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              backgroundColor: '#0284c7',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🔍 Preview & Zoom Full Receipt
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: '10px 14px',
+                          backgroundColor: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          color: '#92400e',
+                        }}
+                      >
+                        {isPendingVerification
+                          ? 'Customer submitted transfer details without image attachment.'
+                          : 'No bank transfer receipt has been uploaded yet for this order.'}
+                      </div>
+                    )}
+
+                    {/* Verification Actions */}
+                    {!isPaid && (
+                      <div style={{ width: '100%', marginBottom: '4px' }}>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#4b5563',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          Admin Verification Notes (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Bank credit confirmed via Zenith App narration ORD-12345"
+                          value={paymentNotes}
+                          onChange={(e) => setPaymentNotes(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            borderRadius: '6px',
+                            border: '1px solid #d1d5db',
+                            backgroundColor: '#ffffff',
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '4px' }}>
+                      {!isPaid && (
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={handleApproveOrderPayment}
+                          style={{
+                            padding: '9px 20px',
+                            backgroundColor: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isActionPending ? 'Processing...' : '✓ Approve & Confirm Payment'}
+                        </button>
+                      )}
+
+                      {!isPaid && (
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={() => {
+                            setRejectionReason('Payment not received in DOVI bank account');
+                            setCustomRejectionReason('');
+                            setShowRejectPaymentModal(true);
+                          }}
+                          style={{
+                            padding: '9px 18px',
+                            backgroundColor: '#ffffff',
+                            color: '#dc2626',
+                            border: '1px solid #dc2626',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✕ Reject Payment
+                        </button>
+                      )}
+
+                      {isPaid && (
+                        <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
+                          ✓ Payment is approved. Order is unlocked for supplier sourcing, hub processing and dispatch.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* DIRECT DELIVERY SHIPMENT GROUPS SECTION */}
             <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
@@ -1474,9 +1880,231 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
+      {/* Receipt Image Zoom Modal */}
+      {zoomedReceiptUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+          onClick={() => setZoomedReceiptUrl(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedReceiptUrl}
+              alt="Payment receipt proof"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+              }}
+            />
+            <div style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
+              <a
+                href={zoomedReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                }}
+              >
+                Open Original in New Tab
+              </a>
+              <button
+                type="button"
+                onClick={() => setZoomedReceiptUrl(null)}
+                style={{
+                  padding: '8px 20px',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Payment Reason Modal */}
+      {showRejectPaymentModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 800, color: '#991b1b' }}>
+              Reject Bank Transfer Payment Proof
+            </h3>
+            <p style={{ fontSize: '13px', color: '#4b5563', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+              Select or provide a clear reason for rejecting this payment. The customer will be informed immediately and will be prompted to resubmit their transfer details.
+            </p>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                Rejection Reason
+              </label>
+              <select
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="Payment not received in DOVI bank account">Payment not received in DOVI bank account</option>
+                <option value="Amount paid does not match order total">Amount paid does not match order total</option>
+                <option value="Invalid or illegible payment receipt image">Invalid or illegible payment receipt image</option>
+                <option value="Transaction reference cannot be verified">Transaction reference cannot be verified</option>
+                <option value="Incorrect account credited">Incorrect account credited</option>
+                <option value="Other">Other (specify custom reason below)</option>
+              </select>
+            </div>
+            {rejectionReason === 'Other' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                  Custom Explanation
+                </label>
+                <textarea
+                  value={customRejectionReason}
+                  onChange={(e) => setCustomRejectionReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why the bank transfer proof was declined..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRejectPaymentModal(false)}
+                disabled={isActionPending}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  background: '#ffffff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectOrderPayment}
+                disabled={isActionPending}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                {isActionPending ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// Payment badge helper
+const paymentBadgeStyles = (status?: string): React.CSSProperties => {
+  const s = (status || 'PENDING_PAYMENT').toUpperCase();
+  if (s === 'PAID' || s === 'VERIFIED' || s === 'SUCCESS' || s === 'SUCCESSFUL') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#ecfdf5',
+      color: '#065f46',
+      border: '1px solid #a7f3d0',
+    };
+  }
+  if (s === 'PENDING_VERIFICATION') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#eff6ff',
+      color: '#1e40af',
+      border: '1px solid #bfdbfe',
+    };
+  }
+  if (s === 'REJECTED' || s === 'FAILED') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#fef2f2',
+      color: '#991b1b',
+      border: '1px solid #fecaca',
+    };
+  }
+  return {
+    display: 'inline-block',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: 700,
+    backgroundColor: '#fffbeb',
+    color: '#92400e',
+    border: '1px solid #fde68a',
+  };
+};
 
 // Badge status helper
 const statusBadgeStyles = (status: string): React.CSSProperties => {

@@ -225,9 +225,16 @@ export function computeAnalytics(input: RawAnalyticsInput): AnalyticsOverviewRes
 
   // Revenue: only revenue statuses; Save2Own-originated orders excluded because their cash is already
   // counted as confirmed Save2Own contributions (counting both would double-count the same money).
-  const revenueOrders = orders.filter(
-    (o) => REVENUE_ORDER_STATUSES.includes(norm(o?.status)) && !isSave2OwnOrder(o)
-  );
+  // Unverified, pending or rejected payments must NOT be counted as realized revenue.
+  const revenueOrders = orders.filter((o) => {
+    const pStatus = norm(o?.payment_status);
+    if (pStatus === 'REJECTED' || pStatus === 'PENDING_VERIFICATION' || pStatus === 'PENDING_PAYMENT') {
+      return false;
+    }
+    const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
+    const hasRevenueStatus = REVENUE_ORDER_STATUSES.includes(norm(o?.status));
+    return (isPaid || hasRevenueStatus) && !isSave2OwnOrder(o);
+  });
   const sumRevenue = (from: number) =>
     revenueOrders.filter((o) => {
       const t = ts(o?.created_at);
@@ -246,7 +253,7 @@ export function computeAnalytics(input: RawAnalyticsInput): AnalyticsOverviewRes
   if (Array.isArray(input.payments)) {
     const payments = dedupe(input.payments, (p) => String(p?.id ?? p?.payment_reference ?? p?.reference ?? ''));
     verifiedPayments = payments
-      .filter((p) => ['SUCCESS', 'SUCCESSFUL', 'PAID'].includes(norm(p?.status)) && inRange(p?.created_at))
+      .filter((p) => ['SUCCESS', 'SUCCESSFUL', 'PAID', 'VERIFIED'].includes(norm(p?.status)) && inRange(p?.created_at))
       .reduce((acc, p) => acc + toNumber(p?.amount), 0);
   }
 

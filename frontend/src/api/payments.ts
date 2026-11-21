@@ -1,5 +1,11 @@
 import apiClient, { normalizeApiError } from './client';
 import type { Payment, PaymentInitResponse, PaymentMethod, PaymentAccount, PaymentAccountType } from '@/types';
+import {
+  savePaymentSubmissionSync,
+  syncPaymentsAndOrdersFromServer,
+  getPaymentByOrderRef,
+  addCustomerNotification,
+} from '@/services/orderPaymentSync';
 
 export const DEFAULT_MARKETPLACE_ACCOUNT: PaymentAccount = {
   id: 'acc-mkt-default',
@@ -84,56 +90,38 @@ export const paymentsApi = {
       rejection_reason: null,
     };
 
-    // Store in localStorage for persistence across customer and admin
-    try {
-      const stored = localStorage.getItem('dovi_payments_submissions');
-      const list: Payment[] = stored ? JSON.parse(stored) : [];
-      const filtered = list.filter((p) => p.order_reference !== payload.order_reference);
-      filtered.unshift(paymentRecord);
-      localStorage.setItem('dovi_payments_submissions', JSON.stringify(filtered));
+    // Save and synchronize locally and to shared delivery database
+    savePaymentSubmissionSync(paymentRecord);
 
-      // Also mark order status in dovi_orders
-      const ordersRaw = localStorage.getItem('dovi_orders');
-      if (ordersRaw) {
-        const orders = JSON.parse(ordersRaw);
-        if (Array.isArray(orders)) {
-          const updatedOrders = orders.map((o: any) => {
-            if (
-              o.reference_code === payload.order_reference ||
-              o.reference === payload.order_reference ||
-              o.id === payload.order_reference
-            ) {
-              return { ...o, status: 'PENDING_VERIFICATION', payment_status: 'PENDING_VERIFICATION' };
-            }
-            return o;
-          });
-          localStorage.setItem('dovi_orders', JSON.stringify(updatedOrders));
-        }
-      }
-    } catch {}
+    addCustomerNotification(
+      'Payment Proof Submitted',
+      `Your bank transfer proof for Order #${payload.order_reference} has been received and is currently under verification.`,
+      'INFO'
+    );
 
     // Also attempt backend POST
     try {
       const { data } = await apiClient.post<Payment>('/api/v1/payments/submit-evidence/', payload);
-      return data;
-    } catch {
-      return paymentRecord;
-    }
+      if (data && data.status) {
+        savePaymentSubmissionSync(data);
+        return data;
+      }
+    } catch {}
+
+    return paymentRecord;
   },
 
   getPaymentSubmission: async (orderReference: string): Promise<Payment | null> => {
     try {
-      const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${orderReference}`);
-      if (data) return data;
+      await syncPaymentsAndOrdersFromServer();
     } catch {}
 
+    const localMatch = getPaymentByOrderRef(orderReference);
+    if (localMatch) return localMatch;
+
     try {
-      const stored = localStorage.getItem('dovi_payments_submissions');
-      if (stored) {
-        const list: Payment[] = JSON.parse(stored);
-        const match = list.find((p) => p.order_reference === orderReference);
-        if (match) return match;
-      }
+      const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${orderReference}`);
+      if (data) return data;
     } catch {}
 
     return null;

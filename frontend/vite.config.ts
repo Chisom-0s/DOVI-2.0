@@ -24,6 +24,8 @@ function doviSharedDeliveryDbPlugin() {
       save2ownParticipants: [],
       save2ownContributions: [],
       save2ownRefunds: [],
+      payments: [],
+      orders: [],
     };
   };
   const writeStore = (data: unknown) => {
@@ -59,6 +61,8 @@ function doviSharedDeliveryDbPlugin() {
         save2ownParticipants: s.save2ownParticipants || [],
         save2ownContributions: s.save2ownContributions || [],
         save2ownRefunds: s.save2ownRefunds || [],
+        payments: s.payments || [],
+        orders: s.orders || [],
       };
       res.end(JSON.stringify(payload));
       return;
@@ -105,6 +109,8 @@ function doviSharedDeliveryDbPlugin() {
             save2ownParticipants: incoming.save2ownParticipants !== undefined ? incoming.save2ownParticipants : (current.save2ownParticipants || []),
             save2ownContributions: incoming.save2ownContributions !== undefined ? incoming.save2ownContributions : (current.save2ownContributions || []),
             save2ownRefunds: incoming.save2ownRefunds !== undefined ? incoming.save2ownRefunds : (current.save2ownRefunds || []),
+            payments: incoming.payments !== undefined ? incoming.payments : (current.payments || []),
+            orders: incoming.orders !== undefined ? incoming.orders : (current.orders || []),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');
