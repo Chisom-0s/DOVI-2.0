@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useParams } from 'react-router-dom';
 import SmartPromptManager from '@/components/common/SmartPromptManager';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
@@ -16,6 +16,12 @@ import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
+
+
+function DynamicOrderRedirect() {
+  const { ref } = useParams<{ ref: string }>();
+  return <Navigate to={ref ? `/dashboard/orders/${ref}` : '/dashboard/orders'} replace />;
+}
 
 // Knowledge & Information Pages
 import AboutPage from '@/pages/Info/AboutPage';
@@ -117,6 +123,13 @@ const router = createBrowserRouter([
           </AuthGuard>
         ),
       },
+
+      
+      // Order redirect aliases & backward compatibility
+      { path: 'orders', element: <Navigate to="/dashboard/orders" replace /> },
+      { path: 'order/:ref', element: <DynamicOrderRedirect /> },
+      { path: 'profile/orders', element: <Navigate to="/dashboard/orders" replace /> },
+      { path: 'profile/orders/:ref', element: <DynamicOrderRedirect /> },
 
       // ---- Order & Payment results (Phase 4 — LIVE) ----
       {

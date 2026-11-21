@@ -152,6 +152,7 @@ export default function ProductDetailPage() {
   }, [id, navigate]);
 
   const { addToCart } = useCart();
+  const [justAdded, setJustAdded] = useState(false);
 
   useEffect(() => {
     lastFetchedIdRef.current = null;
@@ -163,6 +164,8 @@ export default function ProductDetailPage() {
     setIsAddingToCart(true);
 
     try {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1500);
       await addToCart(product, quantity, {
         variantId: selectedVariant ? selectedVariant.id : undefined,
         variantName: selectedVariant?.name,
@@ -465,6 +468,8 @@ export default function ProductDetailPage() {
                 ? 'Out of Stock'
                 : isAddingToCart
                 ? 'Adding to Cart...'
+                : justAdded
+                ? '✓ Added to Cart!'
                 : '🛒 Add to Cart'}
             </button>
           </div>

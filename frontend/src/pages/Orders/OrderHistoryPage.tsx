@@ -142,17 +142,60 @@ export default function OrderHistoryPage() {
                       <span
                         className="status-badge"
                         style={{
-                          backgroundColor: statusColor(order.status).bg,
-                          color: statusColor(order.status).text,
+                          backgroundColor: '#faf5ff',
+                          color: '#7c3aed',
+                          border: '1px solid #e9d5ff',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
                         }}
                       >
-                        {order.status.replace(/_/g, ' ')}
+                        Order: {(order.fulfillment_status || order.status || 'Processing').replace(/_/g, ' ')}
                       </span>
-                      {order.payment_status && (
-                        <span style={paymentBadgeStyle(order.payment_status)}>
-                          {order.payment_status.replace(/_/g, ' ')}
-                        </span>
-                      )}
+                      <span
+                        style={{
+                          backgroundColor:
+                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                              ? '#ecfdf5'
+                              : order.payment_status === 'PENDING_VERIFICATION'
+                              ? '#eff6ff'
+                              : order.payment_status === 'REJECTED'
+                              ? '#fef2f2'
+                              : '#fffbeb',
+                          color:
+                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                              ? '#059669'
+                              : order.payment_status === 'PENDING_VERIFICATION'
+                              ? '#2563eb'
+                              : order.payment_status === 'REJECTED'
+                              ? '#dc2626'
+                              : '#d97706',
+                          border: `1px solid ${
+                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                              ? '#a7f3d0'
+                              : order.payment_status === 'PENDING_VERIFICATION'
+                              ? '#bfdbfe'
+                              : order.payment_status === 'REJECTED'
+                              ? '#fecaca'
+                              : '#fde68a'
+                          }`,
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        Payment: {
+                          order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                            ? 'Paid / Verified'
+                            : order.payment_status === 'PENDING_VERIFICATION'
+                            ? 'Pending Verification'
+                            : order.payment_status === 'REJECTED'
+                            ? 'Rejected'
+                            : 'Payment Pending'
+                        }
+                      </span>
                     </div>
                     <span style={itemCountStyles}>
                       {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
@@ -201,7 +244,7 @@ export default function OrderHistoryPage() {
 }
 
 // Helpers
-function statusColor(status: string) {
+export function statusColor(status: string) {
   switch (status) {
     case 'PAID':
     case 'DELIVERED':
@@ -360,48 +403,4 @@ const primaryBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
 };
 
-function paymentBadgeStyle(status: string) {
-  const s = (status || '').toUpperCase();
-  if (s === 'PAID' || s === 'VERIFIED') {
-    return {
-      backgroundColor: '#d1fae5',
-      color: '#065f46',
-      fontSize: '10px',
-      fontWeight: 700,
-      padding: '2px 8px',
-      borderRadius: '4px',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  if (s === 'PENDING_VERIFICATION') {
-    return {
-      backgroundColor: '#dbeafe',
-      color: '#1e40af',
-      fontSize: '10px',
-      fontWeight: 700,
-      padding: '2px 8px',
-      borderRadius: '4px',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  if (s === 'REJECTED' || s === 'FAILED') {
-    return {
-      backgroundColor: '#fee2e2',
-      color: '#991b1b',
-      fontSize: '10px',
-      fontWeight: 700,
-      padding: '2px 8px',
-      borderRadius: '4px',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  return {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
-    fontSize: '10px',
-    fontWeight: 700,
-    padding: '2px 8px',
-    borderRadius: '4px',
-    textTransform: 'uppercase' as const,
-  };
-}
+// removed unused paymentBadgeStyle

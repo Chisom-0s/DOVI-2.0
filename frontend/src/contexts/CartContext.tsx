@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, u
 import toast from 'react-hot-toast';
 import type { Cart, CartItem, ProductSummary, ProductVariant } from '@/types';
 import { cartApi } from '@/api/cart';
-import { productsApi } from '@/api/products';
 import { SEED_REAL_PRODUCTS } from '@/api/homepage';
 import { getProductHomepagePlacement, isFlashSaleActiveNow, isDiscountActiveNow } from '@/services/homepagePlacementService';
 import { notificationsApi } from '@/api/notifications';
@@ -324,7 +323,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setIsLoading(true);
+    // Only set full loading state on first mount if we don't have any items rendered
+    if (cart.items.length === 0) setIsLoading(true);
     try {
       // 1. If we have any items in guest storage, attempt to merge valid UUID items into backend
       const guest = loadGuestCart();
@@ -404,8 +404,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       optionsOrVariantId?: string | AddToCartOptions,
       extraOptions?: AddToCartOptions
     ) => {
-      setIsLoading(true);
-
       let productId = '';
       let productObj: any = null;
       let variantId: string | undefined = undefined;
@@ -451,8 +449,93 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // If user is authenticated and ID is a valid UUID, attempt backend addition
+      const effectivePrice =
+        priceOverride ??
+        productObj?.price ??
+        productObj?.base_price ??
+        0;
+      const effectiveImg =
+        imageUrl ??
+        productObj?.primary_image_url ??
+        productObj?.image_url ??
+        '/logo.jpg?v=2';
+      const effectiveName = productObj?.name || effName || 'Product';
+      const unitNum = parseFloat(String(effectivePrice)) || 0;
+
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId);
+      const tempId = isUuid
+        ? `temp_${productId}_${variantId || 'base'}`
+        : `guest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+      // Snapshot for optimistic rollback if backend fails
+      const previousCart = cart;
+
+      // 1. IMMEDIATE OPTIMISTIC STATE UPDATE (0ms latency — instant visual feedback)
+      setCart(prev => {
+        const nextItems = [...prev.items];
+        const existingIdx = nextItems.findIndex(
+          i =>
+            (i.product?.id === productId || i.id === productId || i.product_id === productId) &&
+            (!variantId || (typeof i.variant === 'string' ? i.variant === variantId : i.variant?.id === variantId))
+        );
+
+        if (existingIdx >= 0) {
+          const existing = nextItems[existingIdx];
+          const newQty = existing.quantity + quantity;
+          nextItems[existingIdx] = {
+            ...existing,
+            quantity: newQty,
+            line_total: (unitNum * newQty).toFixed(2),
+          };
+        } else {
+          nextItems.push({
+            id: tempId,
+            product: productObj || { id: productId, name: effectiveName, price: effectivePrice },
+            product_name: effectiveName,
+            variant: variantId ? ({ id: variantId, name: variantName || 'Standard', sku: 'SKU' } as any) : null,
+            variant_name: variantName,
+            quantity,
+            price: effectivePrice,
+            unit_price: effectivePrice,
+            line_total: (unitNum * quantity).toFixed(2),
+            available_stock: productObj?.stock_quantity ?? 10,
+            is_in_stock: true,
+            image_url: effectiveImg,
+          });
+        }
+        return normalizeCart({ ...prev, items: nextItems });
+      });
+
+      // 2. Synchronize guest storage if guest / mock product
+      if (!user || !isUuid) {
+        const currentGuest = loadGuestCart();
+        const existingIdx = currentGuest.items.findIndex(
+          i =>
+            (i.product?.id === productId || i.id === productId) &&
+            (!variantId || (typeof i.variant === 'string' ? i.variant === variantId : i.variant?.id === variantId))
+        );
+        if (existingIdx >= 0) {
+          currentGuest.items[existingIdx].quantity += quantity;
+        } else {
+          currentGuest.items.push({
+            id: tempId,
+            product: productObj || { id: productId, name: effectiveName, price: effectivePrice },
+            product_name: effectiveName,
+            variant: variantId ? ({ id: variantId, name: variantName || 'Standard', sku: 'SKU' } as any) : null,
+            variant_name: variantName,
+            quantity,
+            price: effectivePrice,
+            unit_price: effectivePrice,
+            line_total: String((unitNum * quantity).toFixed(2)),
+            available_stock: productObj?.stock_quantity ?? 10,
+            is_in_stock: true,
+            image_url: effectiveImg,
+          });
+        }
+        saveGuestCart(currentGuest);
+      }
+
+      // 3. Authenticated user: Background sync with authoritative backend
       if (user && isUuid) {
         try {
           const updated = await cartApi.addItem({
@@ -473,100 +556,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           } else {
             setCart(normalized);
           }
-          window.dispatchEvent(new CustomEvent('cart:updated'));
-          try {
-            await notificationsApi.create(
-              'Item Added to Cart',
-              `${effName || 'Item'} was added to your cart.`,
-              'INFO'
-            );
-          } catch (e) {}
-          return;
         } catch (err: any) {
-          console.warn('Backend cart addition failed, smoothly saving in client cart:', err);
-          // Fall through to client cart storage
-        } finally {
-          setIsLoading(false);
+          console.warn('Backend cart addition failed, smoothly maintaining client cart:', err);
+          if (err?.response?.status === 400 || err?.response?.status === 409) {
+            setCart(previousCart);
+            toast.error(err?.response?.data?.detail || err?.message || 'Could not add to cart.');
+            throw err;
+          }
         }
       }
 
-      // Guest user OR non-UUID mock product OR backend failure fallback
       try {
-        if (!productObj) {
-          try {
-            productObj = await productsApi.getById(productId);
-          } catch {}
-        }
-
-        const effectivePrice =
-          priceOverride ??
-          productObj?.price ??
-          productObj?.base_price ??
-          0;
-        const effectiveImg =
-          imageUrl ??
-          productObj?.primary_image_url ??
-          productObj?.image_url ??
-          '/logo.jpg?v=2';
-        const effectiveName = productObj?.name || 'Product';
-
-        const currentGuest = loadGuestCart();
-        const existingIdx = currentGuest.items.findIndex(
-          i =>
-            (i.product?.id === productId || i.id === productId) &&
-            (!variantId || (typeof i.variant === 'string' ? i.variant === variantId : i.variant?.id === variantId))
-        );
-
-        if (existingIdx >= 0) {
-          currentGuest.items[existingIdx].quantity += quantity;
-        } else {
-          currentGuest.items.push({
-            id: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            product: productObj || { id: productId, name: effectiveName, price: effectivePrice },
-            product_name: effectiveName,
-            variant: variantId ? ({ id: variantId, name: variantName || 'Standard', sku: 'SKU' } as any) : null,
-            variant_name: variantName,
-            quantity,
-            price: effectivePrice,
-            unit_price: effectivePrice,
-            line_total: String((parseFloat(String(effectivePrice)) || 0) * quantity),
-            available_stock: 10,
-            is_in_stock: true,
-            image_url: effectiveImg,
-          });
-        }
-
-        saveGuestCart(currentGuest);
-        if (user) {
-          setCart(prev => {
-            const currentNonLocal = prev.items.filter(it => !it.id.startsWith('guest_'));
-            return normalizeCart({ ...prev, items: [...currentNonLocal, ...currentGuest.items] });
-          });
-        } else {
-          setCart(normalizeCart(currentGuest));
-        }
-        window.dispatchEvent(new CustomEvent('cart:updated'));
-        try {
-          await notificationsApi.create(
-            'Item Added to Cart',
-            `${effectiveName} was added to your cart.`,
-            'INFO'
-          );
-        } catch (e) {}
-      } catch (err) {
-        console.error('Failed to update client cart:', err);
-      } finally {
-        setIsLoading(false);
-      }
+        void notificationsApi.create(
+          'Item Added to Cart',
+          `${effectiveName} was added to your cart.`,
+          'INFO'
+        ).catch(() => {});
+      } catch {}
     },
-    [user]
+    [user, cart]
   );
 
   const updateQty = useCallback(
     async (itemId: string, quantity: number) => {
       if (quantity < 1) return;
 
-      // Find current item to check stock limits
+      // Find current item to check stock limits immediately
       const currentItem = cart.items.find(i => i.id === itemId);
       const stock = currentItem?.available_stock ?? (currentItem as any)?.stock;
       if (stock !== undefined && stock !== null && Number(stock) > 0 && quantity > Number(stock)) {
@@ -577,7 +592,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Snapshot for optimistic rollback if backend rejects
       const previousCart = cart;
 
-      // 1. Immediate optimistic UI state update (0ms perceived latency)
+      // 1. Immediate optimistic UI state update (0ms perceived latency!)
       setCart(prev => {
         const updatedItems = prev.items.map(it => {
           if (it.id !== itemId) return it;
@@ -591,9 +606,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return normalizeCart({ ...prev, items: updatedItems });
       });
 
-      window.dispatchEvent(new CustomEvent('cart:updated'));
-
-      const isGuestItem = itemId.startsWith('guest_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+      const isGuestItem = itemId.startsWith('guest_') || itemId.startsWith('temp_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
 
       // Local / Guest item persistence
       if (!user || isGuestItem) {
@@ -623,15 +636,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           } else {
             setCart(normalized);
           }
-          window.dispatchEvent(new CustomEvent('cart:updated'));
         } catch (err: any) {
           console.error('Failed to sync cart item quantity with server:', err);
-          // Reconcile / rollback to previous state
           setCart(previousCart);
-          window.dispatchEvent(new CustomEvent('cart:updated'));
           toast.error(err?.message || 'Could not update quantity. Please try again.');
         }
-      }, 350);
+      }, 250);
 
       syncDebounceTimers.current.set(itemId, timer);
     },
@@ -640,45 +650,36 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const removeItem = useCallback(
     async (itemId: string) => {
-      setIsLoading(true);
-      const isGuestItem = itemId.startsWith('guest_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+      const previousCart = cart;
 
-      if (user && !isGuestItem) {
-        try {
-          const updated = await cartApi.removeItem(itemId);
-          const normalized = normalizeCart(updated);
-          const remainingLocal = loadGuestCart().items;
-          if (remainingLocal.length > 0) {
-            setCart(normalizeCart({ ...normalized, items: [...normalized.items, ...remainingLocal] }));
-          } else {
-            setCart(normalized);
-          }
-          window.dispatchEvent(new CustomEvent('cart:updated'));
-        } catch (err) {
-          console.error('Failed to remove cart item:', err);
-          throw err;
-        } finally {
-          setIsLoading(false);
-        }
+      // 1. Immediate optimistic UI update (0ms latency)
+      setCart(prev => normalizeCart({ ...prev, items: prev.items.filter(it => it.id !== itemId) }));
+
+      const isGuestItem = itemId.startsWith('guest_') || itemId.startsWith('temp_') || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+
+      if (!user || isGuestItem) {
+        const currentGuest = loadGuestCart();
+        currentGuest.items = currentGuest.items.filter(i => i.id !== itemId);
+        saveGuestCart(currentGuest);
         return;
       }
 
-      // Guest / Local Cart
-      const currentGuest = loadGuestCart();
-      currentGuest.items = currentGuest.items.filter(i => i.id !== itemId);
-      saveGuestCart(currentGuest);
-      if (user) {
-        setCart(prev => {
-          const updatedItems = prev.items.filter(it => it.id !== itemId);
-          return normalizeCart({ ...prev, items: updatedItems });
-        });
-      } else {
-        setCart(normalizeCart(currentGuest));
+      try {
+        const updated = await cartApi.removeItem(itemId);
+        const normalized = normalizeCart(updated);
+        const remainingLocal = loadGuestCart().items;
+        if (remainingLocal.length > 0) {
+          setCart(normalizeCart({ ...normalized, items: [...normalized.items, ...remainingLocal] }));
+        } else {
+          setCart(normalized);
+        }
+      } catch (err) {
+        console.error('Failed to remove cart item:', err);
+        setCart(previousCart);
+        toast.error('Could not remove item.');
       }
-      window.dispatchEvent(new CustomEvent('cart:updated'));
-      setIsLoading(false);
     },
-    [user]
+    [cart, user]
   );
 
   const clearCart = useCallback(async () => {

@@ -284,20 +284,62 @@ export default function OrderDetailPage() {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span
             style={{
-              backgroundColor: statusColor(order.status).bg,
-              color: statusColor(order.status).text,
+              backgroundColor: '#faf5ff',
+              color: '#7c3aed',
+              border: '1px solid #e9d5ff',
               fontSize: '11px',
-              fontWeight: 'var(--font-bold)',
+              fontWeight: 700,
               padding: '6px 14px',
               borderRadius: 'var(--radius-full)',
               textTransform: 'uppercase',
             }}
           >
-            {SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] ||
+            Order Status: {SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] ||
               order.status.replace(/_/g, ' ')}
           </span>
-          <span style={paymentBadgeStyle(order.payment_status)}>
-            {(order.payment_status || 'PENDING_PAYMENT').replace(/_/g, ' ')}
+          <span
+            style={{
+              backgroundColor:
+                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                  ? '#ecfdf5'
+                  : order.payment_status === 'PENDING_VERIFICATION'
+                  ? '#eff6ff'
+                  : order.payment_status === 'REJECTED'
+                  ? '#fef2f2'
+                  : '#fffbeb',
+              color:
+                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                  ? '#059669'
+                  : order.payment_status === 'PENDING_VERIFICATION'
+                  ? '#2563eb'
+                  : order.payment_status === 'REJECTED'
+                  ? '#dc2626'
+                  : '#d97706',
+              border: `1px solid ${
+                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                  ? '#a7f3d0'
+                  : order.payment_status === 'PENDING_VERIFICATION'
+                  ? '#bfdbfe'
+                  : order.payment_status === 'REJECTED'
+                  ? '#fecaca'
+                  : '#fde68a'
+              }`,
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
+              textTransform: 'uppercase',
+            }}
+          >
+            Payment Status: {
+              order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
+                ? 'Paid / Verified'
+                : order.payment_status === 'PENDING_VERIFICATION'
+                ? 'Pending Verification'
+                : order.payment_status === 'REJECTED'
+                ? 'Rejected'
+                : 'Payment Pending'
+            }
           </span>
         </div>
       </div>
@@ -537,13 +579,13 @@ export default function OrderDetailPage() {
                 backgroundColor: '#ecfdf5',
                 border: '2px solid #10b981',
                 borderRadius: 'var(--radius-lg)',
-                padding: '16px 20px',
+                padding: '18px 20px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
+                gap: '10px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <span
                   style={{
                     display: 'inline-block',
@@ -555,14 +597,17 @@ export default function OrderDetailPage() {
                     borderRadius: '999px',
                   }}
                 >
-                  ✓ PAYMENT CONFIRMED & VERIFIED
+                  ✓ PAYMENT CONFIRMED &amp; VERIFIED
+                </span>
+                <span style={{ fontSize: '12px', color: '#047857', fontWeight: 600 }}>
+                  Order Fulfillment: <strong>{SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] || order.status}</strong>
                 </span>
               </div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#065f46' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#065f46' }}>
                 Bank Transfer Payment Verified
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
-                Your bank transfer payment of <strong>{formatCurrency(order.total)}</strong> has been verified and confirmed. Sourcing and direct destination delivery are actively in progress.
+                Your bank transfer payment of <strong>{formatCurrency(order.total)}</strong> has been verified and confirmed by DOVI. Your order is safely recorded, and product preparation and direct destination delivery are actively in progress.
               </p>
             </div>
           );
@@ -1792,48 +1837,4 @@ const dangerBtnStyles: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-function paymentBadgeStyle(status?: string) {
-  const s = (status || '').toUpperCase();
-  if (s === 'PAID' || s === 'VERIFIED') {
-    return {
-      backgroundColor: '#d1fae5',
-      color: '#065f46',
-      fontSize: '11px',
-      fontWeight: 'var(--font-bold)',
-      padding: '6px 14px',
-      borderRadius: 'var(--radius-full)',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  if (s === 'PENDING_VERIFICATION') {
-    return {
-      backgroundColor: '#dbeafe',
-      color: '#1e40af',
-      fontSize: '11px',
-      fontWeight: 'var(--font-bold)',
-      padding: '6px 14px',
-      borderRadius: 'var(--radius-full)',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  if (s === 'REJECTED' || s === 'FAILED') {
-    return {
-      backgroundColor: '#fee2e2',
-      color: '#991b1b',
-      fontSize: '11px',
-      fontWeight: 'var(--font-bold)',
-      padding: '6px 14px',
-      borderRadius: 'var(--radius-full)',
-      textTransform: 'uppercase' as const,
-    };
-  }
-  return {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
-    fontSize: '11px',
-    fontWeight: 'var(--font-bold)',
-    padding: '6px 14px',
-    borderRadius: 'var(--radius-full)',
-    textTransform: 'uppercase' as const,
-  };
-}
+// removed unused paymentBadgeStyle

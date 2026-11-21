@@ -319,9 +319,12 @@ export const ordersApi = {
       const { data } = await apiClient.get(`/api/v1/orders/${ref}/`);
       rawOrder = data;
     } catch (err) {
-      const localOrder = getLocalOrdersMap()[ref];
-      if (localOrder) {
-        rawOrder = localOrder;
+      const localMap = getLocalOrdersMap();
+      const match = localMap[ref] || Object.values(localMap).find(
+        (o: any) => o && (o.reference === ref || o.id === ref || o.reference_code === ref || o.order_reference === ref)
+      );
+      if (match) {
+        rawOrder = match;
       } else {
         throw normalizeApiError(err);
       }

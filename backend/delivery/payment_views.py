@@ -273,7 +273,10 @@ class AdminPaymentVerifyAPIView(views.APIView):
         for ord_obj in orders:
             if ord_obj.get('reference') == order_ref or ord_obj.get('reference_code') == order_ref or ord_obj.get('id') == order_ref:
                 ord_obj['payment_status'] = 'PAID'
-                ord_obj['status'] = 'PROCESSING'
+                curr_f = ord_obj.get('status')
+                if curr_f in ('PENDING_PAYMENT', 'ORDER_PLACED', None):
+                    ord_obj['status'] = 'PROCESSING'
+                ord_obj['fulfillment_status'] = ord_obj.get('status')
                 ord_obj['verified_at'] = now_iso
                 ord_obj['verified_by'] = admin_email
                 break
@@ -937,7 +940,25 @@ class OrderDetailAPIView(views.APIView):
                 u_email = str(user.email).lower().strip()
                 o_cid = str(matched.get('customer_id') or matched.get('buyer_id') or '')
                 o_email = str(matched.get('buyer_email') or (matched.get('delivery_address') or {}).get('email') or '').lower().strip()
-                if not ((u_id and o_cid == u_id) or (u_email and o_email == u_email)):
+
+                p_user_match = False
+                payments = store.get('payments', [])
+                ref = matched.get('reference') or matched.get('reference_code') or matched.get('id')
+                p = next((pay for pay in payments if pay.get('order_reference') == ref or pay.get('order_id') == ref), None)
+                if p:
+                    p_email = str(p.get('user_email') or p.get('buyer_email') or '').lower().strip()
+                    p_cid = str(p.get('customer_id') or p.get('user_id') or '')
+                    if (u_id and p_cid == u_id) or (u_email and p_email == u_email):
+                        p_user_match = True
+
+                match_found = bool(
+                    (u_id and o_cid == u_id) or
+                    (u_email and o_email == u_email) or
+                    p_user_match or
+                    (not o_cid and not o_email)
+                )
+
+                if not match_found:
                     return Response({'detail': 'You do not have permission to view this order.'}, status=status.HTTP_403_FORBIDDEN)
 
         # Attach payment details if available

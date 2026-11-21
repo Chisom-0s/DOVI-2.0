@@ -360,7 +360,7 @@ export default function CheckoutSessionPage() {
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link
-              to="/profile/orders"
+              to={submittedOrderRef ? `/dashboard/orders/${submittedOrderRef}` : '/dashboard/orders'}
               style={{
                 backgroundColor: 'var(--color-primary)',
                 color: '#ffffff',
@@ -369,9 +369,27 @@ export default function CheckoutSessionPage() {
                 borderRadius: '8px',
                 fontWeight: 700,
                 fontSize: '14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
               }}
             >
-              View My Orders
+              View My Order →
+            </Link>
+            <Link
+              to="/dashboard/orders"
+              style={{
+                backgroundColor: '#ffffff',
+                color: 'var(--color-primary)',
+                border: '1px solid var(--color-primary)',
+                textDecoration: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '14px',
+              }}
+            >
+              All Orders
             </Link>
             <Link
               to="/"

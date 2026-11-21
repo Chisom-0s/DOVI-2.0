@@ -382,13 +382,13 @@ function getPaymentBadgeInfo(paymentStatus?: string) {
     case 'VERIFIED':
     case 'SUCCESS':
     case 'SUCCESSFUL':
-      return { label: 'Paid', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
+      return { label: 'Payment: Paid / Verified', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
     case 'PENDING_VERIFICATION':
-      return { label: 'Payment Under Review', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' };
+      return { label: 'Payment: Pending Verification', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' };
     case 'REJECTED':
-      return { label: 'Payment Rejected', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
+      return { label: 'Payment: Rejected', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
     default:
-      return { label: 'Payment Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
+      return { label: 'Payment: Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
   }
 }
 
@@ -398,12 +398,12 @@ function getFulfillmentBadgeInfo(status?: string, hubStatus?: string) {
     case 'DELIVERED':
     case 'RECEIVED':
     case 'COMPLETED':
-      return { label: 'Delivered', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
+      return { label: 'Order: Delivered', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
     case 'DISPATCHED':
     case 'SHIPPED':
     case 'OUT_FOR_DELIVERY':
     case 'IN_TRANSIT':
-      return { label: 'Dispatched', bg: '#f0f9ff', text: '#0284c7', border: '#bae6fd' };
+      return { label: 'Order: Dispatched', bg: '#f0f9ff', text: '#0284c7', border: '#bae6fd' };
     case 'PROCESSING':
     case 'SOURCING_PRODUCTS':
     case 'AWAITING_PRODUCTS_AT_HUB':
@@ -412,12 +412,12 @@ function getFulfillmentBadgeInfo(status?: string, hubStatus?: string) {
     case 'READY_FOR_PACKAGING':
     case 'PACKAGED':
     case 'READY_FOR_DISPATCH':
-      return { label: 'Processing', bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff' };
+      return { label: 'Order: Processing', bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff' };
     case 'CANCELLED':
     case 'REFUNDED':
-      return { label: 'Cancelled', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
+      return { label: 'Order: Cancelled', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
     default:
-      return { label: 'Order Placed', bg: '#f8fafc', text: '#475569', border: '#e2e8f0' };
+      return { label: 'Order: Placed', bg: '#f8fafc', text: '#475569', border: '#e2e8f0' };
   }
 }
 
