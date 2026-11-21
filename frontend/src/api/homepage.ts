@@ -25,7 +25,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 1,
     display_order: 1,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
@@ -42,7 +42,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 2,
     display_order: 2,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -79,7 +79,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 4,
     display_order: 4,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
@@ -96,7 +96,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 5,
     display_order: 5,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -113,7 +113,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 6,
     display_order: 6,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -130,7 +130,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 7,
     display_order: 7,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -147,7 +147,7 @@ const SEED_SECTIONS: HomepageSection[] = [
     visible: true,
     sort_order: 8,
     display_order: 8,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
@@ -300,10 +300,41 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       .map((p) => enrichProductWithDelivery(p));
 
   try {
-    const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 100 } });
-    const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
-    if (rawList && rawList.length > 0) {
-      const normalized = rawList
+    const allRaw: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    // Fetch products in safe batches across pages (avoids 502 crash on single large page_size)
+    while (hasMore && page <= 10) {
+      try {
+        const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
+        const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
+        if (rawList && rawList.length > 0) {
+          allRaw.push(...rawList);
+        }
+        const totalCount = typeof data?.count === 'number' ? data.count : allRaw.length;
+        if (!data?.next || allRaw.length >= totalCount || rawList.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } catch (pageErr) {
+        // Stop pagination on error, preserve products retrieved so far
+        hasMore = false;
+      }
+    }
+
+    if (allRaw && allRaw.length > 0) {
+      const seen = new Set<string>();
+      const uniqueRaw: any[] = [];
+      for (const p of allRaw) {
+        if (p && p.id && !seen.has(p.id)) {
+          seen.add(p.id);
+          uniqueRaw.push(p);
+        }
+      }
+
+      const normalized = uniqueRaw
         .filter((p: any) => {
           if (!p) return false;
           if (deletedIds.includes(p.id)) return false;
@@ -409,7 +440,7 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 
     case 'NEW_ARRIVALS': {
       candidates = realProducts.filter(
-        (p) => (Boolean(p.is_new_arrival) || orderedIds.includes(p.id)) &&
+        (p) => (Boolean(p.is_new_arrival) || orderedIds.includes(p.id) || !p.created_at || (Date.now() - new Date(p.created_at).getTime() < 60 * 24 * 3600 * 1000)) &&
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );
@@ -434,6 +465,14 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );
+      // Fallback: if no products meet strict flash timer criteria, match items assigned by admin or with promo flags
+      if (candidates.length === 0 && orderedIds.length > 0) {
+        candidates = realProducts.filter(
+          (p) => orderedIds.includes(p.id) &&
+                 (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+                 p.in_stock !== false
+        );
+      }
       break;
     }
 
@@ -468,7 +507,6 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     }
 
     default: {
-      // Custom sections or manually assigned products
       const customMatches = realProducts.filter((p) => {
         const placement = getProductHomepagePlacement({ id: p.id, description: p.description });
         const hasCustom = placement?.custom_section_ids?.includes(section.id) || placement?.custom_section_ids?.includes(section.key);
@@ -497,8 +535,9 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     candidates = orderedCandidates;
   }
 
-  const limit = mSec?.display_limit || section.display_limit || 6;
-  return candidates.slice(0, limit);
+  // Support up to 24 products per section so no assigned product is arbitrarily hidden
+  const limit = mSec?.display_limit || section.display_limit || 24;
+  return candidates.slice(0, Math.max(limit, 24));
 }
 
 export const homepageApi = {

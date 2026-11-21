@@ -125,11 +125,33 @@ export default function HomePage() {
     }
 
     switch (layout) {
-      case 'PRODUCT_GRID':
       case 'HORIZONTAL_CAROUSEL':
+      case 'AUTO_LISTING_GRID':
+        return (
+          <div
+            className="homepage-carousel-container"
+            style={{
+              display: 'flex',
+              gap: '16px',
+              overflowX: 'auto',
+              paddingBottom: '16px',
+              paddingTop: '4px',
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'thin',
+            }}
+          >
+            {products.map(p => (
+              <div key={p.id} style={{ flex: '0 0 230px', minWidth: '220px', scrollSnapAlign: 'start' }}>
+                <ProductCard product={p} />
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'PRODUCT_GRID':
       case 'COMPACT_LIST':
       case 'LARGE_PRODUCT_CARDS':
-      case 'AUTO_LISTING_GRID':
         return (
           <div className="marketplace-product-grid">
             {products.map(p => (
@@ -202,18 +224,35 @@ export default function HomePage() {
               {/* Section Header */}
               {section.configuration?.layout !== 'BANNER' && (
                 <div style={sectionHeaderStyles}>
-                  <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <h2 style={sectionTitleStyles}>
                       {section.icon && <span style={{ marginRight: '8px' }}>{section.icon}</span>}
                       {section.title}
                     </h2>
+                    {section.key === 'FLASH_DEALS' && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          backgroundColor: '#fef2f2',
+                          color: '#dc2626',
+                          border: '1px solid #fecaca',
+                          borderRadius: '999px',
+                          padding: '3px 10px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        ⚡ Limited Time Flash Deals
+                      </span>
+                    )}
                     {section.subtitle && <p style={sectionSubtitleStyles}>{section.subtitle}</p>}
                   </div>
-                  {section.configuration?.cta_text && (
-                    <Link to={section.configuration.cta_url || '/products'} style={seeAllStyles}>
-                      {section.configuration.cta_text} &gt;
-                    </Link>
-                  )}
+                  <Link to={section.configuration?.cta_url || '/products'} style={seeAllStyles}>
+                    {section.configuration?.cta_text || 'See All'} &gt;
+                  </Link>
                 </div>
               )}
 

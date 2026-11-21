@@ -32,7 +32,7 @@ export default function ProductMerchandisingTab() {
   const [newSectionName, setNewSectionName] = useState('');
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [newSectionSubtitle, setNewSectionSubtitle] = useState('');
-  const [newSectionLimit, setNewSectionLimit] = useState(6);
+  const [newSectionLimit, setNewSectionLimit] = useState(24);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -44,8 +44,7 @@ export default function ProductMerchandisingTab() {
         setSelectedSectionId(loadedSections[0].id);
       }
 
-      const prodRes = await adminApi.listProducts();
-      const prods = Array.isArray(prodRes) ? prodRes : prodRes?.results || [];
+      const prods = await adminApi.listAllProducts();
       setAllProducts(prods);
     } catch (err: any) {
       toast.error('Failed to load merchandising data.');

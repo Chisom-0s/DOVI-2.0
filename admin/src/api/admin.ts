@@ -1212,6 +1212,56 @@ export const adminApi = {
   },
 
   // --- Product Management ---
+  listAllProducts: async (): Promise<ProductSummary[]> => {
+    let deletedIds: string[] = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+    } catch {}
+
+    const allProducts: ProductSummary[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      try {
+        const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
+        const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+        for (const p of rawList) {
+          if (p && !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED') {
+            allProducts.push(enrichProductWithCategory(p));
+          }
+        }
+        const totalCount = typeof data?.count === 'number' ? data.count : allProducts.length;
+        if (!data?.next || allProducts.length >= totalCount || rawList.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } catch (err) {
+        hasMore = false;
+      }
+    }
+
+    if (allProducts.length > 0) {
+      const seen = new Set<string>();
+      return allProducts.filter((p) => {
+        if (!p || !p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    }
+
+    try {
+      const cached = localStorage.getItem('dovi_real_products_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+
+    return [];
+  },
+
   listProducts: async (params?: { page?: number; q?: string; search?: string; category?: string; vendor?: string }): Promise<PaginatedResponse<ProductSummary>> => {
     try {
       const queryParams: Record<string, any> = { page: params?.page, category: params?.category };

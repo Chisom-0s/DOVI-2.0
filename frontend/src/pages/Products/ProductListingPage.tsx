@@ -147,7 +147,7 @@ export default function ProductListingPage() {
       setProducts(response.results);
       setTotalCount(response.count);
       setPage(1);
-      setHasMore(response.results.length < response.count && Boolean(response.next));
+      setHasMore(Boolean(response.next) || response.results.length < response.count);
 
       if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && response.results.length > 0) {
         try {
@@ -196,11 +196,15 @@ export default function ProductListingPage() {
       setProducts(prev => {
         const existingIds = new Set(prev.map(p => p.id));
         const newProducts = response.results.filter(p => !existingIds.has(p.id));
-        return [...prev, ...newProducts];
+        const updated = [...prev, ...newProducts];
+        setHasMore((Boolean(response.next) || updated.length < response.count) && newProducts.length > 0);
+        return updated;
       });
 
       setPage(nextPage);
-      setHasMore(response.results.length > 0 && Boolean(response.next));
+      if (typeof response.count === 'number' && response.count > 0) {
+        setTotalCount(response.count);
+      }
     } catch (err) {
       console.error('Failed to load more products:', err);
       setHasMore(false);
@@ -562,7 +566,7 @@ export default function ProductListingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
               <span style={resultsCountStyles}>
-                <strong>{totalCount}</strong> {totalCount === 1 ? 'product' : 'products'} found
+                <strong>{products.length < totalCount ? `Showing ${products.length} of ${totalCount}` : totalCount}</strong> {totalCount === 1 ? 'product' : 'products'} found
                 {searchParam ? (
                   <>
                     {' '}for &ldquo;<strong>{searchParam}</strong>&rdquo;
@@ -664,8 +668,8 @@ export default function ProductListingPage() {
               ))}
             </div>
 
-            {/* Continuous Loading Sentinel & Spinner */}
-            <div ref={sentinelRef} style={{ width: '100%', height: '24px', margin: '24px 0 12px 0' }}>
+            {/* Continuous Loading Sentinel & Explicit Load More Action */}
+            <div ref={sentinelRef} style={{ width: '100%', minHeight: '24px', margin: '24px 0 12px 0', textAlign: 'center' }}>
               {isLoadingMore && (
                 <div className="continuous-loading-indicator">
                   <div className="continuous-spinner" />
@@ -673,6 +677,33 @@ export default function ProductListingPage() {
                 </div>
               )}
             </div>
+
+            {hasMore && !isLoadingMore && (
+              <div style={{ textAlign: 'center', margin: '16px 0 32px 0' }}>
+                <button
+                  type="button"
+                  onClick={loadMoreProducts}
+                  disabled={isLoadingMore}
+                  style={{
+                    padding: '12px 32px',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(255, 122, 0, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  Load More Products ({products.length} of {totalCount})
+                </button>
+              </div>
+            )}
           </>
         ) : fetchError?.code === 'NETWORK_ERROR' || (!navigator.onLine && products.length === 0) ? (
           <NoInternetBanner onRetry={fetchProducts} />
