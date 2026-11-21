@@ -59,7 +59,6 @@ export default function ProductListingPage() {
   });
 
   const [totalCount, setTotalCount] = useState<number>(() => products.length);
-  const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -79,6 +78,8 @@ export default function ProductListingPage() {
   const [draftInStock, setDraftInStock] = useState(inStockParam);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const currentRequestId = useRef<number>(0);
+  const pageRef = useRef<number>(1);
 
   // Sync draft states whenever drawer opens
   const openFilterDrawer = () => {
@@ -126,10 +127,12 @@ export default function ProductListingPage() {
     setSearchParams(nextParams);
   };
 
-  // Fetch initial batch of products on filter change
+  // Fetch initial batch of products on filter change, then auto-stream remaining pages
   const fetchProducts = useCallback(async () => {
+    const requestId = ++currentRequestId.current;
     setIsLoading(true);
     setFetchError(null);
+    pageRef.current = 1;
     try {
       const response = await productsApi.list({
         page: 1,
@@ -144,17 +147,79 @@ export default function ProductListingPage() {
         q: searchParam.trim() || undefined,
       });
 
-      setProducts(response.results);
+      if (requestId !== currentRequestId.current) return;
+
+      const initialProducts = response.results;
+      setProducts(initialProducts);
       setTotalCount(response.count);
-      setPage(1);
-      setHasMore(Boolean(response.next) || response.results.length < response.count);
+      const hasNext = Boolean(response.next) || initialProducts.length < response.count;
+      setHasMore(hasNext);
+      setIsLoading(false);
 
       if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && response.results.length > 0) {
         try {
           sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(response.results));
         } catch {}
       }
+
+      // Automatically stream remaining products in the background so all products appear continuously on this one page
+      if (hasNext) {
+        let currentPage = 1;
+        let accumulated = [...initialProducts];
+        const seenIds = new Set(accumulated.map(p => p.id));
+        setIsLoadingMore(true);
+
+        while (accumulated.length < response.count) {
+          if (requestId !== currentRequestId.current) break;
+          currentPage += 1;
+          pageRef.current = currentPage;
+
+          try {
+            const nextResp = await productsApi.list({
+              page: currentPage,
+              page_size: 24,
+              category: categoryParam || undefined,
+              subcategory: subcategoryParam || undefined,
+              sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
+              min_price: minPriceParam ? parseFloat(minPriceParam) : undefined,
+              max_price: maxPriceParam ? parseFloat(maxPriceParam) : undefined,
+              min_rating: minRatingParam ? parseFloat(minRatingParam) : undefined,
+              in_stock: inStockParam ? true : undefined,
+              q: searchParam.trim() || undefined,
+            });
+
+            if (requestId !== currentRequestId.current) break;
+
+            if (!nextResp.results || nextResp.results.length === 0) {
+              setHasMore(false);
+              break;
+            }
+
+            const newItems = nextResp.results.filter(p => !seenIds.has(p.id));
+            if (newItems.length === 0) {
+              setHasMore(false);
+              break;
+            }
+
+            newItems.forEach(p => seenIds.add(p.id));
+            accumulated = [...accumulated, ...newItems];
+            setProducts(accumulated);
+
+            const stillMore = Boolean(nextResp.next) && accumulated.length < response.count;
+            setHasMore(stillMore);
+            if (!stillMore) break;
+          } catch (nextErr) {
+            console.warn('Background page streaming stopped:', nextErr);
+            setHasMore(false);
+            break;
+          }
+        }
+        if (requestId === currentRequestId.current) {
+          setIsLoadingMore(false);
+        }
+      }
     } catch (err: any) {
+      if (requestId !== currentRequestId.current) return;
       console.error('Failed to load products list:', err);
       setProducts([]);
       setTotalCount(0);
@@ -165,8 +230,8 @@ export default function ProductListingPage() {
           ? { error: true, message: 'No internet signal', code: 'NETWORK_ERROR' }
           : { error: true, message: "Couldn't fetch item", code: 'FETCH_ERROR' }
       );
-    } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, [categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
 
@@ -174,12 +239,12 @@ export default function ProductListingPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Load next batch of products on scroll (Continuous listing)
+  // Seamless on-scroll loader for infinite scrolling
   const loadMoreProducts = useCallback(async () => {
     if (isLoading || isLoadingMore || !hasMore) return;
     setIsLoadingMore(true);
+    const nextPage = pageRef.current + 1;
     try {
-      const nextPage = page + 1;
       const response = await productsApi.list({
         page: nextPage,
         page_size: 24,
@@ -201,7 +266,7 @@ export default function ProductListingPage() {
         return updated;
       });
 
-      setPage(nextPage);
+      pageRef.current = nextPage;
       if (typeof response.count === 'number' && response.count > 0) {
         setTotalCount(response.count);
       }
@@ -211,9 +276,9 @@ export default function ProductListingPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoading, isLoadingMore, hasMore, page, categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
+  }, [isLoading, isLoadingMore, hasMore, categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
 
-  // IntersectionObserver to auto-load next batch when sentinel enters viewport
+  // IntersectionObserver for seamless infinite scrolling
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || isLoading || isLoadingMore) return;
     const observer = new IntersectionObserver(
@@ -222,7 +287,7 @@ export default function ProductListingPage() {
           loadMoreProducts();
         }
       },
-      { rootMargin: '300px' }
+      { rootMargin: '1000px' }
     );
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
@@ -566,7 +631,7 @@ export default function ProductListingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
               <span style={resultsCountStyles}>
-                <strong>{products.length < totalCount ? `Showing ${products.length} of ${totalCount}` : totalCount}</strong> {totalCount === 1 ? 'product' : 'products'} found
+                <strong>{totalCount > 0 ? totalCount : products.length}</strong> {(totalCount || products.length) === 1 ? 'product' : 'products'} found
                 {searchParam ? (
                   <>
                     {' '}for &ldquo;<strong>{searchParam}</strong>&rdquo;
@@ -668,40 +733,19 @@ export default function ProductListingPage() {
               ))}
             </div>
 
-            {/* Continuous Loading Sentinel & Explicit Load More Action */}
-            <div ref={sentinelRef} style={{ width: '100%', minHeight: '24px', margin: '24px 0 12px 0', textAlign: 'center' }}>
+            {/* Infinite Scrolling Sentinel & Loading Indicator */}
+            <div ref={sentinelRef} style={{ width: '100%', minHeight: '32px', margin: '20px 0 12px 0', textAlign: 'center' }}>
               {isLoadingMore && (
                 <div className="continuous-loading-indicator">
                   <div className="continuous-spinner" />
-                  <span>Loading more items...</span>
+                  <span>Loading all products...</span>
                 </div>
               )}
             </div>
 
-            {hasMore && !isLoadingMore && (
-              <div style={{ textAlign: 'center', margin: '16px 0 32px 0' }}>
-                <button
-                  type="button"
-                  onClick={loadMoreProducts}
-                  disabled={isLoadingMore}
-                  style={{
-                    padding: '12px 32px',
-                    backgroundColor: 'var(--color-primary)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 600,
-                    fontSize: '15px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(255, 122, 0, 0.25)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  Load More Products ({products.length} of {totalCount})
-                </button>
+            {!hasMore && products.length > 0 && !isLoading && !isLoadingMore && (
+              <div style={{ textAlign: 'center', padding: '24px 0 36px 0', color: 'var(--color-text-muted)', fontSize: '13px', fontWeight: 500 }}>
+                Showing all {products.length} {products.length === 1 ? 'product' : 'products'}
               </div>
             )}
           </>
