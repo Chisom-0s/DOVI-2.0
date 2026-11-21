@@ -1,4 +1,5 @@
 import apiClient, { normalizeApiError, tokenStore } from './client';
+import { adminCache } from '@/services/adminCache';
 import { normalizeUrl } from '@/utils/image';
 import {
   syncPaymentsAndOrdersFromServer,
@@ -3526,3 +3527,223 @@ export const adminApi = {
     };
   },
 };
+
+
+// ============================================================
+// Intelligent Navigation Caching & Mutation Invalidation Layer
+// ============================================================
+
+// 1. Dashboard Overview Analytics (2 min fresh, 10 min stale)
+const rawGetAnalyticsOverview = adminApi.getAnalyticsOverview.bind(adminApi);
+adminApi.getAnalyticsOverview = (async (range: AnalyticsRange = 'ALL', force = false) => {
+  return adminCache.fetchWithCache(
+    `analytics:overview:${range}`,
+    () => rawGetAnalyticsOverview(range),
+    { ttl: 2 * 60 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 2. Orders (60s fresh, 5 min stale)
+const rawListOrders = adminApi.listOrders.bind(adminApi);
+adminApi.listOrders = (async (params: any, force = false) => {
+  const cacheKey = `orders:list:${params?.page || 1}:${params?.status || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListOrders(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 3. Products (90s fresh, 5 min stale)
+const rawListProducts = adminApi.listProducts.bind(adminApi);
+adminApi.listProducts = (async (params: any, force = false) => {
+  const cacheKey = `products:list:${params?.page || 1}:${params?.category || ''}:${params?.status || ''}:${params?.vendor || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListProducts(params),
+    { ttl: 90 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 4. Categories (2 min fresh, 10 min stale)
+const rawListCategories = adminApi.listCategories.bind(adminApi);
+adminApi.listCategories = (async (allProducts?: any[], force = false) => {
+  const cacheKey = allProducts ? `categories:list:${allProducts.length}` : 'categories:list:base';
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListCategories(allProducts),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 5. Payments (60s fresh, 5 min stale)
+const rawListPayments = adminApi.listPayments.bind(adminApi);
+adminApi.listPayments = (async (params: any, force = false) => {
+  const cacheKey = `payments:list:${params?.page || 1}:${params?.status || ''}:${params?.provider || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListPayments(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 6. Payment Sessions (30s fresh, 3 min stale)
+const rawListPaymentSessions = adminApi.listPaymentSessions.bind(adminApi);
+adminApi.listPaymentSessions = (async (params: any, force = false) => {
+  const cacheKey = `payments:sessions:${params?.status || ''}:${params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListPaymentSessions(params),
+    { ttl: 30 * 1000, staleTtl: 3 * 60 * 1000, force }
+  );
+}) as any;
+
+// 7. Payment Accounts (2 min fresh, 10 min stale)
+const rawListPaymentAccounts = adminApi.listPaymentAccounts.bind(adminApi);
+adminApi.listPaymentAccounts = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'payment_accounts:list',
+    () => rawListPaymentAccounts(),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 8. Minimum Order Settings (2 min fresh, 10 min stale)
+const rawGetMinOrder = adminApi.getMinimumOrderSettings.bind(adminApi);
+adminApi.getMinimumOrderSettings = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'settings:min_order',
+    () => rawGetMinOrder(),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 9. Users (60s fresh, 5 min stale)
+const rawListUsers = adminApi.listUsers.bind(adminApi);
+adminApi.listUsers = (async (params: any, force = false) => {
+  const cacheKey = `users:list:${params?.page || 1}:${params?.role || ''}:${params?.q || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListUsers(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 10. Vendors (2 min fresh, 10 min stale)
+const rawListVendors = adminApi.listVendors.bind(adminApi);
+adminApi.listVendors = (async (params: any, force = false) => {
+  const cacheKey = `vendors:list:${params?.page || 1}:${params?.status || ''}:${params?.q || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListVendors(params),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 11. Homepage Banners & Sections (2 min fresh, 10 min stale)
+const rawListBanners = adminApi.listHomepageBanners.bind(adminApi);
+adminApi.listHomepageBanners = (async (force = false) => {
+  return adminCache.fetchWithCache('homepage:banners', () => rawListBanners(), { ttl: 120 * 1000, force });
+}) as any;
+
+const rawListSections = adminApi.listHomepageSections.bind(adminApi);
+adminApi.listHomepageSections = (async (force = false) => {
+  return adminCache.fetchWithCache('homepage:sections', () => rawListSections(), { ttl: 120 * 1000, force });
+}) as any;
+
+// 12. Save2Own Goals & Metrics (60s fresh, 5 min stale)
+const rawListS2OGoals = adminApi.listSave2OwnGoals.bind(adminApi);
+adminApi.listSave2OwnGoals = (async (params: any, force = false) => {
+  const cacheKey = `save2own:goals:${params?.page || 1}:${params?.status || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListS2OGoals(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+const rawListS2OContribs = adminApi.listSave2OwnContributions.bind(adminApi);
+adminApi.listSave2OwnContributions = (async (params: any, force = false) => {
+  const cacheKey = `save2own:contribs:${params?.page || 1}:${params?.status || ''}:${params?.search || ''}:${params?.goal_id || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListS2OContribs(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+const rawGetS2OMetrics = adminApi.getSave2OwnDashboardMetrics.bind(adminApi);
+adminApi.getSave2OwnDashboardMetrics = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'save2own:metrics',
+    () => rawGetS2OMetrics(),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 13. Refunds, Reviews, Audit Logs
+const rawListRefunds = adminApi.listRefunds.bind(adminApi);
+adminApi.listRefunds = (async (params: any, force = false) => {
+  const cacheKey = `refunds:list:${params?.page || 1}:${params?.status || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListRefunds(params), { ttl: 60 * 1000, force });
+}) as any;
+
+const rawListReviews = adminApi.listReviews.bind(adminApi);
+adminApi.listReviews = (async (params: any, force = false) => {
+  const cacheKey = `reviews:list:${params?.page || 1}:${params?.rating || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListReviews(params), { ttl: 60 * 1000, force });
+}) as any;
+
+const rawListAuditLogs = adminApi.listAuditLogs.bind(adminApi);
+adminApi.listAuditLogs = (async (params: any, force = false) => {
+  const cacheKey = `audit_logs:list:${params?.page || 1}:${params?.user || ''}:${params?.action || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListAuditLogs(params), { ttl: 60 * 1000, force });
+}) as any;
+
+// ============================================================
+// Automatic Mutation Invalidation Interceptors
+// ============================================================
+function wrapMutation<T extends (...args: any[]) => Promise<any>>(
+  fn: T,
+  namespacesToInvalidate: string[]
+): T {
+  return (async function (this: any, ...args: any[]) {
+    const result = await fn.apply(this, args);
+    for (const ns of namespacesToInvalidate) {
+      adminCache.invalidate(ns);
+    }
+    return result;
+  }) as T;
+}
+
+// Order & Payment mutations
+adminApi.updateOrderStatus = wrapMutation(adminApi.updateOrderStatus.bind(adminApi), ['orders', 'payments', 'analytics']);
+adminApi.verifyPayment = wrapMutation(adminApi.verifyPayment.bind(adminApi), ['payments', 'orders', 'analytics']);
+adminApi.rejectPayment = wrapMutation(adminApi.rejectPayment.bind(adminApi), ['payments', 'orders', 'analytics']);
+
+// Product mutations
+adminApi.createProduct = wrapMutation(adminApi.createProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+adminApi.updateProduct = wrapMutation(adminApi.updateProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+adminApi.archiveProduct = wrapMutation(adminApi.archiveProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+
+// Category mutations
+adminApi.deleteCategory = wrapMutation(adminApi.deleteCategory.bind(adminApi), ['categories', 'products']);
+
+// Payment accounts & Min order
+adminApi.createPaymentAccount = wrapMutation(adminApi.createPaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.updatePaymentAccount = wrapMutation(adminApi.updatePaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.deletePaymentAccount = wrapMutation(adminApi.deletePaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.updateMinimumOrderSettings = wrapMutation(adminApi.updateMinimumOrderSettings.bind(adminApi), ['settings:min_order']);
+
+// Homepage mutations
+adminApi.createHomepageBanner = wrapMutation(adminApi.createHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.updateHomepageBanner = wrapMutation(adminApi.updateHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.deleteHomepageBanner = wrapMutation(adminApi.deleteHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.createHomepageSection = wrapMutation(adminApi.createHomepageSection.bind(adminApi), ['homepage']);
+adminApi.updateHomepageSection = wrapMutation(adminApi.updateHomepageSection.bind(adminApi), ['homepage']);
+adminApi.deleteHomepageSection = wrapMutation(adminApi.deleteHomepageSection.bind(adminApi), ['homepage']);
+
+// Save2Own mutations
+adminApi.confirmSave2OwnContribution = wrapMutation(adminApi.confirmSave2OwnContribution.bind(adminApi), ['save2own', 'analytics']);
+adminApi.rejectSave2OwnContribution = wrapMutation(adminApi.rejectSave2OwnContribution.bind(adminApi), ['save2own', 'analytics']);
+adminApi.approveSave2OwnRefund = wrapMutation(adminApi.approveSave2OwnRefund.bind(adminApi), ['save2own', 'refunds', 'analytics']);

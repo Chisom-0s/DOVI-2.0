@@ -5,6 +5,8 @@
 // Save2Own Promo CTA, and Custom Merchandising Sections.
 // ============================================================
 
+import { fetchSharedDbOnce } from './sharedDbSync';
+
 export interface FlashSaleConfig {
   flash_price: number | null;
   original_price: number | null;
@@ -1550,12 +1552,8 @@ export async function syncHomepagePlacementsFromServer(): Promise<Record<string,
     return readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);
   }
   try {
-    const res = await fetch('/__dovi_delivery_db__', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    if (res.ok) {
-      const data = await res.json();
+    const data = await fetchSharedDbOnce();
+    if (data) {
       const serverPlacements = data?.homepagePlacements;
       if (serverPlacements && typeof serverPlacements === 'object') {
         const local = readLocal<Record<string, ProductHomepagePlacement>>(STORAGE_KEYS.PLACEMENTS, DEFAULT_SEEDED_PLACEMENTS);

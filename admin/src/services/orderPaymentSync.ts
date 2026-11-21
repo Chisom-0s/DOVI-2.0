@@ -1,4 +1,5 @@
 import type { Payment } from '@/types';
+import { fetchSharedDbOnce } from './sharedDbSync';
 
 const STORAGE_KEYS = {
   PAYMENTS: 'dovi_payments_submissions',
@@ -57,20 +58,7 @@ export function addCustomerNotification(title: string, message: string, type: 'S
 }
 
 export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Payment[]; orders: Record<string, any> }> {
-  let serverData: any = null;
-  if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-    try {
-      const res = await fetch('/__dovi_delivery_db__', {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      if (res.ok) {
-        serverData = await res.json();
-      }
-    } catch {
-      // Fallback
-    }
-  }
+  const serverData: any = await fetchSharedDbOnce();
 
   // 1. Merge payments
   const localPayments = getLocalPayments();

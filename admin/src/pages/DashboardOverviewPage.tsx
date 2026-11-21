@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import type { AnalyticsOverviewResult, AnalyticsSourceStatus, AnalyticsRange } from '@/services/analyticsAggregator';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -20,14 +21,22 @@ const RANGES: Array<{ id: AnalyticsRange; label: string }> = [
 
 export default function DashboardOverviewPage() {
   const [range, setRange] = useState<AnalyticsRange>('ALL');
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<DashboardData | null>(
+    () => adminCache.get<DashboardData>('analytics:overview:ALL')?.data || null
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => !adminCache.get<DashboardData>('analytics:overview:ALL')
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<APIError | null>(null);
 
   const fetchOverview = useCallback(async (selectedRange: AnalyticsRange, showToast = false) => {
-    if (showToast) setIsRefreshing(true);
-    else setIsLoading(true);
+    const cached = adminCache.get<DashboardData>('analytics:overview:' + selectedRange);
+    if (showToast) {
+      setIsRefreshing(true);
+    } else if (!cached) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const res = await adminApi.getAnalyticsOverview(selectedRange);

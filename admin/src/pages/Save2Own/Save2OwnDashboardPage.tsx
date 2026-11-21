@@ -2,17 +2,22 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import type { Save2OwnDashboardMetrics, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 
 export default function Save2OwnDashboardPage() {
-  const [metrics, setMetrics] = useState<Save2OwnDashboardMetrics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [metrics, setMetrics] = useState<Save2OwnDashboardMetrics | null>(() => {
+    const cached = adminCache.get<Save2OwnDashboardMetrics>('save2own:metrics');
+    return cached?.data || null;
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('save2own:metrics'));
   const [error, setError] = useState<APIError | null>(null);
 
   const fetchMetrics = async () => {
-    setIsLoading(true);
+    const hasCache = Boolean(adminCache.get('save2own:metrics'));
+    if (!hasCache && !metrics) setIsLoading(true);
     setError(null);
     try {
       const data = await adminApi.getSave2OwnDashboardMetrics();

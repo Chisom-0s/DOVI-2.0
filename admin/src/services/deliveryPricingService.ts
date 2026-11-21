@@ -17,6 +17,7 @@ import type {
   Product,
   ProductSummary,
 } from '../types';
+import { fetchSharedDbOnce } from './sharedDbSync';
 
 export const PRIMARY_DISPATCH_ORIGIN = 'Onitsha';
 
@@ -876,19 +877,7 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
   if (typeof window === 'undefined' || typeof fetch === 'undefined') {
     return getLocalDeliveryStore();
   }
-  let serverData: Partial<DeliveryStoreState> | null = null;
-  try {
-    const res = await fetch('/__dovi_delivery_db__', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    const cType = res.headers.get('content-type') || '';
-    if (res.ok && cType.includes('application/json')) {
-      serverData = (await res.json()) as Partial<DeliveryStoreState>;
-    }
-  } catch {
-    // Non-fatal, try static fallback
-  }
+  let serverData: Partial<DeliveryStoreState> | null = await fetchSharedDbOnce();
 
   if (!serverData || !Array.isArray(serverData.routes) || serverData.routes.length === 0) {
     try {

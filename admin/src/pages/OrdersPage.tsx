@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type {
   Order,
@@ -32,8 +33,11 @@ import { EmptyState } from '@/components/common/EmptyState';
 
 export default function OrdersPage() {
   const { user } = useAdminAuth();
-  const [orders, setOrders] = useState<OrderSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderSummary[]>(() => {
+    const cached = adminCache.get<any>('orders:list:1::');
+    return cached?.data?.results || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('orders:list:1::'));
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -86,7 +90,9 @@ export default function OrdersPage() {
   };
 
   const fetchOrders = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `orders:list:${page}:${statusFilter || ''}:${searchTerm || ''}`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && orders.length === 0) setIsLoading(true);
     setError(null);
     try {
       await syncDeliveryStoreFromServer();

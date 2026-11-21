@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import AdminRouteLoader from '@/components/common/AdminRouteLoader';
 
 
 interface NavItem {
@@ -277,7 +278,7 @@ export default function AdminLayout() {
         {/* Main Content Area */}
         <main style={mainContentStyles}>
           <div style={contentCardWrapperStyles}>
-            <Outlet />
+            <Suspense fallback={<AdminRouteLoader />}><Outlet /></Suspense>
           </div>
 
         </main>

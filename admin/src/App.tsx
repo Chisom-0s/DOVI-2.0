@@ -1,73 +1,76 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { AdminAuthGuard } from '@/components/guards/AdminAuthGuard';
 import AdminLayout from '@/components/layout/AdminLayout';
-
-// Pages
-import LoginPage from '@/pages/LoginPage';
-import DashboardOverviewPage from '@/pages/DashboardOverviewPage';
-import UsersPage from '@/pages/UsersPage';
-import ProductsPage from '@/pages/ProductsPage';
-import CategoriesPage from '@/pages/CategoriesPage';
-import OrdersPage from '@/pages/OrdersPage';
-import DeliveryManagementPage from '@/pages/DeliveryManagementPage';
-import PaymentsPage from '@/pages/PaymentsPage';
-import RefundsPage from '@/pages/RefundsPage';
-import ReviewsPage from '@/pages/ReviewsPage';
-import AuditLogsPage from '@/pages/AuditLogsPage';
-
-import HomepageManagerPage from '@/pages/Homepage/HomepageManagerPage';
-import Save2OwnDashboardPage from '@/pages/Save2Own/Save2OwnDashboardPage';
-import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
-import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
-import Save2OwnContributionsPage from '@/pages/Save2Own/Save2OwnContributionsPage';
-import Save2OwnParticipantsPage from '@/pages/Save2Own/Save2OwnParticipantsPage';
-import Save2OwnRefundsPage from '@/pages/Save2Own/Save2OwnRefundsPage';
-import PaymentAccountsPage from '@/pages/PaymentAccounts/PaymentAccountsPage';
-import EmailManagementPage from '@/pages/EmailManagementPage';
-
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import AdminRouteLoader from '@/components/common/AdminRouteLoader';
+
+// Code-split route pages: loaded on demand to minimize bundle size and speed up transitions
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const DashboardOverviewPage = lazy(() => import('@/pages/DashboardOverviewPage'));
+const UsersPage = lazy(() => import('@/pages/UsersPage'));
+const ProductsPage = lazy(() => import('@/pages/ProductsPage'));
+const CategoriesPage = lazy(() => import('@/pages/CategoriesPage'));
+const OrdersPage = lazy(() => import('@/pages/OrdersPage'));
+const DeliveryManagementPage = lazy(() => import('@/pages/DeliveryManagementPage'));
+const PaymentsPage = lazy(() => import('@/pages/PaymentsPage'));
+const RefundsPage = lazy(() => import('@/pages/RefundsPage'));
+const ReviewsPage = lazy(() => import('@/pages/ReviewsPage'));
+const AuditLogsPage = lazy(() => import('@/pages/AuditLogsPage'));
+
+const HomepageManagerPage = lazy(() => import('@/pages/Homepage/HomepageManagerPage'));
+const Save2OwnDashboardPage = lazy(() => import('@/pages/Save2Own/Save2OwnDashboardPage'));
+const Save2OwnGoalsPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalsPage'));
+const Save2OwnGoalDetailPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalDetailPage'));
+const Save2OwnContributionsPage = lazy(() => import('@/pages/Save2Own/Save2OwnContributionsPage'));
+const Save2OwnParticipantsPage = lazy(() => import('@/pages/Save2Own/Save2OwnParticipantsPage'));
+const Save2OwnRefundsPage = lazy(() => import('@/pages/Save2Own/Save2OwnRefundsPage'));
+const PaymentAccountsPage = lazy(() => import('@/pages/PaymentAccounts/PaymentAccountsPage'));
+const EmailManagementPage = lazy(() => import('@/pages/EmailManagementPage'));
 
 export default function App() {
   return (
     <BrowserRouter>
       <AdminAuthProvider>
         <ErrorBoundary>
-          <Routes>
-            {/* Public login route */}
-            <Route path="/login" element={<LoginPage />} />
+          <Suspense fallback={<AdminRouteLoader />}>
+            <Routes>
+              {/* Public login route */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected admin routing group */}
-            <Route
-              path="/"
-              element={
-                <AdminAuthGuard>
-                  <AdminLayout />
-                </AdminAuthGuard>
-              }
-            >
-              <Route index element={<DashboardOverviewPage />} />
-              <Route path="homepage" element={<HomepageManagerPage />} />
-              <Route path="save2own/dashboard" element={<Save2OwnDashboardPage />} />
-              <Route path="save2own" element={<Save2OwnGoalsPage />} />
-              <Route path="save2own/contributions" element={<Save2OwnContributionsPage />} />
-              <Route path="save2own/participants" element={<Save2OwnParticipantsPage />} />
-              <Route path="save2own/refunds" element={<Save2OwnRefundsPage />} />
-              <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
-              <Route path="payment-accounts" element={<PaymentAccountsPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="categories" element={<CategoriesPage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="delivery" element={<DeliveryManagementPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="refunds" element={<RefundsPage />} />
-              <Route path="reviews" element={<ReviewsPage />} />
-              <Route path="audit-logs" element={<AuditLogsPage />} />
-              <Route path="emails" element={<EmailManagementPage />} />
-            </Route>
-          </Routes>
+              {/* Protected admin routing group */}
+              <Route
+                path="/"
+                element={
+                  <AdminAuthGuard>
+                    <AdminLayout />
+                  </AdminAuthGuard>
+                }
+              >
+                <Route index element={<DashboardOverviewPage />} />
+                <Route path="homepage" element={<HomepageManagerPage />} />
+                <Route path="save2own/dashboard" element={<Save2OwnDashboardPage />} />
+                <Route path="save2own" element={<Save2OwnGoalsPage />} />
+                <Route path="save2own/contributions" element={<Save2OwnContributionsPage />} />
+                <Route path="save2own/participants" element={<Save2OwnParticipantsPage />} />
+                <Route path="save2own/refunds" element={<Save2OwnRefundsPage />} />
+                <Route path="save2own/:id" element={<Save2OwnGoalDetailPage />} />
+                <Route path="payment-accounts" element={<PaymentAccountsPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="products" element={<ProductsPage />} />
+                <Route path="categories" element={<CategoriesPage />} />
+                <Route path="orders" element={<OrdersPage />} />
+                <Route path="delivery" element={<DeliveryManagementPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="refunds" element={<RefundsPage />} />
+                <Route path="reviews" element={<ReviewsPage />} />
+                <Route path="audit-logs" element={<AuditLogsPage />} />
+                <Route path="emails" element={<EmailManagementPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
           <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         </ErrorBoundary>
       </AdminAuthProvider>

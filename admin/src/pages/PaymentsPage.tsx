@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import type { Payment, PaymentSession, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -8,8 +9,11 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { exportTransactionsToPdf, exportTransactionsToDocx } from '@/utils/exportUtils';
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [payments, setPayments] = useState<Payment[]>(() => {
+    const cached = adminCache.get<any>('payments:list:1:');
+    return cached?.data?.results || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('payments:list:1:'));
   const [error, setError] = useState<APIError | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -44,7 +48,9 @@ export default function PaymentsPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const fetchPayments = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `payments:list:${page}:${statusFilter || ''}`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && payments.length === 0) setIsLoading(true);
     setError(null);
     try {
       const res = await adminApi.listPayments({

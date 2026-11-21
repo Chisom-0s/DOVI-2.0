@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import { sanitizeProductDescription } from '@/utils/productDescription';
 import {
   getProductHomepagePlacement,
@@ -107,9 +108,15 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<ProductSummary[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState<ProductSummary[]>(() => {
+    const cached = adminCache.get<any>('products:list:1::::');
+    return cached?.data?.results || [];
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const cached = adminCache.get<any>('categories:list');
+    return cached?.data || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('products:list:1::::'));
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -227,7 +234,9 @@ export default function ProductsPage() {
   }, [colors, baseUnits]);
 
   const fetchProducts = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `products:list:${page}:::${searchTerm || ''}:`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && products.length === 0) setIsLoading(true);
     setError(null);
     try {
       await Promise.all([

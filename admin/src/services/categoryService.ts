@@ -5,6 +5,7 @@ import type {
   ProductSummary,
   ProductCategoryAssignment,
 } from '@/types';
+import { fetchSharedDbOnce } from './sharedDbSync';
 
 // ============================================================================
 // DOVI OFFICIAL 12 MAIN CATEGORIES & 74 INITIAL SUBCATEGORIES (SECTIONS 3 & 5)
@@ -527,10 +528,8 @@ async function pushCategoryStoreToServer(payload: {
 
 export async function syncCategoriesFromServer(): Promise<void> {
   try {
-    if (typeof fetch === 'undefined') return;
-    const res = await fetch('/__dovi_delivery_db__', { method: 'GET' });
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await fetchSharedDbOnce();
+    if (!data) return;
     if (Array.isArray(data?.categories) && data.categories.length > 0) {
       writeLocal(STORAGE_KEYS.CATEGORIES, data.categories);
     }
