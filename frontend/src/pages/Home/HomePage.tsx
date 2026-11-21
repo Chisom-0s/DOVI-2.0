@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
-import FlashSalesMarquee from '@/components/home/FlashSalesMarquee';
+import DealsAndDiscountsSection from '@/components/home/DealsAndDiscountsSection';
 import TrendingNowCarousel from '@/components/home/TrendingNowCarousel';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import type { HomepageSection, ProductSummary } from '@/types';
@@ -126,8 +126,15 @@ export default function HomePage() {
       return null;
     }
 
-    if (section.key === 'FLASH_DEALS') {
-      return <FlashSalesMarquee products={products} />;
+    if (section.key === 'DISCOUNTS' || section.key === 'DEALS_AND_DISCOUNTS') {
+      return (
+        <DealsAndDiscountsSection
+          products={products}
+          title={section.title}
+          subtitle={section.subtitle || undefined}
+          viewAllUrl={section.configuration?.cta_url || '/products?section=deals-and-discounts'}
+        />
+      );
     }
 
     if (section.key === 'TRENDING_NOW' || section.title?.toLowerCase().includes('trending')) {
@@ -220,7 +227,7 @@ export default function HomePage() {
         {isLoading && sections.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
             <SectionSkeleton layout="CATEGORY_PILLS" title="Categories" />
-            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Flash Deals" count={5} />
+            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Deals & Discounts" count={5} />
             <SectionSkeleton layout="PRODUCT_GRID" title="New Arrivals" count={4} />
             <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Trending Now" count={5} />
             <SectionSkeleton layout="PRODUCT_GRID" title="Best Sellers" count={4} />
@@ -232,35 +239,17 @@ export default function HomePage() {
             <LazySection key={section.id} priority={idx < 2}>
               <section style={sectionWrapperStyles}>
               {/* Section Header */}
-              {section.configuration?.layout !== 'BANNER' && (
+              {section.configuration?.layout !== 'BANNER' && section.key !== 'DISCOUNTS' && section.key !== 'DEALS_AND_DISCOUNTS' && (
                 <div style={sectionHeaderStyles}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <h2 style={sectionTitleStyles}>
                       {section.icon && <span style={{ marginRight: '8px' }}>{section.icon}</span>}
                       {section.title}
                     </h2>
-                    {section.key === 'FLASH_DEALS' && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          backgroundColor: '#fef2f2',
-                          color: '#dc2626',
-                          border: '1px solid #fecaca',
-                          borderRadius: '999px',
-                          padding: '3px 10px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          letterSpacing: '0.02em',
-                        }}
-                      >
-                        ⚡ Limited Time Flash Deals
-                      </span>
-                    )}
+                    
                     {section.subtitle && <p style={sectionSubtitleStyles}>{section.subtitle}</p>}
                   </div>
-                  <Link to={section.configuration?.cta_url || '/products'} style={seeAllStyles}>
+                  <Link to={section.configuration?.cta_url || `/products?section=${section.key.toLowerCase().replace(/_/g, '-')}`} style={seeAllStyles}>
                     {section.configuration?.cta_text || 'See All'} &gt;
                   </Link>
                 </div>

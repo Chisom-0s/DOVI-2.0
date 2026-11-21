@@ -1,4 +1,4 @@
-import { getProductHomepagePlacement, isFlashSaleActiveNow, isDiscountActiveNow } from '@/services/homepagePlacementService';
+import { getProductHomepagePlacement, isDiscountActiveNow } from '@/services/homepagePlacementService';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -229,8 +229,6 @@ export default function ProductDetailPage() {
 
   // Display price and stock matching either the variant (if overridden) or the base product
   const placement = getProductHomepagePlacement({ id: product.id, description: product.description });
-  const flashSaleConfig = placement?.flash_sale ?? (product as any).flash_sale ?? null;
-  const isFlashActive = isFlashSaleActiveNow(flashSaleConfig);
   const discountConfig = placement?.discount_config ?? (product as any).discount_config ?? null;
   const isDiscountActive = isDiscountActiveNow(discountConfig);
 
@@ -240,10 +238,7 @@ export default function ProductDetailPage() {
   let effectivePrice: any = variantPrice || product.base_price || product.price;
   let originalPriceForDisplay: string | null = ((product as any).original_price ? formatPrice((product as any).original_price) : null);
 
-  if (isFlashActive && flashSaleConfig?.flash_price && !variantPrice) {
-    effectivePrice = flashSaleConfig.flash_price;
-    originalPriceForDisplay = flashSaleConfig.original_price ? formatPrice(flashSaleConfig.original_price) : formatPrice(product.base_price || product.price);
-  } else if (isDiscountActive && discountConfig?.discount_price && !variantPrice) {
+  if (isDiscountActive && discountConfig?.discount_price && !variantPrice) {
     effectivePrice = discountConfig.discount_price;
     originalPriceForDisplay = discountConfig.original_price ? formatPrice(discountConfig.original_price) : formatPrice(product.base_price || product.price);
   }
@@ -361,15 +356,15 @@ export default function ProductDetailPage() {
               <span style={priceStyles}>
                 {displayPrice}
               </span>
-              {isFlashActive && originalPriceForDisplay && (
+              {isDiscountActive && originalPriceForDisplay && (
                 <span style={{ fontSize: '15px', color: '#9ca3af', textDecoration: 'line-through' }}>
                   {originalPriceForDisplay}
                 </span>
               )}
             </div>
-            {isFlashActive && (
+            {isDiscountActive && (
               <span style={{
-                backgroundColor: '#dc2626',
+                backgroundColor: '#4f46e5',
                 color: '#ffffff',
                 fontSize: '11px',
                 fontWeight: 800,
@@ -378,7 +373,7 @@ export default function ProductDetailPage() {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                ⚡ Flash Sale
+                🏷️ Deals & Discounts
               </span>
             )}
             <span style={isOutOfStock ? outOfStockBadgeStyles : inStockBadgeStyles}>

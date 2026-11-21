@@ -366,16 +366,33 @@ function saveStoredGlobalContributions(contribs: Save2OwnContribution[]) {
 
 const SEED_SECTIONS: HomepageSection[] = [
   {
-    id: 'sec-flash-deals',
-    name: 'Flash Deals',
-    key: 'FLASH_DEALS',
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers — ending soon!',
+    id: 'sec-best-sellers',
+    name: 'Best Sellers',
+    key: 'BEST_SELLERS',
+    title: 'Best Sellers',
+    subtitle: 'Top performing products from our vendors',
+    is_active: true,
+    visible: true,
+    sort_order: 1,
+    display_order: 1,
+    display_limit: 24,
+    configuration: {
+      layout: 'PRODUCT_GRID',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-discounts',
+    name: 'Deals & Discounts',
+    key: 'DISCOUNTS',
+    title: 'Deals & Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
     is_active: true,
     visible: true,
     sort_order: 2,
     display_order: 2,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -383,18 +400,18 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-new-arrivals',
-    name: 'New Arrivals',
-    key: 'NEW_ARRIVALS',
-    title: 'New Arrivals',
-    subtitle: 'Freshly added to the catalog',
+    id: 'sec-trending',
+    name: 'Trending Now',
+    key: 'TRENDING_NOW',
+    title: 'Trending Now',
+    subtitle: 'High demand products right now',
     is_active: true,
     visible: true,
     sort_order: 3,
     display_order: 3,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
-      layout: 'PRODUCT_GRID',
+      layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
     },
     config: {},
@@ -420,33 +437,16 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-hot-sales',
-    name: 'Hot Sales',
-    key: 'HOT_SALES',
-    title: 'Hot Sales',
-    subtitle: 'Most popular purchases this week',
+    id: 'sec-new-arrivals',
+    name: 'New Arrivals',
+    key: 'NEW_ARRIVALS',
+    title: 'New Arrivals',
+    subtitle: 'Freshly added to the catalog',
     is_active: true,
     visible: true,
     sort_order: 5,
     display_order: 5,
-    display_limit: 6,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-best-sellers',
-    name: 'Best Sellers',
-    key: 'BEST_SELLERS',
-    title: 'Best Sellers',
-    subtitle: 'Top performing products from our vendors',
-    is_active: true,
-    visible: true,
-    sort_order: 6,
-    display_order: 6,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
@@ -454,16 +454,16 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-trending',
-    name: 'Trending Now',
-    key: 'TRENDING_NOW',
-    title: 'Trending Now',
-    subtitle: 'High demand products right now',
+    id: 'sec-hot-sales',
+    name: 'Hot Sales',
+    key: 'HOT_SALES',
+    title: 'Hot Sales',
+    subtitle: 'Great deals on popular products',
     is_active: true,
     visible: true,
-    sort_order: 7,
-    display_order: 7,
-    display_limit: 6,
+    sort_order: 6,
+    display_order: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -471,35 +471,38 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-save2own',
-    name: 'Save2Own Featured',
-    key: 'SAVE2OWN_FEATURED',
-    title: 'Featured Save2Own items',
-    subtitle: 'Start saving in micro-payments today',
+    id: 'sec-featured',
+    name: 'Featured Products',
+    key: 'FEATURED_PRODUCTS',
+    title: 'Featured Products',
+    subtitle: 'Hand-picked essentials curated for you',
     is_active: true,
     visible: true,
-    sort_order: 8,
-    display_order: 8,
-    display_limit: 4,
+    sort_order: 7,
+    display_order: 7,
+    display_limit: 24,
     configuration: {
-      layout: 'LARGE_PRODUCT_CARDS',
+      layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
     },
     config: {},
   },
-  ];
+];
 
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
-  if (!data) {
+  let sections: HomepageSection[] = [];
+  if (!data || data.includes('sec-flash-deals')) {
     localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
-    return SEED_SECTIONS;
+    sections = SEED_SECTIONS;
+  } else {
+    try {
+      sections = JSON.parse(data);
+    } catch {
+      sections = SEED_SECTIONS;
+    }
   }
-  try {
-    return JSON.parse(data);
-  } catch {
-    return SEED_SECTIONS;
-  }
+  return sections.filter((s) => s.key !== 'FLASH_DEALS' && s.id !== 'sec-flash-deals');
 }
 
 function saveMockSections(sections: HomepageSection[]) {

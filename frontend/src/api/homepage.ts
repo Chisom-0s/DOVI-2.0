@@ -7,7 +7,6 @@ import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
 import { enrichProductWithCategory } from '@/services/categoryService';
 import {
   getProductHomepagePlacement,
-  isFlashSaleActiveNow,
   isDiscountActiveNow,
   syncHomepagePlacementsFromServer,
   listMerchandisingSections,
@@ -29,6 +28,27 @@ const SEED_SECTIONS: HomepageSection[] = [
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=best-sellers',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-discounts',
+    name: 'Deals & Discounts',
+    key: 'DISCOUNTS',
+    title: 'Deals & Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
+    is_active: true,
+    visible: true,
+    sort_order: 2,
+    display_order: 2,
+    display_limit: 24,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=deals-and-discounts',
     },
     config: {},
   },
@@ -40,25 +60,27 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'High demand products right now',
     is_active: true,
     visible: true,
-    sort_order: 2,
-    display_order: 2,
+    sort_order: 3,
+    display_order: 3,
     display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=trending',
     },
     config: {},
   },
   {
     id: 'sec-special-promo',
-    name: 'Special Promo',
+    name: 'Save2Own',
     key: 'SPECIAL_PROMO',
     title: 'Unlock Save2Own Benefits',
     subtitle: 'Contribute in bits towards purchasing high-value items without any interest.',
     is_active: true,
     visible: true,
-    sort_order: 3,
-    display_order: 3,
+    sort_order: 4,
+    display_order: 4,
     display_limit: 1,
     configuration: {
       layout: 'BANNER',
@@ -77,12 +99,14 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'Freshly added to the catalog',
     is_active: true,
     visible: true,
-    sort_order: 4,
-    display_order: 4,
+    sort_order: 5,
+    display_order: 5,
     display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=new-arrivals',
     },
     config: {},
   },
@@ -94,46 +118,14 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'Most popular purchases this week',
     is_active: true,
     visible: true,
-    sort_order: 5,
-    display_order: 5,
-    display_limit: 24,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-flash-deals',
-    name: 'Flash Sales',
-    key: 'FLASH_DEALS',
-    title: 'Flash Sales',
-    subtitle: 'Limited-time special prices — ending soon!',
-    is_active: true,
-    visible: true,
     sort_order: 6,
     display_order: 6,
     display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-discounts',
-    name: 'Discounts',
-    key: 'DISCOUNTS',
-    title: 'Discounts',
-    subtitle: 'Exclusive markdowns and limited-time discounts',
-    is_active: true,
-    visible: true,
-    sort_order: 7,
-    display_order: 7,
-    display_limit: 24,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=hot-sales',
     },
     config: {},
   },
@@ -145,12 +137,14 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'Hand-picked essentials curated for you',
     is_active: true,
     visible: true,
-    sort_order: 8,
-    display_order: 8,
+    sort_order: 7,
+    display_order: 7,
     display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=featured',
     },
     config: {},
   },
@@ -220,26 +214,29 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     };
   });
 
-  // Authoritative Admin-controlled Homepage Placement & Flash Sale configuration
+  // Authoritative Admin-controlled Homepage Placement & Discount configuration
   const placement = getProductHomepagePlacement({ id: p.id, description: p.description });
   const isBestSeller = Boolean(placement ? placement.is_best_seller : p.is_best_seller);
   const isTrending = Boolean(placement ? placement.is_trending : p.is_trending);
   const isHotSale = Boolean(placement ? placement.is_hot_sale : p.is_hot_sale);
   const isNewArrival = Boolean(placement ? placement.is_new_arrival : p.is_new_arrival);
-  const flashSaleConfig = placement?.flash_sale ?? p.flash_sale ?? null;
-  const isFlashActive = isFlashSaleActiveNow(flashSaleConfig);
-  const isFlashDeal = Boolean((placement ? placement.is_flash_deal : p.is_flash_deal) && isFlashActive);
+  const isFeatured = Boolean(placement ? placement.is_featured : (p as any).is_featured);
+
+  // Deals & Discounts is the ONLY section responsible for product discounts across DOVI.
+  const discountConfig = placement?.discount_config ?? p.discount_config ?? null;
+  const isDiscountActive = isDiscountActiveNow(discountConfig);
+  const isDiscount = Boolean((placement ? placement.is_discount : (p as any).is_discount) && isDiscountActive);
 
   let finalPrice = priceStr;
   let finalOriginalPrice: string | null = p.original_price != null ? String(p.original_price) : null;
   let finalDiscount = Number(p.discount_percentage) || 0;
 
-  if (isFlashDeal && flashSaleConfig?.flash_price) {
-    finalPrice = String(flashSaleConfig.flash_price);
-    finalOriginalPrice = flashSaleConfig.original_price ? String(flashSaleConfig.original_price) : priceStr;
+  if (isDiscount && discountConfig?.discount_price) {
+    finalPrice = String(discountConfig.discount_price);
+    finalOriginalPrice = discountConfig.original_price ? String(discountConfig.original_price) : priceStr;
     const origNum = Number(finalOriginalPrice) || Number(priceStr);
-    if (origNum > flashSaleConfig.flash_price) {
-      finalDiscount = Math.round(((origNum - flashSaleConfig.flash_price) / origNum) * 100);
+    if (origNum > discountConfig.discount_price) {
+      finalDiscount = Math.round(((origNum - discountConfig.discount_price) / origNum) * 100);
     }
   }
 
@@ -263,12 +260,15 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     stock_quantity: stock,
     status: (p.status || 'PUBLISHED') as any,
     discount_percentage: finalDiscount,
-    is_flash_deal: isFlashDeal,
-    flash_sale: flashSaleConfig,
+    is_flash_deal: false,
+    flash_sale: null,
+    is_discount: isDiscount,
+    discount_config: discountConfig,
     is_trending: isTrending,
     is_best_seller: isBestSeller,
     is_hot_sale: isHotSale,
     is_new_arrival: isNewArrival,
+    is_featured: isFeatured,
     created_at: p.created_at || new Date().toISOString(),
     in_stock: stock > 0,
     delivery_classification: p.delivery_classification,
@@ -386,7 +386,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
   let sections: HomepageSection[] = [];
-  if (!data || data === '[]' || !data.includes('sec-new-arrivals')) {
+  if (!data || data === '[]' || !data.includes('sec-new-arrivals') || data.includes('sec-flash-deals')) {
     localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
     sections = SEED_SECTIONS;
   } else {
@@ -396,16 +396,32 @@ function getMockSections(): HomepageSection[] {
       sections = SEED_SECTIONS;
     }
   }
-  return sections.filter(
-    (s) =>
-      s.key !== 'FEATURED_CATEGORIES' &&
-      s.key !== 'TOP_VENDORS' &&
-      s.configuration?.layout !== 'VENDOR_GRID' &&
-      s.configuration?.layout !== 'CATEGORY_GRID' &&
-      s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
-      s.configuration?.layout !== 'CATEGORY_PILLS' &&
-      s.configuration?.layout !== 'BRAND_GRID'
-  );
+  return sections
+    .filter(
+      (s) =>
+        s.key !== 'FLASH_DEALS' &&
+        s.id !== 'sec-flash-deals' &&
+        s.key !== 'FEATURED_CATEGORIES' &&
+        s.key !== 'TOP_VENDORS' &&
+        s.configuration?.layout !== 'VENDOR_GRID' &&
+        s.configuration?.layout !== 'CATEGORY_GRID' &&
+        s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
+        s.configuration?.layout !== 'CATEGORY_PILLS' &&
+        s.configuration?.layout !== 'BRAND_GRID'
+    )
+    .map((s) => {
+      if (s.key === 'DISCOUNTS' || s.id === 'sec-discounts') {
+        return {
+          ...s,
+          name: 'Deals & Discounts',
+          title: 'Deals & Discounts',
+          sort_order: 2,
+          display_order: 2,
+        };
+      }
+      return s;
+    })
+    .sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99));
 }
 
 // Helper to filter and combine real products + mock products matching section config
@@ -426,6 +442,24 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );
+      break;
+    }
+
+    case 'DISCOUNTS':
+    case 'DEALS_AND_DISCOUNTS': {
+      candidates = realProducts.filter(
+        (p) => (Boolean((p as any).is_discount) || orderedIds.includes(p.id)) &&
+               isDiscountActiveNow((p as any).discount_config) &&
+               (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+               p.in_stock !== false
+      );
+      if (candidates.length === 0 && orderedIds.length > 0) {
+        candidates = realProducts.filter(
+          (p) => orderedIds.includes(p.id) &&
+                 (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+                 p.in_stock !== false
+        );
+      }
       break;
     }
 
@@ -450,36 +484,6 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     case 'HOT_SALES': {
       candidates = realProducts.filter(
         (p) => (Boolean(p.is_hot_sale) || orderedIds.includes(p.id)) &&
-               (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
-               p.in_stock !== false
-      );
-      break;
-    }
-
-    case 'FLASH_DEALS':
-    case 'DEALS_OF_THE_DAY':
-    case 'LIMITED_TIME_OFFERS': {
-      candidates = realProducts.filter(
-        (p) => (Boolean(p.is_flash_deal) || orderedIds.includes(p.id)) &&
-               isFlashSaleActiveNow(p.flash_sale) &&
-               (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
-               p.in_stock !== false
-      );
-      // Fallback: if no products meet strict flash timer criteria, match items assigned by admin or with promo flags
-      if (candidates.length === 0 && orderedIds.length > 0) {
-        candidates = realProducts.filter(
-          (p) => orderedIds.includes(p.id) &&
-                 (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
-                 p.in_stock !== false
-        );
-      }
-      break;
-    }
-
-    case 'DISCOUNTS': {
-      candidates = realProducts.filter(
-        (p) => (Boolean(p.is_discount) || orderedIds.includes(p.id)) &&
-               isDiscountActiveNow(p.discount_config) &&
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );

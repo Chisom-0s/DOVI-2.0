@@ -8,6 +8,7 @@ import { NoInternetBanner } from '@/components/common/NoInternetBanner';
 
 import { getActiveStorefrontCategories, type CategoryItem } from '@/utils/categories';
 import { SEED_REAL_PRODUCTS } from '@/api/homepage';
+import { listMerchandisingSections, isDiscountActiveNow } from '@/services/homepagePlacementService';
 import {
   getSubcategoriesForCategory,
   findMainCategory,
@@ -34,6 +35,7 @@ export default function ProductListingPage() {
   const minRatingParam = searchParams.get('min_rating') ?? '';
   const inStockParam = searchParams.get('in_stock') === 'true';
   const searchParam = searchParams.get('q') || searchParams.get('search') || '';
+  const sectionParam = searchParams.get('section') ?? '';
 
   // Synchronous cache seed for instant 0ms mount (sessionStorage -> localStorage -> SEED_REAL_PRODUCTS)
   const [products, setProducts] = useState<ProductSummary[]>(() => {
@@ -315,6 +317,7 @@ export default function ProductListingPage() {
     setDraftMinRating('');
     setDraftInStock(false);
     updateFilters({
+      section: null,
       category: null,
       subcategory: null,
       min_price: null,
@@ -338,7 +341,36 @@ export default function ProductListingPage() {
     Boolean(inStockParam),
   ].filter(Boolean).length;
 
-  const hasActiveFilters = Boolean(searchParam || categoryParam || subcategoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam);
+  const merchandisingSections = listMerchandisingSections();
+  const getSectionProductIds = (key: string): string[] => {
+    return merchandisingSections.find(s => s.key === key || s.id === key)?.product_ids || [];
+  };
+
+  const filteredProducts = products.filter(p => {
+    if (!sectionParam) return true;
+    const sec = sectionParam.toLowerCase().replace(/_/g, '-');
+    if (sec === 'best-sellers') {
+      return Boolean(p.is_best_seller) || getSectionProductIds('BEST_SELLERS').includes(p.id);
+    }
+    if (sec === 'deals-and-discounts' || sec === 'discounts') {
+      return (Boolean((p as any).is_discount) && isDiscountActiveNow((p as any).discount_config)) || getSectionProductIds('DISCOUNTS').includes(p.id);
+    }
+    if (sec === 'trending' || sec === 'trending-now') {
+      return Boolean(p.is_trending) || getSectionProductIds('TRENDING_NOW').includes(p.id);
+    }
+    if (sec === 'new-arrivals') {
+      return Boolean(p.is_new_arrival) || getSectionProductIds('NEW_ARRIVALS').includes(p.id);
+    }
+    if (sec === 'hot-sales') {
+      return Boolean(p.is_hot_sale) || getSectionProductIds('HOT_SALES').includes(p.id);
+    }
+    if (sec === 'featured' || sec === 'featured-products') {
+      return Boolean((p as any).is_featured) || getSectionProductIds('FEATURED_PRODUCTS').includes(p.id);
+    }
+    return true;
+  });
+
+  const hasActiveFilters = Boolean(searchParam || sectionParam || categoryParam || subcategoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam);
   const activeCategoryObj = categories.find(c => c.slug === categoryParam) || (categoryParam ? findMainCategory(categoryParam) : undefined);
   const activeSubcategories = categoryParam ? getSubcategoriesForCategory(categoryParam) : [];
   const activeSubcategoryObj = subcategoryParam
@@ -557,6 +589,80 @@ export default function ProductListingPage() {
 
       {/* Main Listing Content */}
       <div style={mainContentStyles}>
+        {/* Marketplace Section Navigation Bar */}
+        <div
+          className="marketplace-nav-bar"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            overflowX: 'auto',
+            padding: '6px 4px 12px 4px',
+            marginBottom: '12px',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {[
+            { id: '', label: 'All Products', icon: '🛍️' },
+            { id: 'best-sellers', label: 'Best Sellers', icon: '🌟' },
+            { id: 'deals-and-discounts', label: 'Deals & Discounts', icon: '🏷️' },
+            { id: 'trending', label: 'Trending Now', icon: '🔥' },
+            { id: 'new-arrivals', label: 'New Arrivals', icon: '✨' },
+            { id: 'hot-sales', label: 'Hot Sales', icon: '🎯' },
+            { id: 'featured', label: 'Featured Products', icon: '⭐' },
+          ].map(tab => {
+            const isTabActive = (!sectionParam && tab.id === '') || (sectionParam.toLowerCase().replace(/_/g, '-') === tab.id);
+            return (
+              <button
+                key={tab.id || 'all'}
+                type="button"
+                onClick={() => updateFilters({ section: tab.id || null })}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '7px 14px',
+                  borderRadius: '999px',
+                  fontSize: '13px',
+                  fontWeight: isTabActive ? 700 : 500,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  border: isTabActive ? '1.5px solid #ff7a00' : '1px solid #e2e8f0',
+                  backgroundColor: isTabActive ? '#fff7ed' : '#ffffff',
+                  color: isTabActive ? '#c2410c' : '#334155',
+                  boxShadow: isTabActive ? '0 1px 3px rgba(255, 122, 0, 0.15)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={openFilterDrawer}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              fontSize: '13px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f8fafc',
+              color: '#475569',
+            }}
+          >
+            <span>📁</span>
+            <span>Categories</span>
+          </button>
+        </div>
 {/* Horizontal Subcategory Quick-Bar when a Main Category is selected */}
         {categoryParam && activeSubcategories.length > 0 && (
           <div
@@ -631,7 +737,7 @@ export default function ProductListingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
               <span style={resultsCountStyles}>
-                <strong>{totalCount > 0 ? totalCount : products.length}</strong> {(totalCount || products.length) === 1 ? 'product' : 'products'} found
+                <strong>{sectionParam ? filteredProducts.length : (totalCount > 0 ? totalCount : products.length)}</strong> {(sectionParam ? filteredProducts.length : (totalCount || products.length)) === 1 ? 'product' : 'products'} found
                 {searchParam ? (
                   <>
                     {' '}for &ldquo;<strong>{searchParam}</strong>&rdquo;
@@ -657,6 +763,12 @@ export default function ProductListingPage() {
             {/* Active Filter Chips */}
             {hasActiveFilters && (
               <div style={activeChipsContainerStyles}>
+                {sectionParam && (
+                  <span style={chipStyles}>
+                    Section: {sectionParam.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    <button type="button" onClick={() => updateFilters({ section: null })} style={chipRemoveBtnStyles}>&times;</button>
+                  </span>
+                )}
                 {activeCategoryObj && (
                   <span style={chipStyles}>
                     Category: {activeCategoryObj.name}
@@ -728,9 +840,9 @@ export default function ProductListingPage() {
         ) : products.length > 0 ? (
           <>
             <div className="marketplace-product-grid">
-              {products.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+              {filteredProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
             </div>
 
             {/* Infinite Scrolling Sentinel & Loading Indicator */}

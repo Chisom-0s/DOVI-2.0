@@ -124,13 +124,13 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Stock Badge */}
         {product.stock_quantity !== undefined && product.stock_quantity <= 0 ? (
           <div style={stockBadgeStyles}>Out of Stock</div>
-        ) : product.is_flash_deal ? (
+        ) : (product.is_discount || ((product as any).discount_percentage && (product as any).discount_percentage > 0)) ? (
           <div
             style={{
               position: 'absolute',
               top: '8px',
               left: '8px',
-              backgroundColor: '#dc2626',
+              backgroundColor: '#4f46e5',
               color: '#ffffff',
               fontSize: '10px',
               fontWeight: 800,
@@ -142,7 +142,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               zIndex: 2,
             }}
           >
-            ⚡ Flash Sale{product.discount_percentage ? ` -${product.discount_percentage}%` : ''}
+            🏷️ Deal{product.discount_percentage ? ` -${product.discount_percentage}%` : ''}
           </div>
         ) : product.is_hot_sale ? (
           <div
@@ -204,7 +204,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div style={footerStyles}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={priceStyles}>{formattedPrice}</span>
-            {product.is_flash_deal && product.original_price && (
+            {product.original_price && Number(product.original_price) > Number(product.price) && (
               <span style={{ fontSize: '11px', color: '#9ca3af', textDecoration: 'line-through' }}>
                 {formatPrice(product.original_price)}
               </span>

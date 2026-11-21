@@ -707,7 +707,7 @@
       "name": "Fashion & Clothing",
       "slug": "fashion-clothing",
       "description": "Men's, women's, and traditional apparel, shirts, trousers, dresses, and everyday fashion.",
-      "icon": "\ud83d\udc57",
+      "icon": "👗",
       "icon_url": null,
       "parent": null,
       "display_order": 1,
@@ -941,7 +941,7 @@
       "name": "Shoes & Footwear",
       "slug": "shoes-footwear",
       "description": "Sneakers, sandals, slippers, formal shoes, heels, and boots for every occasion.",
-      "icon": "\ud83d\udc5f",
+      "icon": "👟",
       "icon_url": null,
       "parent": null,
       "display_order": 2,
@@ -1121,7 +1121,7 @@
       "name": "Beauty & Personal Care",
       "slug": "beauty-personal-care",
       "description": "Skincare, makeup, haircare, perfumes, body care, and personal hygiene essentials.",
-      "icon": "\ud83d\udc84",
+      "icon": "💄",
       "icon_url": null,
       "parent": null,
       "display_order": 3,
@@ -1301,7 +1301,7 @@
       "name": "Phones & Electronics",
       "slug": "phones-electronics",
       "description": "Smartphones, laptops, tablets, headphones, chargers, and electronic accessories.",
-      "icon": "\ud83d\udcf1",
+      "icon": "📱",
       "icon_url": null,
       "parent": null,
       "display_order": 4,
@@ -1508,7 +1508,7 @@
       "name": "Home & Kitchen",
       "slug": "home-kitchen",
       "description": "Kitchen utensils, cookware, home appliances, cleaning supplies, and storage.",
-      "icon": "\ud83c\udf73",
+      "icon": "🍳",
       "icon_url": null,
       "parent": null,
       "display_order": 5,
@@ -1688,7 +1688,7 @@
       "name": "Furniture & Home Decor",
       "slug": "furniture-home-decor",
       "description": "Chairs, tables, beds, sofas, shelves, lighting, and interior home decorations.",
-      "icon": "\ud83d\udecb\ufe0f",
+      "icon": "🛋️",
       "icon_url": null,
       "parent": null,
       "display_order": 6,
@@ -1895,7 +1895,7 @@
       "name": "Watches & Accessories",
       "slug": "watches-accessories",
       "description": "Wristwatches, jewelry, sunglasses, belts, wallets, and fashion accessories.",
-      "icon": "\u231a",
+      "icon": "⌚",
       "icon_url": null,
       "parent": null,
       "display_order": 7,
@@ -2075,7 +2075,7 @@
       "name": "Sports & Fitness",
       "slug": "sports-fitness",
       "description": "Sportswear, gym equipment, fitness accessories, sports shoes, and outdoor gear.",
-      "icon": "\ud83c\udfcb\ufe0f",
+      "icon": "🏋️",
       "icon_url": null,
       "parent": null,
       "display_order": 8,
@@ -2228,7 +2228,7 @@
       "name": "Automotive & Motor Accessories",
       "slug": "automotive-motor-accessories",
       "description": "Car accessories, motorcycle accessories, spare parts, maintenance gear, and helmets.",
-      "icon": "\ud83d\udede",
+      "icon": "🛞",
       "icon_url": null,
       "parent": null,
       "display_order": 9,
@@ -2381,7 +2381,7 @@
       "name": "Books & Stationery",
       "slug": "books-stationery",
       "description": "Books, notebooks, pens, writing materials, school supplies, and office stationery.",
-      "icon": "\ud83d\udcda",
+      "icon": "📚",
       "icon_url": null,
       "parent": null,
       "display_order": 10,
@@ -2534,7 +2534,7 @@
       "name": "Baby & Kids",
       "slug": "baby-kids",
       "description": "Baby clothing, kids clothing, toys, baby care, feeding accessories, and essentials.",
-      "icon": "\ud83e\uddf8",
+      "icon": "🧸",
       "icon_url": null,
       "parent": null,
       "display_order": 11,
@@ -2714,7 +2714,7 @@
       "name": "Travel & Bags",
       "slug": "travel-bags",
       "description": "Backpacks, travel bags, luggage, handbags, school bags, and travel accessories.",
-      "icon": "\ud83e\uddf3",
+      "icon": "🧳",
       "icon_url": null,
       "parent": null,
       "display_order": 12,
@@ -2938,17 +2938,17 @@
       "is_trending": true,
       "is_new_arrival": false,
       "is_hot_sale": false,
-      "is_flash_deal": true,
-      "is_discount": false,
+      "is_flash_deal": false,
+      "is_discount": true,
       "is_featured": false,
-      "flash_sale": {
-        "flash_price": 21500,
+      "updated_at": "2026-11-20T12:00:00.000Z",
+      "discount_config": {
+        "discount_price": 21500,
         "original_price": 25000,
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2028-12-31T23:59:59.000Z",
         "is_active": true
-      },
-      "updated_at": "2026-11-20T12:00:00.000Z"
+      }
     },
     "0cd35e98-6eda-467d-8528-1ce1e8948f0f": {
       "product_id": "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
@@ -2967,17 +2967,17 @@
       "is_trending": true,
       "is_new_arrival": false,
       "is_hot_sale": true,
-      "is_flash_deal": true,
-      "is_discount": false,
+      "is_flash_deal": false,
+      "is_discount": true,
       "is_featured": false,
-      "flash_sale": {
-        "flash_price": 12900,
+      "updated_at": "2026-11-20T12:00:00.000Z",
+      "discount_config": {
+        "discount_price": 12900,
         "original_price": 15700,
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2028-12-31T23:59:59.000Z",
         "is_active": true
-      },
-      "updated_at": "2026-11-20T12:00:00.000Z"
+      }
     },
     "40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef": {
       "product_id": "40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef",
@@ -3032,17 +3032,17 @@
       "is_trending": false,
       "is_new_arrival": false,
       "is_hot_sale": false,
-      "is_flash_deal": true,
-      "is_discount": false,
+      "is_flash_deal": false,
+      "is_discount": true,
       "is_featured": false,
-      "flash_sale": {
-        "flash_price": 36500,
+      "updated_at": "2026-11-20T12:00:00.000Z",
+      "discount_config": {
+        "discount_price": 36500,
         "original_price": 42000,
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2028-12-31T23:59:59.000Z",
         "is_active": true
-      },
-      "updated_at": "2026-11-20T12:00:00.000Z"
+      }
     },
     "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa": {
       "product_id": "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa",
@@ -3134,17 +3134,17 @@
       "is_trending": false,
       "is_new_arrival": false,
       "is_hot_sale": false,
-      "is_flash_deal": true,
-      "is_discount": false,
+      "is_flash_deal": false,
+      "is_discount": true,
       "is_featured": false,
-      "flash_sale": {
-        "flash_price": 13500,
+      "updated_at": "2026-11-20T12:00:00.000Z",
+      "discount_config": {
+        "discount_price": 13500,
         "original_price": 15700,
         "start_time": "2026-01-01T00:00:00.000Z",
         "end_time": "2028-12-31T23:59:59.000Z",
         "is_active": true
-      },
-      "updated_at": "2026-11-20T12:00:00.000Z"
+      }
     }
   },
   "homepageSections": [
@@ -3156,12 +3156,33 @@
       "subtitle": "Top performing products curated by DOVI",
       "is_active": true,
       "sort_order": 1,
-      "display_limit": 4,
+      "display_limit": 24,
       "product_ids": [
         "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
         "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
         "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
         "fc26c3d7-8e88-4f6b-b648-0b512b031e20"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-discounts",
+      "key": "DISCOUNTS",
+      "name": "Deals & Discounts",
+      "title": "Deals & Discounts",
+      "subtitle": "Exclusive markdowns and limited-time discounts",
+      "is_active": true,
+      "sort_order": 2,
+      "display_limit": 24,
+      "product_ids": [
+        "66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
+        "3318868a-1e34-43f4-888e-c9d63d373509",
+        "fc26c3d7-8e88-4f6b-b648-0b512b031e20",
+        "3d2350c1-8325-4a02-b554-d24b650ad901",
+        "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
+        "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+        "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d"
       ],
       "is_custom": false
     },
@@ -3172,8 +3193,8 @@
       "title": "Trending Now",
       "subtitle": "High demand picks selected for today",
       "is_active": true,
-      "sort_order": 2,
-      "display_limit": 6,
+      "sort_order": 3,
+      "display_limit": 24,
       "product_ids": [
         "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
         "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
@@ -3187,11 +3208,11 @@
     {
       "id": "sec-special-promo",
       "key": "SPECIAL_PROMO",
-      "name": "Special Promo",
+      "name": "Save2Own",
       "title": "Unlock Save2Own Benefits",
       "subtitle": "Contribute in bits towards purchasing high-value items without any interest.",
       "is_active": true,
-      "sort_order": 3,
+      "sort_order": 4,
       "display_limit": 1,
       "product_ids": [],
       "is_custom": false
@@ -3203,8 +3224,8 @@
       "title": "New Arrivals",
       "subtitle": "Fresh additions to the DOVI marketplace",
       "is_active": true,
-      "sort_order": 4,
-      "display_limit": 4,
+      "sort_order": 5,
+      "display_limit": 24,
       "product_ids": [
         "350a679b-746a-4102-9710-2599dcd3aeb0",
         "915504e3-a5eb-46ce-be83-f7ece5e5707a",
@@ -3220,8 +3241,8 @@
       "title": "Hot Sales",
       "subtitle": "Great deals on popular products",
       "is_active": true,
-      "sort_order": 5,
-      "display_limit": 6,
+      "sort_order": 6,
+      "display_limit": 24,
       "product_ids": [
         "40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef",
         "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
@@ -3232,48 +3253,14 @@
       "is_custom": false
     },
     {
-      "id": "sec-flash-deals",
-      "key": "FLASH_DEALS",
-      "name": "Flash Sales",
-      "title": "Flash Sales",
-      "subtitle": "Limited-time special prices \u2014 ending soon!",
-      "is_active": true,
-      "sort_order": 6,
-      "display_limit": 6,
-      "product_ids": [
-        "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
-        "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
-        "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
-        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d"
-      ],
-      "is_custom": false
-    },
-    {
-      "id": "sec-discounts",
-      "key": "DISCOUNTS",
-      "name": "Discounts",
-      "title": "Discounts",
-      "subtitle": "Exclusive markdowns and limited-time discounts",
-      "is_active": true,
-      "sort_order": 7,
-      "display_limit": 6,
-      "product_ids": [
-        "66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
-        "3318868a-1e34-43f4-888e-c9d63d373509",
-        "fc26c3d7-8e88-4f6b-b648-0b512b031e20",
-        "3d2350c1-8325-4a02-b554-d24b650ad901"
-      ],
-      "is_custom": false
-    },
-    {
       "id": "sec-featured",
       "key": "FEATURED_PRODUCTS",
       "name": "Featured Products",
       "title": "Featured Products",
       "subtitle": "Hand-picked essentials curated for you",
       "is_active": true,
-      "sort_order": 8,
-      "display_limit": 6,
+      "sort_order": 7,
+      "display_limit": 24,
       "product_ids": [
         "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
         "915504e3-a5eb-46ce-be83-f7ece5e5707a",
@@ -3295,5 +3282,128 @@
     "updated_at": "2026-11-21T00:00:00Z",
     "updated_by": "Administrator"
   },
-  "paymentSessions": []
+  "paymentSessions": [],
+  "merchandisingSections": [
+    {
+      "id": "sec-best-sellers",
+      "key": "BEST_SELLERS",
+      "name": "Best Sellers",
+      "title": "Best Sellers",
+      "subtitle": "Top performing products curated by DOVI",
+      "is_active": true,
+      "sort_order": 1,
+      "display_limit": 24,
+      "product_ids": [
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+        "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
+        "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
+        "fc26c3d7-8e88-4f6b-b648-0b512b031e20"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-discounts",
+      "key": "DISCOUNTS",
+      "name": "Deals & Discounts",
+      "title": "Deals & Discounts",
+      "subtitle": "Exclusive markdowns and limited-time discounts",
+      "is_active": true,
+      "sort_order": 2,
+      "display_limit": 24,
+      "product_ids": [
+        "66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
+        "3318868a-1e34-43f4-888e-c9d63d373509",
+        "fc26c3d7-8e88-4f6b-b648-0b512b031e20",
+        "3d2350c1-8325-4a02-b554-d24b650ad901",
+        "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
+        "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+        "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-trending",
+      "key": "TRENDING_NOW",
+      "name": "Trending Now",
+      "title": "Trending Now",
+      "subtitle": "High demand picks selected for today",
+      "is_active": true,
+      "sort_order": 3,
+      "display_limit": 24,
+      "product_ids": [
+        "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
+        "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+        "a0871326-206d-4888-b7af-df8b5f6d182a",
+        "3318868a-1e34-43f4-888e-c9d63d373509",
+        "3d2350c1-8325-4a02-b554-d24b650ad901",
+        "66d4c89f-ea43-4fb3-904e-7de1ea7577e9"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-special-promo",
+      "key": "SPECIAL_PROMO",
+      "name": "Save2Own",
+      "title": "Unlock Save2Own Benefits",
+      "subtitle": "Contribute in bits towards purchasing high-value items without any interest.",
+      "is_active": true,
+      "sort_order": 4,
+      "display_limit": 1,
+      "product_ids": [],
+      "is_custom": false
+    },
+    {
+      "id": "sec-new-arrivals",
+      "key": "NEW_ARRIVALS",
+      "name": "New Arrivals",
+      "title": "New Arrivals",
+      "subtitle": "Fresh additions to the DOVI marketplace",
+      "is_active": true,
+      "sort_order": 5,
+      "display_limit": 24,
+      "product_ids": [
+        "350a679b-746a-4102-9710-2599dcd3aeb0",
+        "915504e3-a5eb-46ce-be83-f7ece5e5707a",
+        "5de6a587-2191-4495-a0ec-bd2f0d30ba80",
+        "2967f4f6-bf01-4001-bfb5-df287afabd56"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-hot-sales",
+      "key": "HOT_SALES",
+      "name": "Hot Sales",
+      "title": "Hot Sales",
+      "subtitle": "Great deals on popular products",
+      "is_active": true,
+      "sort_order": 6,
+      "display_limit": 24,
+      "product_ids": [
+        "40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef",
+        "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+        "38897758-8093-46e3-a005-63a4581e3bb7",
+        "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa",
+        "a36c024a-77e4-4582-be28-b85aab404bfc"
+      ],
+      "is_custom": false
+    },
+    {
+      "id": "sec-featured",
+      "key": "FEATURED_PRODUCTS",
+      "name": "Featured Products",
+      "title": "Featured Products",
+      "subtitle": "Hand-picked essentials curated for you",
+      "is_active": true,
+      "sort_order": 7,
+      "display_limit": 24,
+      "product_ids": [
+        "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
+        "915504e3-a5eb-46ce-be83-f7ece5e5707a",
+        "350a679b-746a-4102-9710-2599dcd3aeb0",
+        "2967f4f6-bf01-4001-bfb5-df287afabd56"
+      ],
+      "is_custom": false
+    }
+  ]
 }

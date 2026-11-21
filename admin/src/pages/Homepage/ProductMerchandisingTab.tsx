@@ -248,7 +248,7 @@ export default function ProductMerchandisingTab() {
             Homepage Sections &amp; Product Merchandising
           </h2>
           <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-            Curate which products appear in Best Sellers, Trending Now, New Arrivals, Hot Sales, Flash Sales, Discounts, Featured Products, and Custom Sections.
+            Curate which products appear in Best Sellers, Deals &amp; Discounts, Trending Now, New Arrivals, Hot Sales, Featured Products, and Custom Sections.
           </p>
         </div>
         <button

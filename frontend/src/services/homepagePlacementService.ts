@@ -69,17 +69,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": true,
     "is_new_arrival": true,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 16500,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 16500,
       "original_price": 20000,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "ddace081-9389-4712-acbe-6119235170f7": {
@@ -127,17 +127,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": false,
     "is_new_arrival": true,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 4800,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 4800,
       "original_price": 6000,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "9416fc60-6406-4a31-8034-5eae9fdbbbc2": {
@@ -275,17 +275,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": false,
     "is_new_arrival": true,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 9900,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 9900,
       "original_price": 12000,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "45d9616d-4af0-491b-b0d5-9b185404732f": {
@@ -411,17 +411,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": true,
     "is_new_arrival": false,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 22000,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 22000,
       "original_price": 26500,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "2eade133-3eb4-4900-83b1-39f3fc1b9cb4": {
@@ -591,17 +591,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": true,
     "is_new_arrival": false,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 21500,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 21500,
       "original_price": 25000,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "0cd35e98-6eda-467d-8528-1ce1e8948f0f": {
@@ -623,17 +623,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": true,
     "is_new_arrival": false,
     "is_hot_sale": true,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 12900,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 12900,
       "original_price": 15700,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "40f3493f-d9ce-420b-b2ec-e79ce0b2f9ef": {
@@ -693,17 +693,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": false,
     "is_new_arrival": false,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 36500,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 36500,
       "original_price": 42000,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   },
   "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa": {
@@ -777,17 +777,17 @@ export const DEFAULT_SEEDED_PLACEMENTS: Record<string, ProductHomepagePlacement>
     "is_trending": false,
     "is_new_arrival": false,
     "is_hot_sale": false,
-    "is_flash_deal": true,
-    "is_discount": false,
+    "is_flash_deal": false,
+    "is_discount": true,
     "is_featured": false,
-    "flash_sale": {
-      "flash_price": 13200,
+    "flash_sale": null,
+    "discount_config": {
+      "discount_price": 13200,
       "original_price": 15700,
       "start_time": "2026-01-01T00:00:00.000Z",
       "end_time": "2028-12-31T23:59:59.000Z",
       "is_active": true
-    },
-    "discount_config": null,
+},
     "updated_at": "2026-11-21T10:00:00.000Z"
   }
 };
@@ -819,13 +819,41 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     "is_custom": false
   },
   {
+    "id": "sec-discounts",
+    "key": "DISCOUNTS",
+    "name": "Deals & Discounts",
+    "title": "Deals & Discounts",
+    "subtitle": "Exclusive markdowns and limited-time discounts",
+    "is_active": true,
+    "sort_order": 2,
+    "display_limit": 24,
+    "product_ids": [
+      "3318868a-1e34-43f4-888e-c9d63d373509",
+      "3d2350c1-8325-4a02-b554-d24b650ad901",
+      "66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
+      "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
+      "2eade133-3eb4-4900-83b1-39f3fc1b9cb4",
+      "675dcfa8-cede-4398-93fe-26ebf3c5bf2a",
+      "303d5c30-e0a3-40f9-9502-20fd5c7b0d63",
+      "2aacc640-b6a0-4e88-abe6-a898b9d23c5e",
+      "5377d1b8-681f-4287-81d9-9bf5166710b1",
+      "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
+      "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
+      "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
+      "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+      "4c21a5de-b0ff-4144-88ed-a83f45d4cbc2",
+      "81e58fb1-05fb-4e70-8ffe-206aa97a5a30"
+    ],
+    "is_custom": false
+  },
+  {
     "id": "sec-trending",
     "key": "TRENDING_NOW",
     "name": "Trending Now",
     "title": "Trending Now",
     "subtitle": "High demand picks selected for today",
     "is_active": true,
-    "sort_order": 2,
+    "sort_order": 3,
     "display_limit": 24,
     "product_ids": [
       "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
@@ -846,11 +874,11 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
   {
     "id": "sec-special-promo",
     "key": "SPECIAL_PROMO",
-    "name": "Special Promo",
+    "name": "Save2Own",
     "title": "Unlock Save2Own Benefits",
     "subtitle": "Contribute in bits towards purchasing high-value items without any interest.",
     "is_active": true,
-    "sort_order": 3,
+    "sort_order": 4,
     "display_limit": 1,
     "product_ids": [],
     "is_custom": false
@@ -862,7 +890,7 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     "title": "New Arrivals",
     "subtitle": "Fresh additions to the DOVI marketplace",
     "is_active": true,
-    "sort_order": 4,
+    "sort_order": 5,
     "display_limit": 24,
     "product_ids": [
       "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
@@ -895,7 +923,7 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     "title": "Hot Sales",
     "subtitle": "Great deals on popular products",
     "is_active": true,
-    "sort_order": 5,
+    "sort_order": 6,
     "display_limit": 24,
     "product_ids": [
       "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
@@ -913,55 +941,13 @@ export const DEFAULT_CORE_SECTIONS: MerchandisingSection[] = [
     "is_custom": false
   },
   {
-    "id": "sec-flash-deals",
-    "key": "FLASH_DEALS",
-    "name": "Flash Sales",
-    "title": "Flash Sales",
-    "subtitle": "Limited-time special prices — ending soon!",
-    "is_active": true,
-    "sort_order": 6,
-    "display_limit": 24,
-    "product_ids": [
-      "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
-      "5377d1b8-681f-4287-81d9-9bf5166710b1",
-      "23a9ba40-294a-4c8b-bef5-f0e1fa92abaa",
-      "8fe9e4bb-dc2a-43e7-aa37-06727bc7dd71",
-      "0023fd0f-715d-4578-94ad-e84efb1f3ba8",
-      "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
-      "4c21a5de-b0ff-4144-88ed-a83f45d4cbc2",
-      "81e58fb1-05fb-4e70-8ffe-206aa97a5a30"
-    ],
-    "is_custom": false
-  },
-  {
-    "id": "sec-discounts",
-    "key": "DISCOUNTS",
-    "name": "Discounts",
-    "title": "Discounts",
-    "subtitle": "Exclusive markdowns and limited-time discounts",
-    "is_active": true,
-    "sort_order": 7,
-    "display_limit": 24,
-    "product_ids": [
-      "3318868a-1e34-43f4-888e-c9d63d373509",
-      "3d2350c1-8325-4a02-b554-d24b650ad901",
-      "66d4c89f-ea43-4fb3-904e-7de1ea7577e9",
-      "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
-      "2eade133-3eb4-4900-83b1-39f3fc1b9cb4",
-      "675dcfa8-cede-4398-93fe-26ebf3c5bf2a",
-      "303d5c30-e0a3-40f9-9502-20fd5c7b0d63",
-      "2aacc640-b6a0-4e88-abe6-a898b9d23c5e"
-    ],
-    "is_custom": false
-  },
-  {
     "id": "sec-featured",
     "key": "FEATURED_PRODUCTS",
     "name": "Featured Products",
     "title": "Featured Products",
     "subtitle": "Hand-picked essentials curated for you",
     "is_active": true,
-    "sort_order": 8,
+    "sort_order": 7,
     "display_limit": 24,
     "product_ids": [
       "0cd35e98-6eda-467d-8528-1ce1e8948f0f",
@@ -984,11 +970,56 @@ function readLocal<T>(key: string, fallback: T): T {
       const item = window.localStorage.getItem(key);
       if (item) {
         const parsed = JSON.parse(item);
-        if (key === STORAGE_KEYS.SECTIONS && Array.isArray(parsed) && parsed.length < (fallback as any[]).length) {
-          return fallback;
+        if (key === STORAGE_KEYS.SECTIONS && Array.isArray(parsed)) {
+          // Filter out retired FLASH_DEALS
+          const cleaned = parsed
+            .filter((s: any) => s.key !== 'FLASH_DEALS' && s.id !== 'sec-flash-deals')
+            .map((s: any) => {
+              if (s.key === 'DISCOUNTS' || s.id === 'sec-discounts') {
+                return { ...s, name: 'Deals & Discounts', title: 'Deals & Discounts', sort_order: 2 };
+              }
+              if (s.key === 'TRENDING_NOW') return { ...s, sort_order: 3 };
+              if (s.key === 'SPECIAL_PROMO') return { ...s, sort_order: 4 };
+              if (s.key === 'NEW_ARRIVALS') return { ...s, sort_order: 5 };
+              if (s.key === 'HOT_SALES') return { ...s, sort_order: 6 };
+              if (s.key === 'FEATURED_PRODUCTS') return { ...s, sort_order: 7 };
+              return s;
+            })
+            .sort((a: any, b: any) => (a.sort_order || 99) - (b.sort_order || 99));
+
+          if (cleaned.length < (fallback as any[]).length) {
+            return fallback;
+          }
+          return cleaned as any;
         }
-        if (key === STORAGE_KEYS.PLACEMENTS && parsed && Object.keys(parsed).length < Object.keys(fallback as any).length) {
-          return { ...(fallback as any), ...parsed };
+        if (key === STORAGE_KEYS.PLACEMENTS && parsed && typeof parsed === 'object') {
+          // Migrate any legacy flash sales into discount_config
+          let modified = false;
+          for (const pid of Object.keys(parsed)) {
+            const p = parsed[pid];
+            if (p.is_flash_deal || p.flash_sale) {
+              if (p.flash_sale && !p.discount_config) {
+                p.discount_config = {
+                  discount_price: p.flash_sale.flash_price,
+                  original_price: p.flash_sale.original_price,
+                  start_time: p.flash_sale.start_time,
+                  end_time: p.flash_sale.end_time,
+                  is_active: p.flash_sale.is_active,
+                };
+              }
+              p.is_discount = true;
+              p.is_flash_deal = false;
+              p.flash_sale = null;
+              modified = true;
+            }
+          }
+          if (modified && typeof window !== 'undefined' && window.localStorage) {
+            try { window.localStorage.setItem(key, JSON.stringify(parsed)); } catch {}
+          }
+          if (Object.keys(parsed).length < Object.keys(fallback as any).length) {
+            return { ...(fallback as any), ...parsed };
+          }
+          return parsed;
         }
         return parsed;
       }
@@ -1207,8 +1238,7 @@ function syncPlacementToSections(placement: ProductHomepagePlacement) {
     TRENDING_NOW: placement.is_trending,
     NEW_ARRIVALS: placement.is_new_arrival,
     HOT_SALES: placement.is_hot_sale,
-    FLASH_DEALS: placement.is_flash_deal,
-    DISCOUNTS: placement.is_discount,
+        DISCOUNTS: placement.is_discount,
     FEATURED_PRODUCTS: placement.is_featured,
   };
 
@@ -1391,8 +1421,7 @@ export async function assignProductToSection(sectionIdOrKey: string, productId: 
   if (s.key === 'TRENDING_NOW') placement.is_trending = true;
   if (s.key === 'NEW_ARRIVALS') placement.is_new_arrival = true;
   if (s.key === 'HOT_SALES') placement.is_hot_sale = true;
-  if (s.key === 'FLASH_DEALS') placement.is_flash_deal = true;
-  if (s.key === 'DISCOUNTS') placement.is_discount = true;
+    if (s.key === 'DISCOUNTS') placement.is_discount = true;
   if (s.key === 'FEATURED_PRODUCTS') placement.is_featured = true;
   if (s.is_custom) {
     const customs = new Set(placement.custom_section_ids || []);
@@ -1423,8 +1452,7 @@ export async function removeProductFromSection(sectionIdOrKey: string, productId
     if (s.key === 'TRENDING_NOW') placement.is_trending = false;
     if (s.key === 'NEW_ARRIVALS') placement.is_new_arrival = false;
     if (s.key === 'HOT_SALES') placement.is_hot_sale = false;
-    if (s.key === 'FLASH_DEALS') placement.is_flash_deal = false;
-    if (s.key === 'DISCOUNTS') placement.is_discount = false;
+        if (s.key === 'DISCOUNTS') placement.is_discount = false;
     if (s.key === 'FEATURED_PRODUCTS') placement.is_featured = false;
     if (s.is_custom && placement.custom_section_ids) {
       placement.custom_section_ids = placement.custom_section_ids.filter((id) => id !== s.id && id !== s.key);
