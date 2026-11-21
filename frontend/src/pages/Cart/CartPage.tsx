@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,18 @@ export default function CartPage() {
   const { isAuthenticated } = useAuth();
   const { cart, isLoading, updateQty, removeItem, clearCart, validateCart } = useCart();
   const [validating, setValidating] = useState(false);
+
+  const productSubtotal = useMemo(() => {
+    if (!cart?.items || cart.items.length === 0) return 0;
+    return cart.items.reduce((sum, item) => {
+      const price = parseFloat(String(item.unit_price || item.price || 0)) || 0;
+      return sum + price * Math.max(1, item.quantity || 1);
+    }, 0);
+  }, [cart?.items]);
+
+  const displaySubtotal = productSubtotal > 0
+    ? productSubtotal
+    : (parseFloat(String(cart?.subtotal || 0)) || 0);
 
   // Sync shared delivery classifications and validate cart on mount
   useEffect(() => {
@@ -297,7 +309,7 @@ export default function CartPage() {
           <div style={summaryRowStyles}>
             <span>Product Subtotal</span>
             <span style={summaryValueStyles}>
-              {formatPrice(cart.subtotal)}
+              {formatPrice(displaySubtotal)}
             </span>
           </div>
 
@@ -313,7 +325,7 @@ export default function CartPage() {
           <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)' }}>
             <span>Subtotal</span>
             <span style={{ ...summaryValueStyles, color: 'var(--color-primary)', fontSize: 'var(--text-lg)' }}>
-              {formatPrice(cart.subtotal)}
+              {formatPrice(displaySubtotal)}
             </span>
           </div>
 

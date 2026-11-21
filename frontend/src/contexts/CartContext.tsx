@@ -215,13 +215,25 @@ export function normalizeCart(raw: any): Cart {
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotalNum = items.reduce(
-    (sum, i) => sum + (parseFloat(String(i.unit_price)) || 0) * i.quantity,
+    (sum, i) => {
+      const p = parseFloat(String(i.unit_price ?? (i as any).price ?? 0)) || 0;
+      return sum + p * Math.max(1, i.quantity || 1);
+    },
     0
   );
-  const subtotal = raw.subtotal !== undefined ? String(raw.subtotal) : subtotalNum.toFixed(2);
-  const delivery = raw.delivery_estimate !== undefined ? raw.delivery_estimate : null;
+
+  // If cart has items and their computed subtotal > 0, always use the computed subtotal.
+  // Never let a stale or 0.00 raw.subtotal override positive item subtotals.
+  const subtotal = subtotalNum > 0
+    ? subtotalNum.toFixed(2)
+    : (raw && raw.subtotal !== undefined && raw.subtotal !== null ? String(raw.subtotal) : '0.00');
+
+  const delivery = raw && raw.delivery_estimate !== undefined ? raw.delivery_estimate : null;
   const deliveryNum = delivery ? parseFloat(String(delivery)) || 0 : 0;
-  const total = raw.total !== undefined ? String(raw.total) : (subtotalNum + deliveryNum).toFixed(2);
+  const calculatedTotal = (subtotalNum + deliveryNum).toFixed(2);
+  const total = subtotalNum > 0
+    ? calculatedTotal
+    : (raw && raw.total !== undefined && raw.total !== null ? String(raw.total) : calculatedTotal);
 
   return {
     id: raw.id || 'cart',

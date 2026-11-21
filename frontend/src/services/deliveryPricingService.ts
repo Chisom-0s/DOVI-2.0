@@ -21,54 +21,704 @@ import type {
 export const PRIMARY_DISPATCH_ORIGIN = 'Onitsha';
 
 export const DEFAULT_SEED_ROUTES: DeliveryRoute[] = [
-  // Anambra
-  { id: 'route_awka', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Awka', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_onitsha', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Onitsha', small_parcel_rate: 1500, heavy_parcel_rate: 4000, furniture_bulky_rate: 12000, combined_furniture_rate: 17000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: 'Same day - 1 business day', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_nnewi', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Nnewi', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_ekwulobia', dispatch_origin: 'Onitsha', destination_state: 'Anambra', destination_city: 'Ekwulobia', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Lagos
-  { id: 'route_ikeja', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Ikeja', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_lekki', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Lekki', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_vi', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Victoria Island', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_surulere', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'Surulere', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_lagos_all', dispatch_origin: 'Onitsha', destination_state: 'Lagos', destination_city: 'All Cities', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // FCT - Abuja
-  { id: 'route_garki', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Garki', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_wuse', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Wuse', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_maitama', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'Maitama', small_parcel_rate: 5500, heavy_parcel_rate: 12000, furniture_bulky_rate: 28000, combined_furniture_rate: 33000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_abuja_all', dispatch_origin: 'Onitsha', destination_state: 'FCT - Abuja', destination_city: 'All Cities', small_parcel_rate: 5000, heavy_parcel_rate: 11000, furniture_bulky_rate: 25000, combined_furniture_rate: 30000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Enugu
-  { id: 'route_enugu', dispatch_origin: 'Onitsha', destination_state: 'Enugu', destination_city: 'Enugu', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_nsukka', dispatch_origin: 'Onitsha', destination_state: 'Enugu', destination_city: 'Nsukka', small_parcel_rate: 3500, heavy_parcel_rate: 7500, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Rivers
-  { id: 'route_ph', dispatch_origin: 'Onitsha', destination_state: 'Rivers', destination_city: 'Port Harcourt', small_parcel_rate: 4000, heavy_parcel_rate: 9000, furniture_bulky_rate: 20000, combined_furniture_rate: 25000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-3 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Delta
-  { id: 'route_asaba', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Asaba', small_parcel_rate: 1500, heavy_parcel_rate: 4000, furniture_bulky_rate: 12000, combined_furniture_rate: 17000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: 'Same day - 1 business day', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-  { id: 'route_warri', dispatch_origin: 'Onitsha', destination_state: 'Delta', destination_city: 'Warri', small_parcel_rate: 5000, heavy_parcel_rate: 8500, furniture_bulky_rate: 20000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Imo
-  { id: 'route_owerri', dispatch_origin: 'Onitsha', destination_state: 'Imo', destination_city: 'Owerri', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Abia
-  { id: 'route_aba', dispatch_origin: 'Onitsha', destination_state: 'Abia', destination_city: 'Aba', small_parcel_rate: 2500, heavy_parcel_rate: 6000, furniture_bulky_rate: 15000, combined_furniture_rate: 20000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Oyo
-  { id: 'route_ibadan', dispatch_origin: 'Onitsha', destination_state: 'Oyo', destination_city: 'Ibadan', small_parcel_rate: 4500, heavy_parcel_rate: 10000, furniture_bulky_rate: 22000, combined_furniture_rate: 27000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '2-4 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Edo
-  { id: 'route_benin', dispatch_origin: 'Onitsha', destination_state: 'Edo', destination_city: 'Benin City', small_parcel_rate: 3000, heavy_parcel_rate: 7000, furniture_bulky_rate: 18000, combined_furniture_rate: 23000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '1-2 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Kano
-  { id: 'route_kano', dispatch_origin: 'Onitsha', destination_state: 'Kano', destination_city: 'Kano', small_parcel_rate: 6000, heavy_parcel_rate: 14000, furniture_bulky_rate: 30000, combined_furniture_rate: 36000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '3-5 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
-
-  // Kaduna
-  { id: 'route_kaduna', dispatch_origin: 'Onitsha', destination_state: 'Kaduna', destination_city: 'Kaduna', small_parcel_rate: 5500, heavy_parcel_rate: 13000, furniture_bulky_rate: 28000, combined_furniture_rate: 34000, special_handling_surcharge: null, allows_furniture_small_consolidation: true, max_furniture_items_consolidated: 2, max_small_parcel_weight_kg: 15, max_heavy_parcel_weight_kg: 80, special_delivery_requirements: null, estimated_delivery_days: '3-5 business days', is_active: true, created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+  {
+    "id": "route_f3b4eb8cde34",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Awka",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_38c2c3d4686a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Onitsha",
+    "small_parcel_rate": 1500,
+    "heavy_parcel_rate": 4000,
+    "furniture_bulky_rate": 12000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 17000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "Same day - 1 business day",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_6d41a0751d24",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Nnewi",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_8122825125d3",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Ekwulobia",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e9242d7245a9",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Ikeja",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_78d07e897dd1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Lekki",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_535857e8c217",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Victoria Island",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_84f705a3e8c5",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Surulere",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_a9089b597b37",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Yaba",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_cd1f4bb6a12a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "All Cities",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_9497935c6844",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Garki",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_b93e1332d216",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Wuse",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_3c47a115e4f1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Maitama",
+    "small_parcel_rate": 5500,
+    "heavy_parcel_rate": 12000,
+    "furniture_bulky_rate": 28000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 33000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e68180dde014",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Gwarinpa",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_775b3100f11e",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "All Cities",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_7ded7f673ffc",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Enugu",
+    "destination_city": "Enugu",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e7736fb6ac88",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Enugu",
+    "destination_city": "Nsukka",
+    "small_parcel_rate": 3500,
+    "heavy_parcel_rate": 7500,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_7740670fcc15",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Rivers",
+    "destination_city": "Port Harcourt",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e5dd3bbc64d1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Rivers",
+    "destination_city": "Obio-Akpor",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_d2820439f57e",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Delta",
+    "destination_city": "Asaba",
+    "small_parcel_rate": 1500,
+    "heavy_parcel_rate": 4000,
+    "furniture_bulky_rate": 12000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 17000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "Same day - 1 business day",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_c5c58ae45a65",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Delta",
+    "destination_city": "Warri",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 8500,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-20T18:04:01.335Z",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_eaeb30500543",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Imo",
+    "destination_city": "Owerri",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_75926d44bac7",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Imo",
+    "destination_city": "Orlu",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_a9a747d564e1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Abia",
+    "destination_city": "Aba",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_56c88181f47a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Abia",
+    "destination_city": "Umuahia",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_9b3216e90057",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Oyo",
+    "destination_city": "Ibadan",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_57f8fe59ace6",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Edo",
+    "destination_city": "Benin City",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_f1e657b7c14c",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Kano",
+    "destination_city": "Kano",
+    "small_parcel_rate": 6000,
+    "heavy_parcel_rate": 14000,
+    "furniture_bulky_rate": 30000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 35000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "3-5 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_c0d79e5e1a99",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Kaduna",
+    "destination_city": "Kaduna",
+    "small_parcel_rate": 5500,
+    "heavy_parcel_rate": 13000,
+    "furniture_bulky_rate": 28000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 33000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "3-5 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  }
 ];
+
 
 
 export const PARCEL_CLASSIFICATION_LABELS: Record<ParcelClassification, string> = {
@@ -192,7 +842,11 @@ function readLocal<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw) as T;
+    if (key === STORAGE_KEYS.ROUTES && Array.isArray(parsed) && parsed.length === 0) {
+      return fallback;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -222,77 +876,94 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
   if (typeof window === 'undefined' || typeof fetch === 'undefined') {
     return getLocalDeliveryStore();
   }
+  let serverData: Partial<DeliveryStoreState> | null = null;
   try {
     const res = await fetch('/__dovi_delivery_db__', {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
-    if (res.ok) {
-      const serverData = (await res.json()) as Partial<DeliveryStoreState>;
-      const local = getLocalDeliveryStore();
-
-      // Routes: the shared store is the single source of truth. Merging by ID previously
-      // resurrected routes the admin had deleted/edited (stale localStorage copies won),
-      // causing customers to be priced against outdated or phantom routes.
-      // Bootstrap: if the shared store is empty but this browser has routes, keep them and push them up.
-      const destKey = (r: DeliveryRoute) => `${canonicalStateKey(r.destination_state)}|${canonicalCityKey(r.destination_city)}`;
-      const mergedMap = new Map<string, DeliveryRoute>();
-      for (const r of local.routes || []) {
-        if (r && r.destination_state) {
-          mergedMap.set(destKey(r), r);
-        }
-      }
-      const serverRoutes = Array.isArray(serverData.routes) ? serverData.routes : [];
-      for (const r of serverRoutes) {
-        if (r && r.destination_state) {
-          const key = destKey(r);
-          const existing = mergedMap.get(key);
-          if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
-            mergedMap.set(key, r);
-          }
-        }
-      }
-      const mergedRoutes = Array.from(mergedMap.values());
-      if (local.routes.length > serverRoutes.length) {
-        void pushDeliveryStoreToServer({ routes: mergedRoutes });
-      }
-
-      // Merge rate history by ID
-      const historyMap = new Map<string, DeliveryRateChangeRecord>();
-      for (const h of local.rate_history) historyMap.set(h.id, h);
-      for (const h of serverData.rate_history || []) historyMap.set(h.id, h);
-      const mergedHistory = Array.from(historyMap.values()).sort(
-        (a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
-      );
-
-      // Merge product delivery attributes
-      const mergedProductAttrs: Record<string, ProductDeliveryAttributes> = {
-        ...local.product_delivery_attributes,
-        ...(serverData.product_delivery_attributes || {}),
-      };
-
-      // Merge order shipments
-      const mergedShipments: Record<string, OrderShipment[]> = {
-        ...local.order_shipments,
-        ...(serverData.order_shipments || {}),
-      };
-
-      writeLocal(STORAGE_KEYS.ROUTES, mergedRoutes);
-      writeLocal(STORAGE_KEYS.RATE_HISTORY, mergedHistory);
-      writeLocal(STORAGE_KEYS.PRODUCT_ATTRS, mergedProductAttrs);
-      writeLocal(STORAGE_KEYS.ORDER_SHIPMENTS, mergedShipments);
-
-      return {
-        routes: mergedRoutes,
-        rate_history: mergedHistory,
-        product_delivery_attributes: mergedProductAttrs,
-        order_shipments: mergedShipments,
-      };
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      serverData = (await res.json()) as Partial<DeliveryStoreState>;
     }
   } catch {
-    // Offline or non-Vite environment
+    // Non-fatal, try static fallback
   }
-  return getLocalDeliveryStore();
+
+  if (!serverData || !Array.isArray(serverData.routes) || serverData.routes.length === 0) {
+    try {
+      const resStatic = await fetch('/delivery_store.json', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const cTypeStatic = resStatic.headers.get('content-type') || '';
+      if (resStatic.ok && cTypeStatic.includes('application/json')) {
+        serverData = (await resStatic.json()) as Partial<DeliveryStoreState>;
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  const local = getLocalDeliveryStore();
+  const destKey = (r: DeliveryRoute) => `${canonicalStateKey(r.destination_state)}|${canonicalCityKey(r.destination_city)}`;
+  const mergedMap = new Map<string, DeliveryRoute>();
+
+  // 1. Seed routes as baseline
+  for (const r of DEFAULT_SEED_ROUTES) {
+    if (r && r.destination_state) mergedMap.set(destKey(r), r);
+  }
+  // 2. Local routes
+  for (const r of local.routes || []) {
+    if (r && r.destination_state) mergedMap.set(destKey(r), r);
+  }
+  // 3. Server routes (override if newer or present)
+  const serverRoutes = Array.isArray(serverData?.routes) ? serverData.routes : [];
+  for (const r of serverRoutes) {
+    if (r && r.destination_state) {
+      const key = destKey(r);
+      const existing = mergedMap.get(key);
+      if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
+        mergedMap.set(key, r);
+      }
+    }
+  }
+  const mergedRoutes = Array.from(mergedMap.values());
+  if (local.routes.length > serverRoutes.length) {
+    void pushDeliveryStoreToServer({ routes: mergedRoutes });
+  }
+
+  // Merge rate history by ID
+  const historyMap = new Map<string, DeliveryRateChangeRecord>();
+  for (const h of local.rate_history || []) historyMap.set(h.id, h);
+  for (const h of serverData?.rate_history || []) historyMap.set(h.id, h);
+  const mergedHistory = Array.from(historyMap.values()).sort(
+    (a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+  );
+
+  // Merge product delivery attributes
+  const mergedProductAttrs: Record<string, ProductDeliveryAttributes> = {
+    ...local.product_delivery_attributes,
+    ...(serverData?.product_delivery_attributes || {}),
+  };
+
+  // Merge order shipments
+  const mergedShipments: Record<string, OrderShipment[]> = {
+    ...local.order_shipments,
+    ...(serverData?.order_shipments || {}),
+  };
+
+  writeLocal(STORAGE_KEYS.ROUTES, mergedRoutes);
+  writeLocal(STORAGE_KEYS.RATE_HISTORY, mergedHistory);
+  writeLocal(STORAGE_KEYS.PRODUCT_ATTRS, mergedProductAttrs);
+  writeLocal(STORAGE_KEYS.ORDER_SHIPMENTS, mergedShipments);
+
+  return {
+    routes: mergedRoutes,
+    rate_history: mergedHistory,
+    product_delivery_attributes: mergedProductAttrs,
+    order_shipments: mergedShipments,
+  };
 }
 
 export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreState>): Promise<boolean> {
@@ -547,8 +1218,9 @@ function normalizeRateValue(val: number | string | null | undefined): number | n
 }
 
 export function listDeliveryRoutes(includeInactive = true): DeliveryRoute[] {
-  const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
-  const filtered = includeInactive ? routes : routes.filter((r) => r.is_active);
+  const localRoutes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, DEFAULT_SEED_ROUTES);
+  const baseRoutes = (localRoutes && localRoutes.length > 0) ? localRoutes : DEFAULT_SEED_ROUTES;
+  const filtered = includeInactive ? baseRoutes : baseRoutes.filter((r) => r.is_active);
   return [...filtered].sort((a, b) => {
     const stateCmp = a.destination_state.localeCompare(b.destination_state);
     if (stateCmp !== 0) return stateCmp;

@@ -100,23 +100,56 @@ export default function DoviSplashScreen({ onComplete }: DoviSplashScreenProps) 
       <style dangerouslySetInnerHTML={{ __html: inlineStyles }} />
 
       <div style={centerSectionStyles}>
-        {/* Middle Area: Dovi Logo */}
+        {/* Middle Area: Official Dovi Dove Logo */}
         <img
           src="/logo.jpg?v=2"
           alt="Dovi Logo"
           style={logoStyles}
         />
 
-        {/* Lower Area: Circular Dot Pulsing Loader */}
+        {/* Tagline directly beneath the logo */}
+        <p
+          style={{
+            margin: '14px 0 0 0',
+            fontSize: '16px',
+            fontWeight: 600,
+            color: '#4b5563',
+            letterSpacing: '0.2px',
+            transition: 'opacity 1000ms ease-out',
+            opacity: isAnimated ? 1 : 0,
+            textAlign: 'center',
+          }}
+        >
+          Shop Smart. Feel Good.
+        </p>
+
+        {/* Circular Dot Pulsing Loader */}
         <div className="dovi-dot-loader">
           <div className="dovi-dot" />
           <div className="dovi-dot" />
           <div className="dovi-dot" />
         </div>
+      </div>
 
-        <div style={{ marginTop: '24px', fontSize: '12px', color: '#9ca3af', opacity: isAnimated ? 1 : 0, transition: 'opacity 1000ms ease-out' }}>
-          powered by Malc Nexus Technologies LTD
-        </div>
+      {/* Bottom of Splash Screen: Subtle, Professional Company Attribution */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '28px',
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          fontSize: '13px',
+          fontWeight: 500,
+          color: '#9ca3af',
+          letterSpacing: '0.2px',
+          transition: 'opacity 1000ms ease-out',
+          opacity: isAnimated ? 1 : 0,
+          padding: '0 16px',
+          boxSizing: 'border-box',
+        }}
+      >
+        Powered by Malc Nexus Technologies Limited.
       </div>
     </div>
   );

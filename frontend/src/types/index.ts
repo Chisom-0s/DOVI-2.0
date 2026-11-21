@@ -816,6 +816,7 @@ export interface DeliveryRoute {
   heavy_parcel_rate: number | null;
   furniture_bulky_rate: number | null;
   combined_furniture_rate: number | null;
+  combined_small_heavy_rate?: number | null;
   special_handling_surcharge: number | null;
   allows_furniture_small_consolidation: boolean;
   max_furniture_items_consolidated: number;

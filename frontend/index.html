@@ -478,26 +478,20 @@
         padding: 24px;
       }
       .dovi-loader-logo {
-        width: 100px;
-        height: 100px;
+        width: 108px;
+        height: 108px;
         border-radius: 24px;
         box-shadow: 0 12px 32px rgba(255, 122, 0, 0.22);
-        object-fit: cover;
-        margin-bottom: 20px;
+        object-fit: contain;
+        margin-bottom: 14px;
         animation: doviPulse 2s infinite ease-in-out;
       }
-      .dovi-loader-title {
-        margin: 0;
-        font-size: 26px;
-        font-weight: 800;
-        color: #111827;
-        letter-spacing: -0.5px;
-      }
       .dovi-loader-sub {
-        margin: 6px 0 24px 0;
-        font-size: 14px;
-        color: #6b7280;
-        font-weight: 500;
+        margin: 0 0 24px 0;
+        font-size: 16px;
+        color: #4b5563;
+        font-weight: 600;
+        letter-spacing: 0.2px;
       }
       .dovi-loader-dots {
         display: flex;
@@ -515,6 +509,19 @@
       .dovi-loader-dot:nth-child(1) { animation-delay: -0.32s; }
       .dovi-loader-dot:nth-child(2) { animation-delay: -0.16s; background-color: #ff9f43; }
       .dovi-loader-dot:nth-child(3) { animation-delay: 0s; }
+      .dovi-loader-footer {
+        position: absolute;
+        bottom: 28px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        color: #9ca3af;
+        letter-spacing: 0.2px;
+        padding: 0 16px;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -523,13 +530,15 @@
       <div id="dovi-initial-loader">
         <div class="dovi-loader-content">
           <img src="/logo.jpg" alt="Dovi" class="dovi-loader-logo" />
-          <h1 class="dovi-loader-title">DOVI</h1>
           <p class="dovi-loader-sub">Shop Smart. Feel Good.</p>
           <div class="dovi-loader-dots">
             <span class="dovi-loader-dot"></span>
             <span class="dovi-loader-dot"></span>
             <span class="dovi-loader-dot"></span>
           </div>
+        </div>
+        <div class="dovi-loader-footer">
+          Powered by Malc Nexus Technologies Limited.
         </div>
       </div>
     </div>
