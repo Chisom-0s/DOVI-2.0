@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
 import FlashSalesMarquee from '@/components/home/FlashSalesMarquee';
+import TrendingNowCarousel from '@/components/home/TrendingNowCarousel';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import type { HomepageSection, ProductSummary } from '@/types';
 import {
@@ -127,6 +128,10 @@ export default function HomePage() {
 
     if (section.key === 'FLASH_DEALS') {
       return <FlashSalesMarquee products={products} />;
+    }
+
+    if (section.key === 'TRENDING_NOW' || section.title?.toLowerCase().includes('trending')) {
+      return <TrendingNowCarousel products={products} />;
     }
 
     switch (layout) {
