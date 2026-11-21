@@ -956,18 +956,32 @@ export default function Save2OwnGoalDetailPage() {
       {showContribModal && (
         <div style={modalBackdropStyles}>
           <div style={{ ...modalContentStyles, maxWidth: '540px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '24px' }}>🏦</span>
-                <div>
-                  <h3 style={{ ...modalTitleStyles, margin: 0, fontSize: '18px' }}>SAVE2OWN BANK TRANSFER</h3>
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Dedicated Direct Commerce Account</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: 'var(--space-3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <span style={{ fontSize: '24px', flexShrink: 0 }}>🏦</span>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ ...modalTitleStyles, margin: 0, fontSize: '16px', lineHeight: 1.3, wordBreak: 'break-word', borderBottom: 'none', paddingBottom: 0 }}>SAVE2OWN BANK TRANSFER</h3>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'block', wordBreak: 'break-word' }}>Dedicated Direct Commerce Account</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowContribModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                aria-label="Close modal"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  padding: '6px',
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
                 ✕
               </button>
@@ -976,37 +990,38 @@ export default function Save2OwnGoalDetailPage() {
             {/* Dedicated Save2Own Bank Account Details Card */}
             <div
               style={{
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: 'var(--space-4)',
+                backgroundColor: 'var(--color-surface, #f8fafc)',
+                border: '1px solid var(--color-border, #e2e8f0)',
+                borderRadius: 'var(--radius-md, 12px)',
+                padding: '14px 12px',
                 marginBottom: 'var(--space-4)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 'var(--space-3)',
+                gap: '10px',
+                boxSizing: 'border-box',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
                   Bank Name
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)', wordBreak: 'break-word', textAlign: 'right' }}>
                   {bankAccount?.bank_name || 'Dovi Partner Bank'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
                   Account Name
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)', wordBreak: 'break-word', textAlign: 'right' }}>
                   {bankAccount?.account_name || 'DOVI DIRECT / SAVE2OWN'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-2)' }}>
-                <div>
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
                     Account Number
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 'var(--font-extrabold)', letterSpacing: '1px', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
@@ -1017,26 +1032,32 @@ export default function Save2OwnGoalDetailPage() {
                   type="button"
                   onClick={() => handleCopy(bankAccount?.account_number || '', 'Account Number')}
                   style={{
-                    padding: '6px 12px',
-                    fontSize: '11px',
+                    padding: '8px 14px',
+                    minHeight: '38px',
+                    fontSize: '12px',
                     fontWeight: 600,
-                    borderRadius: 'var(--radius-sm)',
+                    borderRadius: 'var(--radius-sm, 8px)',
                     backgroundColor: copiedField === 'Account Number' ? '#10b981' : 'var(--color-primary)',
                     color: '#ffffff',
                     border: 'none',
                     cursor: 'pointer',
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
                   }}
                 >
                   {copiedField === 'Account Number' ? '✓ Copied' : 'Copy Number'}
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ minWidth: '140px', flex: '1 1 auto' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, display: 'block', marginBottom: '2px' }}>
                     Transfer Reference / Narration
                   </span>
-                  <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 'var(--font-bold)', color: 'var(--color-text)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                     {goal.reference_code || `S2O-${goal.id.slice(0, 8).toUpperCase()}`}
                   </span>
                 </div>
@@ -1044,14 +1065,19 @@ export default function Save2OwnGoalDetailPage() {
                   type="button"
                   onClick={() => handleCopy(goal.reference_code || `S2O-${goal.id.slice(0, 8).toUpperCase()}`, 'Transfer Reference')}
                   style={{
-                    padding: '5px 10px',
-                    fontSize: '11px',
+                    padding: '8px 14px',
+                    minHeight: '38px',
+                    fontSize: '12px',
                     fontWeight: 600,
-                    borderRadius: 'var(--radius-sm)',
+                    borderRadius: 'var(--radius-sm, 8px)',
                     backgroundColor: copiedField === 'Transfer Reference' ? '#10b981' : 'rgba(255, 122, 0, 0.12)',
                     color: copiedField === 'Transfer Reference' ? '#ffffff' : 'var(--color-primary)',
                     border: '1px solid var(--color-primary)',
                     cursor: 'pointer',
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
                   {copiedField === 'Transfer Reference' ? '✓ Copied' : 'Copy Ref'}
@@ -1059,7 +1085,7 @@ export default function Save2OwnGoalDetailPage() {
               </div>
 
               {bankAccount?.instructions && (
-                <div style={{ marginTop: 'var(--space-1)', padding: 'var(--space-2) var(--space-3)', backgroundColor: 'rgba(255, 159, 67, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                <div style={{ marginTop: '2px', padding: '8px 10px', backgroundColor: 'rgba(255, 159, 67, 0.1)', borderRadius: 'var(--radius-sm, 6px)', fontSize: '11px', color: 'var(--color-text-muted)', lineHeight: 1.45, wordBreak: 'break-word' }}>
                   📌 <strong>Instructions:</strong> {bankAccount.instructions}
                 </div>
               )}
@@ -1068,34 +1094,35 @@ export default function Save2OwnGoalDetailPage() {
             {/* Section 15: Payment Account Name Warning */}
             <div
               style={{
-                padding: 'var(--space-3)',
+                padding: '12px',
                 backgroundColor: '#fffbeb',
                 border: '1px solid #fde68a',
-                borderRadius: 'var(--radius-md)',
+                borderRadius: 'var(--radius-md, 12px)',
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '10px',
                 marginBottom: 'var(--space-4)',
+                boxSizing: 'border-box',
               }}
             >
-              <span style={{ fontSize: '18px', lineHeight: 1 }}>⚠️</span>
-              <div>
-                <h5 style={{ margin: '0 0 2px 0', fontSize: '11px', fontWeight: 'var(--font-bold)', color: '#92400e' }}>
+              <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0, marginTop: '1px' }}>⚠️</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h5 style={{ margin: '0 0 3px 0', fontSize: '11px', fontWeight: 'var(--font-bold)', color: '#92400e', letterSpacing: '0.3px' }}>
                   PAYMENT ACCOUNT NAME REQUIREMENT
                 </h5>
-                <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45 }}>
+                <p style={{ margin: 0, fontSize: '11px', color: '#78350f', lineHeight: 1.45, wordBreak: 'break-word' }}>
                   <strong>IMPORTANT:</strong> The account name used to make your Save2Own transfer should match the name registered on your Save2Own account (<strong>{goal.participant?.full_name || 'your registered name'}</strong>).
                 </p>
-                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#92400e' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#92400e', lineHeight: 1.4, wordBreak: 'break-word' }}>
                   Transfers from an account with a different name may require additional manual verification by administration.
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleContributeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <form onSubmit={handleContributeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-1)' }}>
-                  <label style={modalLabelStyles}>Amount to Save (NGN) *</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                  <label style={{ ...modalLabelStyles, marginBottom: 0 }}>Amount to Save (NGN) *</label>
                   {goal.installment_amount && (
                     <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 'var(--font-semibold)' }}>
                       Schedule: ₦{parseFloat(goal.installment_amount).toLocaleString()}
@@ -1109,17 +1136,22 @@ export default function Save2OwnGoalDetailPage() {
                   placeholder="Enter amount transferred"
                   value={contribAmount}
                   onChange={(e) => setContribAmount(e.target.value)}
-                  style={modalInputStyles}
+                  style={{ ...modalInputStyles, height: '44px', marginBottom: '8px' }}
                 />
-                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                   {goal.installment_amount && (
                     <button
                       type="button"
                       onClick={() => setContribAmount(goal.installment_amount || '')}
                       style={{
-                        padding: '4px 10px',
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '130px',
+                        minHeight: '38px',
+                        padding: '8px 10px',
                         fontSize: '11px',
-                        borderRadius: 'var(--radius-sm)',
+                        lineHeight: 1.3,
+                        textAlign: 'center',
+                        borderRadius: 'var(--radius-sm, 8px)',
                         backgroundColor: contribAmount === goal.installment_amount ? 'rgba(255, 122, 0, 0.12)' : 'var(--color-surface)',
                         border: `1px solid ${contribAmount === goal.installment_amount ? 'var(--color-primary)' : 'var(--color-border)'}`,
                         color: contribAmount === goal.installment_amount ? 'var(--color-primary)' : 'var(--color-text)',
@@ -1135,9 +1167,14 @@ export default function Save2OwnGoalDetailPage() {
                       type="button"
                       onClick={() => setContribAmount(goal.remaining_amount)}
                       style={{
-                        padding: '4px 10px',
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '130px',
+                        minHeight: '38px',
+                        padding: '8px 10px',
                         fontSize: '11px',
-                        borderRadius: 'var(--radius-sm)',
+                        lineHeight: 1.3,
+                        textAlign: 'center',
+                        borderRadius: 'var(--radius-sm, 8px)',
                         backgroundColor: contribAmount === goal.remaining_amount ? 'rgba(255, 122, 0, 0.12)' : 'var(--color-surface)',
                         border: `1px solid ${contribAmount === goal.remaining_amount ? 'var(--color-primary)' : 'var(--color-border)'}`,
                         color: contribAmount === goal.remaining_amount ? 'var(--color-primary)' : 'var(--color-text)',
@@ -1158,7 +1195,7 @@ export default function Save2OwnGoalDetailPage() {
                   placeholder="e.g. Sender Name or Bank Transaction Ref"
                   value={transferReference}
                   onChange={(e) => setTransferReference(e.target.value)}
-                  style={modalInputStyles}
+                  style={{ ...modalInputStyles, height: '44px', marginBottom: 0 }}
                 />
               </div>
 
@@ -1176,20 +1213,38 @@ export default function Save2OwnGoalDetailPage() {
                       setPaymentProofPreview(null);
                     }
                   }}
-                  style={{ ...modalInputStyles, padding: '8px' }}
+                  style={{ ...modalInputStyles, padding: '8px 10px', height: 'auto', marginBottom: 0 }}
                 />
                 {paymentProofPreview && (
-                  <div style={{ marginTop: 'var(--space-2)' }}>
-                    <img src={paymentProofPreview} alt="Receipt preview" style={{ maxHeight: '90px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
+                  <div style={{ marginTop: '8px' }}>
+                    <img
+                      src={paymentProofPreview}
+                      alt="Receipt preview"
+                      style={{
+                        maxHeight: '100px',
+                        maxWidth: '100%',
+                        objectFit: 'contain',
+                        borderRadius: '6px',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    />
                   </div>
                 )}
               </div>
 
-              <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 'var(--radius-sm)', padding: '10px', fontSize: '11px', color: '#1d4ed8', lineHeight: 1.4 }}>
+              <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 'var(--radius-sm, 8px)', padding: '10px 12px', fontSize: '11px', color: '#1d4ed8', lineHeight: 1.45, wordBreak: 'break-word' }}>
                 ℹ️ Status will be set to <strong>Pending Verification</strong> until our finance admin verifies the credit. Your goal balance will automatically update once confirmed.
               </div>
 
-              <div style={modalActionsStyles}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap-reverse',
+                  gap: '10px',
+                  marginTop: 'var(--space-2)',
+                  paddingBottom: 'calc(var(--space-2) + env(safe-area-inset-bottom, 0px))',
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -1197,7 +1252,14 @@ export default function Save2OwnGoalDetailPage() {
                     setPaymentProofFile(null);
                     setPaymentProofPreview(null);
                   }}
-                  style={modalCancelBtnStyles}
+                  style={{
+                    ...modalCancelBtnStyles,
+                    flex: '1 1 120px',
+                    minHeight: '44px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
                   Cancel
                 </button>
@@ -1206,11 +1268,16 @@ export default function Save2OwnGoalDetailPage() {
                   disabled={isActionPending}
                   style={{
                     ...modalSubmitBtnStyles,
+                    flex: '2 1 180px',
+                    minHeight: '44px',
                     backgroundColor: 'var(--color-primary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(255, 122, 0, 0.25)',
                   }}
                 >
                   {isActionPending ? 'Submitting Transfer...' : "I've Made the Transfer"}
@@ -1506,7 +1573,7 @@ export default function Save2OwnGoalDetailPage() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-2)' }}>
                 <div>
                   <label style={modalLabelStyles}>Phone Number</label>
                   <input
@@ -1537,7 +1604,7 @@ export default function Save2OwnGoalDetailPage() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-2)' }}>
                 <div>
                   <label style={modalLabelStyles}>City</label>
                   <input
@@ -1955,23 +2022,38 @@ const modalBackdropStyles: React.CSSProperties = {
   position: 'fixed',
   top: 0,
   left: 0,
-  width: '100%',
+  right: 0,
+  bottom: 0,
+  width: '100vw',
+  minHeight: '100dvh',
   height: '100%',
-  backgroundColor: 'rgba(0,0,0,0.5)',
+  backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  backdropFilter: 'blur(4px)',
+  WebkitBackdropFilter: 'blur(4px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 999,
-  padding: 'var(--space-4)',
+  zIndex: 1200,
+  padding: 'max(12px, env(safe-area-inset-top, 12px)) max(12px, env(safe-area-inset-right, 12px)) max(16px, env(safe-area-inset-bottom, 16px)) max(12px, env(safe-area-inset-left, 12px))',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  boxSizing: 'border-box',
 };
 
 const modalContentStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
-  borderRadius: 'var(--radius-lg)',
+  borderRadius: '16px',
   width: '100%',
-  maxWidth: '440px',
-  padding: 'var(--space-6)',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+  maxWidth: '460px',
+  maxHeight: 'min(92vh, calc(100dvh - 28px))',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '20px 16px',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+  boxSizing: 'border-box',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  margin: 'auto',
 };
 
 const modalTitleStyles: React.CSSProperties = {
@@ -1981,6 +2063,7 @@ const modalTitleStyles: React.CSSProperties = {
   margin: '0 0 var(--space-4) 0',
   borderBottom: '1px solid var(--color-border)',
   paddingBottom: 'var(--space-2)',
+  wordBreak: 'break-word',
 };
 
 const modalLabelStyles: React.CSSProperties = {
@@ -1993,7 +2076,8 @@ const modalLabelStyles: React.CSSProperties = {
 
 const modalInputStyles: React.CSSProperties = {
   width: '100%',
-  padding: '10px',
+  boxSizing: 'border-box',
+  padding: '10px 12px',
   borderRadius: 'var(--radius-md)',
   border: '1px solid var(--color-border)',
   fontSize: 'var(--text-sm)',
@@ -2001,16 +2085,18 @@ const modalInputStyles: React.CSSProperties = {
   outline: 'none',
 };
 
-
 const modalActionsStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
+  flexWrap: 'wrap',
   gap: 'var(--space-2)',
   marginTop: 'var(--space-4)',
+  paddingBottom: 'calc(var(--space-1) + env(safe-area-inset-bottom, 0px))',
 };
 
 const modalCancelBtnStyles: React.CSSProperties = {
   padding: '10px 20px',
+  minHeight: '40px',
   borderRadius: 'var(--radius-full)',
   border: '1px solid var(--color-border)',
   backgroundColor: '#ffffff',
@@ -2018,16 +2104,19 @@ const modalCancelBtnStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
   cursor: 'pointer',
+  textAlign: 'center',
 };
 
 const modalSubmitBtnStyles: React.CSSProperties = {
   padding: '10px 20px',
+  minHeight: '40px',
   borderRadius: 'var(--radius-full)',
   backgroundColor: 'var(--color-primary)',
   fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-bold)',
   color: '#ffffff',
   cursor: 'pointer',
+  textAlign: 'center',
 };
 
 const modalDangerSubmitBtnStyles: React.CSSProperties = {
