@@ -64,49 +64,108 @@ export default function OrderHistoryPage() {
       {!isLoading && data && data.results.length > 0 && (
         <>
           <div style={listStyles}>
-            {data.results.map((order) => (
-              <Link
-                key={order.id}
-                to={`/dashboard/orders/${order.reference}`}
-                style={orderCardStyles}
-              >
-                <div style={orderLeftStyles}>
-                  <span style={refStyles}>#{order.reference}</span>
-                  <span style={dateStyles}>
-                    {new Date(order.created_at).toLocaleDateString('en-NG', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                    })}
-                  </span>
-                </div>
+            {data.results.map((order) => {
+              const thumbUrl =
+                order.product_images?.[0] ||
+                order.items?.[0]?.product?.primary_image_url ||
+                order.items?.[0]?.product?.image_url;
+              const productName =
+                order.product_names?.[0] ||
+                order.items?.[0]?.product?.name ||
+                `Order #${order.reference}`;
 
-                <div style={orderCenterStyles}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span
-                      className="status-badge"
+              return (
+                <Link
+                  key={order.id || order.reference}
+                  to={`/dashboard/orders/${order.reference}`}
+                  style={orderCardStyles}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
+                    {/* Thumbnail */}
+                    <div
                       style={{
-                        backgroundColor: statusColor(order.status).bg,
-                        color: statusColor(order.status).text,
+                        width: '52px',
+                        height: '52px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        backgroundColor: '#f3f4f6',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #e5e7eb',
                       }}
                     >
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
-                    {order.payment_status && (
-                      <span style={paymentBadgeStyle(order.payment_status)}>
-                        {order.payment_status.replace(/_/g, ' ')}
-                      </span>
-                    )}
-                  </div>
-                  <span style={itemCountStyles}>
-                    {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
-                  </span>
-                </div>
+                      {thumbUrl ? (
+                        <img
+                          src={thumbUrl}
+                          alt={productName}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                          <line x1="3" y1="6" x2="21" y2="6"></line>
+                          <path d="M16 10a4 4 0 0 1-8 0"></path>
+                        </svg>
+                      )}
+                    </div>
 
-                <div style={orderRightStyles}>
-                  <span style={totalStyles}>{formatCurrency(order.total)}</span>
-                  <span style={chevronStyles}>›</span>
-                </div>
-              </Link>
-            ))}
+                    <div style={orderLeftStyles}>
+                      <span style={refStyles}>#{order.reference}</span>
+                      <span style={dateStyles}>
+                        {new Date(order.created_at).toLocaleDateString('en-NG', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                        })}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--color-text-muted)',
+                          maxWidth: '220px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginTop: '2px',
+                        }}
+                      >
+                        {productName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={orderCenterStyles}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span
+                        className="status-badge"
+                        style={{
+                          backgroundColor: statusColor(order.status).bg,
+                          color: statusColor(order.status).text,
+                        }}
+                      >
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                      {order.payment_status && (
+                        <span style={paymentBadgeStyle(order.payment_status)}>
+                          {order.payment_status.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                    <span style={itemCountStyles}>
+                      {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
+                    </span>
+                  </div>
+
+                  <div style={orderRightStyles}>
+                    <span style={totalStyles}>{formatCurrency(order.total)}</span>
+                    <span style={chevronStyles}>›</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Pagination */}

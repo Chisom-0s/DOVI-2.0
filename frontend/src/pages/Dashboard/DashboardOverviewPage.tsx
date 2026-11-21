@@ -158,51 +158,169 @@ export default function DashboardOverviewPage() {
           {isLoadingOrders ? (
             <div style={listContainerStyles}>
               {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} width="100%" height="60px" borderRadius="var(--radius-md)" />
+                <Skeleton key={i} width="100%" height="68px" borderRadius="var(--radius-md)" />
               ))}
             </div>
           ) : recentOrders.length === 0 ? (
             <div style={emptyStyles}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
               </svg>
-              <p style={emptyTextStyles}>No orders placed yet.</p>
-              <Link to="/products" style={actionLinkStyles}>Start Shopping</Link>
+              <p style={{ ...emptyTextStyles, fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>No orders placed yet.</p>
+              <p style={{ ...emptyTextStyles, fontSize: '11px', marginTop: '2px', marginBottom: '8px' }}>Explore the marketplace and your orders will show up here.</p>
+              <Link
+                to="/products"
+                style={{
+                  ...actionLinkStyles,
+                  display: 'inline-flex',
+                  padding: '6px 14px',
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+              >
+                Start Shopping
+              </Link>
             </div>
           ) : (
             <div style={listContainerStyles}>
-              {recentOrders.map((order) => (
-                <Link
-                  key={order.id}
-                  to={`/dashboard/orders/${order.reference}`}
-                  style={orderItemStyles}
-                >
-                  <div>
-                    <strong style={orderRefStyles}>#{order.reference}</strong>
-                    <span style={orderDateStyles}>
-                      {new Date(order.created_at).toLocaleDateString('en-NG', {
-                        day: 'numeric', month: 'short',
-                      })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                    <span
-                      className="status-badge"
-                      style={{
-                        backgroundColor: statusColor(order.status).bg,
-                        color: statusColor(order.status).text,
-                        fontSize: '9px',
-                        padding: '2px 8px',
-                      }}
-                    >
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
-                    <strong style={orderTotalStyles}>{formatCurrency(order.total)}</strong>
-                  </div>
-                </Link>
-              ))}
+              {recentOrders.map((order) => {
+                const payBadge = getPaymentBadgeInfo(order.payment_status);
+                const fulfillBadge = getFulfillmentBadgeInfo(order.status, order.fulfillment_status);
+                const thumbUrl =
+                  order.product_images?.[0] ||
+                  order.items?.[0]?.product?.primary_image_url ||
+                  order.items?.[0]?.product?.image_url;
+                const productName =
+                  order.product_names?.[0] ||
+                  order.items?.[0]?.product?.name ||
+                  `Order #${order.reference}`;
+                const extraItemsCount = (order.item_count || 1) - 1;
+
+                return (
+                  <Link
+                    key={order.id || order.reference}
+                    to={`/dashboard/orders/${order.reference}`}
+                    style={orderItemStyles}
+                    className="dashboard-recent-order-card"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                      {/* Product Thumbnail */}
+                      <div
+                        style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          backgroundColor: '#f3f4f6',
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid #e5e7eb',
+                        }}
+                      >
+                        {thumbUrl ? (
+                          <img
+                            src={thumbUrl}
+                            alt={productName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <path d="M16 10a4 4 0 0 1-8 0"></path>
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Order & Product Summary */}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '13px', color: 'var(--color-text-main)', letterSpacing: '0.2px' }}>
+                            #{order.reference}
+                          </strong>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                            {new Date(order.created_at).toLocaleDateString('en-NG', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+
+                        <p
+                          style={{
+                            margin: '0 0 6px 0',
+                            fontSize: '12px',
+                            color: 'var(--color-text-muted)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={productName}
+                        >
+                          {productName}
+                          {extraItemsCount > 0 && (
+                            <span style={{ color: 'var(--color-primary)', fontWeight: 600, marginLeft: '4px' }}>
+                              +{extraItemsCount} more
+                            </span>
+                          )}
+                        </p>
+
+                        {/* Status Badges */}
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: payBadge.bg,
+                              color: payBadge.text,
+                              border: `1px solid ${payBadge.border}`,
+                            }}
+                          >
+                            {payBadge.label}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: fulfillBadge.bg,
+                              color: fulfillBadge.text,
+                              border: `1px solid ${fulfillBadge.border}`,
+                            }}
+                          >
+                            {fulfillBadge.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Amount & Arrow */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, paddingLeft: '8px' }}>
+                      <strong style={{ fontSize: '14px', color: 'var(--color-text-main)', fontWeight: 700 }}>
+                        {formatCurrency(order.total)}
+                      </strong>
+                      <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        View Details →
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
@@ -257,17 +375,49 @@ export default function DashboardOverviewPage() {
 }
 
 // Helpers
-function statusColor(status: string) {
-  switch (status) {
+function getPaymentBadgeInfo(paymentStatus?: string) {
+  const s = (paymentStatus || 'PENDING_PAYMENT').toUpperCase();
+  switch (s) {
     case 'PAID':
+    case 'VERIFIED':
+    case 'SUCCESS':
+    case 'SUCCESSFUL':
+      return { label: 'Paid', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
+    case 'PENDING_VERIFICATION':
+      return { label: 'Payment Under Review', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' };
+    case 'REJECTED':
+      return { label: 'Payment Rejected', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
+    default:
+      return { label: 'Payment Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
+  }
+}
+
+function getFulfillmentBadgeInfo(status?: string, hubStatus?: string) {
+  const s = (hubStatus || status || 'ORDER_PLACED').toUpperCase();
+  switch (s) {
     case 'DELIVERED':
+    case 'RECEIVED':
     case 'COMPLETED':
-      return { bg: 'rgba(46, 213, 115, 0.12)', text: 'var(--color-success)' };
+      return { label: 'Delivered', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
+    case 'DISPATCHED':
+    case 'SHIPPED':
+    case 'OUT_FOR_DELIVERY':
+    case 'IN_TRANSIT':
+      return { label: 'Dispatched', bg: '#f0f9ff', text: '#0284c7', border: '#bae6fd' };
+    case 'PROCESSING':
+    case 'SOURCING_PRODUCTS':
+    case 'AWAITING_PRODUCTS_AT_HUB':
+    case 'PRODUCTS_RECEIVED':
+    case 'QUALITY_CHECK':
+    case 'READY_FOR_PACKAGING':
+    case 'PACKAGED':
+    case 'READY_FOR_DISPATCH':
+      return { label: 'Processing', bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff' };
     case 'CANCELLED':
     case 'REFUNDED':
-      return { bg: 'rgba(231, 76, 60, 0.12)', text: 'var(--color-danger)' };
+      return { label: 'Cancelled', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
     default:
-      return { bg: 'rgba(255, 165, 2, 0.12)', text: 'var(--color-warning)' };
+      return { label: 'Order Placed', bg: '#f8fafc', text: '#475569', border: '#e2e8f0' };
   }
 }
 
@@ -350,28 +500,12 @@ const orderItemStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: 'var(--space-3)',
+  padding: '12px',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-md)',
+  backgroundColor: '#ffffff',
   textDecoration: 'none',
-  transition: 'background-color var(--transition-fast)',
-};
-
-const orderRefStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
-  display: 'block',
-};
-
-const orderDateStyles: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
-};
-
-const orderTotalStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  color: 'var(--color-text)',
+  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
 };
 
 const notifItemStyles: React.CSSProperties = {

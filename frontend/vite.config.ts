@@ -84,6 +84,40 @@ function doviSharedDeliveryDbPlugin() {
             ? { ...(current.orderShipments || current.order_shipments || {}), ...(incoming.orderShipments || incoming.order_shipments) }
             : (current.orderShipments || current.order_shipments || {});
 
+          let mergedOrders = current.orders || [];
+          if (Array.isArray(incoming.orders)) {
+            const ordMap = new Map();
+            for (const o of mergedOrders) {
+              const k = o.reference || o.reference_code || o.id;
+              if (k) ordMap.set(k, o);
+            }
+            for (const o of incoming.orders) {
+              const k = o.reference || o.reference_code || o.id;
+              if (k) {
+                const prev = ordMap.get(k) || {};
+                ordMap.set(k, { ...prev, ...o });
+              }
+            }
+            mergedOrders = Array.from(ordMap.values());
+          }
+
+          let mergedPayments = current.payments || [];
+          if (Array.isArray(incoming.payments)) {
+            const payMap = new Map();
+            for (const p of mergedPayments) {
+              const k = p.order_reference || p.reference || p.id;
+              if (k) payMap.set(k, p);
+            }
+            for (const p of incoming.payments) {
+              const k = p.order_reference || p.reference || p.id;
+              if (k) {
+                const prev = payMap.get(k) || {};
+                payMap.set(k, { ...prev, ...p });
+              }
+            }
+            mergedPayments = Array.from(payMap.values());
+          }
+
           const merged = {
             routes: incoming.routes !== undefined ? incoming.routes : current.routes,
             rateHistory: rHist,
@@ -109,8 +143,8 @@ function doviSharedDeliveryDbPlugin() {
             save2ownParticipants: incoming.save2ownParticipants !== undefined ? incoming.save2ownParticipants : (current.save2ownParticipants || []),
             save2ownContributions: incoming.save2ownContributions !== undefined ? incoming.save2ownContributions : (current.save2ownContributions || []),
             save2ownRefunds: incoming.save2ownRefunds !== undefined ? incoming.save2ownRefunds : (current.save2ownRefunds || []),
-            payments: incoming.payments !== undefined ? incoming.payments : (current.payments || []),
-            orders: incoming.orders !== undefined ? incoming.orders : (current.orders || []),
+            payments: mergedPayments,
+            orders: mergedOrders,
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

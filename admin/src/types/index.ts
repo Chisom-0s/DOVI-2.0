@@ -351,6 +351,12 @@ export interface DeliveryGroup {
 export interface Order {
   id: string;
   reference: string;
+  reference_code?: string;
+  order_reference?: string;
+  customer_id?: string;
+  buyer_id?: string;
+  buyer_email?: string;
+  buyer_name?: string;
   status: OrderStatus;
   items: OrderItem[];
   delivery_address?: Address | null;
@@ -376,10 +382,18 @@ export interface OrderSummary {
   reference: string;
   reference_code?: string;
   order_reference?: string;
+  customer_id?: string;
+  buyer_id?: string;
+  buyer_email?: string;
+  buyer_name?: string;
   status: OrderStatus | string;
   payment_status?: string;
+  fulfillment_status?: string;
   payment_evidence?: Payment | null;
   item_count: number;
+  items?: OrderItem[];
+  product_names?: string[];
+  product_images?: string[];
   total: string;
   created_at: string;
 }

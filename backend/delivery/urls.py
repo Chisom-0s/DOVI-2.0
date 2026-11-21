@@ -7,6 +7,8 @@ from .payment_views import (
     AdminPaymentVerifyAPIView,
     AdminPaymentRejectAPIView,
     OrderTransitionAPIView,
+    OrderListCreateAPIView,
+    OrderDetailAPIView,
 )
 
 urlpatterns = [
@@ -25,6 +27,8 @@ urlpatterns = [
     path('admin/payments/<str:payment_id>/verify/', AdminPaymentVerifyAPIView.as_view(), name='admin-payment-verify'),
     path('admin/payments/<str:payment_id>/reject/', AdminPaymentRejectAPIView.as_view(), name='admin-payment-reject'),
 
-    # Order Lifecycle Transitions
+    # Orders & Lifecycle Transitions
+    path('orders/', OrderListCreateAPIView.as_view(), name='orders-list-create'),
+    path('orders/<str:order_id>/', OrderDetailAPIView.as_view(), name='order-detail'),
     path('orders/<str:order_id>/transition/', OrderTransitionAPIView.as_view(), name='order-transition'),
 ]

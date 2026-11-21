@@ -1,6 +1,7 @@
 // Checkout API — /api/v1/checkout/*
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
 import { deliveryApi } from './delivery';
+import { pushPaymentsAndOrdersToServer } from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
   calculateOrderDelivery,
@@ -14,6 +15,7 @@ import type {
   CheckoutSession,
   DeliveryCalculationResult,
   Order,
+  User,
   VendorDeliverySelection,
 } from '@/types';
 
@@ -67,6 +69,8 @@ export function saveLocalOrder(order: Order): void {
     map[order.reference] = order;
     map[order.id] = order;
     localStorage.setItem(LOCAL_ORDERS_STORAGE_KEY, JSON.stringify(map));
+    localStorage.setItem('dovi_orders', JSON.stringify(Object.values(map)));
+    void pushPaymentsAndOrdersToServer(undefined, map);
   } catch {
     // Ignore storage errors
   }
@@ -380,6 +384,12 @@ export const checkoutApi = {
   ): Promise<{ order_reference: string }> => {
     await syncDeliveryStoreFromServer();
     const overlay = getStoredSessionMap()[id];
+    const currentUser = tokenStore.getUser<User>();
+    const userId = currentUser?.id || undefined;
+    const userEmail = currentUser?.email || (overlay?.delivery_address as any)?.email || undefined;
+    const userName = currentUser
+      ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
+      : overlay?.delivery_address?.full_name || undefined;
 
     try {
       const { data } = await apiClient.post(`/api/v1/checkout/${id}/confirm/`, payload);
@@ -389,7 +399,81 @@ export const checkoutApi = {
         const addrStr = overlay.delivery_address
           ? `${overlay.delivery_address.address_line_1}, ${overlay.delivery_address.city}, ${overlay.delivery_address.state}`
           : `${overlay.delivery_calculation.destination_city}, ${overlay.delivery_calculation.destination_state}`;
-        buildOrderShipmentsFromCalculation(orderRef, orderRef, overlay.delivery_calculation, addrStr);
+        const shipments = buildOrderShipmentsFromCalculation(orderRef, orderRef, overlay.delivery_calculation, addrStr);
+
+        const now = new Date().toISOString();
+        const fullOrder: Order = {
+          id: orderRef,
+          reference: orderRef,
+          reference_code: orderRef,
+          customer_id: userId,
+          buyer_id: userId,
+          buyer_email: userEmail,
+          buyer_name: userName,
+          status: 'PENDING_PAYMENT',
+          items: (overlay.cart_snapshot?.items || []).map((ci, idx) => ({
+            id: ci.id || `oi_${idx}`,
+            product: ci.product || {
+              id: String(ci.product_id || `prod_${idx}`),
+              name: ci.product_name || ci.name || 'Product',
+              price: String(ci.unit_price || ci.price || '0'),
+              primary_image_url: ci.image_url || null,
+              average_rating: 5,
+              review_count: 1,
+              stock_quantity: 10,
+              status: 'ACTIVE',
+            },
+            variant: typeof ci.variant === 'object' ? ci.variant : null,
+            quantity: ci.quantity,
+            unit_price: String(ci.unit_price || ci.price || '0'),
+            line_total: String(
+              Number(ci.unit_price || ci.price || 0) * Number(ci.quantity || 1)
+            ),
+          })),
+          delivery_address: overlay.delivery_address || null,
+          delivery_method: 'DOVI Direct Delivery',
+          subtotal: overlay.subtotal,
+          delivery_fee:
+            overlay.delivery_calculation.total_delivery_fee !== null
+              ? String(overlay.delivery_calculation.total_delivery_fee)
+              : '0',
+          total:
+            overlay.delivery_calculation.total_payable !== null
+              ? String(overlay.delivery_calculation.total_payable)
+              : overlay.subtotal,
+          payment_status: 'PENDING_PAYMENT',
+          payment_method: payload.payment_provider,
+          tracking: [
+            {
+              status: 'PENDING_PAYMENT',
+              location: 'Direct Delivery',
+              description: overlay.delivery_calculation.requires_manual_quote
+                ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
+                : 'Order created and consolidated for direct dispatch.',
+              timestamp: now,
+            },
+          ],
+          can_cancel: true,
+          can_request_refund: false,
+          can_confirm_receipt: false,
+          can_review: false,
+          created_at: now,
+          updated_at: now,
+          shipments,
+          shipment_count: shipments.length,
+          delivery_calculation: overlay.delivery_calculation,
+          requires_delivery_confirmation: overlay.delivery_calculation.requires_manual_quote,
+          delivery_confirmation_status: overlay.delivery_calculation.requires_manual_quote
+            ? 'PENDING_ADMIN_QUOTE'
+            : 'NOT_REQUIRED',
+          hub_fulfillment_status: overlay.delivery_calculation.requires_manual_quote
+            ? 'AWAITING_DELIVERY_CONFIRMATION'
+            : 'ORDER_PLACED',
+          dispatch_origin: 'Onitsha',
+        };
+
+        saveLocalOrder(fullOrder);
+        void apiClient.post('/api/v1/orders/', fullOrder).catch(() => {});
       }
 
       return data;
@@ -412,6 +496,11 @@ export const checkoutApi = {
         const localOrder: Order = {
           id: orderRef,
           reference: orderRef,
+          reference_code: orderRef,
+          customer_id: userId,
+          buyer_id: userId,
+          buyer_email: userEmail,
+          buyer_name: userName,
           status: 'PENDING_PAYMENT',
           items: (overlay.cart_snapshot.items || []).map((ci, idx) => ({
             id: ci.id || `oi_${idx}`,
@@ -443,7 +532,7 @@ export const checkoutApi = {
             overlay.delivery_calculation.total_payable !== null
               ? String(overlay.delivery_calculation.total_payable)
               : overlay.subtotal,
-          payment_status: 'PENDING',
+          payment_status: 'PENDING_PAYMENT',
           payment_method: payload.payment_provider,
           tracking: [
             {
@@ -475,6 +564,7 @@ export const checkoutApi = {
         };
 
         saveLocalOrder(localOrder);
+        void apiClient.post('/api/v1/orders/', localOrder).catch(() => {});
         return { order_reference: orderRef };
       }
       throw normalizeApiError(err);
@@ -525,10 +615,22 @@ export const checkoutApi = {
       resolvedAddress.phone
     );
 
+    const currentUser = tokenStore.getUser<User>();
+    const userId = currentUser?.id || undefined;
+    const userEmail = currentUser?.email || (resolvedAddress as any)?.email || undefined;
+    const userName = currentUser
+      ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
+      : (resolvedAddress.full_name || 'Customer');
+
     const now = new Date().toISOString();
     const order: Order = {
       id: orderRef,
       reference: orderRef,
+      reference_code: orderRef,
+      customer_id: userId,
+      buyer_id: userId,
+      buyer_email: userEmail,
+      buyer_name: userName,
       status: 'PENDING_PAYMENT',
       items: rawItems.map((ci: any, idx: number) => ({
         id: ci.id || `oi_${idx}`,
@@ -580,6 +682,7 @@ export const checkoutApi = {
     };
 
     saveLocalOrder(order);
+    void apiClient.post('/api/v1/orders/', order).catch(() => {});
     return { order_reference: orderRef, reference: orderRef, order };
   },
 

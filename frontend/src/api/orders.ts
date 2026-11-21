@@ -1,5 +1,5 @@
 // Orders API — /api/v1/orders/*
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
 import { getLocalOrdersMap, saveLocalOrder } from './checkout';
 import {
   syncPaymentsAndOrdersFromServer,
@@ -14,7 +14,7 @@ import {
   buildOrderShipmentsFromCalculation,
   customerRespondToManualQuote,
 } from '@/services/deliveryPricingService';
-import type { Order, OrderSummary, PaginatedResponse } from '@/types';
+import type { Order, OrderSummary, PaginatedResponse, User } from '@/types';
 
 function enrichOrderWithShipments(order: Order): Order {
   let shipments = getOrderShipments(order.reference);
@@ -120,20 +120,51 @@ export const ordersApi = {
   list: async (page?: number): Promise<PaginatedResponse<OrderSummary>> => {
     await syncDeliveryStoreFromServer();
     await syncPaymentsAndOrdersFromServer().catch(() => {});
+
+    const currentUser = tokenStore.getUser<User>();
+    const uId = currentUser ? String(currentUser.id).trim() : '';
+    const uEmail = currentUser ? String(currentUser.email).toLowerCase().trim() : '';
+
+    const isUserOrder = (order: any): boolean => {
+      if (!currentUser) return true; // Guest or unauthenticated fallback
+      const cId = String(order.customer_id || order.buyer_id || order.buyer?.id || order.user_id || '').trim();
+      const cEmail = String(order.buyer_email || order.buyer?.email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
+
+      if (uId && cId && cId === uId) return true;
+      if (uEmail && cEmail && cEmail === uEmail) return true;
+
+      // If order in local storage has neither customer_id nor buyer_email, claim it for this active session
+      if (!cId && !cEmail) {
+        order.customer_id = uId;
+        order.buyer_id = uId;
+        order.buyer_email = uEmail;
+        return true;
+      }
+      return false;
+    };
+
     const localOrders = Object.values(getLocalOrdersMap());
     const uniqueLocalMap = new Map<string, Order>();
     for (const lo of localOrders) {
-      uniqueLocalMap.set(lo.reference, enrichOrderWithShipments(lo));
+      if (isUserOrder(lo)) {
+        uniqueLocalMap.set(lo.reference, enrichOrderWithShipments(lo));
+      }
     }
 
     try {
-      const { data } = await apiClient.get('/api/v1/orders/', { params: { page } });
-      const results: OrderSummary[] = Array.isArray(data?.results) ? data.results : [];
+      const { data } = await apiClient.get('/api/v1/orders/', {
+        params: {
+          page,
+          customer_id: uId || undefined,
+          buyer_email: uEmail || undefined,
+        },
+      });
+      const results: any[] = Array.isArray(data?.results) ? data.results : [];
 
       const seenRefs = new Set<string>();
       const merged: OrderSummary[] = [];
 
-      // Include local orders first
+      // Include local scoped orders first
       for (const lo of uniqueLocalMap.values()) {
         const ref = lo.reference || lo.id;
         seenRefs.add(ref);
@@ -143,21 +174,40 @@ export const ordersApi = {
             ? 'PAID'
             : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
 
+        const items = lo.items || [];
+        const productNames = items
+          .map((i: any) => i.product?.name || i.product_name || i.name)
+          .filter(Boolean);
+        const productImages = items
+          .map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url)
+          .filter(Boolean);
+
         merged.push({
-          id: lo.id,
+          id: lo.id || ref,
           reference: lo.reference,
+          reference_code: lo.reference,
           order_reference: lo.reference,
+          customer_id: lo.customer_id || uId || undefined,
+          buyer_id: lo.buyer_id || uId || undefined,
+          buyer_email: lo.buyer_email || uEmail || undefined,
+          buyer_name: lo.buyer_name || undefined,
           status: lo.status,
           payment_status: pStatus,
-          payment_evidence: payment || null,
-          item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
+          fulfillment_status: lo.hub_fulfillment_status || lo.status,
+          payment_evidence: payment || (lo as any).payment_evidence || null,
+          item_count: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
+          items,
+          product_names: productNames,
+          product_images: productImages,
           total: lo.total,
-          created_at: lo.created_at,
+          created_at: lo.created_at || new Date().toISOString(),
         });
       }
 
+      // Merge server results (also scoped to user)
       for (const r of results) {
-        const ref = r.reference || r.order_reference || r.id;
+        if (!isUserOrder(r)) continue;
+        const ref = r.reference || r.reference_code || r.order_reference || r.id;
         if (!seenRefs.has(ref)) {
           seenRefs.add(ref);
           const shipments = getOrderShipments(ref);
@@ -175,14 +225,33 @@ export const ordersApi = {
               ? 'PAID'
               : payment?.status || r.payment_status || 'PENDING_PAYMENT';
 
+          const items = r.items || [];
+          const productNames = r.product_names || items.map((i: any) => i.product?.name || i.name).filter(Boolean);
+          const productImages = r.product_images || items.map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url).filter(Boolean);
+
           merged.push({
             ...r,
+            id: r.id || ref,
+            reference: ref,
+            reference_code: ref,
+            order_reference: ref,
+            customer_id: r.customer_id || uId || undefined,
+            buyer_id: r.buyer_id || uId || undefined,
+            buyer_email: r.buyer_email || uEmail || undefined,
             status,
             payment_status: pStatus,
-            payment_evidence: payment || null,
+            fulfillment_status: r.fulfillment_status || r.hub_fulfillment_status || status,
+            payment_evidence: payment || r.payment_evidence || null,
+            item_count: r.item_count || items.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0),
+            items,
+            product_names: productNames,
+            product_images: productImages,
           });
         }
       }
+
+      // Sort descending (newest first)
+      merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
       return {
         count: Math.max(data?.count || 0, merged.length),
@@ -190,31 +259,53 @@ export const ordersApi = {
         previous: data?.previous || null,
         results: merged,
       };
-    } catch (err) {
-      if (uniqueLocalMap.size > 0) {
-        const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => {
-          const ref = lo.reference || lo.id;
-          const payment = getPaymentByOrderRef(ref);
-          return {
-            id: lo.id,
-            reference: lo.reference,
-            order_reference: lo.reference,
-            status: lo.status,
-            payment_status: payment?.status === 'VERIFIED' ? 'PAID' : payment?.status || lo.payment_status || 'PENDING_PAYMENT',
-            payment_evidence: payment || null,
-            item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
-            total: lo.total,
-            created_at: lo.created_at,
-          };
-        });
+    } catch {
+      // Graceful fallback to local scoped orders
+      const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => {
+        const ref = lo.reference || lo.id;
+        const payment = getPaymentByOrderRef(ref);
+        const pStatus =
+          payment?.status === 'VERIFIED'
+            ? 'PAID'
+            : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
+        const items = lo.items || [];
+        const productNames = items
+          .map((i: any) => i.product?.name || i.product_name || i.name)
+          .filter(Boolean);
+        const productImages = items
+          .map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url)
+          .filter(Boolean);
+
         return {
-          count: localSummaries.length,
-          next: null,
-          previous: null,
-          results: localSummaries,
+          id: lo.id || ref,
+          reference: lo.reference,
+          reference_code: lo.reference,
+          order_reference: lo.reference,
+          customer_id: lo.customer_id || uId || undefined,
+          buyer_id: lo.buyer_id || uId || undefined,
+          buyer_email: lo.buyer_email || uEmail || undefined,
+          buyer_name: lo.buyer_name || undefined,
+          status: lo.status,
+          payment_status: pStatus,
+          fulfillment_status: lo.hub_fulfillment_status || lo.status,
+          payment_evidence: payment || null,
+          item_count: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
+          items,
+          product_names: productNames,
+          product_images: productImages,
+          total: lo.total,
+          created_at: lo.created_at || new Date().toISOString(),
         };
-      }
-      throw normalizeApiError(err);
+      });
+
+      localSummaries.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      return {
+        count: localSummaries.length,
+        next: null,
+        previous: null,
+        results: localSummaries,
+      };
     }
   },
 
