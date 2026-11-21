@@ -452,6 +452,36 @@ export interface PaymentInitResponse {
   currency: string;
 }
 
+export type PaymentSessionStatus = 'ACTIVE' | 'EXPIRED' | 'EVIDENCE_SUBMITTED' | 'CLOSED';
+
+export interface PaymentSession {
+  id: string;
+  order_reference: string;
+  order_id?: string;
+  checkout_session_id?: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  amount: string;
+  currency: string;
+  bank_account?: PaymentAccount;
+  created_at: string;
+  expires_at: string;
+  remaining_seconds?: number;
+  server_time?: string;
+  status: PaymentSessionStatus;
+  evidence_submitted_at?: string | null;
+  payment_evidence_id?: string | null;
+  payment_verification_status?: string;
+}
+
+export interface MinimumOrderSettings {
+  enabled: boolean;
+  minimum_amount: number;
+  updated_at?: string;
+  updated_by?: string;
+}
+
 // ----------------------------------------------------------
 // REFUNDS
 // ----------------------------------------------------------

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/api/auth';
 import { checkoutApi } from '@/api/checkout';
 import { deliveryApi } from '@/api/delivery';
+import { paymentsApi } from '@/api/payments';
 import {
   NIGERIAN_STATES,
   resolveCanonicalStateName,
@@ -309,6 +310,15 @@ export default function CheckoutPage() {
 
     if (!destinationState.trim() || !destinationCity.trim()) {
       toast.error('Please select your delivery destination state and city.');
+      return;
+    }
+
+    const minSettings = await paymentsApi.getMinimumOrderSettings();
+    const subtotalVal = deliveryCalculation ? deliveryCalculation.product_subtotal : Number(cart?.subtotal || 0);
+    if (minSettings.enabled && subtotalVal > 0 && subtotalVal < minSettings.minimum_amount) {
+      const remaining = minSettings.minimum_amount - subtotalVal;
+      toast.error(`Minimum order subtotal is ₦${minSettings.minimum_amount.toLocaleString()}. Please add ₦${remaining.toLocaleString()} more to proceed.`);
+      navigate('/cart');
       return;
     }
 

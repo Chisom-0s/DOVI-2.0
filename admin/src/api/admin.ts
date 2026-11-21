@@ -49,6 +49,8 @@ import type {
   Save2OwnContribution,
   PaymentAccount,
   PaymentAccountType,
+  MinimumOrderSettings,
+  PaymentSession,
   AdminSave2OwnParticipant,
   Save2OwnUnlockCode,
   Save2OwnUnlockConfig,
@@ -106,6 +108,41 @@ function getStoredPaymentAccounts(): PaymentAccount[] {
 function saveStoredPaymentAccounts(accounts: PaymentAccount[]) {
   try {
     localStorage.setItem('dovi_payment_accounts', JSON.stringify(accounts));
+  } catch {}
+}
+
+export const DEFAULT_MIN_ORDER_SETTINGS: MinimumOrderSettings = {
+  enabled: true,
+  minimum_amount: 10000,
+  updated_at: '2026-01-01T00:00:00Z',
+  updated_by: 'system',
+};
+
+function getStoredMinOrderSettings(): MinimumOrderSettings {
+  try {
+    const raw = localStorage.getItem('dovi_min_order_settings');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return DEFAULT_MIN_ORDER_SETTINGS;
+}
+
+function saveStoredMinOrderSettings(settings: MinimumOrderSettings) {
+  try {
+    localStorage.setItem('dovi_min_order_settings', JSON.stringify(settings));
+  } catch {}
+}
+
+function getStoredPaymentSessions(): PaymentSession[] {
+  try {
+    const raw = localStorage.getItem('dovi_payment_sessions');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function saveStoredPaymentSessions(sessions: PaymentSession[]) {
+  try {
+    localStorage.setItem('dovi_payment_sessions', JSON.stringify(sessions));
   } catch {}
 }
 
@@ -2322,6 +2359,136 @@ export const adminApi = {
       addAuditLogEntry('PAYMENT_ACCOUNT_DELETED', `Deleted payment account: ${target?.bank_name || id}`, id);
       return { success: true };
     }
+  },
+
+  // --- Minimum Order Value Settings ---
+  getMinimumOrderSettings: async (): Promise<MinimumOrderSettings> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/settings/minimum-order/');
+      if (data && typeof data.minimum_amount === 'number') {
+        saveStoredMinOrderSettings(data);
+        return data;
+      }
+    } catch {}
+
+    try {
+      const res = await fetch('/__dovi_delivery_db__');
+      if (res.ok) {
+        const db = await res.json();
+        if (db && db.minimumOrderSettings) {
+          saveStoredMinOrderSettings(db.minimumOrderSettings);
+          return db.minimumOrderSettings;
+        }
+      }
+    } catch {}
+
+    return getStoredMinOrderSettings();
+  },
+
+  updateMinimumOrderSettings: async (payload: {
+    enabled: boolean;
+    minimum_amount: number;
+  }): Promise<MinimumOrderSettings> => {
+    const updated: MinimumOrderSettings = {
+      enabled: Boolean(payload.enabled),
+      minimum_amount: Number(payload.minimum_amount),
+      updated_at: new Date().toISOString(),
+      updated_by: 'admin@dovi.com',
+    };
+
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/settings/minimum-order/', payload);
+      if (data) {
+        saveStoredMinOrderSettings(data);
+        addAuditLogEntry(
+          'MINIMUM_ORDER_SETTINGS_UPDATED',
+          `Updated minimum checkout value: ${payload.enabled ? `₦${Number(payload.minimum_amount).toLocaleString()}` : 'Disabled'}`
+        );
+        return data;
+      }
+    } catch {}
+
+    try {
+      await fetch('/__dovi_delivery_db__', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minimumOrderSettings: updated }),
+      });
+    } catch {}
+
+    saveStoredMinOrderSettings(updated);
+    addAuditLogEntry(
+      'MINIMUM_ORDER_SETTINGS_UPDATED',
+      `Updated minimum checkout value: ${payload.enabled ? `₦${Number(payload.minimum_amount).toLocaleString()}` : 'Disabled'}`
+    );
+    return updated;
+  },
+
+  // --- Payment Sessions (60-Min Expiry) ---
+  listPaymentSessions: async (params?: { status?: string; search?: string }): Promise<PaymentSession[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-sessions/', { params });
+      if (Array.isArray(data)) {
+        saveStoredPaymentSessions(data);
+        return data;
+      }
+      if (data && Array.isArray(data.results)) {
+        saveStoredPaymentSessions(data.results);
+        return data.results;
+      }
+    } catch {}
+
+    let sessions: PaymentSession[] = [];
+    try {
+      const res = await fetch('/__dovi_delivery_db__');
+      if (res.ok) {
+        const db = await res.json();
+        if (Array.isArray(db.paymentSessions)) {
+          sessions = db.paymentSessions;
+        }
+      }
+    } catch {}
+
+    if (sessions.length === 0) {
+      sessions = getStoredPaymentSessions();
+    }
+
+    const now = Date.now();
+    // Refresh expiration status
+    sessions = sessions.map((s) => {
+      const expTime = new Date(s.expires_at).getTime();
+      const remaining = Math.max(0, Math.floor((expTime - now) / 1000));
+      let status = s.status;
+      if (status === 'ACTIVE' && remaining <= 0) {
+        status = 'EXPIRED';
+      }
+      return {
+        ...s,
+        status,
+        remaining_seconds: remaining,
+        server_time: new Date().toISOString(),
+      };
+    });
+
+    if (params?.status) {
+      const targetStatus = params.status.toUpperCase();
+      sessions = sessions.filter((s) => s.status.toUpperCase() === targetStatus);
+    }
+
+    if (params?.search) {
+      const q = params.search.toLowerCase().trim();
+      sessions = sessions.filter(
+        (s) =>
+          s.order_reference?.toLowerCase().includes(q) ||
+          s.customer_name?.toLowerCase().includes(q) ||
+          s.customer_email?.toLowerCase().includes(q) ||
+          s.id?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort newest first
+    sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return sessions;
   },
 
   // --- Save2Own Admin Management ---

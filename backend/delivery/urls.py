@@ -9,6 +9,11 @@ from .payment_views import (
     OrderTransitionAPIView,
     OrderListCreateAPIView,
     OrderDetailAPIView,
+    MinimumOrderSettingsAPIView,
+    PaymentSessionListCreateAPIView,
+    PaymentSessionDetailAPIView,
+    PaymentSessionRenewAPIView,
+    AdminPaymentSessionsListAPIView,
 )
 
 urlpatterns = [
@@ -19,6 +24,16 @@ urlpatterns = [
     path('delivery/calculate/', DeliveryCalculationAPIView.as_view(), name='nested-delivery-calculate'),
     path('delivery/routes/', AdminDeliveryRouteListCreateAPIView.as_view(), name='nested-delivery-routes'),
     path('delivery/routes/<uuid:route_id>/', AdminDeliveryRouteDetailAPIView.as_view(), name='nested-delivery-route-detail'),
+
+    # Minimum Order Value Settings (Admin Controlled)
+    path('settings/minimum-order/', MinimumOrderSettingsAPIView.as_view(), name='settings-minimum-order'),
+    path('admin/settings/minimum-order/', MinimumOrderSettingsAPIView.as_view(), name='admin-settings-minimum-order'),
+
+    # Strict 60-Minute Payment Sessions
+    path('payments/sessions/', PaymentSessionListCreateAPIView.as_view(), name='payment-sessions'),
+    path('payments/sessions/<str:session_id>/', PaymentSessionDetailAPIView.as_view(), name='payment-session-detail'),
+    path('payments/sessions/<str:session_id>/renew/', PaymentSessionRenewAPIView.as_view(), name='payment-session-renew'),
+    path('admin/payment-sessions/', AdminPaymentSessionsListAPIView.as_view(), name='admin-payment-sessions-list'),
 
     # Manual Bank Transfer Payments & Verification
     path('payments/submit-evidence/', SubmitPaymentEvidenceAPIView.as_view(), name='payment-submit-evidence'),

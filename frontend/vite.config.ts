@@ -63,6 +63,13 @@ function doviSharedDeliveryDbPlugin() {
         save2ownRefunds: s.save2ownRefunds || [],
         payments: s.payments || [],
         orders: s.orders || [],
+        minimumOrderSettings: s.minimumOrderSettings || {
+          enabled: true,
+          minimum_amount: 10000,
+          updated_at: '2026-11-21T00:00:00Z',
+          updated_by: 'Administrator',
+        },
+        paymentSessions: s.paymentSessions || [],
       };
       res.end(JSON.stringify(payload));
       return;
@@ -118,6 +125,23 @@ function doviSharedDeliveryDbPlugin() {
             mergedPayments = Array.from(payMap.values());
           }
 
+          let mergedSessions = current.paymentSessions || [];
+          if (Array.isArray(incoming.paymentSessions)) {
+            const sessMap = new Map();
+            for (const s of mergedSessions) {
+              const k = s.id || s.order_reference;
+              if (k) sessMap.set(k, s);
+            }
+            for (const s of incoming.paymentSessions) {
+              const k = s.id || s.order_reference;
+              if (k) {
+                const prev = sessMap.get(k) || {};
+                sessMap.set(k, { ...prev, ...s });
+              }
+            }
+            mergedSessions = Array.from(sessMap.values());
+          }
+
           const merged = {
             routes: incoming.routes !== undefined ? incoming.routes : current.routes,
             rateHistory: rHist,
@@ -145,6 +169,10 @@ function doviSharedDeliveryDbPlugin() {
             save2ownRefunds: incoming.save2ownRefunds !== undefined ? incoming.save2ownRefunds : (current.save2ownRefunds || []),
             payments: mergedPayments,
             orders: mergedOrders,
+            paymentSessions: mergedSessions,
+            minimumOrderSettings: incoming.minimumOrderSettings !== undefined
+              ? incoming.minimumOrderSettings
+              : (current.minimumOrderSettings || { enabled: true, minimum_amount: 10000 }),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

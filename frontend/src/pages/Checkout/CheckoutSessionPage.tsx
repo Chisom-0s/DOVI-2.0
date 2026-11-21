@@ -5,7 +5,7 @@ import { checkoutApi } from '@/api/checkout';
 import { paymentsApi } from '@/api/payments';
 import { getProductImageUrl, CLEAN_PRODUCT_PLACEHOLDER } from '@/utils/image';
 import { useCart } from '@/contexts/CartContext';
-import type { CheckoutSession, PaymentAccount } from '@/types';
+import type { CheckoutSession, PaymentAccount, PaymentSession } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
 const NIGERIAN_BANKS = [
@@ -33,6 +33,10 @@ export default function CheckoutSessionPage() {
 
   const [session, setSession] = useState<CheckoutSession | null>(null);
   const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
+  const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
+  const [isExpired, setIsExpired] = useState(false);
+  const [isRenewingSession, setIsRenewingSession] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -69,6 +73,7 @@ export default function CheckoutSessionPage() {
 
       // Check if delivery rates changed since session was created
       const reverify = await checkoutApi.reverifySessionDeliveryPricing(sess);
+      const effectiveSess = reverify.changed ? reverify.updatedSession : sess;
       if (reverify.changed) {
         setSession(reverify.updatedSession);
         setRateChangeAlert({
@@ -82,6 +87,26 @@ export default function CheckoutSessionPage() {
       }
 
       setBankAccount(account);
+
+      // Initialize or retrieve server 60-minute payment session
+      const orderRef = effectiveSess.order_reference || effectiveSess.id;
+      try {
+        const psess = await paymentsApi.createOrGetPaymentSession({
+          order_reference: orderRef,
+          checkout_session_id: effectiveSess.id,
+          amount: effectiveSess.total,
+          subtotal: parseFloat(effectiveSess.subtotal || '0'),
+        });
+        setPaymentSession(psess);
+
+        const expTime = new Date(psess.expires_at).getTime();
+        const nowTime = Date.now();
+        const rem = Math.max(0, Math.floor((expTime - nowTime) / 1000));
+        setRemainingSeconds(rem);
+        setIsExpired(rem <= 0 || psess.status === 'EXPIRED');
+      } catch (err: any) {
+        console.warn('Payment session initialization warning:', err);
+      }
     } catch {
       toast.error('Failed to load checkout session.');
       navigate('/checkout');
@@ -93,6 +118,50 @@ export default function CheckoutSessionPage() {
   useEffect(() => {
     fetchSession();
   }, [fetchSession]);
+
+  // Live countdown timer running every second using server expiration timestamp
+  useEffect(() => {
+    if (!paymentSession || paymentSession.status === 'EVIDENCE_SUBMITTED' || isSubmittedSuccess) return;
+
+    const timer = setInterval(() => {
+      const expTime = new Date(paymentSession.expires_at).getTime();
+      const nowTime = Date.now();
+      const rem = Math.max(0, Math.floor((expTime - nowTime) / 1000));
+      setRemainingSeconds(rem);
+
+      if (rem <= 0) {
+        setIsExpired(true);
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [paymentSession, isSubmittedSuccess]);
+
+  const handleRenewPaymentSession = async () => {
+    if (!session) return;
+    setIsRenewingSession(true);
+    try {
+      const orderRef = session.order_reference || session.id;
+      const renewed = await paymentsApi.renewPaymentSession(paymentSession?.id || orderRef);
+      setPaymentSession(renewed);
+      const expTime = new Date(renewed.expires_at).getTime();
+      const rem = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
+      setRemainingSeconds(rem);
+      setIsExpired(false);
+      toast.success('Fresh 60-minute payment session started!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to renew payment session.');
+    } finally {
+      setIsRenewingSession(false);
+    }
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   const handleCopyAccountNumber = () => {
     if (!bankAccount?.account_number) return;
@@ -126,6 +195,11 @@ export default function CheckoutSessionPage() {
   const handleSubmitEvidence = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!session) return;
+
+    if (isExpired) {
+      toast.error('This payment session has expired. Please initiate a new payment session to complete your payment.');
+      return;
+    }
 
     if (rateChangeAlert && !rateChangeAlert.acknowledged) {
       toast.error('Please review and accept the updated delivery total before proceeding.');
@@ -179,7 +253,7 @@ export default function CheckoutSessionPage() {
         orderRef = confirmResult.order_reference;
       }
 
-      // Submit payment evidence
+      // Submit payment evidence (linking to payment_session_id)
       await paymentsApi.submitPaymentEvidence({
         order_reference: orderRef,
         sender_bank: effectiveBank,
@@ -188,8 +262,17 @@ export default function CheckoutSessionPage() {
         amount: session.total,
         currency: 'NGN',
         payment_proof_url: receiptPreview,
+        payment_session_id: paymentSession?.id,
         notes: notes.trim(),
       });
+
+      if (paymentSession) {
+        setPaymentSession({
+          ...paymentSession,
+          status: 'EVIDENCE_SUBMITTED',
+          evidence_submitted_at: new Date().toISOString(),
+        });
+      }
 
       // Clear shopping cart
       try {
@@ -318,6 +401,92 @@ export default function CheckoutSessionPage() {
   return (
     <div className="container" style={pageStyles}>
       <h1 style={pageTitleStyles}>Review Order & Complete Bank Transfer</h1>
+
+      {/* Strict 60-Minute Live Payment Session Countdown Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: isExpired ? '#fef2f2' : remainingSeconds < 300 ? '#fff7ed' : '#f0fdf4',
+          border: `1.5px solid ${isExpired ? '#fca5a5' : remainingSeconds < 300 ? '#fdba74' : '#86efac'}`,
+          borderRadius: '14px',
+          padding: '16px 20px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '240px' }}>
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              backgroundColor: isExpired ? '#fee2e2' : remainingSeconds < 300 ? '#ffedd5' : '#dcfce7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isExpired ? '#dc2626' : remainingSeconds < 300 ? '#ea580c' : '#16a34a',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: isExpired ? '#991b1b' : remainingSeconds < 300 ? '#9a3412' : '#14532d' }}>
+              {isExpired ? 'Payment Session Expired' : 'Complete your payment within:'}
+            </div>
+            <div style={{ fontSize: '12px', color: isExpired ? '#b91c1c' : 'var(--color-text-muted)', marginTop: '2px' }}>
+              {isExpired
+                ? 'Your 60-minute payment window has elapsed. Click the button to start a fresh session for this order.'
+                : 'Session is authoritative from the server and remains accurate across refreshes.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              letterSpacing: '1.5px',
+              color: isExpired ? '#dc2626' : remainingSeconds < 300 ? '#ea580c' : '#16a34a',
+              backgroundColor: '#ffffff',
+              padding: '8px 18px',
+              borderRadius: '10px',
+              border: `1px solid ${isExpired ? '#fca5a5' : remainingSeconds < 300 ? '#fed7aa' : '#86efac'}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            {formatCountdown(remainingSeconds)}
+          </div>
+          {isExpired && (
+            <button
+              onClick={handleRenewPaymentSession}
+              disabled={isRenewingSession}
+              style={{
+                padding: '10px 18px',
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: isRenewingSession ? 'not-allowed' : 'pointer',
+                opacity: isRenewingSession ? 0.7 : 1,
+                boxShadow: '0 2px 6px rgba(255,122,0,0.3)',
+              }}
+            >
+              {isRenewingSession ? 'Renewing...' : 'Initiate New Payment Session'}
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Pre-payment Delivery Rate Change Alert Banner */}
       {rateChangeAlert && !rateChangeAlert.acknowledged && (
@@ -841,6 +1010,7 @@ export default function CheckoutSessionPage() {
             onClick={handleSubmitEvidence}
             disabled={
               isSubmitting ||
+              isExpired ||
               !isAgreed ||
               !receiptPreview ||
               !senderAccountName.trim() ||
@@ -850,6 +1020,7 @@ export default function CheckoutSessionPage() {
               ...confirmBtnStyles,
               opacity:
                 isSubmitting ||
+                isExpired ||
                 !isAgreed ||
                 !receiptPreview ||
                 !senderAccountName.trim() ||
@@ -858,15 +1029,21 @@ export default function CheckoutSessionPage() {
                   : 1,
               cursor:
                 isSubmitting ||
+                isExpired ||
                 !isAgreed ||
                 !receiptPreview ||
                 !senderAccountName.trim() ||
                 Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
                   ? 'not-allowed'
                   : 'pointer',
+              backgroundColor: isExpired ? '#dc2626' : 'var(--color-primary)',
             }}
           >
-            {isSubmitting ? 'Submitting Evidence...' : 'Submit Payment Evidence'}
+            {isSubmitting
+              ? 'Submitting Evidence...'
+              : isExpired
+              ? 'Payment Session Expired — Please Renew Above'
+              : 'Submit Payment Evidence'}
           </button>
 
           <Link to="/checkout" style={backLinkStyles}>

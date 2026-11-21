@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
-import type { Payment, APIError } from '@/types';
+import type { Payment, PaymentSession, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -12,6 +12,16 @@ export default function PaymentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Active top-level tab
+  const [activeTab, setActiveTab] = useState<'payments' | 'sessions'>('payments');
+
+  // 60-Minute Payment Sessions State
+  const [sessions, setSessions] = useState<PaymentSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionStatusFilter, setSessionStatusFilter] = useState('');
+  const [sessionSearch, setSessionSearch] = useState('');
+  const [now, setNow] = useState(Date.now());
 
   // Row Selection State for Exporting
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<Set<string>>(new Set());
@@ -51,9 +61,37 @@ export default function PaymentsPage() {
     }
   };
 
+  const fetchSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const data = await adminApi.listPaymentSessions({
+        status: sessionStatusFilter || undefined,
+        search: sessionSearch || undefined,
+      });
+      setSessions(data);
+    } catch (err: any) {
+      console.error('Failed to load payment sessions', err);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
   useEffect(() => {
     fetchPayments();
   }, [page, statusFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'sessions') {
+      fetchSessions();
+    }
+  }, [activeTab, sessionStatusFilter, sessionSearch]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const formatCurrency = (val: string, currency = 'NGN') => {
     return new Intl.NumberFormat('en-NG', {
@@ -61,6 +99,14 @@ export default function PaymentsPage() {
       currency: currency || 'NGN',
       minimumFractionDigits: 0,
     }).format(parseFloat(val || '0'));
+  };
+
+  const formatRemainingTime = (expiresAt: string, currentNow: number) => {
+    const diff = Math.max(0, Math.floor((new Date(expiresAt).getTime() - currentNow) / 1000));
+    if (diff <= 0) return '00:00 (Expired)';
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   const handleToggleSelectAll = () => {
@@ -79,6 +125,27 @@ export default function PaymentsPage() {
       next.add(id);
     }
     setSelectedPaymentIds(next);
+  };
+
+  const handleReviewSessionPayment = (session: PaymentSession) => {
+    const match = payments.find(
+      (p) =>
+        (p.order_reference && p.order_reference === session.order_reference) ||
+        (p.id && (p.id === session.payment_evidence_id || p.id === session.id))
+    );
+    if (match) {
+      setSelectedPayment(match);
+    } else {
+      setSelectedPayment({
+        id: session.payment_evidence_id || session.id,
+        order_reference: session.order_reference,
+        amount: session.amount,
+        currency: session.currency || 'NGN',
+        status: (session.payment_verification_status || (session.status === 'EVIDENCE_SUBMITTED' ? 'PENDING_VERIFICATION' : session.status)) as any,
+        created_at: session.evidence_submitted_at || session.created_at,
+        payment_method: 'MANUAL_BANK_TRANSFER',
+      } as any);
+    }
   };
 
   const handleApprovePayment = async (payment: Payment) => {
@@ -223,8 +290,66 @@ export default function PaymentsPage() {
 
       <ApiErrorMessage error={error} />
 
-      {/* Filter / Status Tabs */}
-      <div style={filterBarStyles}>
+      {/* View Mode Switcher Tabs */}
+      <div style={{ display: 'flex', gap: '12px', borderBottom: '2px solid #e5e7eb', marginBottom: '20px' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('payments')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            borderBottom: activeTab === 'payments' ? '3px solid #ff7a00' : '3px solid transparent',
+            background: 'none',
+            fontWeight: activeTab === 'payments' ? 800 : 600,
+            color: activeTab === 'payments' ? '#ff7a00' : '#4b5563',
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span>💳 Payment Submissions & Receipts</span>
+          {pendingCount > 0 && (
+            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', fontWeight: 700 }}>
+              {pendingCount} Pending
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('sessions')}
+          style={{
+            padding: '10px 18px',
+            border: 'none',
+            borderBottom: activeTab === 'sessions' ? '3px solid #ff7a00' : '3px solid transparent',
+            background: 'none',
+            fontWeight: activeTab === 'sessions' ? 800 : 600,
+            color: activeTab === 'sessions' ? '#ff7a00' : '#4b5563',
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span>⏱️ 60-Minute Payment Sessions</span>
+          {sessions.filter((s) => s.status === 'ACTIVE').length > 0 && (
+            <span style={{ backgroundColor: '#d1fae5', color: '#065f46', fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', fontWeight: 700 }}>
+              {sessions.filter((s) => s.status === 'ACTIVE').length} Active
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ========================================================
+          TAB 1: PAYMENT SUBMISSIONS & EVIDENCE
+          ======================================================== */}
+      {activeTab === 'payments' && (
+        <>
+          {/* Filter / Status Tabs */}
+          <div style={filterBarStyles}>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -493,6 +618,284 @@ export default function PaymentsPage() {
               >
                 Next
               </button>
+            </div>
+          )}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* ========================================================
+          TAB 2: 60-MINUTE PAYMENT SESSIONS CONSOLE
+          ======================================================== */}
+      {activeTab === 'sessions' && (
+        <div>
+          {/* Summary Metric Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '16px', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Total Sessions</span>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#111827', marginTop: '4px' }}>{sessions.length}</div>
+            </div>
+
+            <div style={{ backgroundColor: '#f0fdf4', borderRadius: '10px', padding: '16px', border: '1px solid #a7f3d0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', textTransform: 'uppercase' }}>Active Window (60m)</span>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#047857', marginTop: '4px' }}>
+                {sessions.filter((s) => s.status === 'ACTIVE').length}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: '#eff6ff', borderRadius: '10px', padding: '16px', border: '1px solid #bfdbfe', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase' }}>Evidence Submitted</span>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#1d4ed8', marginTop: '4px' }}>
+                {sessions.filter((s) => s.status === 'EVIDENCE_SUBMITTED').length}
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: '#fef2f2', borderRadius: '10px', padding: '16px', border: '1px solid #fecaca', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase' }}>Expired (Unsubmitted)</span>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#b91c1c', marginTop: '4px' }}>
+                {sessions.filter((s) => s.status === 'EXPIRED').length}
+              </div>
+            </div>
+          </div>
+
+          {/* Explanation Alert */}
+          <div style={{ ...infoAlertStyles, backgroundColor: '#eff6ff', borderColor: '#bfdbfe', color: '#1e3a8a', marginBottom: '16px' }}>
+            ⏱️ <strong>Strict 60-Minute Payment Expiry Policy:</strong> Customers are allocated exactly 60 minutes to transfer funds and submit payment proof. If proof is submitted before the session expires, the payment is locked as <strong>Evidence Submitted</strong> and remains permanently verifiable by administrators even after the countdown expires. Unsubmitted sessions automatically expire and must be renewed by the customer to obtain a fresh session.
+          </div>
+
+          {/* Sessions Filter Bar */}
+          <div style={filterBarStyles}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                { label: 'All Sessions', value: '' },
+                { label: 'Active Countdown', value: 'ACTIVE' },
+                { label: 'Evidence Submitted', value: 'EVIDENCE_SUBMITTED' },
+                { label: 'Expired', value: 'EXPIRED' },
+                { label: 'Closed / Verified', value: 'CLOSED' },
+              ].map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setSessionStatusFilter(tab.value)}
+                  style={{
+                    ...tabButtonStyles,
+                    backgroundColor: sessionStatusFilter === tab.value ? '#ff7a00' : '#f3f4f6',
+                    color: sessionStatusFilter === tab.value ? '#ffffff' : '#374151',
+                    fontWeight: sessionStatusFilter === tab.value ? 700 : 500,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="Search order ref, customer, email..."
+                value={sessionSearch}
+                onChange={(e) => setSessionSearch(e.target.value)}
+                style={{
+                  ...selectStyles,
+                  minWidth: '220px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                }}
+              />
+              <button
+                type="button"
+                onClick={fetchSessions}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Sessions Table */}
+          {isLoadingSessions ? (
+            <Skeleton width="100%" height="260px" borderRadius="12px" />
+          ) : sessions.length === 0 ? (
+            <EmptyState
+              icon="⏱️"
+              title="No Payment Sessions Found"
+              subtitle="No payment sessions match the selected filter."
+            />
+          ) : (
+            <div style={tableCardStyles}>
+              <div style={tableWrapperStyles}>
+                <table style={tableStyles}>
+                  <thead>
+                    <tr style={tableHeaderRowStyles}>
+                      <th style={tableHeaderCellStyles}>Order Reference</th>
+                      <th style={tableHeaderCellStyles}>Customer</th>
+                      <th style={tableHeaderCellStyles}>Amount</th>
+                      <th style={tableHeaderCellStyles}>Session Window &amp; Countdown</th>
+                      <th style={tableHeaderCellStyles}>Status</th>
+                      <th style={tableHeaderCellStyles}>Evidence Submission</th>
+                      <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((s) => {
+                      const expTime = new Date(s.expires_at).getTime();
+                      const isExpired = s.status === 'EXPIRED' || (s.status === 'ACTIVE' && expTime <= now);
+                      const hasSubmittedEvidence = s.status === 'EVIDENCE_SUBMITTED' || Boolean(s.evidence_submitted_at);
+
+                      return (
+                        <tr key={s.id} style={tableRowStyles}>
+                          <td style={{ ...tableCellStyles, fontWeight: 700 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{s.order_reference}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(s.order_reference);
+                                  toast.success(`Copied ${s.order_reference}`);
+                                }}
+                                style={{
+                                  padding: '2px 6px',
+                                  fontSize: '10px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  background: '#f9fafb',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                            <span style={{ fontSize: '10px', color: '#9ca3af', display: 'block', marginTop: '2px', fontFamily: 'monospace' }}>
+                              {s.id}
+                            </span>
+                          </td>
+                          <td style={tableCellStyles}>
+                            <div style={{ fontWeight: 600 }}>{s.customer_name || 'Customer'}</div>
+                            <span style={{ fontSize: '11px', color: '#6b7280' }}>{s.customer_email || '—'}</span>
+                          </td>
+                          <td style={{ ...tableCellStyles, fontWeight: 700, color: '#111827' }}>
+                            {formatCurrency(s.amount, s.currency)}
+                          </td>
+                          <td style={tableCellStyles}>
+                            {s.status === 'ACTIVE' && !isExpired ? (
+                              <div>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#d1fae5',
+                                  color: '#065f46',
+                                  fontSize: '12px',
+                                  fontWeight: 800,
+                                  fontFamily: 'monospace',
+                                }}>
+                                  ⏱️ {formatRemainingTime(s.expires_at, now)}
+                                </span>
+                                <span style={{ display: 'block', fontSize: '11px', color: '#6b7280', marginTop: '3px' }}>
+                                  Expires {new Date(s.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            ) : hasSubmittedEvidence ? (
+                              <div>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#dbeafe',
+                                  color: '#1e40af',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                }}>
+                                  🛡️ Submitted In Window
+                                </span>
+                                <span style={{ display: 'block', fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                  {s.evidence_submitted_at ? new Date(s.evidence_submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Verified on time'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#fee2e2',
+                                  color: '#991b1b',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                }}>
+                                  ⌛ Expired ({new Date(s.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td style={tableCellStyles}>
+                            <span style={sessionStatusBadgeStyles(isExpired && s.status === 'ACTIVE' ? 'EXPIRED' : s.status)}>
+                              {isExpired && s.status === 'ACTIVE' ? 'EXPIRED' : s.status}
+                            </span>
+                          </td>
+                          <td style={tableCellStyles}>
+                            {hasSubmittedEvidence ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>Receipt Attached</span>
+                                <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                                  ({s.payment_verification_status || 'PENDING'})
+                                </span>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>No evidence uploaded</span>
+                            )}
+                          </td>
+                          <td style={{ ...tableCellStyles, textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                              {hasSubmittedEvidence ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReviewSessionPayment(s)}
+                                  style={{
+                                    ...viewBtnStyles,
+                                    backgroundColor: '#2563eb',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Review &amp; Verify
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(s.order_reference);
+                                    toast.success(`Copied ${s.order_reference}`);
+                                  }}
+                                  style={viewBtnStyles}
+                                >
+                                  Copy Order
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -1133,4 +1536,62 @@ const secondaryExportBtnStyles: React.CSSProperties = {
   fontWeight: 700,
   cursor: 'pointer',
   boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+};
+
+const sessionStatusBadgeStyles = (status: string): React.CSSProperties => {
+  const s = (status || '').toUpperCase();
+  if (s === 'ACTIVE') {
+    return {
+      padding: '4px 10px',
+      borderRadius: '9999px',
+      fontSize: '11px',
+      fontWeight: 800,
+      backgroundColor: '#d1fae5',
+      color: '#065f46',
+      border: '1px solid #a7f3d0',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+    };
+  }
+  if (s === 'EVIDENCE_SUBMITTED') {
+    return {
+      padding: '4px 10px',
+      borderRadius: '9999px',
+      fontSize: '11px',
+      fontWeight: 800,
+      backgroundColor: '#dbeafe',
+      color: '#1e40af',
+      border: '1px solid #bfdbfe',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+    };
+  }
+  if (s === 'CLOSED' || s === 'VERIFIED') {
+    return {
+      padding: '4px 10px',
+      borderRadius: '9999px',
+      fontSize: '11px',
+      fontWeight: 800,
+      backgroundColor: '#ecfdf5',
+      color: '#047857',
+      border: '1px solid #a7f3d0',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+    };
+  }
+  return {
+    padding: '4px 10px',
+    borderRadius: '9999px',
+    fontSize: '11px',
+    fontWeight: 800,
+    backgroundColor: '#fee2e2',
+    color: '#991b1b',
+    border: '1px solid #fecaca',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+  };
 };

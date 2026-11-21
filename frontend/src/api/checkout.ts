@@ -1,6 +1,7 @@
 // Checkout API — /api/v1/checkout/*
 import apiClient, { normalizeApiError, tokenStore } from './client';
 import { deliveryApi } from './delivery';
+import { paymentsApi } from './payments';
 import { pushPaymentsAndOrdersToServer } from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
@@ -95,6 +96,13 @@ export const checkoutApi = {
 
     const calc = payload.delivery_calculation;
     const subtotalNum = calc ? calc.product_subtotal : Number(payload.cart_snapshot?.subtotal || 0);
+
+    // Enforce server-configured minimum checkout subtotal
+    const minSettings = await paymentsApi.getMinimumOrderSettings();
+    if (minSettings.enabled && subtotalNum > 0 && subtotalNum < minSettings.minimum_amount) {
+      const remaining = minSettings.minimum_amount - subtotalNum;
+      throw new Error(`Minimum product subtotal of ₦${minSettings.minimum_amount.toLocaleString()} required to checkout. Please add ₦${remaining.toLocaleString()} more to proceed.`);
+    }
 
     try {
       const { data } = await apiClient.post('/api/v1/checkout/', {

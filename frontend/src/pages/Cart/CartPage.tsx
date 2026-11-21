@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import { paymentsApi } from '@/api/payments';
 import { formatPrice } from '@/utils/currency';
 import { getProductImageUrl, getProductFallbackImage, normalizeUrl } from '@/utils/image';
-import type { CartItem } from '@/types';
+import type { CartItem, MinimumOrderSettings } from '@/types';
 import {
   syncDeliveryStoreFromServer,
   resolveProductDeliveryAttributes,
@@ -18,6 +19,10 @@ export default function CartPage() {
   const { isAuthenticated } = useAuth();
   const { cart, isLoading, updateQty, removeItem, clearCart, validateCart } = useCart();
   const [validating, setValidating] = useState(false);
+  const [minSettings, setMinSettings] = useState<MinimumOrderSettings>({
+    enabled: true,
+    minimum_amount: 10000,
+  });
 
   const productSubtotal = useMemo(() => {
     if (!cart?.items || cart.items.length === 0) return 0;
@@ -31,9 +36,26 @@ export default function CartPage() {
     ? productSubtotal
     : (parseFloat(String(cart?.subtotal || 0)) || 0);
 
+  const meetsMinimum = useMemo(() => {
+    if (!minSettings.enabled) return true;
+    return displaySubtotal >= minSettings.minimum_amount;
+  }, [minSettings.enabled, minSettings.minimum_amount, displaySubtotal]);
+
+  const amountRemaining = useMemo(() => {
+    if (!minSettings.enabled) return 0;
+    return Math.max(0, minSettings.minimum_amount - displaySubtotal);
+  }, [minSettings.enabled, minSettings.minimum_amount, displaySubtotal]);
+
   // Sync shared delivery classifications and validate cart on mount
   useEffect(() => {
     syncDeliveryStoreFromServer().catch(() => {});
+    paymentsApi
+      .getMinimumOrderSettings()
+      .then((settings) => {
+        if (settings) setMinSettings(settings);
+      })
+      .catch(() => {});
+
     if (isAuthenticated) {
       validateCart().catch(() => {});
     }
@@ -70,6 +92,13 @@ export default function CartPage() {
   const handleProceedToCheckout = async () => {
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
       toast.error('Your cart is empty.');
+      return;
+    }
+
+    if (!meetsMinimum) {
+      toast.error(
+        `Minimum product subtotal of ₦${minSettings.minimum_amount.toLocaleString()} required to checkout. Please add ₦${amountRemaining.toLocaleString()} more to proceed.`
+      );
       return;
     }
 
@@ -329,16 +358,74 @@ export default function CartPage() {
             </span>
           </div>
 
+          {/* Minimum Order Value Alert & Guidance */}
+          {minSettings.enabled && cart && Array.isArray(cart.items) && cart.items.length > 0 && !meetsMinimum && (
+            <div
+              style={{
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '12px',
+                padding: '14px',
+                marginTop: '12px',
+                marginBottom: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#d97706"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ flexShrink: 0, marginTop: '2px' }}
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#92400e', lineHeight: 1.45 }}>
+                    You're almost there! Add {formatPrice(amountRemaining)} more to reach DOVI's minimum order value of {formatPrice(minSettings.minimum_amount)}. You can keep shopping and check out whenever you're ready.
+                  </p>
+                  {/* Progress bar towards minimum requirement */}
+                  <div style={{ width: '100%', height: '6px', backgroundColor: '#fef3c7', borderRadius: '3px', overflow: 'hidden', marginTop: '10px' }}>
+                    <div
+                      style={{
+                        width: `${Math.min(100, Math.max(8, (displaySubtotal / minSettings.minimum_amount) * 100))}%`,
+                        height: '100%',
+                        backgroundColor: '#d97706',
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#b45309', marginTop: '4px' }}>
+                    <span>Current: {formatPrice(displaySubtotal)}</span>
+                    <span>Min: {formatPrice(minSettings.minimum_amount)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleProceedToCheckout}
-            disabled={!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating}
+            disabled={!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum}
             style={{
               ...checkoutBtnStyles,
-              opacity: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating) ? 0.6 : 1,
-              cursor: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating) ? 'not-allowed' : 'pointer',
+              opacity: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum) ? 0.5 : 1,
+              cursor: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum) ? 'not-allowed' : 'pointer',
+              backgroundColor: !meetsMinimum ? '#9ca3af' : 'var(--color-primary)',
             }}
           >
-            {validating ? 'Validating...' : 'Proceed to Checkout'}
+            {validating
+              ? 'Validating...'
+              : !meetsMinimum
+              ? `Minimum ${formatPrice(minSettings.minimum_amount)} Required`
+              : 'Proceed to Checkout'}
           </button>
 
           <Link to="/products" style={continueShoppingStyles}>
