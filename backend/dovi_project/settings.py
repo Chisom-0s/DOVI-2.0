@@ -95,7 +95,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'UNICODE_JSON': True,
 }
+
+# Standard UTF-8 Text Encoding
+DEFAULT_CHARSET = 'utf-8'
 
 # ============================================================================
 # Resend Email Configuration
