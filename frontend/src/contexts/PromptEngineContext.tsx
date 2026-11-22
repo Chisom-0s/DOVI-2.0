@@ -6,7 +6,7 @@ export const PROMPT_CONFIG = {
   cookie: { enabled: true, priority: 2 },
   notification: { enabled: true, priority: 3, cooldownHours: 72 },
   pwa: { enabled: true, priority: 4, initialDelaySeconds: 10, cooldownHours: 12, maxPromptCountPerSession: 1 },
-  community: { enabled: true, priority: 5, cooldownHours: 72, initialDelaySeconds: 30 },
+  community: { enabled: false, priority: 5, cooldownHours: 72, initialDelaySeconds: 30 },
   mobileApp: { enabled: true, priority: 6, cooldownHours: 24 }
 };
 

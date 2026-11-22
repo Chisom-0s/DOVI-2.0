@@ -1,6 +1,12 @@
 from django.urls import path
 from .views import DeliveryCalculationAPIView, AdminDeliveryRouteListCreateAPIView, AdminDeliveryRouteDetailAPIView
 from .payment_views import (
+    PublicPromotionalCampaignsAPIView,
+    AdminPromotionalCampaignsListCreateAPIView,
+    AdminPromotionalCampaignDetailAPIView,
+    AdminPromotionalCampaignPauseAPIView,
+    AdminPromotionalCampaignResumeAPIView,
+    AdminPromotionalCampaignDuplicateAPIView,
     ReceiptUploadAPIView,
     SubmitPaymentEvidenceAPIView,
     PaymentEvidenceDetailAPIView,
@@ -43,6 +49,14 @@ urlpatterns = [
     path('admin/payments/', AdminPaymentsListAPIView.as_view(), name='admin-payments-list'),
     path('admin/payments/<str:payment_id>/verify/', AdminPaymentVerifyAPIView.as_view(), name='admin-payment-verify'),
     path('admin/payments/<str:payment_id>/reject/', AdminPaymentRejectAPIView.as_view(), name='admin-payment-reject'),
+
+    # Reusable Promotional Campaigns & Banners
+    path('promotions/campaigns/', PublicPromotionalCampaignsAPIView.as_view(), name='public-promotions-campaigns'),
+    path('admin/promotions/campaigns/', AdminPromotionalCampaignsListCreateAPIView.as_view(), name='admin-promotions-campaigns'),
+    path('admin/promotions/campaigns/<str:campaign_id>/', AdminPromotionalCampaignDetailAPIView.as_view(), name='admin-promotions-campaign-detail'),
+    path('admin/promotions/campaigns/<str:campaign_id>/pause/', AdminPromotionalCampaignPauseAPIView.as_view(), name='admin-promotions-campaign-pause'),
+    path('admin/promotions/campaigns/<str:campaign_id>/resume/', AdminPromotionalCampaignResumeAPIView.as_view(), name='admin-promotions-campaign-resume'),
+    path('admin/promotions/campaigns/<str:campaign_id>/duplicate/', AdminPromotionalCampaignDuplicateAPIView.as_view(), name='admin-promotions-campaign-duplicate'),
 
     # Orders & Lifecycle Transitions
     path('orders/', OrderListCreateAPIView.as_view(), name='orders-list-create'),

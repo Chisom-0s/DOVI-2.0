@@ -1,5 +1,7 @@
 import { createBrowserRouter, RouterProvider, Outlet, Navigate, useParams } from 'react-router-dom';
 import SmartPromptManager from '@/components/common/SmartPromptManager';
+import { PromotionProvider } from '@/contexts/PromotionContext';
+import PromotionalPopup from '@/components/common/PromotionalPopup';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
@@ -73,10 +75,11 @@ import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 const router = createBrowserRouter([
   {
     element: (
-      <>
+      <PromotionProvider>
         <Outlet />
         <SmartPromptManager />
-      </>
+        <PromotionalPopup />
+      </PromotionProvider>
     ),
     errorElement: <RouteErrorBoundary />,
     children: [

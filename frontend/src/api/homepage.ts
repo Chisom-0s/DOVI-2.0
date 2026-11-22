@@ -10,6 +10,7 @@ import {
   isDiscountActiveNow,
   syncHomepagePlacementsFromServer,
   listMerchandisingSections,
+  DEFAULT_CORE_SECTIONS,
 } from '@/services/homepagePlacementService';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
@@ -463,8 +464,16 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 
   switch (section.key) {
     case 'BEST_SELLERS': {
+      let effectiveBestIds = [...orderedIds];
+      if (effectiveBestIds.length === 0) {
+        const defaultBestSec = DEFAULT_CORE_SECTIONS.find((s) => s.key === 'BEST_SELLERS');
+        if (defaultBestSec?.product_ids && defaultBestSec.product_ids.length > 0) {
+          effectiveBestIds = [...defaultBestSec.product_ids];
+        }
+      }
+
       candidates = realProducts.filter(
-        (p) => (Boolean(p.is_best_seller) || orderedIds.includes(p.id)) &&
+        (p) => (Boolean(p.is_best_seller) || effectiveBestIds.includes(p.id)) &&
                (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
                p.in_stock !== false
       );

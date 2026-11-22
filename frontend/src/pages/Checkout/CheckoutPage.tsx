@@ -585,6 +585,17 @@ export default function CheckoutPage() {
     }, 0);
   }, [deliveryCalculation, effectiveItems]);
 
+  const totalDiscountSavings = useMemo(() => {
+    return effectiveItems.reduce((acc, it) => {
+      const orig = Number(it.product?.original_price || (it as any).original_price || 0);
+      const curr = Number(it.unit_price || 0);
+      if (orig > curr) {
+        return acc + (orig - curr) * (it.quantity || 1);
+      }
+      return acc;
+    }, 0);
+  }, [effectiveItems]);
+
   const deliveryFee = deliveryCalculation && deliveryCalculation.total_delivery_fee !== null ? deliveryCalculation.total_delivery_fee : null;
   const totalPayable = deliveryFee !== null ? Number((computedSubtotal + deliveryFee).toFixed(2)) : null;
 
@@ -1064,8 +1075,18 @@ export default function CheckoutPage() {
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
                         {item.product?.name || 'Item'}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        Qty: {item.quantity} × {formatCurrency(item.unit_price)}
+                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>Qty: {item.quantity} × {formatCurrency(item.unit_price)}</span>
+                        {(item.product?.original_price || (item as any).original_price) && Number(item.product?.original_price || (item as any).original_price) > Number(item.unit_price) && (
+                          <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>
+                            {formatCurrency(item.product?.original_price || (item as any).original_price)}
+                          </span>
+                        )}
+                        {(item.product?.original_price || (item as any).original_price) && Number(item.product?.original_price || (item as any).original_price) > Number(item.unit_price) && (
+                          <span style={{ color: '#15803d', fontWeight: 700, backgroundColor: '#dcfce7', padding: '1px 5px', borderRadius: '3px', fontSize: '10px' }}>
+                            Save {formatCurrency((Number(item.product?.original_price || (item as any).original_price) - Number(item.unit_price)) * (item.quantity || 1))}
+                          </span>
+                        )}
                         {item.variant ? ` · Variant: ${typeof item.variant === 'object' ? (item.variant as any).name : item.variant}` : ''}
                       </div>
                     </div>
@@ -1088,6 +1109,16 @@ export default function CheckoutPage() {
             <span style={{ color: '#4b5563' }}>Product Subtotal</span>
             <span style={summaryValStyles}>{formatCurrency(computedSubtotal)}</span>
           </div>
+
+          {/* Product Discount Savings */}
+          {totalDiscountSavings > 0 && (
+            <div style={{ ...summaryRowStyles, color: '#15803d' }}>
+              <span style={{ color: '#15803d', fontWeight: 600 }}>Discount Savings</span>
+              <span style={{ ...summaryValStyles, color: '#15803d', fontWeight: 700 }}>
+                -{formatCurrency(totalDiscountSavings)}
+              </span>
+            </div>
+          )}
 
           {/* DOVI Launch Giveaway Free EarPod line */}
           {claimedGift && (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
-import GiveawayBanner from '@/components/home/GiveawayBanner';
+import PromotionalBanner from '@/components/home/PromotionalBanner';
 import ProductCard from '@/components/product/ProductCard';
 import DealsAndDiscountsSection from '@/components/home/DealsAndDiscountsSection';
 import TrendingNowCarousel from '@/components/home/TrendingNowCarousel';
@@ -278,15 +278,21 @@ export default function HomePage() {
 
       {/* Promotional Launch Giveaway Banner (Clearly visible promotional placement without disrupting 8 section order) */}
       <div className="container" style={{ width: '100%' }}>
-        <GiveawayBanner />
+        <PromotionalBanner />
       </div>
 
       {/* STRICT HOMEPAGE SECTION SLOTS (Sections 2 through 8 in immutable order) */}
       <div className="container" style={sectionsListStyles}>
         {ORDERED_SECTION_SLOTS.map((slot, index) => {
           const section = findSection(slot);
+          const hasProducts = Boolean(section?.products && section.products.length > 0);
           const isBanner = slot.defaultLayout === 'BANNER';
-          const isCustomSpecial = slot.key === 'DISCOUNTS' || slot.key === 'DEALS_AND_DISCOUNTS' || slot.key === 'TRENDING_NOW';
+
+          // Gracefully omit empty product collections so no blank space or empty boxes appear
+          if (!isBanner && !hasProducts && !isLoading) {
+            return null;
+          }
+                    const isCustomSpecial = slot.key === 'DISCOUNTS' || slot.key === 'DEALS_AND_DISCOUNTS' || slot.key === 'TRENDING_NOW';
           const title = section?.title || slot.defaultTitle;
           const subtitle = section?.subtitle || slot.defaultSubtitle;
           const ctaUrl = section?.configuration?.cta_url || slot.ctaUrl;

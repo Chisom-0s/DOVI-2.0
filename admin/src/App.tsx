@@ -53,6 +53,7 @@ export default function App() {
                 <Route index element={<DashboardOverviewPage />} />
                 <Route path="homepage" element={<HomepageManagerPage />} />
                 <Route path="giveaway" element={<GiveawayManagerPage />} />
+                <Route path="promotions" element={<GiveawayManagerPage />} />
                 <Route path="save2own/dashboard" element={<Save2OwnDashboardPage />} />
                 <Route path="save2own" element={<Save2OwnGoalsPage />} />
                 <Route path="save2own/contributions" element={<Save2OwnContributionsPage />} />
