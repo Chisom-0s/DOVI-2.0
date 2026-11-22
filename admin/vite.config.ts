@@ -724,6 +724,36 @@ function doviSharedDeliveryDbPlugin() {
       return;
     }
 
+    // --- PAYMENT ACCOUNTS ENDPOINTS ---
+    if (req.url && (req.url.startsWith('/api/v1/payment-accounts') || req.url.startsWith('/api/v1/admin/payment-accounts') || req.url.startsWith('/api/v1/payments/accounts'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const accounts = store.paymentAccounts || [];
+      if (req.url.includes('/active')) {
+        const urlObj = new URL(req.url, 'http://localhost');
+        const reqType = (urlObj.searchParams.get('type') || urlObj.searchParams.get('account_type') || 'marketplace').toLowerCase();
+        const active = accounts.find((a: any) => (a.account_type || '').toLowerCase() === reqType && a.is_active !== false) ||
+                       accounts.find((a: any) => (a.account_type || '').toLowerCase() === reqType) ||
+                       accounts[0];
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(active || null));
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: accounts.length,
+        next: null,
+        previous: null,
+        results: accounts,
+      }));
+      return;
+    }
+
     // --- ADMIN OVERVIEW ENDPOINT ---
     if (req.url && req.url.startsWith('/api/v1/admin/analytics/overview')) {
       res.setHeader('Access-Control-Allow-Origin', '*');

@@ -28,6 +28,7 @@ export function enforceSystemResetCheck(serverData?: any): void {
       localStorage.removeItem('dovi_cart');
       localStorage.removeItem('dovi_cart_selected_items');
       localStorage.removeItem('dovi_deleted_product_ids');
+      localStorage.removeItem('dovi_payment_accounts');
 
       // Purge non-admin test user session
       const userRaw = localStorage.getItem('dovi_user_session');

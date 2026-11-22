@@ -50,13 +50,13 @@ export const DEFAULT_MARKETPLACE_ACCOUNT: PaymentAccount = {
   account_type: 'marketplace',
   bank_name: 'Zenith Bank',
   account_name: 'Dovi Direct Commerce Limited',
-  account_number: '1012345678',
+  account_number: '5601660874',
   currency: 'NGN',
   is_active: true,
   instructions:
     'Transfer the exact order total to this dedicated DOVI Product Purchase account. In your bank transfer narration or remarks, enter your Order Reference Code. Once transferred, upload your payment receipt below to submit for verification.',
   created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-11-22T15:50:00Z',
 };
 
 export function getStoredPaymentAccounts(): PaymentAccount[] {

@@ -741,7 +741,7 @@ export default function CheckoutSessionPage() {
                         fontFamily: 'monospace',
                       }}
                     >
-                      {bankAccount?.account_number || '1012345678'}
+                      {bankAccount?.account_number || '5601660874'}
                     </span>
                     <button
                       type="button"

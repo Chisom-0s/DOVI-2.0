@@ -73,26 +73,26 @@ export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     account_type: 'save2own',
     bank_name: 'Kuda Microfinance Bank',
     account_name: 'Dovi Save2Own Savings Trust',
-    account_number: '2039485712',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'Transfer the exact savings amount to this dedicated Save2Own account. In your bank transfer narration/description, enter your Save2Own Reference Code. Once the transfer is completed, click "I\'ve Made the Transfer" and submit your details for verification.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
   {
     id: 'acc-mkt-default',
     account_type: 'marketplace',
     bank_name: 'Zenith Bank',
     account_name: 'Dovi Direct Commerce Limited',
-    account_number: '1012345678',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
 ];
 

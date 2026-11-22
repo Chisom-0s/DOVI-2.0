@@ -740,7 +740,7 @@ export default function OrderDetailPage() {
                 <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>ACCOUNT NUMBER</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <strong style={{ fontSize: '16px', fontFamily: 'monospace', color: '#047857' }}>
-                    {bankAccount?.account_number || '1012345678'}
+                    {bankAccount?.account_number || '5601660874'}
                   </strong>
                   <button
                     type="button"

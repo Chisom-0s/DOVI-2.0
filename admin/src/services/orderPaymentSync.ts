@@ -28,6 +28,7 @@ export function enforceSystemResetCheck(serverData?: any): void {
       localStorage.removeItem('dovi_global_s2o_contribs');
       localStorage.removeItem('dovi_stored_refunds');
       localStorage.removeItem('dovi_deleted_product_ids');
+      localStorage.removeItem('dovi_payment_accounts');
       try {
         adminCache.clear();
       } catch {}

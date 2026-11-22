@@ -31,6 +31,10 @@ check('Backend Users has 1 Admin', backendDb.users.length === 1 && backendDb.use
 check('Backend Catalog Products Count is 49', backendDb.products.length === 49, `count: ${backendDb.products.length}`);
 check('Backend Delivery Routes Count is 29', backendDb.routes.length === 29, `count: ${backendDb.routes.length}`);
 check('Backend Categories Count is 12', backendDb.categories.length === 12, `count: ${backendDb.categories.length}`);
+const s2oAcc = (backendDb.paymentAccounts || []).find(a => a.account_type === 'save2own');
+const mktAcc = (backendDb.paymentAccounts || []).find(a => a.account_type === 'marketplace');
+check('Backend Save2Own Account Number is 5601660874', s2oAcc && s2oAcc.account_number === '5601660874', s2oAcc?.account_number);
+check('Backend Marketplace Account Number is 5601660874', mktAcc && mktAcc.account_number === '5601660874', mktAcc?.account_number);
 
 // 2. Admin public store parity
 const adminDb = JSON.parse(fs.readFileSync(ADMIN_STORE, 'utf8'));

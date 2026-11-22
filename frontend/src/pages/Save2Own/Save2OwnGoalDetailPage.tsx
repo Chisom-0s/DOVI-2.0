@@ -1025,7 +1025,7 @@ export default function Save2OwnGoalDetailPage() {
                     Account Number
                   </span>
                   <span style={{ fontSize: '18px', fontWeight: 'var(--font-extrabold)', letterSpacing: '1px', color: 'var(--color-primary)', fontFamily: 'monospace' }}>
-                    {bankAccount?.account_number || '0123456789'}
+                    {bankAccount?.account_number || '5601660874'}
                   </span>
                 </div>
                 <button
