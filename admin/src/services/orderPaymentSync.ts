@@ -8,7 +8,49 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'dovi_local_notifications',
 };
 
+export const SYSTEM_RESET_VERSION = '2026-11-22-clean-v1';
+
+export function enforceSystemResetCheck(serverData?: any): void {
+  try {
+    const applied = localStorage.getItem('dovi_system_reset_version');
+    const needsReset =
+      (serverData?.system_reset_version && serverData.system_reset_version === SYSTEM_RESET_VERSION) ||
+      applied !== SYSTEM_RESET_VERSION;
+    if (needsReset) {
+      localStorage.removeItem(STORAGE_KEYS.PAYMENTS);
+      localStorage.removeItem(STORAGE_KEYS.LOCAL_ORDERS);
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_ORDERS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+      localStorage.removeItem('dovi_payment_sessions');
+      localStorage.removeItem('dovi_save2own_goals');
+      localStorage.removeItem('dovi_save2own_participants');
+      localStorage.removeItem('dovi_global_s2o_contribs');
+      localStorage.removeItem('dovi_stored_refunds');
+      localStorage.removeItem('dovi_deleted_product_ids');
+      localStorage.setItem(
+        'dovi_admin_users_db',
+        JSON.stringify([
+          {
+            id: 'usr_admin_1',
+            email: 'admin@dovi.com',
+            first_name: 'DOVI',
+            last_name: 'Administrator',
+            role: 'ADMIN',
+            phone: '+2347067402413',
+            is_active: true,
+            is_staff: true,
+            is_email_verified: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ])
+      );
+      localStorage.setItem('dovi_system_reset_version', SYSTEM_RESET_VERSION);
+    }
+  } catch {}
+}
+
 export function getLocalPayments(): Payment[] {
+  enforceSystemResetCheck();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
     return raw ? JSON.parse(raw) : [];
@@ -24,6 +66,7 @@ export function saveLocalPayments(payments: Payment[]): void {
 }
 
 export function getLocalOrders(): Record<string, any> {
+  enforceSystemResetCheck();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_ORDERS);
     return raw ? JSON.parse(raw) : {};
@@ -59,6 +102,7 @@ export function addCustomerNotification(title: string, message: string, type: 'S
 
 export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Payment[]; orders: Record<string, any> }> {
   const serverData: any = await fetchSharedDbOnce();
+  enforceSystemResetCheck(serverData);
 
   // 1. Merge payments
   const localPayments = getLocalPayments();

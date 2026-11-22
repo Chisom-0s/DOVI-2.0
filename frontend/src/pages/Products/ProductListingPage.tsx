@@ -193,13 +193,13 @@ export default function ProductListingPage() {
             if (requestId !== currentRequestId.current) break;
 
             if (!nextResp.results || nextResp.results.length === 0) {
-              setHasMore(false);
+              setHasMore(accumulated.length < response.count);
               break;
             }
 
             const newItems = nextResp.results.filter(p => !seenIds.has(p.id));
             if (newItems.length === 0) {
-              setHasMore(false);
+              setHasMore(accumulated.length < response.count);
               break;
             }
 
@@ -211,13 +211,20 @@ export default function ProductListingPage() {
             setHasMore(stillMore);
             if (!stillMore) break;
           } catch (nextErr) {
-            console.warn('Background page streaming stopped:', nextErr);
-            setHasMore(false);
+            console.warn('Background page streaming paused:', nextErr);
+            // Keep hasMore true so user can click Load More or retry
+            setHasMore(accumulated.length < response.count);
             break;
           }
         }
         if (requestId === currentRequestId.current) {
           setIsLoadingMore(false);
+          if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && accumulated.length > 0) {
+            try {
+              sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(accumulated));
+              localStorage.setItem('dovi_real_products_cache', JSON.stringify(accumulated));
+            } catch {}
+          }
         }
       }
     } catch (err: any) {
@@ -854,6 +861,31 @@ export default function ProductListingPage() {
                 </div>
               )}
             </div>
+
+            {hasMore && !isLoading && !isLoadingMore && (
+              <div style={{ textAlign: 'center', margin: '16px 0 32px 0' }}>
+                <button
+                  type="button"
+                  onClick={loadMoreProducts}
+                  style={{
+                    padding: '11px 28px',
+                    backgroundColor: '#ffffff',
+                    color: '#ff7a00',
+                    border: '1.5px solid #ff7a00',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '13.5px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(255, 122, 0, 0.12)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#fff7ed'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
+                >
+                  Load More Products ({totalCount > products.length ? `${totalCount - products.length} remaining` : 'Next Page'}) ↓
+                </button>
+              </div>
+            )}
 
             {!hasMore && products.length > 0 && !isLoading && !isLoadingMore && (
               <div style={{ textAlign: 'center', padding: '24px 0 36px 0', color: 'var(--color-text-muted)', fontSize: '13px', fontWeight: 500 }}>

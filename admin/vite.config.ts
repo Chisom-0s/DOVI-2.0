@@ -512,12 +512,51 @@ function doviSharedDeliveryDbPlugin() {
         return;
       }
 
+      let filteredCatalog = [...catalog];
+      const categoryParam = urlObj.searchParams.get('category');
+      const searchParam = urlObj.searchParams.get('search') || urlObj.searchParams.get('q');
+      const pageParam = parseInt(urlObj.searchParams.get('page') || '1', 10);
+      const pageSizeParam = urlObj.searchParams.get('page_size');
+      const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : 0;
+
+      if (categoryParam) {
+        filteredCatalog = filteredCatalog.filter((p: any) =>
+          p.category === categoryParam ||
+          (p.category_slug && p.category_slug.toLowerCase() === categoryParam.toLowerCase()) ||
+          (p.category_name && p.category_name.toLowerCase().includes(categoryParam.toLowerCase())) ||
+          (p.description && p.description.includes(categoryParam))
+        );
+      }
+      if (searchParam) {
+        const query = searchParam.toLowerCase();
+        filteredCatalog = filteredCatalog.filter((p: any) =>
+          (p.name && p.name.toLowerCase().includes(query)) ||
+          (p.description && p.description.toLowerCase().includes(query))
+        );
+      }
+
+      const totalCount = filteredCatalog.length;
+      let paginated = filteredCatalog;
+      let nextUrl: string | null = null;
+      let prevUrl: string | null = null;
+
+      if (pageSize > 0) {
+        const start = (pageParam - 1) * pageSize;
+        paginated = filteredCatalog.slice(start, start + pageSize);
+        if (start + pageSize < totalCount) {
+          nextUrl = `?page=${pageParam + 1}&page_size=${pageSize}`;
+        }
+        if (pageParam > 1) {
+          prevUrl = `?page=${pageParam - 1}&page_size=${pageSize}`;
+        }
+      }
+
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
-        count: catalog.length,
-        next: null,
-        previous: null,
-        results: catalog,
+        count: totalCount,
+        next: nextUrl,
+        previous: prevUrl,
+        results: paginated,
       }));
       return;
     }

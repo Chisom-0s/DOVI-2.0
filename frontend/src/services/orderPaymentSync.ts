@@ -7,7 +7,50 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'dovi_local_notifications',
 };
 
+export const SYSTEM_RESET_VERSION = '2026-11-22-clean-v1';
+
+export function enforceSystemResetCheck(serverData?: any): void {
+  try {
+    const applied = localStorage.getItem('dovi_system_reset_version');
+    const needsReset =
+      (serverData?.system_reset_version && serverData.system_reset_version === SYSTEM_RESET_VERSION) ||
+      applied !== SYSTEM_RESET_VERSION;
+    if (needsReset) {
+      localStorage.removeItem(STORAGE_KEYS.PAYMENTS);
+      localStorage.removeItem(STORAGE_KEYS.LOCAL_ORDERS);
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_ORDERS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+      localStorage.removeItem('dovi_payment_sessions');
+      localStorage.removeItem('dovi_save2own_goals');
+      localStorage.removeItem('dovi_save2own_participants');
+      localStorage.removeItem('dovi_global_s2o_contribs');
+      localStorage.removeItem('dovi_stored_refunds');
+      localStorage.removeItem('dovi_cart');
+      localStorage.removeItem('dovi_cart_selected_items');
+      localStorage.removeItem('dovi_deleted_product_ids');
+
+      // Purge non-admin test user session
+      const userRaw = localStorage.getItem('dovi_user_session');
+      if (userRaw) {
+        try {
+          const u = JSON.parse(userRaw);
+          if (u.role !== 'ADMIN' && u.email !== 'admin@dovi.com') {
+            localStorage.removeItem('dovi_user_session');
+            localStorage.removeItem('dovi_access_token');
+            localStorage.removeItem('dovi_refresh_token');
+          }
+        } catch {
+          localStorage.removeItem('dovi_user_session');
+        }
+      }
+
+      localStorage.setItem('dovi_system_reset_version', SYSTEM_RESET_VERSION);
+    }
+  } catch {}
+}
+
 export function getLocalPayments(): Payment[] {
+  enforceSystemResetCheck();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
     return raw ? JSON.parse(raw) : [];
@@ -33,6 +76,7 @@ export function saveLocalPayments(payments: Payment[]): void {
 }
 
 export function getLocalOrders(): Record<string, Order> {
+  enforceSystemResetCheck();
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_ORDERS);
     return raw ? JSON.parse(raw) : {};
@@ -82,6 +126,8 @@ export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Pay
       // Fallback
     }
   }
+
+  enforceSystemResetCheck(serverData);
 
   // 1. Merge payments
   const localPayments = getLocalPayments();

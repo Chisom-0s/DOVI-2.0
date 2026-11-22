@@ -1072,6 +1072,23 @@ export const adminApi = {
         }
       } catch {}
 
+      if (list.length === 0) {
+        list = [
+          {
+            id: 'usr_admin_1',
+            email: 'admin@dovi.com',
+            first_name: 'DOVI',
+            last_name: 'Administrator',
+            role: 'ADMIN',
+            phone: '+2347067402413',
+            is_active: true,
+            is_staff: true,
+            is_email_verified: true,
+            date_joined: '2026-01-01T00:00:00Z',
+          },
+        ];
+      }
+
       // Filter out test users
       list = list.filter((u) => !isTestUserOrEmail(u.email, `${u.first_name} ${u.last_name}`));
 
@@ -1109,6 +1126,20 @@ export const adminApi = {
       } catch {}
       const matched = list.find((u) => u.id === id);
       if (matched) return matched;
+      if (id === 'usr_admin_1' || id === 'admin') {
+        return {
+          id: 'usr_admin_1',
+          email: 'admin@dovi.com',
+          first_name: 'DOVI',
+          last_name: 'Administrator',
+          role: 'ADMIN',
+          phone: '+2347067402413',
+          is_active: true,
+          is_staff: true,
+          is_email_verified: true,
+          date_joined: '2026-01-01T00:00:00Z',
+        };
+      }
       return {
         id,
         email: 'user@dovi.com',
@@ -1388,6 +1419,16 @@ export const adminApi = {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+
+    try {
+      const dbRes = await fetch('/__dovi_delivery_db__');
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        if (Array.isArray(dbData?.products) && dbData.products.length > 0) {
+          return dbData.products.map((p: any) => enrichProductWithCategory(p));
+        }
       }
     } catch {}
 

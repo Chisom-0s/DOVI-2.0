@@ -539,9 +539,9 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
     candidates = orderedCandidates;
   }
 
-  // Support up to 24 products per section so no assigned product is arbitrarily hidden
-  const limit = mSec?.display_limit || section.display_limit || 24;
-  return candidates.slice(0, Math.max(limit, 24));
+  // Respect admin configured display_limit if set, otherwise return all eligible candidates without an arbitrary 24 cap
+  const limit = mSec?.display_limit ?? section.display_limit;
+  return (typeof limit === 'number' && limit > 0) ? candidates.slice(0, limit) : candidates;
 }
 
 export const homepageApi = {

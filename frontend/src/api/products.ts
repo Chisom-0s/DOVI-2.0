@@ -113,8 +113,12 @@ export const productsApi = {
         requestedPage === 1;
       if (isDefaultView && realProducts.length > 0) {
         try {
-          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
-          localStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
+          const existingCached = JSON.parse(localStorage.getItem('dovi_real_products_cache') || '[]');
+          const map = new Map<string, any>(Array.isArray(existingCached) ? existingCached.map((p: any) => [p.id, p]) : []);
+          realProducts.forEach((p) => map.set(p.id, p));
+          const merged = Array.from(map.values());
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
+          localStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
         } catch {}
       }
 
@@ -140,7 +144,7 @@ export const productsApi = {
           if (fromLocal) list = JSON.parse(fromLocal);
         } catch {}
       }
-      if (!list || list.length === 0) {
+      if (!list || list.length < SEED_REAL_PRODUCTS.length) {
         list = SEED_REAL_PRODUCTS;
       }
 
