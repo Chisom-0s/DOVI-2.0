@@ -3270,19 +3270,6 @@
       "is_custom": false
     }
   ],
-  "save2ownGoals": [],
-  "save2ownParticipants": [],
-  "save2ownContributions": [],
-  "save2ownRefunds": [],
-  "payments": [],
-  "orders": [],
-  "minimumOrderSettings": {
-    "enabled": true,
-    "minimum_amount": 10000,
-    "updated_at": "2026-11-21T00:00:00Z",
-    "updated_by": "Administrator"
-  },
-  "paymentSessions": [],
   "merchandisingSections": [
     {
       "id": "sec-best-sellers",
@@ -3405,5 +3392,18 @@
       ],
       "is_custom": false
     }
-  ]
+  ],
+  "minimumOrderSettings": {
+    "enabled": true,
+    "minimum_amount": 10000,
+    "updated_at": "2026-11-21T00:00:00Z",
+    "updated_by": "Administrator"
+  },
+  "save2ownGoals": [],
+  "save2ownParticipants": [],
+  "save2ownContributions": [],
+  "save2ownRefunds": [],
+  "payments": [],
+  "orders": [],
+  "paymentSessions": []
 }
