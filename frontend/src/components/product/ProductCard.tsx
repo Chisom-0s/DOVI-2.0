@@ -194,11 +194,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         </span>
         <h3 style={titleStyles}>{product.name}</h3>
 
-        {/* Ratings */}
-        <div style={ratingStyles}>
-          <span style={starsStyles}>★ {product.average_rating?.toFixed(1) ?? '0.0'}</span>
-          <span style={countStyles}>({product.review_count ?? 0})</span>
-        </div>
+        
 
         {/* Footer info */}
         <div style={footerStyles}>
@@ -324,24 +320,6 @@ const titleStyles: React.CSSProperties = {
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   minHeight: '2.76em',
-};
-
-const ratingStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
-  fontSize: '12px',
-  marginTop: '2px',
-};
-
-const starsStyles: React.CSSProperties = {
-  color: '#f59e0b',
-  fontWeight: 'var(--font-semibold)',
-};
-
-const countStyles: React.CSSProperties = {
-  color: 'var(--color-text-muted)',
-  fontSize: '11px',
 };
 
 const footerStyles: React.CSSProperties = {

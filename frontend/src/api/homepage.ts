@@ -184,8 +184,8 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
         id: String(p.vendor || 'vend-real'),
         name: vendorName,
         logo_url: null,
-        rating: 4.9,
-        review_count: 14,
+        rating: 0,
+        review_count: 0,
         location: 'Lagos, Nigeria',
         slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
       };
@@ -255,8 +255,8 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     category_name: categoryName,
     vendor: vendorObj,
     vendor_name: vendorName,
-    average_rating: Number(p.average_rating) || 4.9,
-    review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 12),
+    average_rating: Number(p.average_rating) || 0,
+    review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 0),
     stock_quantity: stock,
     status: (p.status || 'PUBLISHED') as any,
     discount_percentage: finalDiscount,
@@ -574,7 +574,7 @@ export const homepageApi = {
                 realVendorsMap.set(vId, {
                   id: vId,
                   name: rp.vendor_name,
-                  rating: rp.average_rating || '4.9',
+                  rating: rp.average_rating || '0.0',
                   location: 'Lagos, Nigeria',
                 });
               }

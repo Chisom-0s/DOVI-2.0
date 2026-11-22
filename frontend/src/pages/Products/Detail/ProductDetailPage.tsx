@@ -266,13 +266,7 @@ export default function ProductDetailPage() {
   const displayStock = typeof rawStock === 'number' ? rawStock : (parseInt(String(rawStock || '0'), 10) || 0);
   const isOutOfStock = displayStock <= 0;
 
-  const avgRating = typeof product.average_rating === 'number'
-    ? product.average_rating
-    : (parseFloat(String(product.average_rating || 0)) || 0);
-
-  const reviewCount = typeof product.review_count === 'number'
-    ? product.review_count
-    : (parseInt(String(product.review_count || 0), 10) || 0);
+  // Rating & review displays temporarily disabled for initial launch
 
   const deliveryAttrs = resolveProductDeliveryAttributes(product);
   const resolvedCat = resolveProductCategoryAndSubcategory(product);
@@ -351,14 +345,8 @@ export default function ProductDetailPage() {
           )}
           <h1 style={titleStyles}>{product.name}</h1>
           
-          {/* Rating aggregate display banner */}
-          <div style={ratingRowStyles}>
-            <span style={{ color: '#f39c12', fontWeight: 'bold' }}>
-              ★ {avgRating.toFixed(1)}
-            </span>
-            <span style={countTextStyles}>
-              ({reviewCount} customer {reviewCount === 1 ? 'review' : 'reviews'})
-            </span>
+          {/* Product Meta SKU */}
+          <div style={skuRowStyles}>
             <span style={skuStyles}>SKU: {displaySku}</span>
           </div>
 
@@ -565,15 +553,10 @@ const titleStyles: React.CSSProperties = {
   wordBreak: 'break-word',
 };
 
-const ratingRowStyles: React.CSSProperties = {
+const skuRowStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-2)',
-  fontSize: 'var(--text-sm)',
-  flexWrap: 'wrap',
-};
-
-const countTextStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
   color: 'var(--color-text-muted)',
 };
 

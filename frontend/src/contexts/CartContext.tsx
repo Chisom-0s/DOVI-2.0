@@ -190,8 +190,8 @@ export function normalizeCart(raw: any): Cart {
             stock_quantity: stock,
             vendor_name: item.vendor_name || matchedProduct?.vendor_name || 'Verified Vendor',
             vendor: item.vendor || matchedProduct?.vendor || item.vendor_name || '',
-            average_rating: matchedProduct?.average_rating || 4.9,
-            review_count: matchedProduct?.review_count || 10,
+            average_rating: matchedProduct?.average_rating || 0,
+            review_count: matchedProduct?.review_count || 0,
             status: 'PUBLISHED' as any,
           };
 

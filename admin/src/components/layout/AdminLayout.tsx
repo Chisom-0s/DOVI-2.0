@@ -240,6 +240,14 @@ export default function AdminLayout() {
         </div>
       </header>
 
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="mobile-nav-backdrop"
+          aria-label="Close navigation menu"
+        />
+      )}
+
       <div style={bodyWrapperStyles}>
         {/* Sidebar Nav */}
         <aside
@@ -369,15 +377,27 @@ const logoutBtnStyles: React.CSSProperties = {
 const bodyWrapperStyles: React.CSSProperties = {
   display: 'flex',
   flex: 1,
+  minHeight: 'calc(100vh - 64px)',
+  position: 'relative',
 };
 
 const sidebarStyles: React.CSSProperties = {
   width: '260px',
   backgroundColor: '#ffffff',
   borderRight: '1px solid #e5e7eb',
-  padding: '24px 0',
+  padding: '16px 0 32px 0',
   flexDirection: 'column',
   gap: '8px',
+  position: 'sticky',
+  top: '64px',
+  height: 'calc(100vh - 64px)',
+  maxHeight: 'calc(100vh - 64px)',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  overscrollBehavior: 'contain',
+  WebkitOverflowScrolling: 'touch',
+  flexShrink: 0,
+  zIndex: 50,
 };
 
 const navWrapperStyles: React.CSSProperties = {
@@ -415,7 +435,7 @@ const viewOnlyBadgeStyles: React.CSSProperties = {
 const mainContentStyles: React.CSSProperties = {
   flex: 1,
   padding: '32px',
-  overflowY: 'auto',
+  minWidth: 0,
   maxWidth: '1280px',
   margin: '0 auto',
   width: '100%',
