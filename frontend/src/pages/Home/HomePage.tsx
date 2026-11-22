@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
-import PromotionalBanner from '@/components/home/PromotionalBanner';
 import ProductCard from '@/components/product/ProductCard';
 import DealsAndDiscountsSection from '@/components/home/DealsAndDiscountsSection';
 import TrendingNowCarousel from '@/components/home/TrendingNowCarousel';
@@ -276,11 +275,6 @@ export default function HomePage() {
         <HeroBannerCarousel />
       </div>
 
-      {/* Promotional Launch Giveaway Banner (Clearly visible promotional placement without disrupting 8 section order) */}
-      <div className="container" style={{ width: '100%' }}>
-        <PromotionalBanner />
-      </div>
-
       {/* STRICT HOMEPAGE SECTION SLOTS (Sections 2 through 8 in immutable order) */}
       <div className="container" style={sectionsListStyles}>
         {ORDERED_SECTION_SLOTS.map((slot, index) => {
@@ -337,7 +331,7 @@ const pageStyles: React.CSSProperties = {
   paddingBottom: 'var(--space-12)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-3)',
+  gap: 'var(--space-8)',
 };
 
 const topBannerWrapperStyles: React.CSSProperties = {

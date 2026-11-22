@@ -1134,20 +1134,27 @@ export default function GiveawayManagerPage() {
                         </div>
                       </div>
                     ) : (
-                      /* Live Pop-Up Preview */
-                      <div style={{ backgroundColor: '#fff', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', border: '1px solid #ff7a00', textAlign: 'center' }}>
+                      /* Live Pop-Up Preview — Gift Package / Reward Ticket Style */
+                      <div style={{ backgroundColor: '#fff', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 20px 45px -10px rgba(255,122,0,0.3)', border: '1.5px solid rgba(255,122,0,0.25)', textAlign: 'center' }}>
                         <div style={{ background: `linear-gradient(135deg, ${editingCampaign.theme.primary_bg} 0%, ${editingCampaign.theme.secondary_bg} 100%)`, padding: '10px 14px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 800 }}>🎁 {editingCampaign.badge_text}</span>
-                          <span style={{ fontSize: '16px', fontWeight: 700, cursor: 'pointer' }}>×</span>
+                          <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>🎁 {editingCampaign.badge_text} ✨</span>
+                          <span style={{ fontSize: '16px', fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}>×</span>
                         </div>
-                        <div style={{ padding: '18px' }}>
-                          {editingCampaign.image_url && (
-                            <img src={editingCampaign.image_url} alt="" style={{ width: '70px', height: '70px', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />
-                          )}
-                          <h4 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 900, color: '#0f172a' }}>{editingCampaign.headline}</h4>
-                          <p style={{ margin: '0 0 12px', fontSize: '11.5px', color: '#64748b' }}>{editingCampaign.description}</p>
-                          <button type="button" style={{ width: '100%', padding: '10px', backgroundColor: editingCampaign.theme.primary_bg, color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 800, fontSize: '12.5px', cursor: 'pointer' }}>
-                            {editingCampaign.cta_text}
+                        <div style={{ padding: '16px' }}>
+                          <div style={{ position: 'relative', width: '100%', maxWidth: '180px', height: '100px', margin: '0 auto 10px', borderRadius: '12px', background: 'radial-gradient(circle, #fff7ed 15%, #ffffff 75%)', border: '1px solid #fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img src={editingCampaign.image_url || '/images/promotions/dovi_earpods_3d.jpg'} alt="" style={{ maxWidth: '120px', maxHeight: '85px', objectFit: 'contain' }} />
+                            <div style={{ position: 'absolute', bottom: '-8px', backgroundColor: '#059669', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '2px 8px', borderRadius: '9999px', border: '1px solid #fff' }}>
+                              FREE REWARD · ₦0.00
+                            </div>
+                          </div>
+                          <h4 style={{ margin: '8px 0 4px', fontSize: '14px', fontWeight: 900, color: '#0f172a', lineHeight: 1.25, textTransform: 'uppercase' }}>{editingCampaign.headline}</h4>
+                          <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#475569', lineHeight: 1.4 }}>{editingCampaign.description}</p>
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '10px', fontSize: '10px' }}>
+                            <span style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>⚡ 20 gifts available</span>
+                            <span style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '2px 6px', borderRadius: '4px' }}>📅 Ends 20 Dec 2026</span>
+                          </div>
+                          <button type="button" style={{ width: '100%', padding: '10px', background: `linear-gradient(135deg, ${editingCampaign.theme.primary_bg} 0%, #ea580c 100%)`, color: '#fff', border: 'none', borderRadius: '9999px', fontWeight: 800, fontSize: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,122,0,0.3)' }}>
+                            {editingCampaign.cta_text || 'SHOP & CLAIM GIFT'} →
                           </button>
                         </div>
                       </div>

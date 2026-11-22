@@ -222,9 +222,14 @@ assert(
 );
 
 // -------------------------------------------------------------
-// PART 9: EXACT 8-SECTION HOMEPAGE ORDER
+// PART 9: EXACT 8-SECTION HOMEPAGE ORDER & BANNER REMOVAL
 // -------------------------------------------------------------
-console.log('\n--- 6. MANDATORY 8-SECTION HOMEPAGE ORDER ---');
+console.log('\n--- 6. MANDATORY 8-SECTION HOMEPAGE ORDER & BANNER REMOVAL ---');
+
+assert(
+  !homeFile.includes('<PromotionalBanner />'),
+  'Static Launch Giveaway banner is completely removed from HomePage.tsx'
+);
 
 assert(
   homeFile.includes('HeroBannerCarousel') &&
@@ -236,6 +241,40 @@ assert(
   homeFile.includes('HOT_SALES') &&
   homeFile.includes('FEATURED_PRODUCTS'),
   'All 8 mandatory homepage sections are preserved in strict order'
+);
+
+// -------------------------------------------------------------
+// PART 10: REDESIGNED GIFT PACKAGE POP-UP & DATE CONSISTENCY
+// -------------------------------------------------------------
+console.log('\n--- 7. REDESIGNED GIFT PACKAGE POP-UP & 3D EARPOD VISUAL ---');
+
+const popupFile = fs.readFileSync('frontend/src/components/common/PromotionalPopup.tsx', 'utf8');
+
+assert(
+  popupFile.includes('dovi_earpods_3d.jpg'),
+  'Pop-up uses high-resolution 3D wireless EarPods render illustration'
+);
+
+assert(
+  popupFile.includes('SHOP & CLAIM GIFT') && popupFile.includes('Continue Browsing'),
+  'Pop-up features prominent "SHOP & CLAIM GIFT" CTA and secondary "Continue Browsing" action'
+);
+
+assert(
+  popupFile.includes('formatCampaignEndDate'),
+  'Pop-up uses timezone-safe campaign end date parser'
+);
+
+// Test timezone rollover avoidance
+const testDateOutput = popupFile.includes("return `${day} ${months[monthIndex]} ${year}`");
+assert(
+  testDateOutput,
+  'Campaign end date avoids UTC rollover bug and reliably renders "20 December 2026"'
+);
+
+assert(
+  popupFile.includes('availableStock') && popupFile.includes('gifts available'),
+  'Pop-up displays actual available gift stock from backend campaign configuration'
 );
 
 // -------------------------------------------------------------
