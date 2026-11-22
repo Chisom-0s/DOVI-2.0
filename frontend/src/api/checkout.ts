@@ -1,3 +1,4 @@
+import { resolveItemDisplay } from '@/utils/orderImageHelper';
 // Checkout API — /api/v1/checkout/*
 import apiClient, { normalizeApiError, tokenStore } from './client';
 import { deliveryApi } from './delivery';
@@ -640,13 +641,15 @@ export const checkoutApi = {
       buyer_email: userEmail,
       buyer_name: userName,
       status: 'PENDING_PAYMENT',
-      items: rawItems.map((ci: any, idx: number) => ({
+      items: rawItems.map((ci: any, idx: number) => {
+        const itemDisplay = resolveItemDisplay(ci);
+        return {
         id: ci.id || `oi_${idx}`,
         product: ci.product || {
           id: String(ci.product_id || `prod_${idx}`),
-          name: ci.product_name || ci.name || 'Product',
+          name: ci.product_name || ci.name || itemDisplay.name || 'Product',
           price: String(ci.unit_price || ci.price || '0'),
-          primary_image_url: ci.image_url || null,
+          primary_image_url: ci.image_url || itemDisplay.imageUrl || null,
           average_rating: 5,
           review_count: 1,
           stock_quantity: 10,
@@ -656,7 +659,8 @@ export const checkoutApi = {
         quantity: ci.quantity,
         unit_price: String(ci.unit_price || ci.price || '0'),
         line_total: String(Number(ci.unit_price || ci.price || 0) * Number(ci.quantity || 1)),
-      })),
+      };
+      }),
       delivery_address: resolvedAddress,
       delivery_method: 'DOVI Direct Delivery — Custom Quotation',
       subtotal: String(calc.product_subtotal),

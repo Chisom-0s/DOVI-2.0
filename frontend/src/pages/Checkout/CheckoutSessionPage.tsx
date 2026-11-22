@@ -29,7 +29,7 @@ const NIGERIAN_BANKS = [
 export default function CheckoutSessionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { clearCart } = useCart();
+  const { removePurchasedItems } = useCart();
 
   const [session, setSession] = useState<CheckoutSession | null>(null);
   const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
@@ -289,9 +289,13 @@ export default function CheckoutSessionPage() {
         });
       }
 
-      // Clear shopping cart
+      // Remove purchased items only from shopping cart
       try {
-        clearCart();
+        const purchasedItems = (session?.cart_snapshot?.items || (session as any)?.items || []);
+        const purchasedIds = purchasedItems.map((i: any) => i.id || i.product_id || (typeof i.product === 'object' ? i.product?.id : i.product)).filter(Boolean);
+        if (purchasedIds.length > 0) {
+          removePurchasedItems(purchasedIds);
+        }
       } catch {}
 
       setSubmittedOrderRef(orderRef);

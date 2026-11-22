@@ -17,29 +17,46 @@ import { Skeleton } from '@/components/common/Skeleton';
 export default function CartPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { cart, isLoading, updateQty, removeItem, clearCart, validateCart } = useCart();
+  const {
+    cart,
+    isLoading,
+    updateQty,
+    removeItem,
+    clearCart,
+    validateCart,
+    selectedItemIds,
+    selectedItems,
+    toggleSelectItem,
+    selectAllItems,
+    deselectAllItems,
+    isItemSelected,
+  } = useCart();
   const [validating, setValidating] = useState(false);
   const [minSettings, setMinSettings] = useState<MinimumOrderSettings>({
     enabled: true,
     minimum_amount: 10000,
   });
 
-  const productSubtotal = useMemo(() => {
-    if (!cart?.items || cart.items.length === 0) return 0;
-    return cart.items.reduce((sum, item) => {
+  // Selected items subtotal & units count
+  const selectedSubtotal = useMemo(() => {
+    if (!selectedItems || selectedItems.length === 0) return 0;
+    return selectedItems.reduce((sum, item) => {
       const price = parseFloat(String(item.unit_price || item.price || 0)) || 0;
       return sum + price * Math.max(1, item.quantity || 1);
     }, 0);
-  }, [cart?.items]);
+  }, [selectedItems]);
 
-  const displaySubtotal = productSubtotal > 0
-    ? productSubtotal
-    : (parseFloat(String(cart?.subtotal || 0)) || 0);
+  const selectedCount = useMemo(() => {
+    return selectedItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+  }, [selectedItems]);
+
+  const displaySubtotal = selectedSubtotal;
 
   const meetsMinimum = useMemo(() => {
     if (!minSettings.enabled) return true;
+    if (selectedItems.length === 0) return false;
     return displaySubtotal >= minSettings.minimum_amount;
-  }, [minSettings.enabled, minSettings.minimum_amount, displaySubtotal]);
+  }, [minSettings.enabled, minSettings.minimum_amount, displaySubtotal, selectedItems.length]);
 
   const amountRemaining = useMemo(() => {
     if (!minSettings.enabled) return 0;
@@ -95,9 +112,14 @@ export default function CartPage() {
       return;
     }
 
+    if (selectedItems.length === 0) {
+      toast.error('Please select at least one product from your cart to proceed to checkout.');
+      return;
+    }
+
     if (!meetsMinimum) {
       toast.error(
-        `Minimum product subtotal of ₦${minSettings.minimum_amount.toLocaleString()} required to checkout. Please add ₦${amountRemaining.toLocaleString()} more to proceed.`
+        `Minimum product subtotal of ₦${minSettings.minimum_amount.toLocaleString()} required to checkout. Please select ₦${amountRemaining.toLocaleString()} more in products to proceed.`
       );
       return;
     }
@@ -190,6 +212,62 @@ export default function CartPage() {
         </div>
       )}
 
+      {/* Selection Control Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 16px',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}
+      >
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            cursor: 'pointer',
+            userSelect: 'none',
+            fontSize: '14px',
+            fontWeight: 700,
+            color: 'var(--color-text)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={cart.items.length > 0 && selectedItemIds.size === cart.items.length}
+            onChange={(e) => {
+              if (e.target.checked) selectAllItems();
+              else deselectAllItems();
+            }}
+            style={{
+              width: '20px',
+              height: '20px',
+              accentColor: '#ff7a00',
+              cursor: 'pointer',
+            }}
+          />
+          <span>
+            Select All ({cart.items.length} {cart.items.length === 1 ? 'item' : 'items'})
+          </span>
+        </label>
+
+        <div style={{ fontSize: '13px' }}>
+          {selectedItemIds.size === 0 ? (
+            <span style={{ color: '#ef4444', fontWeight: 600 }}>0 items selected</span>
+          ) : (
+            <span style={{ color: '#16a34a', fontWeight: 700 }}>
+              ✓ {selectedItemIds.size} of {cart.items.length} items selected ({selectedCount} units)
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="cart-layout-grid">
         {/* Cart Items List */}
         <div style={itemsColStyles}>
@@ -213,8 +291,35 @@ export default function CartPage() {
               name: displayName,
             });
 
+            const isChecked = isItemSelected(item.id);
             return (
-              <div key={item.id} style={itemCardStyles} className="cart-item-row">
+              <div
+                key={item.id}
+                style={{
+                  ...itemCardStyles,
+                  opacity: isChecked ? 1 : 0.65,
+                  transition: 'opacity 0.2s ease, border-color 0.2s ease',
+                  borderColor: isChecked ? 'var(--color-border)' : '#e2e8f0',
+                }}
+                className="cart-item-row"
+              >
+                {/* Checkbox column */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleSelectItem(item.id)}
+                    aria-label={`Select ${displayName} for checkout`}
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      accentColor: '#ff7a00',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  />
+                </div>
+
                 {/* Product Image */}
                 <Link to={productHref} style={{ display: 'block', textDecoration: 'none', flexShrink: 0 }}>
                   <img
@@ -352,11 +457,29 @@ export default function CartPage() {
           <hr style={dividerStyles} />
 
           <div style={{ ...summaryRowStyles, fontWeight: 'var(--font-bold)' }}>
-            <span>Subtotal</span>
+            <span>Selected Subtotal</span>
             <span style={{ ...summaryValueStyles, color: 'var(--color-primary)', fontSize: 'var(--text-lg)' }}>
               {formatPrice(displaySubtotal)}
             </span>
           </div>
+
+          {selectedItems.length === 0 && (
+            <div
+              style={{
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                color: '#991b1b',
+                fontSize: '12px',
+                fontWeight: 600,
+                marginTop: '10px',
+                marginBottom: '10px',
+              }}
+            >
+              ⚠️ Please select at least one product above to proceed to checkout.
+            </div>
+          )}
 
           {/* Minimum Order Value Alert & Guidance */}
           {minSettings.enabled && cart && Array.isArray(cart.items) && cart.items.length > 0 && !meetsMinimum && (
@@ -413,19 +536,21 @@ export default function CartPage() {
 
           <button
             onClick={handleProceedToCheckout}
-            disabled={!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum}
+            disabled={!cart || !Array.isArray(cart.items) || selectedItems.length === 0 || validating || !meetsMinimum}
             style={{
               ...checkoutBtnStyles,
-              opacity: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum) ? 0.5 : 1,
-              cursor: (!cart || !Array.isArray(cart.items) || cart.items.length === 0 || validating || !meetsMinimum) ? 'not-allowed' : 'pointer',
-              backgroundColor: !meetsMinimum ? '#9ca3af' : 'var(--color-primary)',
+              opacity: (!cart || !Array.isArray(cart.items) || selectedItems.length === 0 || validating || !meetsMinimum) ? 0.5 : 1,
+              cursor: (!cart || !Array.isArray(cart.items) || selectedItems.length === 0 || validating || !meetsMinimum) ? 'not-allowed' : 'pointer',
+              backgroundColor: (selectedItems.length === 0 || !meetsMinimum) ? '#9ca3af' : 'var(--color-primary)',
             }}
           >
             {validating
               ? 'Validating...'
+              : selectedItems.length === 0
+              ? 'Select Products to Checkout'
               : !meetsMinimum
-              ? `Minimum ${formatPrice(minSettings.minimum_amount)} Required`
-              : 'Proceed to Checkout'}
+              ? `Add ${formatPrice(amountRemaining)} More to Checkout`
+              : `Proceed to Checkout (${selectedCount} ${selectedCount === 1 ? 'item' : 'items'})`}
           </button>
 
           <Link to="/products" style={continueShoppingStyles}>
@@ -438,10 +563,10 @@ export default function CartPage() {
       <style>{`
         @media (min-width: 600px) {
           .cart-item-row {
-            grid-template-columns: 80px 1fr auto auto !important;
+            grid-template-columns: 28px 80px 1fr auto auto !important;
             grid-template-rows: auto !important;
             align-items: center !important;
-            gap: var(--space-4) !important;
+            gap: var(--space-3) !important;
             padding: var(--space-4) !important;
           }
           .cart-item-row .cart-item-qty {
@@ -455,6 +580,11 @@ export default function CartPage() {
         }
         /* Mobile: qty + total span full width in a flex row */
         @media (max-width: 599px) {
+          .cart-item-row {
+            grid-template-columns: 28px 70px 1fr !important;
+            gap: var(--space-2) !important;
+            padding: var(--space-3) !important;
+          }
           .cart-item-qty-total {
             grid-column: 1 / -1;
             display: flex;

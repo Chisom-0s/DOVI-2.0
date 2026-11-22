@@ -1,3 +1,4 @@
+import { resolveOrderDisplay } from '@/utils/orderImageHelper';
 // Orders API — /api/v1/orders/*
 import apiClient, { normalizeApiError, tokenStore } from './client';
 import { getLocalOrdersMap, saveLocalOrder } from './checkout';
@@ -175,12 +176,9 @@ export const ordersApi = {
             : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
 
         const items = lo.items || [];
-        const productNames = items
-          .map((i: any) => i.product?.name || i.product_name || i.name)
-          .filter(Boolean);
-        const productImages = items
-          .map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url)
-          .filter(Boolean);
+        const display = resolveOrderDisplay(lo);
+        const productNames = display.allNames.length > 0 ? display.allNames : items.map((i: any) => i.product?.name || i.product_name || i.name).filter(Boolean);
+        const productImages = display.allImages;
 
         merged.push({
           id: lo.id || ref,
@@ -226,8 +224,9 @@ export const ordersApi = {
               : payment?.status || r.payment_status || 'PENDING_PAYMENT';
 
           const items = r.items || [];
-          const productNames = r.product_names || items.map((i: any) => i.product?.name || i.name).filter(Boolean);
-          const productImages = r.product_images || items.map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url).filter(Boolean);
+          const display = resolveOrderDisplay(r);
+          const productNames = display.allNames.length > 0 ? display.allNames : (r.product_names || items.map((i: any) => i.product?.name || i.name).filter(Boolean));
+          const productImages = display.allImages;
 
           merged.push({
             ...r,

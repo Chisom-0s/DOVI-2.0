@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
+import '@/utils/toastDedupe';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -43,11 +44,17 @@ export default function App() {
             <SmartsuppChat />
             <Toaster
               position="top-right"
+              gutter={8}
               toastOptions={{
-                duration: 4000,
+                duration: 3500,
                 style: {
                   fontSize: '0.875rem',
                   fontFamily: 'var(--font-sans)',
+                  maxWidth: '380px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+                },
+                error: {
+                  duration: 3500,
                 },
               }}
             />

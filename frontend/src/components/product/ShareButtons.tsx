@@ -86,8 +86,10 @@ export default function ShareButtons({ productName }: ShareButtonsProps) {
 const containerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-3)',
-  marginVertical: 'var(--space-4)',
+  flexWrap: 'wrap',
+  gap: '8px',
+  marginTop: 'var(--space-3)',
+  marginBottom: 'var(--space-3)',
   width: '100%',
 };
 

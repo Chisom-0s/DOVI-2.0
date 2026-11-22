@@ -1,3 +1,4 @@
+import { resolveOrderDisplay } from '@/utils/orderImageHelper';
 import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -193,15 +194,10 @@ export default function DashboardOverviewPage() {
               {recentOrders.map((order) => {
                 const payBadge = getPaymentBadgeInfo(order.payment_status);
                 const fulfillBadge = getFulfillmentBadgeInfo(order.status, order.fulfillment_status);
-                const thumbUrl =
-                  order.product_images?.[0] ||
-                  order.items?.[0]?.product?.primary_image_url ||
-                  order.items?.[0]?.product?.image_url;
-                const productName =
-                  order.product_names?.[0] ||
-                  order.items?.[0]?.product?.name ||
-                  `Order #${order.reference}`;
-                const extraItemsCount = (order.item_count || 1) - 1;
+                const display = resolveOrderDisplay(order);
+                const thumbUrl = display.primaryImageUrl;
+                const productName = display.primaryProductName;
+                const extraItemsCount = Math.max(0, (order.item_count || 1) - 1);
 
                 return (
                   <Link
@@ -214,34 +210,49 @@ export default function DashboardOverviewPage() {
                       {/* Product Thumbnail */}
                       <div
                         style={{
-                          width: '46px',
-                          height: '46px',
+                          width: '48px',
+                          height: '48px',
                           borderRadius: '8px',
                           overflow: 'hidden',
-                          backgroundColor: '#f3f4f6',
+                          backgroundColor: '#ffffff',
                           flexShrink: 0,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           border: '1px solid #e5e7eb',
+                          padding: '2px',
                         }}
                       >
                         {thumbUrl ? (
                           <img
                             src={thumbUrl}
                             alt={productName}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              const target = e.currentTarget as HTMLElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              const fallback = parent?.querySelector('.fallback-bag-icon') as HTMLElement;
+                              if (fallback) fallback.style.display = 'block';
                             }}
                           />
-                        ) : (
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <path d="M16 10a4 4 0 0 1-8 0"></path>
-                          </svg>
-                        )}
+                        ) : null}
+                        <svg
+                          className="fallback-bag-icon"
+                          style={{ display: thumbUrl ? 'none' : 'block' }}
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#9ca3af"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                          <line x1="3" y1="6" x2="21" y2="6"></line>
+                          <path d="M16 10a4 4 0 0 1-8 0"></path>
+                        </svg>
                       </div>
 
                       {/* Order & Product Summary */}

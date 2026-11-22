@@ -1,4 +1,4 @@
-import { getProductHomepagePlacement, isDiscountActiveNow } from '@/services/homepagePlacementService';
+import { getProductHomepagePlacement, isDiscountActiveNow, resolveProductSellingPrice } from '@/services/homepagePlacementService';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -166,10 +166,15 @@ export default function ProductDetailPage() {
     try {
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1500);
+      const currentPricing = resolveProductSellingPrice(product);
+      const actualSellingPrice = selectedVariant
+        ? (selectedVariant.price_override ?? selectedVariant.price)
+        : (currentPricing.isDiscountActive ? currentPricing.sellingPrice : (product.base_price ?? product.price));
+
       await addToCart(product, quantity, {
         variantId: selectedVariant ? selectedVariant.id : undefined,
         variantName: selectedVariant?.name,
-        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
+        price: actualSellingPrice,
         imageUrl: product.primary_image_url || product.image_url || undefined,
       });
       toast.success(`Added ${product.name} to cart!`);
@@ -232,18 +237,24 @@ export default function ProductDetailPage() {
 
   // Display price and stock matching either the variant (if overridden) or the base product
   const placement = getProductHomepagePlacement({ id: product.id, description: product.description });
+  const pricing = resolveProductSellingPrice(product);
   const discountConfig = placement?.discount_config ?? (product as any).discount_config ?? null;
-  const isDiscountActive = isDiscountActiveNow(discountConfig);
+  const isDiscountActive = pricing.isDiscountActive || isDiscountActiveNow(discountConfig);
 
   const variantPrice = selectedVariant
     ? (selectedVariant.price_override || selectedVariant.price)
     : null;
-  let effectivePrice: any = variantPrice || product.base_price || product.price;
-  let originalPriceForDisplay: string | null = ((product as any).original_price ? formatPrice((product as any).original_price) : null);
 
-  if (isDiscountActive && discountConfig?.discount_price && !variantPrice) {
-    effectivePrice = discountConfig.discount_price;
-    originalPriceForDisplay = discountConfig.original_price ? formatPrice(discountConfig.original_price) : formatPrice(product.base_price || product.price);
+  let effectivePrice: any = variantPrice || (pricing.isDiscountActive ? pricing.sellingPrice : (product.base_price || product.price));
+  let originalPriceForDisplay: string | null = pricing.originalPrice
+    ? formatPrice(pricing.originalPrice)
+    : ((product as any).original_price ? formatPrice((product as any).original_price) : null);
+
+  if (isDiscountActive && !variantPrice) {
+    effectivePrice = pricing.sellingPrice;
+    originalPriceForDisplay = pricing.originalPrice
+      ? formatPrice(pricing.originalPrice)
+      : formatPrice(product.base_price || product.price);
   }
   const displayPrice = formatPrice(effectivePrice);
 
@@ -507,8 +518,8 @@ export default function ProductDetailPage() {
 // Styling Tokens
 // ----------------------------------------------------------
 const pageWrapperStyles: React.CSSProperties = {
-  paddingTop: 'var(--space-6)',
-  paddingBottom: 'var(--space-12)',
+  paddingTop: 'var(--space-4)',
+  paddingBottom: 'var(--space-16)',
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
@@ -547,10 +558,11 @@ const rightColStyles: React.CSSProperties = {
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-2xl)',
+  fontSize: 'clamp(1.25rem, 4.5vw, 1.75rem)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
-  lineHeight: 'var(--leading-tight)',
+  lineHeight: '1.25',
+  wordBreak: 'break-word',
 };
 
 const ratingRowStyles: React.CSSProperties = {
@@ -581,6 +593,9 @@ const priceContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: '10px',
+  width: '100%',
 };
 
 const priceStyles: React.CSSProperties = {
@@ -644,7 +659,8 @@ const qtyValStyles: React.CSSProperties = {
 };
 
 const cartBtnStyles: React.CSSProperties = {
-  flex: '1',
+  flex: '1 1 180px',
+  minWidth: '160px',
   height: '48px',
   borderRadius: 'var(--radius-md)',
   backgroundColor: 'var(--color-primary)',
@@ -654,7 +670,6 @@ const cartBtnStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
   transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
-  minWidth: '180px',
   boxShadow: '0 4px 14px rgba(255, 122, 0, 0.28)',
 };
 

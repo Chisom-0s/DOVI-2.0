@@ -29,7 +29,7 @@ const DOVI_SUPPORT_WHATSAPP = '2347067402413';
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { cart, isLoading: cartLoading } = useCart();
+  const { cart, isLoading: cartLoading, selectedItemIds } = useCart();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -65,10 +65,13 @@ export default function CheckoutPage() {
     is_default: true,
   });
 
-  // Items from cart (strictly cart-based checkout, no direct-buy bypass)
+  // Selected items from cart (strictly selective checkout — unselected items remain in cart)
   const effectiveItems: CartItem[] = useMemo(() => {
-    return cart?.items || [];
-  }, [cart?.items]);
+    if (!cart?.items || cart.items.length === 0) return [];
+    if (!selectedItemIds || selectedItemIds.size === 0) return cart.items;
+    const filtered = cart.items.filter((i) => selectedItemIds.has(i.id));
+    return filtered.length > 0 ? filtered : cart.items;
+  }, [cart?.items, selectedItemIds]);
 
   // Fetch routes and addresses
   const fetchData = useCallback(async () => {
