@@ -1,7 +1,7 @@
 export type CustomerPaymentStatus =
   | 'Awaiting Payment'
-  | 'Awaiting Payment Verification'
-  | 'Payment Verified'
+  | 'Pending Verification'
+  | 'Payment Confirmed'
   | 'Payment Rejected'
   | 'Refund Pending'
   | 'Refunded';
@@ -19,10 +19,12 @@ export function getCustomerPaymentStatusInfo(paymentStatus?: string): StatusBadg
     case 'PAID':
     case 'VERIFIED':
     case 'PAYMENT_VERIFIED':
+    case 'CONFIRMED':
+    case 'PAYMENT_CONFIRMED':
     case 'SUCCESS':
     case 'SUCCESSFUL':
       return {
-        label: 'Payment Verified',
+        label: 'Payment Confirmed',
         bg: '#ecfdf5',
         text: '#059669',
         border: '#a7f3d0',
@@ -32,7 +34,7 @@ export function getCustomerPaymentStatusInfo(paymentStatus?: string): StatusBadg
     case 'UNDER_VERIFICATION':
     case 'EVIDENCE_SUBMITTED':
       return {
-        label: 'Awaiting Payment Verification',
+        label: 'Pending Verification',
         bg: '#eff6ff',
         text: '#2563eb',
         border: '#bfdbfe',
@@ -133,6 +135,13 @@ export function getCustomerFulfillmentStatusInfo(fulfillmentStatus?: string, ord
         bg: '#fef2f2',
         text: '#dc2626',
         border: '#fecaca',
+      };
+    case 'AWAITING_DELIVERY':
+      return {
+        label: 'Awaiting Delivery',
+        bg: '#eff6ff',
+        text: '#1d4ed8',
+        border: '#bfdbfe',
       };
     case 'ORDER_PLACED':
     default:

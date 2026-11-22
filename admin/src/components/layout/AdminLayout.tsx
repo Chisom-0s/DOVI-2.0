@@ -240,15 +240,14 @@ export default function AdminLayout() {
         </div>
       </header>
 
-      {mobileMenuOpen && (
-        <div
-          onClick={() => setMobileMenuOpen(false)}
-          className="mobile-nav-backdrop"
-          aria-label="Close navigation menu"
-        />
-      )}
-
       <div style={bodyWrapperStyles}>
+        {mobileMenuOpen && (
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="mobile-nav-backdrop"
+            aria-label="Close navigation menu"
+          />
+        )}
         {/* Sidebar Nav */}
         <aside
           style={{

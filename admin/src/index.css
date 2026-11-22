@@ -79,7 +79,9 @@ body {
     overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    z-index: 99;
+    z-index: 1000 !important;
+    pointer-events: auto !important;
+    opacity: 1 !important;
     box-shadow: 10px 0 25px rgba(0,0,0,0.15);
     padding-bottom: max(32px, env(safe-area-inset-bottom, 32px)) !important;
     background-color: #ffffff;
@@ -91,9 +93,9 @@ body {
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    z-index: 98;
+    
+    z-index: 900 !important;
+    pointer-events: auto !important;
     animation: fadeIn 150ms ease-out;
   }
   header button {

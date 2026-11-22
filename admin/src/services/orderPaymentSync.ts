@@ -136,12 +136,24 @@ export function approvePaymentSync(
   notes: string = ''
 ): { payment: Payment; order?: any } {
   const payments = getLocalPayments();
+  const ordersMap = getLocalOrders();
   const targetPayment = payments.find(
     (p) => p.id === paymentOrOrderRef || p.reference === paymentOrOrderRef || p.order_reference === paymentOrOrderRef
   );
+  let targetOrder = ordersMap[paymentOrOrderRef];
+  if (!targetOrder && targetPayment?.order_reference) {
+    targetOrder = ordersMap[targetPayment.order_reference];
+  }
+  if (!targetOrder) {
+    const all = Object.values(ordersMap);
+    targetOrder = all.find(
+      (o: any) => o.reference === paymentOrOrderRef || o.id === paymentOrOrderRef || o.reference_code === paymentOrOrderRef
+    );
+  }
 
   const nowIso = new Date().toISOString();
   const adminName = actor.name || actor.email || 'Administrator';
+  const orderTotal = String(targetOrder?.total || (targetOrder as any)?.total_amount || (targetOrder as any)?.subtotal || '0');
 
   let effectivePayment: Payment;
 
@@ -150,34 +162,47 @@ export function approvePaymentSync(
     targetPayment.verified_at = nowIso;
     targetPayment.verified_by = adminName;
     if (notes) targetPayment.notes = notes;
+    if (!targetPayment.amount || targetPayment.amount === '0') {
+      targetPayment.amount = orderTotal !== '0' ? orderTotal : targetPayment.amount;
+    }
     effectivePayment = targetPayment;
   } else {
-    // Create payment entry if not existing yet
+    if (!targetOrder && !orderTotal) {
+      throw new Error(`Cannot approve payment: No payment record or order found for reference "${paymentOrOrderRef}".`);
+    }
+    const verifiedAmount = orderTotal !== '0' ? orderTotal : '0';
+    if (verifiedAmount === '0') {
+      throw new Error('Cannot fabricate a ₦0 verified payment record without valid order amount or customer submission.');
+    }
+    // Create authentic verified payment entry linked to the actual order total
     effectivePayment = {
       id: `pay-${Date.now()}`,
       reference: `PAY-${paymentOrOrderRef}`,
-      order_reference: paymentOrOrderRef,
+      order_reference: targetOrder?.reference || paymentOrOrderRef,
       provider: 'BANK_TRANSFER',
       status: 'VERIFIED',
-      amount: '0',
+      amount: verifiedAmount,
       currency: 'NGN',
       created_at: nowIso,
       verified_at: nowIso,
       verified_by: adminName,
-      notes,
+      sender_bank: (targetOrder as any)?.sender_bank || 'Direct Transfer',
+      sender_account_name: (targetOrder as any)?.sender_account_name || (targetOrder as any)?.buyer_name || 'Customer',
+      transaction_reference: (targetOrder as any)?.transaction_reference || paymentOrOrderRef,
+      notes: notes || 'Admin verified direct payment',
     };
     payments.unshift(effectivePayment);
   }
   saveLocalPayments(payments);
 
   // Update order status in orders storage
-  const ordersMap = getLocalOrders();
   const orderRef: string = effectivePayment.order_reference || paymentOrOrderRef;
-  let targetOrder = ordersMap[orderRef] || ordersMap[paymentOrOrderRef];
+  if (!targetOrder) {
+    targetOrder = ordersMap[orderRef] || ordersMap[paymentOrOrderRef];
+  }
 
   if (targetOrder) {
     targetOrder.payment_status = 'PAID';
-    // If order was awaiting payment, advance to PROCESSING
     if (
       targetOrder.status === 'PENDING_PAYMENT' ||
       targetOrder.status === 'ORDER_PLACED' ||
@@ -185,6 +210,7 @@ export function approvePaymentSync(
     ) {
       targetOrder.status = 'PROCESSING';
     }
+    (targetOrder as any).fulfillment_status = targetOrder.fulfillment_status || 'AWAITING_DELIVERY';
     targetOrder.verified_at = nowIso;
     targetOrder.verified_by = adminName;
     ordersMap[orderRef] = targetOrder;
@@ -196,6 +222,7 @@ export function approvePaymentSync(
       reference_code: orderRef,
       payment_status: 'PAID',
       status: 'PROCESSING',
+      fulfillment_status: 'AWAITING_DELIVERY',
       verified_at: nowIso,
       verified_by: adminName,
       created_at: nowIso,
@@ -222,12 +249,24 @@ export function rejectPaymentSync(
   actor: { name?: string; email?: string } = {}
 ): { payment: Payment; order?: any } {
   const payments = getLocalPayments();
+  const ordersMap = getLocalOrders();
   const targetPayment = payments.find(
     (p) => p.id === paymentOrOrderRef || p.reference === paymentOrOrderRef || p.order_reference === paymentOrOrderRef
   );
+  let targetOrder = ordersMap[paymentOrOrderRef];
+  if (!targetOrder && targetPayment?.order_reference) {
+    targetOrder = ordersMap[targetPayment.order_reference];
+  }
+  if (!targetOrder) {
+    const all = Object.values(ordersMap);
+    targetOrder = all.find(
+      (o: any) => o.reference === paymentOrOrderRef || o.id === paymentOrOrderRef || o.reference_code === paymentOrOrderRef
+    );
+  }
 
   const nowIso = new Date().toISOString();
   const adminName = actor.name || actor.email || 'Administrator';
+  const orderTotal = String(targetOrder?.total || (targetOrder as any)?.total_amount || (targetOrder as any)?.subtotal || '0');
 
   let effectivePayment: Payment;
   if (targetPayment) {
@@ -235,15 +274,18 @@ export function rejectPaymentSync(
     targetPayment.rejection_reason = reason;
     targetPayment.verified_at = nowIso;
     targetPayment.verified_by = adminName;
+    if (!targetPayment.amount || targetPayment.amount === '0') {
+      targetPayment.amount = orderTotal !== '0' ? orderTotal : targetPayment.amount;
+    }
     effectivePayment = targetPayment;
   } else {
     effectivePayment = {
       id: `pay-${Date.now()}`,
       reference: `PAY-${paymentOrOrderRef}`,
-      order_reference: paymentOrOrderRef,
+      order_reference: targetOrder?.reference || paymentOrOrderRef,
       provider: 'BANK_TRANSFER',
       status: 'REJECTED',
-      amount: '0',
+      amount: orderTotal,
       currency: 'NGN',
       rejection_reason: reason,
       created_at: nowIso,
@@ -255,9 +297,10 @@ export function rejectPaymentSync(
   saveLocalPayments(payments);
 
   // Update order
-  const ordersMap = getLocalOrders();
   const orderRef: string = effectivePayment.order_reference || paymentOrOrderRef;
-  let targetOrder = ordersMap[orderRef] || ordersMap[paymentOrOrderRef];
+  if (!targetOrder) {
+    targetOrder = ordersMap[orderRef] || ordersMap[paymentOrOrderRef];
+  }
 
   if (targetOrder) {
     targetOrder.payment_status = 'REJECTED';

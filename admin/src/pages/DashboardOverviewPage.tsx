@@ -46,7 +46,9 @@ export default function DashboardOverviewPage() {
       }
     } catch (err: any) {
       setError(err);
-      toast.error('Failed to load dashboard analytics.');
+      if (showToast) {
+        toast.error('Failed to load dashboard analytics.');
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -226,6 +228,24 @@ export default function DashboardOverviewPage() {
               ))}
             </ul>
           </div>
+          <button
+            type="button"
+            onClick={() => fetchOverview(range, true)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#d97706',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              alignSelf: 'center',
+            }}
+          >
+            🔄 Retry Sources
+          </button>
         </div>
       )}
 

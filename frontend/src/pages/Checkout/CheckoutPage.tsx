@@ -29,7 +29,7 @@ const DOVI_SUPPORT_WHATSAPP = '2347067402413';
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { cart, isLoading: cartLoading, selectedItemIds } = useCart();
+  const { cart, isLoading: cartLoading, selectedItemIds, selectedCartSnapshot } = useCart();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -67,11 +67,14 @@ export default function CheckoutPage() {
 
   // Selected items from cart (strictly selective checkout — unselected items remain in cart)
   const effectiveItems: CartItem[] = useMemo(() => {
+    if (selectedCartSnapshot?.items && selectedCartSnapshot.items.length > 0) {
+      return selectedCartSnapshot.items;
+    }
     if (!cart?.items || cart.items.length === 0) return [];
     if (!selectedItemIds || selectedItemIds.size === 0) return cart.items;
     const filtered = cart.items.filter((i) => selectedItemIds.has(i.id));
     return filtered.length > 0 ? filtered : cart.items;
-  }, [cart?.items, selectedItemIds]);
+  }, [selectedCartSnapshot?.items, cart?.items, selectedItemIds]);
 
   // Fetch routes and addresses
   const fetchData = useCallback(async () => {
@@ -353,7 +356,7 @@ export default function CheckoutPage() {
           'Customer',
         recipient_phone: selectedAddress?.phone || addrForm.phone || user?.phone_number || '',
         delivery_calculation: deliveryCalculation || undefined,
-        cart_snapshot: cart || undefined,
+        cart_snapshot: selectedCartSnapshot,
         delivery_address: selectedAddress || undefined,
       });
       navigate(`/checkout/${session.id}`);

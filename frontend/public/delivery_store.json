@@ -3405,5 +3405,17 @@
   "save2ownRefunds": [],
   "payments": [],
   "orders": [],
-  "paymentSessions": []
+  "paymentSessions": [],
+  "users": [
+    {
+      "id": "usr_admin_1",
+      "email": "admin@dovi.com",
+      "first_name": "Super",
+      "last_name": "Admin",
+      "role": "ADMIN",
+      "is_active": true,
+      "is_staff": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ]
 }

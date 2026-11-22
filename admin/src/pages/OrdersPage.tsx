@@ -1322,20 +1322,43 @@ export default function OrdersPage() {
                       <label style={modalLabelStyles}>
                         Advance Fulfillment Status
                       </label>
-                      <select
-                        disabled={isActionPending}
-                        value={selectedOrder.status}
-                        onChange={(e) => handleStatusChange(e.target.value)}
-                        style={{ ...selectStyles, width: '100%' }}
-                      >
-                        <option value="ORDER_PLACED">1. Order Placed</option>
-                        <option value="PROCESSING">2. Processing</option>
-                        <option value="READY_FOR_DISPATCH">3. Ready for Dispatch</option>
-                        <option value="DISPATCHED">4. Dispatched</option>
-                        <option value="OUT_FOR_DELIVERY">5. Out for Delivery</option>
-                        <option value="DELIVERED">6. Delivered</option>
-                        <option value="CANCELLED">✕ Cancelled</option>
-                      </select>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <select
+                          disabled={isActionPending}
+                          value={selectedOrder.status}
+                          onChange={(e) => handleStatusChange(e.target.value)}
+                          style={{ ...selectStyles, flex: 1 }}
+                        >
+                          <option value="ORDER_PLACED">1. Order Placed</option>
+                          <option value="PROCESSING">2. Processing</option>
+                          <option value="READY_FOR_DISPATCH">3. Ready for Dispatch</option>
+                          <option value="DISPATCHED">4. Dispatched</option>
+                          <option value="OUT_FOR_DELIVERY">5. Out for Delivery</option>
+                          <option value="DELIVERED">6. Delivered</option>
+                          <option value="CANCELLED">✕ Cancelled</option>
+                        </select>
+                        {selectedOrder.status !== 'DELIVERED' && selectedOrder.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            disabled={isActionPending}
+                            onClick={() => handleStatusChange('DELIVERED')}
+                            style={{
+                              padding: '8px 14px',
+                              backgroundColor: '#16a34a',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="Quickly advance status to Delivered"
+                          >
+                            ✓ Mark Delivered
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div>

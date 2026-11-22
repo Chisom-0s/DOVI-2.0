@@ -286,6 +286,7 @@ interface CartContextValue {
   itemCount: number;
   selectedItemIds: Set<string>;
   selectedItems: CartItem[];
+  selectedCartSnapshot: Cart;
   toggleSelectItem: (itemId: string) => void;
   selectAllItems: () => void;
   deselectAllItems: () => void;
@@ -395,6 +396,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!cart?.items) return [];
     return cart.items.filter(i => selectedItemIds.has(i.id));
   }, [cart?.items, selectedItemIds]);
+
+  const selectedCartSnapshot = useMemo<Cart>(() => {
+    const rawItems = selectedItems.length > 0 ? selectedItems : (cart?.items || []);
+    const items = rawItems.map((item) => {
+      const pricing = resolveProductSellingPrice({
+        id: item.product_id || (typeof item.product === 'object' ? item.product?.id : undefined),
+        name: item.name || item.product_name || (typeof item.product === 'object' ? item.product?.name : undefined),
+        base_price: item.price ?? item.unit_price ?? (typeof item.product === 'object' ? item.product?.price : 0),
+        price: item.price ?? item.unit_price ?? (typeof item.product === 'object' ? item.product?.price : 0),
+        description: typeof item.product === 'object' ? item.product?.description : undefined,
+      });
+      const unitPrice = pricing.sellingPrice > 0 ? pricing.sellingPrice : Number(item.unit_price || item.price || 0);
+      const qty = Number(item.quantity) || 1;
+      const lineTotal = (unitPrice * qty).toFixed(2);
+      return {
+        ...item,
+        unit_price: String(unitPrice),
+        price: String(unitPrice),
+        line_total: lineTotal,
+      };
+    });
+    const subtotalNum = items.reduce((sum, item) => sum + Number(item.line_total), 0);
+    return {
+      id: cart?.id || 'cart_selected',
+      items,
+      item_count: items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0),
+      subtotal: subtotalNum.toFixed(2),
+      delivery_estimate: cart?.delivery_estimate || null,
+      total: subtotalNum.toFixed(2),
+      is_valid: true,
+      validation_errors: [],
+    };
+  }, [selectedItems, cart]);
 
   const removePurchasedItems = useCallback(async (purchasedItemIds: string[]) => {
     if (!purchasedItemIds || purchasedItemIds.length === 0) return;
@@ -848,6 +882,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         itemCount,
         selectedItemIds,
         selectedItems,
+        selectedCartSnapshot,
         toggleSelectItem,
         selectAllItems,
         deselectAllItems,

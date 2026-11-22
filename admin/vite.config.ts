@@ -312,6 +312,354 @@ function doviSharedDeliveryDbPlugin() {
       });
       return;
     }
+
+    // --- AUTHORITATIVE REST API ENDPOINTS ---
+    if (req.url && (req.url.startsWith('/api/v1/orders') || req.url.startsWith('/api/v1/admin/orders'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const orders = store.orders || [];
+      const urlObj = new URL(req.url, 'http://localhost');
+      const pathname = urlObj.pathname.replace(/\/+$/, '');
+      const parts = pathname.split('/');
+      const lastPart = parts[parts.length - 1];
+      const isCollection = lastPart === 'orders';
+
+      if (isCollection) {
+        if (req.method === 'GET') {
+          let list = [...orders];
+          const status = urlObj.searchParams.get('status');
+          const q = urlObj.searchParams.get('q') || urlObj.searchParams.get('search');
+          const buyerEmail = urlObj.searchParams.get('buyer_email');
+          const customerId = urlObj.searchParams.get('customer_id');
+
+          if (status && status !== 'ALL') {
+            list = list.filter((o) => (o.status || '').toUpperCase() === status.toUpperCase() || (o.payment_status || '').toUpperCase() === status.toUpperCase());
+          }
+          if (buyerEmail) {
+            list = list.filter((o) => (o.buyer_email || '').toLowerCase() === buyerEmail.toLowerCase());
+          }
+          if (customerId) {
+            list = list.filter((o) => o.customer_id === customerId || o.buyer_id === customerId);
+          }
+          if (q) {
+            const query = q.toLowerCase();
+            list = list.filter((o) =>
+              (o.reference || '').toLowerCase().includes(query) ||
+              (o.id || '').toLowerCase().includes(query) ||
+              (o.buyer_name || '').toLowerCase().includes(query) ||
+              (o.buyer_email || '').toLowerCase().includes(query)
+            );
+          }
+
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({
+            count: list.length,
+            next: null,
+            previous: null,
+            results: list,
+          }));
+          return;
+        }
+
+        if (req.method === 'POST') {
+          let bodyStr = '';
+          req.on('data', (c: any) => { bodyStr += c; });
+          req.on('end', () => {
+            try {
+              const body = JSON.parse(bodyStr || '{}');
+              const nowIso = new Date().toISOString();
+              const newOrder = {
+                ...body,
+                id: body.id || `ORD-${Date.now()}`,
+                reference: body.reference || body.reference_code || `ORD-${Date.now()}`,
+                reference_code: body.reference_code || body.reference || `ORD-${Date.now()}`,
+                created_at: body.created_at || nowIso,
+                status: body.status || 'ORDER_PLACED',
+                payment_status: body.payment_status || 'AWAITING_PAYMENT',
+                fulfillment_status: body.fulfillment_status || 'AWAITING_DELIVERY',
+              };
+
+              const existingIdx = orders.findIndex((o: any) => o.reference === newOrder.reference || o.id === newOrder.id);
+              if (existingIdx !== -1) {
+                orders[existingIdx] = newOrder;
+              } else {
+                orders.unshift(newOrder);
+              }
+              store.orders = orders;
+              writeStore(store);
+
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = 201;
+              res.end(JSON.stringify(newOrder));
+              return;
+            } catch (err) {
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'Failed to create order' }));
+            }
+          });
+          return;
+        }
+      } else {
+        // Individual order: /api/v1/orders/:ref
+        const refParam = decodeURIComponent(lastPart).toUpperCase();
+        const targetOrder = orders.find((o: any) =>
+          (o.reference || '').toUpperCase() === refParam ||
+          (o.reference_code || '').toUpperCase() === refParam ||
+          (o.id || '').toUpperCase() === refParam
+        );
+
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          if (targetOrder) {
+            res.end(JSON.stringify(targetOrder));
+          } else {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ detail: 'Order not found' }));
+          }
+          return;
+        }
+
+        if (req.method === 'PATCH' || req.method === 'PUT') {
+          let bodyStr = '';
+          req.on('data', (c: any) => { bodyStr += c; });
+          req.on('end', () => {
+            try {
+              const body = JSON.parse(bodyStr || '{}');
+              if (targetOrder) {
+                Object.assign(targetOrder, body);
+                store.orders = orders;
+                writeStore(store);
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(targetOrder));
+              } else {
+                res.statusCode = 404;
+                res.end(JSON.stringify({ detail: 'Order not found' }));
+              }
+              return;
+            } catch {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: 'Invalid update body' }));
+            }
+          });
+          return;
+        }
+      }
+    }
+
+    // --- USERS ENDPOINT ---
+    if (req.url && req.url.startsWith('/api/v1/admin/users')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const users = store.users || [
+        {
+          id: 'usr_admin_1',
+          email: 'admin@dovi.com',
+          first_name: 'Super',
+          last_name: 'Admin',
+          role: 'ADMIN',
+          is_active: true,
+          is_staff: true,
+          created_at: '2026-01-01T00:00:00Z',
+        }
+      ];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: users.length,
+        next: null,
+        previous: null,
+        results: users,
+      }));
+      return;
+    }
+
+    // --- PRODUCTS ENDPOINT ---
+    if (req.url && (req.url.startsWith('/api/v1/products') || req.url.startsWith('/api/v1/admin/products'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      let catalog = [];
+      const catPath = path.resolve(import.meta.dirname, '../backend/products_catalog.json');
+      try {
+        if (fs.existsSync(catPath)) {
+          catalog = JSON.parse(fs.readFileSync(catPath, 'utf8'));
+        }
+      } catch {}
+
+      const urlObj = new URL(req.url, 'http://localhost');
+      const parts = urlObj.pathname.replace(/\/+$/, '').split('/');
+      const last = parts[parts.length - 1];
+
+      if (last !== 'products') {
+        const prod = catalog.find((p: any) => p.id === last || p.slug === last);
+        res.setHeader('Content-Type', 'application/json');
+        if (prod) {
+          res.end(JSON.stringify(prod));
+        } else {
+          res.statusCode = 404;
+          res.end(JSON.stringify({ detail: 'Product not found' }));
+        }
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: catalog.length,
+        next: null,
+        previous: null,
+        results: catalog,
+      }));
+      return;
+    }
+
+    // --- VENDORS ENDPOINT ---
+    if (req.url && (req.url.startsWith('/api/v1/admin/vendors') || req.url.startsWith('/api/v1/vendors'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const vendors = [
+        {
+          id: 'ca901bff-43ad-40c7-a59e-7a8b6fbd7934',
+          name: 'Dovi Official Store',
+          email: 'admin@dovi.com',
+          status: 'ACTIVE',
+          is_verified: true,
+          phone: '+2347067402413',
+        }
+      ];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: vendors.length,
+        next: null,
+        previous: null,
+        results: vendors,
+      }));
+      return;
+    }
+
+    // --- REFUNDS ENDPOINT ---
+    if (req.url && req.url.startsWith('/api/v1/refunds')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const refunds = store.save2ownRefunds || [];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: refunds.length,
+        next: null,
+        previous: null,
+        results: refunds,
+      }));
+      return;
+    }
+
+    // --- SAVE2OWN GOALS & CONTRIBUTIONS ENDPOINTS ---
+    if (req.url && (req.url.startsWith('/api/v1/admin/save2own/goals') || req.url.startsWith('/api/v1/save2own/goals'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const goals = store.save2ownGoals || [];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: goals.length,
+        next: null,
+        previous: null,
+        results: goals,
+      }));
+      return;
+    }
+
+    if (req.url && req.url.startsWith('/api/v1/admin/save2own/contributions')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const contribs = store.save2ownContributions || [];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: contribs.length,
+        next: null,
+        previous: null,
+        results: contribs,
+      }));
+      return;
+    }
+
+    // --- DELIVERIES ENDPOINT ---
+    if (req.url && (req.url.startsWith('/api/v1/delivery') || req.url.startsWith('/api/v1/admin/delivery'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(store.routes || []));
+      return;
+    }
+
+    // --- ADMIN PAYMENTS LIST ENDPOINT ---
+    if (req.url && req.url.startsWith('/api/v1/admin/payments') && !req.url.includes('/verify') && !req.url.includes('/reject')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const payments = store.payments || [];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: payments.length,
+        next: null,
+        previous: null,
+        results: payments,
+      }));
+      return;
+    }
+
+    // --- ADMIN OVERVIEW ENDPOINT ---
+    if (req.url && req.url.startsWith('/api/v1/admin/analytics/overview')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const ords = store.orders || [];
+      const revenue = ords
+        .filter((o: any) => o.payment_status === 'PAID' || o.payment_status === 'VERIFIED')
+        .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        total_orders: ords.length,
+        total_users: (store.users || []).length,
+        total_revenue: revenue,
+        pending_verifications: (store.payments || []).filter((p: any) => p.status === 'PENDING_VERIFICATION').length,
+      }));
+      return;
+    }
+
     if (!req.url || !req.url.startsWith('/__dovi_delivery_db__')) return next();
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
