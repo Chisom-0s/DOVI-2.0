@@ -228,7 +228,7 @@ export default function HeroBannerCarousel() {
       left: 32px;
       bottom: 28px;
       max-width: 440px;
-      background: rgba(15, 23, 42, 0.72);
+      background: rgba(15, 23, 42, 0.52);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.16);
@@ -245,7 +245,7 @@ export default function HeroBannerCarousel() {
 
     .hero-slide-link:hover .hero-glass-card {
       transform: translateY(-2px);
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.62);
     }
 
     .hero-tag-badge {
