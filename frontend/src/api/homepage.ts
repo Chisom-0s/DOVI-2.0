@@ -396,6 +396,27 @@ function getMockSections(): HomepageSection[] {
       sections = SEED_SECTIONS;
     }
   }
+  const CANONICAL_ORDER_RANK: Record<string, number> = {
+    BEST_SELLERS: 1,
+    'sec-best-sellers': 1,
+    DISCOUNTS: 2,
+    DEALS_AND_DISCOUNTS: 2,
+    'sec-discounts': 2,
+    TRENDING_NOW: 3,
+    TRENDING: 3,
+    'sec-trending': 3,
+    SPECIAL_PROMO: 4,
+    SAVE2OWN: 4,
+    'sec-special-promo': 4,
+    NEW_ARRIVALS: 5,
+    'sec-new-arrivals': 5,
+    HOT_SALES: 6,
+    'sec-hot-sales': 6,
+    FEATURED_PRODUCTS: 7,
+    FEATURED: 7,
+    'sec-featured': 7,
+  };
+
   return sections
     .filter(
       (s) =>
@@ -410,6 +431,7 @@ function getMockSections(): HomepageSection[] {
         s.configuration?.layout !== 'BRAND_GRID'
     )
     .map((s) => {
+      const rank = CANONICAL_ORDER_RANK[s.key] || CANONICAL_ORDER_RANK[s.id] || s.sort_order || 99;
       if (s.key === 'DISCOUNTS' || s.id === 'sec-discounts') {
         return {
           ...s,
@@ -419,9 +441,13 @@ function getMockSections(): HomepageSection[] {
           display_order: 2,
         };
       }
-      return s;
+      return {
+        ...s,
+        sort_order: rank,
+        display_order: rank,
+      };
     })
-    .sort((a, b) => (a.sort_order || 99) - (b.sort_order || 99));
+    .sort((a, b) => (CANONICAL_ORDER_RANK[a.key] || a.sort_order || 99) - (CANONICAL_ORDER_RANK[b.key] || b.sort_order || 99));
 }
 
 // Helper to filter and combine real products + mock products matching section config

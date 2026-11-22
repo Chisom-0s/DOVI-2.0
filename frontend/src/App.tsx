@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import '@/utils/toastDedupe';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
+import { GiveawayProvider } from '@/contexts/GiveawayContext';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { PromptEngineProvider } from '@/contexts/PromptEngineContext';
 import AppRouter from '@/router';
@@ -37,6 +38,7 @@ export default function App() {
       <AuthProvider>
         <PromptEngineProvider>
           <CartProvider>
+            <GiveawayProvider>
             {showSplash && (
               <DoviSplashScreen onComplete={handleSplashComplete} />
             )}
@@ -58,6 +60,7 @@ export default function App() {
                 },
               }}
             />
+          </GiveawayProvider>
           </CartProvider>
         </PromptEngineProvider>
       </AuthProvider>

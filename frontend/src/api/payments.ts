@@ -303,6 +303,11 @@ export const paymentsApi = {
     payment_session_id?: string;
     notes?: string;
   }): Promise<Payment> => {
+    // Strict requirement: Transfer receipt upload is mandatory
+    if (!payload.payment_proof_url || !payload.payment_proof_url.trim()) {
+      throw new Error('Payment receipt upload is required. Please upload your transfer receipt before submitting payment evidence.');
+    }
+
     // Check local session expiry before submitting
     const session = getLocalPaymentSession(payload.order_reference);
     if (session) {

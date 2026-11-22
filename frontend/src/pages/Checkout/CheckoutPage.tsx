@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGiveaway } from '@/contexts/GiveawayContext';
 import { authApi } from '@/api/auth';
 import { checkoutApi } from '@/api/checkout';
 import { deliveryApi } from '@/api/delivery';
@@ -30,6 +31,17 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { cart, isLoading: cartLoading, selectedItemIds, selectedCartSnapshot } = useCart();
+  const {
+    promotion: giveawayPromo,
+    isActive: isGiveawayActive,
+    isOutOfStock: isGiveawayOutOfStock,
+    checkEligibility: checkGiveawayEligibility,
+    claimGift,
+  } = useGiveaway();
+
+  const [claimedGift, setClaimedGift] = useState<any>(null);
+  const [showGiveawayModal, setShowGiveawayModal] = useState<boolean>(false);
+  const [dismissedGiveawayModal, setDismissedGiveawayModal] = useState<boolean>(false);
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -40,6 +52,24 @@ export default function CheckoutPage() {
   const userChoseDestinationRef = useRef(false);
   const [customCityMode, setCustomCityMode] = useState(false);
   const [deliveryCalculation, setDeliveryCalculation] = useState<DeliveryCalculationResult | null>(null);
+
+  // Field validation and focus refs for auto-directing
+  const stateSelectRef = useRef<HTMLSelectElement>(null);
+  const citySelectRef = useRef<HTMLSelectElement>(null);
+  const cityInputRef = useRef<HTMLInputElement>(null);
+  const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (field: string) => {
+    setValidationErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -304,8 +334,9 @@ export default function CheckoutPage() {
     }
   };
 
-  // Handle Proceed to Payment Session (when delivery fee is confirmed)
+  // Handle Proceed to Payment Session with strict mandatory field validation
   const handleProceedToPayment = async () => {
+    // 1. Authenticated customer identity check
     if (!isAuthenticated) {
       toast('Please sign in or create an account to finalize your order.', { icon: '🔐' });
       navigate('/login', {
@@ -314,11 +345,112 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!destinationState.trim() || !destinationCity.trim()) {
-      toast.error('Please select your delivery destination state and city.');
+    // 2. Cart items check
+    if (!effectiveItems || effectiveItems.length === 0) {
+      toast.error('Your shopping cart is empty. Please add items before checking out.');
+      navigate('/cart');
       return;
     }
 
+    // Clear previous validation errors
+    setValidationErrors({});
+
+    // 3. Resolve active delivery recipient details
+    let activeAddress = selectedAddress;
+    let effectiveFullName = (activeAddress?.full_name || addrForm.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`).trim();
+    let effectivePhone = (activeAddress?.phone || addrForm.phone || user?.phone_number || '').trim();
+    let effectiveState = (destinationState || activeAddress?.state || addrForm.state || '').trim();
+    let effectiveCity = (destinationCity || activeAddress?.city || addrForm.city || '').trim();
+    let effectiveStreet = (activeAddress?.address_line_1 || addrForm.address_line_1 || '').trim();
+
+    // 4. Validate Full Name
+    if (!effectiveFullName || effectiveFullName.toLowerCase() === 'customer') {
+      setValidationErrors((p) => ({ ...p, full_name: 'Please enter your full name.' }));
+      toast.error('Please enter your full name.');
+      if (!showAddForm && addresses.length === 0) setShowAddForm(true);
+      setTimeout(() => {
+        fullNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        fullNameInputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    const nameParts = effectiveFullName.split(/\s+/).filter(Boolean);
+    if (nameParts.length < 2) {
+      setValidationErrors((p) => ({ ...p, full_name: 'Please enter both your first and last name.' }));
+      toast.error('Please enter your first and last name.');
+      if (!showAddForm && addresses.length === 0) setShowAddForm(true);
+      setTimeout(() => {
+        fullNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        fullNameInputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    // 5. Validate Active Phone Number
+    const phoneDigits = effectivePhone.replace(/[^0-9]/g, '');
+    if (!effectivePhone) {
+      setValidationErrors((p) => ({ ...p, phone: 'Please enter your phone number.' }));
+      toast.error('Please enter your phone number.');
+      if (!showAddForm && addresses.length === 0) setShowAddForm(true);
+      setTimeout(() => {
+        phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        phoneInputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      setValidationErrors((p) => ({ ...p, phone: 'Please enter a valid active phone number (at least 10 digits).' }));
+      toast.error('Please enter a valid active phone number (at least 10 digits).');
+      if (!showAddForm && addresses.length === 0) setShowAddForm(true);
+      setTimeout(() => {
+        phoneInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        phoneInputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    // 6. Validate Destination State
+    if (!effectiveState) {
+      setValidationErrors((p) => ({ ...p, state: 'Please select your state.' }));
+      toast.error('Please select your state.');
+      setTimeout(() => {
+        stateSelectRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        stateSelectRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    // 7. Validate Destination Town or City
+    if (!effectiveCity) {
+      setValidationErrors((p) => ({ ...p, city: 'Please select or enter your town or city.' }));
+      toast.error('Please select your town.');
+      setTimeout(() => {
+        if (customCityMode || configuredCitiesForState.length === 0) {
+          cityInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          cityInputRef.current?.focus();
+        } else {
+          citySelectRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          citySelectRef.current?.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    // 8. Validate Complete Delivery Address
+    if (!effectiveStreet || effectiveStreet.length < 5) {
+      setValidationErrors((p) => ({ ...p, address: 'Please enter your complete delivery address.' }));
+      toast.error('Please enter your complete delivery address.');
+      setShowAddForm(true);
+      setTimeout(() => {
+        addressInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        addressInputRef.current?.focus();
+      }, 50);
+      return;
+    }
+
+    // 9. Enforce Minimum Checkout Order Value
     const minSettings = await paymentsApi.getMinimumOrderSettings();
     const subtotalVal = deliveryCalculation ? deliveryCalculation.product_subtotal : Number(cart?.subtotal || 0);
     if (minSettings.enabled && subtotalVal > 0 && subtotalVal < minSettings.minimum_amount) {
@@ -328,37 +460,93 @@ export default function CheckoutPage() {
       return;
     }
 
+    // 10. Verify Delivery Fee Calculation
     if (!deliveryCalculation || deliveryCalculation.total_delivery_fee === null || deliveryCalculation.requires_manual_quote) {
       toast.error('Delivery fee has not yet been confirmed for this destination. Please arrange delivery via WhatsApp.');
       return;
     }
 
-    const formattedAddress = selectedAddress
-      ? `${selectedAddress.address_line_1}${selectedAddress.address_line_2 ? `, ${selectedAddress.address_line_2}` : ''}, ${destinationCity}, ${destinationState}`
-      : addrForm.address_line_1
-      ? `${addrForm.address_line_1}, ${destinationCity}, ${destinationState}`
-      : `${destinationCity}, ${destinationState}`;
+    // If customer entered address details in addrForm and hasn't explicitly saved them, auto-persist to preserve data
+    if (!activeAddress && effectiveStreet) {
+      const autoAddr: Address = {
+        id: `addr_${Date.now()}`,
+        label: addrForm.label || 'Delivery Address',
+        full_name: effectiveFullName,
+        phone: effectivePhone,
+        address_line_1: effectiveStreet,
+        address_line_2: addrForm.address_line_2 || null,
+        city: effectiveCity,
+        state: effectiveState,
+        country: 'Nigeria',
+        postal_code: addrForm.postal_code || null,
+        is_default: addresses.length === 0,
+      };
+      setAddresses((prev) => [...prev, autoAddr]);
+      setSelectedAddressId(autoAddr.id);
+      activeAddress = autoAddr;
+    }
+
+    const formattedAddress = activeAddress
+      ? `${activeAddress.address_line_1}${activeAddress.address_line_2 ? `, ${activeAddress.address_line_2}` : ''}, ${effectiveCity}, ${effectiveState}`
+      : `${effectiveStreet}, ${effectiveCity}, ${effectiveState}`;
 
     setIsSubmitting(true);
     try {
+      let finalSnapshot = selectedCartSnapshot ? { ...selectedCartSnapshot } : {
+        id: `cart_${Date.now()}`,
+        items: [...effectiveItems],
+        subtotal: computedSubtotal,
+        item_count: effectiveItems.length,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (claimedGift) {
+        const giftItemEntry: any = {
+          id: claimedGift.id || 'promo-gift-earpod-2026',
+          product_id: claimedGift.product_id || 'promo-gift-earpod-2026',
+          product_name: claimedGift.name || 'DOVI Free EarPod (Launch Edition)',
+          name: claimedGift.name || 'DOVI Free EarPod (Launch Edition)',
+          unit_price: '0.00',
+          price: '0.00',
+          quantity: 1,
+          line_total: '0.00',
+          is_promotional_gift: true,
+          sku: claimedGift.sku || 'DOV-GIFT-EARPOD-2026',
+          image_url: claimedGift.image_url,
+          product: {
+            id: claimedGift.product_id || 'promo-gift-earpod-2026',
+            name: claimedGift.name || 'DOVI Free EarPod (Launch Edition)',
+            price: '0.00',
+            images: [{ image_url: claimedGift.image_url }],
+          },
+        };
+        finalSnapshot = {
+          ...finalSnapshot,
+          items: [...(finalSnapshot.items || []), giftItemEntry],
+        };
+      }
+
       const session = await checkoutApi.initializeSession({
-        delivery_address_id: selectedAddressId || 'addr_custom',
+        delivery_address_id: selectedAddressId || activeAddress?.id || 'addr_custom',
         delivery_method_id: 'dovi_direct_delivery',
         delivery_method: 'DOVI Direct Delivery',
-        destination_state: destinationState,
-        destination_city: destinationCity,
+        destination_state: effectiveState,
+        destination_city: effectiveCity,
         destination_address: formattedAddress,
-        recipient_name:
-          selectedAddress?.full_name ||
-          addrForm.full_name ||
-          `${user?.first_name || ''} ${user?.last_name || ''}`.trim() ||
-          user?.email ||
-          'Customer',
-        recipient_phone: selectedAddress?.phone || addrForm.phone || user?.phone_number || '',
+        recipient_name: effectiveFullName,
+        recipient_phone: effectivePhone,
         delivery_calculation: deliveryCalculation || undefined,
-        cart_snapshot: selectedCartSnapshot,
-        delivery_address: selectedAddress || undefined,
+        cart_snapshot: finalSnapshot as any,
+        delivery_address: activeAddress || undefined,
       });
+
+      if (claimedGift && session) {
+        try {
+          await claimGift(session.order_reference || session.id, computedSubtotal);
+        } catch {}
+      }
+
       navigate(`/checkout/${session.id}`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to initialize checkout session.');
@@ -399,6 +587,41 @@ export default function CheckoutPage() {
 
   const deliveryFee = deliveryCalculation && deliveryCalculation.total_delivery_fee !== null ? deliveryCalculation.total_delivery_fee : null;
   const totalPayable = deliveryFee !== null ? Number((computedSubtotal + deliveryFee).toFixed(2)) : null;
+
+  // Auto-detect DOVI Launch Giveaway eligibility
+  useEffect(() => {
+    const minQualifying = giveawayPromo?.qualifying_subtotal || 30000;
+    if (!computedSubtotal || computedSubtotal < minQualifying) {
+      if (claimedGift) {
+        setClaimedGift(null);
+        toast('Promotional EarPod removed because product subtotal is below ₦30,000.', { icon: 'ℹ️' });
+      }
+      // Re-arm modal if customer dropped below threshold
+      setDismissedGiveawayModal(false);
+      return;
+    }
+
+    // Subtotal >= 30,000: Auto trigger modal if not yet claimed or dismissed
+    if (
+      !claimedGift &&
+      !dismissedGiveawayModal &&
+      isGiveawayActive &&
+      !isGiveawayOutOfStock
+    ) {
+      const elig = checkGiveawayEligibility(computedSubtotal);
+      if (elig.eligible) {
+        setShowGiveawayModal(true);
+      }
+    }
+  }, [
+    computedSubtotal,
+    claimedGift,
+    dismissedGiveawayModal,
+    isGiveawayActive,
+    isGiveawayOutOfStock,
+    checkGiveawayEligibility,
+    giveawayPromo,
+  ]);
 
   // Empty Cart View
   if (!cartLoading && effectiveItems.length === 0) {
@@ -494,9 +717,18 @@ export default function CheckoutPage() {
                 <div>
                   <label style={fieldLabelStyles}>Destination State *</label>
                   <select
+                    ref={stateSelectRef}
                     value={destinationState}
-                    onChange={(e) => handleStateChange(e.target.value)}
-                    style={{ ...inputStyles, width: '100%' }}
+                    onChange={(e) => {
+                      clearFieldError('state');
+                      handleStateChange(e.target.value);
+                    }}
+                    style={{
+                      ...inputStyles,
+                      width: '100%',
+                      borderColor: validationErrors.state ? '#ef4444' : undefined,
+                      backgroundColor: validationErrors.state ? '#fef2f2' : undefined,
+                    }}
                   >
                     <option value="">Select state...</option>
                     {NIGERIAN_STATES.map((st) => (
@@ -505,6 +737,11 @@ export default function CheckoutPage() {
                       </option>
                     ))}
                   </select>
+                  {validationErrors.state && (
+                    <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                      ⚠️ {validationErrors.state}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -520,9 +757,11 @@ export default function CheckoutPage() {
                   ) : configuredCitiesForState.length > 0 ? (
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <select
+                        ref={citySelectRef}
                         key={destinationState}
                         value={selectedCityOptionValue}
                         onChange={(e) => {
+                          clearFieldError('city');
                           const v = e.target.value;
                           if (v === '__custom__') {
                             userChoseDestinationRef.current = true;
@@ -533,7 +772,12 @@ export default function CheckoutPage() {
                             handleCityChange(v);
                           }
                         }}
-                        style={{ ...inputStyles, flex: 1 }}
+                        style={{
+                          ...inputStyles,
+                          flex: 1,
+                          borderColor: validationErrors.city ? '#ef4444' : undefined,
+                          backgroundColor: validationErrors.city ? '#fef2f2' : undefined,
+                        }}
                       >
                         <option value="">Select town / city...</option>
                         {configuredCitiesForState.map((r) => (
@@ -546,11 +790,20 @@ export default function CheckoutPage() {
                       </select>
                       {selectedCityOptionValue === '__custom__' && (
                         <input
+                          ref={cityInputRef}
                           type="text"
                           placeholder="Enter town / city name"
                           value={destinationCity}
-                          onChange={(e) => handleCityChange(e.target.value)}
-                          style={{ ...inputStyles, flex: 1 }}
+                          onChange={(e) => {
+                            clearFieldError('city');
+                            handleCityChange(e.target.value);
+                          }}
+                          style={{
+                            ...inputStyles,
+                            flex: 1,
+                            borderColor: validationErrors.city ? '#ef4444' : undefined,
+                            backgroundColor: validationErrors.city ? '#fef2f2' : undefined,
+                          }}
                         />
                       )}
                     </div>
@@ -624,27 +877,75 @@ export default function CheckoutPage() {
                     style={inputStyles}
                     required
                   />
-                  <input
-                    placeholder="Recipient Full Name"
-                    value={addrForm.full_name}
-                    onChange={(e) => setAddrForm((p) => ({ ...p, full_name: e.target.value }))}
-                    style={inputStyles}
-                    required
-                  />
-                  <input
-                    placeholder="Recipient Phone Number"
-                    value={addrForm.phone}
-                    onChange={(e) => setAddrForm((p) => ({ ...p, phone: e.target.value }))}
-                    style={inputStyles}
-                    required
-                  />
-                  <input
-                    placeholder="Street Address Line 1"
-                    value={addrForm.address_line_1}
-                    onChange={(e) => setAddrForm((p) => ({ ...p, address_line_1: e.target.value }))}
-                    style={inputStyles}
-                    required
-                  />
+                  <div>
+                    <input
+                      ref={fullNameInputRef}
+                      placeholder="Recipient Full Name *"
+                      value={addrForm.full_name}
+                      onChange={(e) => {
+                        clearFieldError('full_name');
+                        setAddrForm((p) => ({ ...p, full_name: e.target.value }));
+                      }}
+                      style={{
+                        ...inputStyles,
+                        width: '100%',
+                        borderColor: validationErrors.full_name ? '#ef4444' : undefined,
+                        backgroundColor: validationErrors.full_name ? '#fef2f2' : undefined,
+                      }}
+                      required
+                    />
+                    {validationErrors.full_name && (
+                      <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '3px', fontWeight: 600 }}>
+                        ⚠️ {validationErrors.full_name}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      ref={phoneInputRef}
+                      placeholder="Recipient Phone Number (Active) *"
+                      value={addrForm.phone}
+                      onChange={(e) => {
+                        clearFieldError('phone');
+                        setAddrForm((p) => ({ ...p, phone: e.target.value }));
+                      }}
+                      style={{
+                        ...inputStyles,
+                        width: '100%',
+                        borderColor: validationErrors.phone ? '#ef4444' : undefined,
+                        backgroundColor: validationErrors.phone ? '#fef2f2' : undefined,
+                      }}
+                      required
+                    />
+                    {validationErrors.phone && (
+                      <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '3px', fontWeight: 600 }}>
+                        ⚠️ {validationErrors.phone}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      ref={addressInputRef}
+                      placeholder="Complete Street Address Line 1 *"
+                      value={addrForm.address_line_1}
+                      onChange={(e) => {
+                        clearFieldError('address');
+                        setAddrForm((p) => ({ ...p, address_line_1: e.target.value }));
+                      }}
+                      style={{
+                        ...inputStyles,
+                        width: '100%',
+                        borderColor: validationErrors.address ? '#ef4444' : undefined,
+                        backgroundColor: validationErrors.address ? '#fef2f2' : undefined,
+                      }}
+                      required
+                    />
+                    {validationErrors.address && (
+                      <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '3px', fontWeight: 600 }}>
+                        ⚠️ {validationErrors.address}
+                      </div>
+                    )}
+                  </div>
                   <input
                     placeholder="Landmark / Address Line 2 (Optional)"
                     value={addrForm.address_line_2}
@@ -700,6 +1001,43 @@ export default function CheckoutPage() {
 
             {/* Items List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {claimedGift && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1.5px solid #22c55e',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img
+                      src={claimedGift.image_url || 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80'}
+                      alt={claimedGift.name}
+                      style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px' }}
+                    />
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#14532d' }}>
+                          {claimedGift.name}
+                        </span>
+                        <span style={{ backgroundColor: '#15803d', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>
+                          FREE GIFT
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#166534', marginTop: '2px' }}>
+                        DOVI Launch Giveaway · Complimentary EarPod with HD Audio
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#15803d' }}>
+                    FREE (₦0.00)
+                  </div>
+                </div>
+              )}
               {effectiveItems.map((item) => (
                 <div
                   key={item.id}
@@ -750,6 +1088,19 @@ export default function CheckoutPage() {
             <span style={{ color: '#4b5563' }}>Product Subtotal</span>
             <span style={summaryValStyles}>{formatCurrency(computedSubtotal)}</span>
           </div>
+
+          {/* DOVI Launch Giveaway Free EarPod line */}
+          {claimedGift && (
+            <div style={summaryRowStyles}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ color: '#15803d', fontWeight: 600 }}>DOVI Launch Giveaway</span>
+                <span style={{ backgroundColor: '#dcfce7', color: '#15803d', fontSize: '9px', fontWeight: 800, padding: '1px 5px', borderRadius: '4px' }}>
+                  FREE
+                </span>
+              </div>
+              <span style={{ ...summaryValStyles, color: '#15803d', fontWeight: 700 }}>₦0.00</span>
+            </div>
+          )}
 
           {/* Delivery Fee */}
           <div style={summaryRowStyles}>
@@ -960,6 +1311,177 @@ export default function CheckoutPage() {
           )}
         </div>
       </div>
+      {/* DOVI Launch Giveaway Promotional Pop-Up Modal */}
+      {showGiveawayModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(3px)',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowGiveawayModal(false);
+              setDismissedGiveawayModal(true);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '460px',
+              width: '100%',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '2px solid #ff7a00',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                backgroundColor: '#ff7a00',
+                color: '#ffffff',
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>🎁</span>
+                <span style={{ fontWeight: 800, fontSize: '13px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Exclusive Launch Reward
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGiveawayModal(false);
+                  setDismissedGiveawayModal(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontSize: '22px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                  padding: 0,
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px 20px', textAlign: 'center' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 900, color: '#111827', margin: '0 0 8px', lineHeight: 1.3 }}>
+                SHOP ₦30,000 OR MORE AND GET A FREE EARPOD!
+              </h3>
+              <p style={{ fontSize: '13px', color: '#4b5563', margin: '0 0 16px', lineHeight: 1.5 }}>
+                Congratulations! Your product subtotal is <strong>₦{computedSubtotal.toLocaleString()}</strong>. You have unlocked a complimentary DOVI Wireless EarPod with high-definition audio!
+              </p>
+
+              {/* Gift Item Card Preview */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  backgroundColor: '#f8fafc',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  textAlign: 'left',
+                  marginBottom: '20px',
+                }}
+              >
+                <img
+                  src={giveawayPromo?.gift_item?.image_url || 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80'}
+                  alt="DOVI Free EarPod"
+                  style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                    {giveawayPromo?.gift_item?.name || 'DOVI Free EarPod (Launch Edition)'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                    Includes portable wireless charging case & crystal-clear mic
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 900, color: '#15803d' }}>
+                      ₦0.00
+                    </span>
+                    <span style={{ backgroundColor: '#15803d', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>
+                      FREE GIFT
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClaimedGift(giveawayPromo?.gift_item || {
+                      id: 'promo-gift-earpod-2026',
+                      product_id: 'promo-gift-earpod-2026',
+                      name: 'DOVI Free EarPod (Launch Edition)',
+                      sku: 'DOV-GIFT-EARPOD-2026',
+                      image_url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80',
+                    });
+                    setShowGiveawayModal(false);
+                    toast.success('Complimentary Free EarPod added to your order!');
+                  }}
+                  style={{
+                    backgroundColor: '#15803d',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '13px 20px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 6px -1px rgba(21, 128, 61, 0.3)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Claim Free EarPod
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGiveawayModal(false);
+                    setDismissedGiveawayModal(true);
+                  }}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: '#6b7280',
+                    border: 'none',
+                    padding: '8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  No thanks, continue without gift
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

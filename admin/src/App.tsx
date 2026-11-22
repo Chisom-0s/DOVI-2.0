@@ -21,6 +21,7 @@ const ReviewsPage = lazy(() => import('@/pages/ReviewsPage'));
 const AuditLogsPage = lazy(() => import('@/pages/AuditLogsPage'));
 
 const HomepageManagerPage = lazy(() => import('@/pages/Homepage/HomepageManagerPage'));
+const GiveawayManagerPage = lazy(() => import('@/pages/Promotions/GiveawayManagerPage'));
 const Save2OwnDashboardPage = lazy(() => import('@/pages/Save2Own/Save2OwnDashboardPage'));
 const Save2OwnGoalsPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalsPage'));
 const Save2OwnGoalDetailPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalDetailPage'));
@@ -51,6 +52,7 @@ export default function App() {
               >
                 <Route index element={<DashboardOverviewPage />} />
                 <Route path="homepage" element={<HomepageManagerPage />} />
+                <Route path="giveaway" element={<GiveawayManagerPage />} />
                 <Route path="save2own/dashboard" element={<Save2OwnDashboardPage />} />
                 <Route path="save2own" element={<Save2OwnGoalsPage />} />
                 <Route path="save2own/contributions" element={<Save2OwnContributionsPage />} />

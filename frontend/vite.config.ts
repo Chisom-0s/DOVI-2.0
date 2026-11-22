@@ -915,6 +915,9 @@ function doviSharedDeliveryDbPlugin() {
             minimumOrderSettings: incoming.minimumOrderSettings !== undefined
               ? incoming.minimumOrderSettings
               : (current.minimumOrderSettings || { enabled: true, minimum_amount: 10000 }),
+            launchGiveaway: incoming.launchGiveaway !== undefined
+              ? incoming.launchGiveaway
+              : (current.launchGiveaway !== undefined ? current.launchGiveaway : undefined),
           };
           writeStore(merged);
           res.setHeader('Content-Type', 'application/json');

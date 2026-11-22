@@ -128,6 +128,33 @@ export const checkoutApi = {
   }): Promise<CheckoutSession> => {
     await syncDeliveryStoreFromServer();
 
+    // Strict validation: Validate mandatory delivery information before creating session
+    const recipName = (payload.recipient_name || payload.delivery_address?.full_name || '').trim();
+    if (!recipName || recipName.toLowerCase() === 'customer') {
+      throw new Error('Please enter your full name.');
+    }
+
+    const recipPhone = (payload.recipient_phone || payload.delivery_address?.phone || '').trim();
+    const phoneDigits = recipPhone.replace(/[^0-9]/g, '');
+    if (!recipPhone || phoneDigits.length < 10) {
+      throw new Error('Please enter an active phone number (at least 10 digits).');
+    }
+
+    const destState = (payload.destination_state || payload.delivery_address?.state || '').trim();
+    if (!destState) {
+      throw new Error('Please select your state.');
+    }
+
+    const destCity = (payload.destination_city || payload.delivery_address?.city || '').trim();
+    if (!destCity) {
+      throw new Error('Please select your town.');
+    }
+
+    const destAddr = (payload.destination_address || payload.delivery_address?.address_line_1 || '').trim();
+    if (!destAddr || destAddr.length < 5) {
+      throw new Error('Please enter your complete delivery address.');
+    }
+
     const calc = payload.delivery_calculation;
     const effectiveCartSnapshot = sanitizeCartSnapshot(payload.cart_snapshot);
     const subtotalNum = calc ? calc.product_subtotal : Number(effectiveCartSnapshot?.subtotal || 0);
