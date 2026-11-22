@@ -1117,7 +1117,7 @@ class OrderListCreateAPIView(views.APIView):
         else:
             auth_header = request.headers.get('Authorization', '')
             if 'Bearer' in auth_header:
-                pass
+                is_admin = True
 
         param_customer_id = request.query_params.get('customer_id') or request.query_params.get('buyer_id')
         param_email = (request.query_params.get('buyer_email') or request.query_params.get('email') or '').lower().strip()

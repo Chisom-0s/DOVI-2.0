@@ -644,6 +644,54 @@ function doviSharedDeliveryDbPlugin() {
       return;
     }
 
+    if (req.url && req.url.startsWith('/api/v1/admin/save2own/participants')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const parts = store.save2ownParticipants || [];
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        count: parts.length,
+        next: null,
+        previous: null,
+        results: parts,
+      }));
+      return;
+    }
+
+    if (req.url && req.url.startsWith('/api/v1/admin/save2own/dashboard')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+
+      const store = readStore();
+      const goals = store.save2ownGoals || [];
+      const contribs = store.save2ownContributions || [];
+      const parts = store.save2ownParticipants || [];
+      const activeGoals = goals.filter((g: any) => g.status === 'ACTIVE').length;
+      const cancelledGoals = goals.filter((g: any) => g.status === 'CANCELLED').length;
+      const confirmedContribs = contribs.filter((c: any) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL');
+      const confirmedTotal = confirmedContribs.reduce((acc: number, c: any) => acc + (parseFloat(c.amount) || 0), 0);
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        total_participants: parts.length,
+        active_goals: activeGoals,
+        completed_goals: 0,
+        cancelled_goals: cancelledGoals,
+        paused_goals: 0,
+        pending_contributions: 0,
+        confirmed_contributions: confirmedContribs.length,
+        total_confirmed_funds: String(confirmedTotal),
+        pending_verification_amount: '0.00',
+        refund_amount: '0.00',
+      }));
+      return;
+    }
+
     // --- DELIVERIES ENDPOINT ---
     if (req.url && (req.url.startsWith('/api/v1/delivery') || req.url.startsWith('/api/v1/admin/delivery'))) {
       res.setHeader('Access-Control-Allow-Origin', '*');

@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'dovi_local_notifications',
 };
 
-export const SYSTEM_RESET_VERSION = '2026-11-22-clean-v1';
+export const SYSTEM_RESET_VERSION = '2026-11-22-audit-ready-v2';
 
 export function enforceSystemResetCheck(serverData?: any): void {
   try {

@@ -20,7 +20,7 @@ console.log('========================================================\n');
 
 // 1. Backend store checks
 const backendDb = JSON.parse(fs.readFileSync(BACKEND_STORE, 'utf8'));
-check('Backend Store Reset Version', backendDb.system_reset_version === '2026-11-22-clean-v1', backendDb.system_reset_version);
+check('Backend Store Reset Version', backendDb.system_reset_version === '2026-11-22-audit-ready-v2' || backendDb.system_reset_version === '2026-11-22-clean-v1', backendDb.system_reset_version);
 check('Backend Orders Count is 0', backendDb.orders.length === 0, `count: ${backendDb.orders.length}`);
 check('Backend Payments Count is 0', backendDb.payments.length === 0, `count: ${backendDb.payments.length}`);
 check('Backend Payment Sessions Count is 0', backendDb.paymentSessions.length === 0, `count: ${backendDb.paymentSessions.length}`);

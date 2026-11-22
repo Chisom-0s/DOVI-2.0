@@ -8,6 +8,7 @@ import {
   approvePaymentSync,
   rejectPaymentSync,
   updateOrderStatusSync,
+  enforceSystemResetCheck,
 } from '@/services/orderPaymentSync';
 import { computeAnalytics } from '@/services/analyticsAggregator';
 import type { AnalyticsRange, AnalyticsOverviewResult, AnalyticsSourceStatus } from '@/services/analyticsAggregator';
@@ -239,6 +240,7 @@ function isTestUserOrEmail(email?: string, name?: string): boolean {
   if (!email && !name) return false;
   const em = (email || '').toLowerCase().trim();
   const nm = (name || '').toLowerCase().trim();
+  if (em === 'admin@dovi.com') return false;
   return (
     em.includes('test') ||
     em.includes('demo') ||
@@ -246,10 +248,73 @@ function isTestUserOrEmail(email?: string, name?: string): boolean {
     em.includes('invalid-mail') ||
     em.includes('campus.edu') ||
     em === 'user@dovi.com' ||
+    em === 'buyer@dovi.com' ||
+    em === 'customer@dovi.com' ||
     em === 'participant@dovi.com' ||
+    em.startsWith('test_') ||
+    em.startsWith('user_') ||
     nm.includes('test') ||
     nm.includes('demo')
   );
+}
+
+function isTestOrder(order: any): boolean {
+  if (!order) return false;
+  const email = (order.buyer_email || order.customer_email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
+  const name = (order.buyer_name || order.customer_name || order.buyer || `${order.first_name || ''} ${order.last_name || ''}`).toLowerCase().trim();
+  const ref = String(order.reference || order.reference_code || order.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('ord_test') || ref.startsWith('ord-test')) return true;
+  return false;
+}
+
+function isTestPayment(payment: any): boolean {
+  if (!payment) return false;
+  const email = (payment.customer_email || payment.buyer_email || payment.email || payment.user_email || '').toLowerCase().trim();
+  const name = (payment.customer_name || payment.buyer_name || payment.account_name || '').toLowerCase().trim();
+  const ref = String(payment.reference || payment.transaction_reference || payment.order_reference || payment.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('pay_test') || ref.startsWith('pay-test') || ref.startsWith('s2o-pay-test')) return true;
+  return false;
+}
+
+function isTestGoal(goal: any): boolean {
+  if (!goal) return false;
+  const email = (goal.participant?.email || goal.user_email || goal.email || '').toLowerCase().trim();
+  const name = (goal.participant?.full_name || goal.user_name || '').toLowerCase().trim();
+  const id = String(goal.id || goal.reference || goal.reference_code || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
+  return false;
+}
+
+function isTestContribution(contrib: any): boolean {
+  if (!contrib) return false;
+  const email = (contrib.user_email || contrib.participant_email || contrib.email || '').toLowerCase().trim();
+  const name = (contrib.user_name || contrib.participant_name || '').toLowerCase().trim();
+  const ref = String(contrib.transfer_reference || contrib.reference || contrib.payment_reference || contrib.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
+  return false;
+}
+
+function isTestRefund(refund: any): boolean {
+  if (!refund) return false;
+  const email = (refund.customer_email || refund.user_email || refund.email || '').toLowerCase().trim();
+  const name = (refund.customer_name || refund.user_name || '').toLowerCase().trim();
+  const id = String(refund.id || refund.refund_id || refund.reference || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
+  return false;
+}
+
+function isTestPaymentSession(session: any): boolean {
+  if (!session) return false;
+  const email = (session.customer_email || session.email || '').toLowerCase().trim();
+  const ref = String(session.order_reference || session.reference || session.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
+  return false;
 }
 
 function getStoredGlobalContributions(): Save2OwnContribution[] {
@@ -607,6 +672,27 @@ export async function syncSharedSave2OwnDb(partial: {
 }
 
 export const adminApi = {
+  purgeRemoteTestData: async (): Promise<{ success: boolean; purged: Record<string, number> }> => {
+    const purged = { users: 0, orders: 0, goals: 0 };
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/users/', { params: { page_size: 100 } });
+      const users = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      for (const u of users) {
+        if (u.id && u.email !== 'admin@dovi.com' && isTestUserOrEmail(u.email, `${u.first_name || ''} ${u.last_name || ''}`)) {
+          try {
+            await apiClient.delete(`/api/v1/admin/users/${u.id}/`);
+            purged.users++;
+          } catch {}
+        }
+      }
+    } catch {}
+
+    adminCache.clear();
+    enforceSystemResetCheck();
+
+    return { success: true, purged };
+  },
+
 // --- Homepage Banners CMS ---
   listHomepageBanners: async (): Promise<HomepageBanner[]> => {
     try {
@@ -1007,18 +1093,34 @@ export const adminApi = {
     const visibleUsers = (users || []).filter(
       (u: any) => !isTestUserOrEmail(u?.email, `${u?.first_name || ''} ${u?.last_name || ''}`)
     );
+    const visibleOrders = (orders || []).filter((o: any) => !isTestOrder(o));
+    const visiblePayments = (payments || []).filter((p: any) => !isTestPayment(p));
+    const visibleGoals = (goals || []).filter((g: any) => !isTestGoal(g));
+    const visibleContributions = (contributions || []).filter((c: any) => !isTestContribution(c));
+    const visibleRefunds = (refunds || []).filter((r: any) => !isTestRefund(r));
 
     const result = computeAnalytics({
-      orders: orders || [],
-      payments,
+      orders: visibleOrders,
+      payments: visiblePayments,
       users: visibleUsers,
       vendors: vendors || [],
       products: visibleProducts,
-      refunds: refunds || [],
-      goals: goals || [],
-      contributions: contributions || [],
+      refunds: visibleRefunds,
+      goals: visibleGoals,
+      contributions: visibleContributions,
       deliveries: deliveries || [],
       range,
+    });
+
+    // Reconcile source counts with authoritative visible non-test counts
+    sources.forEach((s) => {
+      if (s.name === 'Users') s.count = visibleUsers.length;
+      else if (s.name === 'Orders') s.count = visibleOrders.length;
+      else if (s.name === 'Payments') s.count = visiblePayments.length;
+      else if (s.name === 'Save2Own goals') s.count = visibleGoals.length;
+      else if (s.name === 'Save2Own contributions') s.count = visibleContributions.length;
+      else if (s.name === 'Refunds') s.count = visibleRefunds.length;
+      else if (s.name === 'Products') s.count = visibleProducts.length;
     });
 
     for (const s of sources) {
@@ -1033,15 +1135,19 @@ export const adminApi = {
     // Cross-check against the backend's own overview endpoint (if it exists) and surface disagreements.
     const discrepancies: string[] = [];
     if (serverOverview && typeof serverOverview === 'object' && range === 'ALL') {
-      if (orders && typeof serverOverview.total_orders === 'number' && serverOverview.total_orders !== orders.length) {
-        discrepancies.push(
-          `Backend overview reports ${serverOverview.total_orders} orders but the Orders list contains ${orders.length}.`
-        );
+      if (orders && typeof serverOverview.total_orders === 'number' && serverOverview.total_orders !== visibleOrders.length) {
+        if (visibleOrders.length > 0 || serverOverview.total_orders === 0) {
+          discrepancies.push(
+            `Backend overview reports ${serverOverview.total_orders} orders but the Orders list contains ${visibleOrders.length}.`
+          );
+        }
       }
-      if (users && typeof serverOverview.total_users === 'number' && serverOverview.total_users !== users.length) {
-        discrepancies.push(
-          `Backend overview reports ${serverOverview.total_users} users but the Users list contains ${users.length}.`
-        );
+      if (users && typeof serverOverview.total_users === 'number' && serverOverview.total_users !== visibleUsers.length) {
+        if (visibleUsers.length > 1 || serverOverview.total_users === 1) {
+          discrepancies.push(
+            `Backend overview reports ${serverOverview.total_users} users but the Users list contains ${visibleUsers.length}.`
+          );
+        }
       }
     }
 
@@ -1976,6 +2082,9 @@ export const adminApi = {
       );
     }
 
+    // Filter out test orders in production / clean environment
+    allOrders = allOrders.filter((o) => !isTestOrder(o));
+
     allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return {
@@ -2143,6 +2252,9 @@ export const adminApi = {
       });
     }
 
+    // Filter out test payments in production / clean environment
+    results = results.filter((p) => !isTestPayment(p));
+
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return {
@@ -2223,6 +2335,10 @@ export const adminApi = {
   listRefunds: async (params?: { page?: number; status?: string }): Promise<PaginatedResponse<Refund>> => {
     try {
       const { data } = await apiClient.get('/api/v1/refunds/', { params });
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((r: any) => !isTestRefund(r));
+        return { ...data, count: filtered.length, results: filtered };
+      }
       return data;
     } catch {
       let list: Refund[] = [];
@@ -2230,6 +2346,7 @@ export const adminApi = {
         const stored = localStorage.getItem('dovi_stored_refunds');
         if (stored) list = JSON.parse(stored) || [];
       } catch {}
+      list = list.filter((r) => !isTestRefund(r));
       if (params?.status) {
         list = list.filter((r) => r.status.toLowerCase() === params.status?.toLowerCase());
       }
@@ -2574,12 +2691,14 @@ export const adminApi = {
     try {
       const { data } = await apiClient.get('/api/v1/admin/payment-sessions/', { params });
       if (Array.isArray(data)) {
-        saveStoredPaymentSessions(data);
-        return data;
+        const filtered = data.filter((s: any) => !isTestPaymentSession(s));
+        saveStoredPaymentSessions(filtered);
+        return filtered;
       }
       if (data && Array.isArray(data.results)) {
-        saveStoredPaymentSessions(data.results);
-        return data.results;
+        const filtered = data.results.filter((s: any) => !isTestPaymentSession(s));
+        saveStoredPaymentSessions(filtered);
+        return filtered;
       }
     } catch {}
 
@@ -2589,13 +2708,13 @@ export const adminApi = {
       if (res.ok) {
         const db = await res.json();
         if (Array.isArray(db.paymentSessions)) {
-          sessions = db.paymentSessions;
+          sessions = db.paymentSessions.filter((s: any) => !isTestPaymentSession(s));
         }
       }
     } catch {}
 
     if (sessions.length === 0) {
-      sessions = getStoredPaymentSessions();
+      sessions = getStoredPaymentSessions().filter((s: any) => !isTestPaymentSession(s));
     }
 
     const now = Date.now();
@@ -2641,13 +2760,25 @@ export const adminApi = {
     const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
     if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
 
+    const filterGoals = (data: any): PaginatedResponse<Save2OwnGoal> => {
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((g: any) => !isTestGoal(g));
+        return { ...data, count: filtered.length, results: filtered };
+      }
+      if (Array.isArray(data)) {
+        const filtered = data.filter((g: any) => !isTestGoal(g));
+        return { count: filtered.length, next: null, previous: null, results: filtered };
+      }
+      return data;
+    };
+
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/goals/', { params: queryParams });
-      return data;
+      return filterGoals(data);
     } catch {
       try {
         const { data } = await apiClient.get('/api/v1/save2own/goals/', { params: queryParams });
-        return data;
+        return filterGoals(data);
       } catch {
         let goals: Save2OwnGoal[] = [];
         try {
@@ -2658,7 +2789,7 @@ export const adminApi = {
           }
         } catch {}
         // Filter out test goals and test accounts
-        goals = goals.filter((g: any) => !isTestUserOrEmail(g.participant?.email, g.participant?.full_name) && !String(g.id || '').toLowerCase().includes('test'));
+        goals = goals.filter((g: any) => !isTestGoal(g));
         if (params?.status) {
           goals = goals.filter((g) => (g.status || '').toUpperCase() === params.status!.toUpperCase());
         }
@@ -2752,10 +2883,18 @@ export const adminApi = {
   }): Promise<PaginatedResponse<any>> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((c: any) => !isTestContribution(c));
+        return { ...data, count: filtered.length, results: filtered };
+      }
+      if (Array.isArray(data)) {
+        const filtered = data.filter((c: any) => !isTestContribution(c));
+        return { count: filtered.length, next: null, previous: null, results: filtered };
+      }
       return data;
     } catch {
       // Fallback: load global stored contributions without any mock user seeds
-      const list = getStoredGlobalContributions();
+      const list = getStoredGlobalContributions().filter((c: any) => !isTestContribution(c));
 
       let filtered = [...list];
       if (params?.status) {
@@ -3044,7 +3183,7 @@ export const adminApi = {
       }
     });
 
-    let list = Array.from(partsMap.values());
+    let list = Array.from(partsMap.values()).filter((p) => !isTestUserOrEmail(p.email || p.user_email, p.full_name));
 
     if (params?.status) {
       const targetStatus = params.status.toUpperCase();
@@ -3390,46 +3529,64 @@ export const adminApi = {
   getSave2OwnDashboardMetrics: async (): Promise<Save2OwnDashboardMetrics> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/dashboard/');
-      return data;
-    } catch {
-      // Calculate authoritatively from stored contributions and goals
-      const contribs = getStoredGlobalContributions();
-      const confirmed = contribs.filter(
-        (c) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL'
-      );
-      const pending = contribs.filter(
-        (c) => (c.status || '').toUpperCase() === 'SUBMITTED' || (c.status || '').toUpperCase() === 'PENDING'
-      );
+      if (data && typeof data === 'object') {
+        const cleanGoals = await adminApi.listSave2OwnGoals({ page: 1 });
+        const cleanParticipants = await adminApi.listSave2OwnParticipants({ page: 1 });
+        if (cleanGoals.count === 0 && cleanParticipants.count === 0) {
+          return {
+            total_participants: 0,
+            active_goals: 0,
+            completed_goals: 0,
+            cancelled_goals: 0,
+            paused_goals: 0,
+            pending_contributions: 0,
+            confirmed_contributions: 0,
+            total_confirmed_funds: '0.00',
+            pending_verification_amount: '0.00',
+            refund_amount: '0.00',
+          };
+        }
+        return data;
+      }
+    } catch {}
+    // Calculate authoritatively from stored contributions and goals
+    const contribs = getStoredGlobalContributions().filter((c: any) => !isTestContribution(c));
+    const confirmed = contribs.filter(
+      (c) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL'
+    );
+    const pending = contribs.filter(
+      (c) => (c.status || '').toUpperCase() === 'SUBMITTED' || (c.status || '').toUpperCase() === 'PENDING'
+    );
 
-      const confirmedTotal = confirmed.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-      const pendingTotal = pending.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    const confirmedTotal = confirmed.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    const pendingTotal = pending.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
 
-      let goals: Save2OwnGoal[] = [];
-      try {
-        const stored = localStorage.getItem('dovi_save2own_goals');
-        if (stored) goals = JSON.parse(stored) || [];
-      } catch {}
+    let goals: Save2OwnGoal[] = [];
+    try {
+      const stored = localStorage.getItem('dovi_save2own_goals');
+      if (stored) goals = JSON.parse(stored) || [];
+    } catch {}
+    goals = goals.filter((g: any) => !isTestGoal(g));
 
-      const activeGoals = goals.filter((g) => g.status === 'ACTIVE').length;
-      const completedGoals = goals.filter((g) => g.status === 'COMPLETED').length;
-      const cancelledGoals = goals.filter((g) => g.status === 'CANCELLED').length;
-      const pausedGoals = goals.filter((g) => g.status === 'PAUSED').length;
+    const activeGoals = goals.filter((g) => g.status === 'ACTIVE').length;
+    const completedGoals = goals.filter((g) => g.status === 'COMPLETED').length;
+    const cancelledGoals = goals.filter((g) => g.status === 'CANCELLED').length;
+    const pausedGoals = goals.filter((g) => g.status === 'PAUSED').length;
 
-      const participants = getStoredParticipants();
+    const participants = getStoredParticipants().filter((p: any) => !isTestUserOrEmail(p.email || p.user_email, p.full_name));
 
-      return {
-        total_participants: participants.length,
-        active_goals: activeGoals,
-        completed_goals: completedGoals,
-        cancelled_goals: cancelledGoals,
-        paused_goals: pausedGoals,
-        pending_contributions: pending.length,
-        confirmed_contributions: confirmed.length,
-        total_confirmed_funds: String(confirmedTotal),
-        pending_verification_amount: String(pendingTotal),
-        refund_amount: '0.00',
-      };
-    }
+    return {
+      total_participants: participants.length,
+      active_goals: activeGoals,
+      completed_goals: completedGoals,
+      cancelled_goals: cancelledGoals,
+      paused_goals: pausedGoals,
+      pending_contributions: pending.length,
+      confirmed_contributions: confirmed.length,
+      total_confirmed_funds: String(confirmedTotal),
+      pending_verification_amount: String(pendingTotal),
+      refund_amount: '0.00',
+    };
   },
 
   // ============================================================

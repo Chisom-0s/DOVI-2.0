@@ -1,5 +1,6 @@
 import type { Payment } from '@/types';
 import { fetchSharedDbOnce } from './sharedDbSync';
+import { adminCache } from './adminCache';
 
 const STORAGE_KEYS = {
   PAYMENTS: 'dovi_payments_submissions',
@@ -8,7 +9,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'dovi_local_notifications',
 };
 
-export const SYSTEM_RESET_VERSION = '2026-11-22-clean-v1';
+export const SYSTEM_RESET_VERSION = '2026-11-22-audit-ready-v2';
 
 export function enforceSystemResetCheck(serverData?: any): void {
   try {
@@ -27,6 +28,9 @@ export function enforceSystemResetCheck(serverData?: any): void {
       localStorage.removeItem('dovi_global_s2o_contribs');
       localStorage.removeItem('dovi_stored_refunds');
       localStorage.removeItem('dovi_deleted_product_ids');
+      try {
+        adminCache.clear();
+      } catch {}
       localStorage.setItem(
         'dovi_admin_users_db',
         JSON.stringify([
