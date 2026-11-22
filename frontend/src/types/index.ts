@@ -395,6 +395,7 @@ export interface Order {
   buyer_email?: string;
   buyer_name?: string;
   status: OrderStatus;
+  fulfillment_status?: string;
   items: OrderItem[];
   delivery_address?: Address | null;
   delivery_method?: string | null;
@@ -473,6 +474,8 @@ export interface Payment {
   notes?: string;
   verified_by?: string | null;
   rejection_reason?: string | null;
+  customer_email?: string;
+  customer_name?: string;
   created_at: string;
   verified_at?: string | null;
 }

@@ -46,6 +46,7 @@ export default function CheckoutSessionPage() {
   const [senderAccountName, setSenderAccountName] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
   const [notes, setNotes] = useState('');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [isAgreed, setIsAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,6 +186,7 @@ export default function CheckoutSessionPage() {
       return;
     }
 
+    setReceiptFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       setReceiptPreview(event.target?.result as string);
@@ -253,6 +255,19 @@ export default function CheckoutSessionPage() {
         orderRef = confirmResult.order_reference;
       }
 
+      // Upload receipt file if available to get persistent server file URL
+      let uploadedProofUrl = receiptPreview;
+      if (receiptFile) {
+        try {
+          const uploadRes = await paymentsApi.uploadReceipt(receiptFile, orderRef);
+          if (uploadRes && uploadRes.receipt_url) {
+            uploadedProofUrl = uploadRes.receipt_url;
+          }
+        } catch (uploadErr) {
+          console.warn('Receipt upload fallback:', uploadErr);
+        }
+      }
+
       // Submit payment evidence (linking to payment_session_id)
       await paymentsApi.submitPaymentEvidence({
         order_reference: orderRef,
@@ -261,7 +276,7 @@ export default function CheckoutSessionPage() {
         transaction_reference: transactionRef.trim() || orderRef,
         amount: session.total,
         currency: 'NGN',
-        payment_proof_url: receiptPreview,
+        payment_proof_url: uploadedProofUrl,
         payment_session_id: paymentSession?.id,
         notes: notes.trim(),
       });

@@ -19,7 +19,17 @@ export function getLocalPayments(): Payment[] {
 export function saveLocalPayments(payments: Payment[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
-  } catch {}
+  } catch {
+    try {
+      const sanitized = payments.map((p) => {
+        if (p.payment_proof_url && p.payment_proof_url.startsWith('data:') && p.payment_proof_url.length > 500) {
+          return { ...p, payment_proof_url: '' };
+        }
+        return p;
+      });
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(sanitized));
+    } catch {}
+  }
 }
 
 export function getLocalOrders(): Record<string, Order> {
@@ -155,7 +165,9 @@ export function savePaymentSubmissionSync(payment: Payment): void {
   const ord = ordersMap[payment.order_reference];
   if (ord) {
     ord.payment_status = 'PENDING_VERIFICATION';
-    ord.status = ord.status === 'PENDING_PAYMENT' ? 'ORDER_PLACED' : ord.status;
+    if (ord.status === 'PENDING_PAYMENT' || (ord.status as string) === 'PENDING') {
+      ord.status = 'ORDER_PLACED';
+    }
     (ord as any).payment_reference = payment.reference;
     (ord as any).payment_submitted_at = payment.created_at;
     (ord as any).payment_proof_url = payment.payment_proof_url;

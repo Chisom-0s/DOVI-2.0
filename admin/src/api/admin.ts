@@ -1884,9 +1884,17 @@ export const adminApi = {
     const merged = { ...(baseOrder || {}), ...(localOrder || {}) };
 
     const ref = merged.reference_code || merged.reference || id;
-    const payment = localPayments.find(
+    let payment = localPayments.find(
       (p) => p.order_reference === ref || p.id === id || p.reference === ref
     );
+    if (!payment || !payment.sender_bank || !payment.payment_proof_url) {
+      try {
+        const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${encodeURIComponent(ref)}`);
+        if (data && (data.order_reference || data.sender_bank || data.payment_proof_url)) {
+          payment = data;
+        }
+      } catch {}
+    }
 
     return {
       id: merged.id || id,
@@ -2043,6 +2051,20 @@ export const adminApi = {
 
   getPayment: async (ref: string): Promise<Payment> => {
     try {
+      const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${encodeURIComponent(ref)}`);
+      if (data && (data.order_reference || data.sender_bank || data.id)) {
+        return data;
+      }
+    } catch {}
+
+    try {
+      const { data } = await apiClient.get<Payment>(`/api/v1/admin/payments/${encodeURIComponent(ref)}/`);
+      if (data && (data.order_reference || data.sender_bank || data.id)) {
+        return data;
+      }
+    } catch {}
+
+    try {
       await syncPaymentsAndOrdersFromServer();
     } catch {}
 
@@ -2051,11 +2073,6 @@ export const adminApi = {
       (p) => p.id === ref || p.reference === ref || p.order_reference === ref
     );
     if (found) return found;
-
-    try {
-      const { data } = await apiClient.get(`/api/v1/admin/payments/${ref}/`);
-      return data;
-    } catch {}
 
     const order = await adminApi.getOrder(ref);
     return {

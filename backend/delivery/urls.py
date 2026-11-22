@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import DeliveryCalculationAPIView, AdminDeliveryRouteListCreateAPIView, AdminDeliveryRouteDetailAPIView
 from .payment_views import (
+    ReceiptUploadAPIView,
     SubmitPaymentEvidenceAPIView,
     PaymentEvidenceDetailAPIView,
     AdminPaymentsListAPIView,
@@ -36,6 +37,7 @@ urlpatterns = [
     path('admin/payment-sessions/', AdminPaymentSessionsListAPIView.as_view(), name='admin-payment-sessions-list'),
 
     # Manual Bank Transfer Payments & Verification
+    path('payments/upload-receipt/', ReceiptUploadAPIView.as_view(), name='payment-upload-receipt'),
     path('payments/submit-evidence/', SubmitPaymentEvidenceAPIView.as_view(), name='payment-submit-evidence'),
     path('payments/evidence/', PaymentEvidenceDetailAPIView.as_view(), name='payment-evidence-detail'),
     path('admin/payments/', AdminPaymentsListAPIView.as_view(), name='admin-payments-list'),

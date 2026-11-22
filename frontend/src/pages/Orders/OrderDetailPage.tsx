@@ -1,3 +1,4 @@
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -73,6 +74,7 @@ export default function OrderDetailPage() {
   const [resubmitAccountName, setResubmitAccountName] = useState('');
   const [resubmitRef, setResubmitRef] = useState('');
   const [resubmitNotes, setResubmitNotes] = useState('');
+  const [resubmitReceiptFile, setResubmitReceiptFile] = useState<File | null>(null);
   const [resubmitReceiptPreview, setResubmitReceiptPreview] = useState<string | null>(null);
   const [isSubmittingEvidence, setIsSubmittingEvidence] = useState(false);
   const [zoomedReceiptUrl, setZoomedReceiptUrl] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export default function OrderDetailPage() {
       toast.error('File size exceeds 10MB limit.');
       return;
     }
+    setResubmitReceiptFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       setResubmitReceiptPreview(reader.result as string);
@@ -122,13 +125,25 @@ export default function OrderDetailPage() {
 
     setIsSubmittingEvidence(true);
     try {
+      let proofUrl = resubmitReceiptPreview || undefined;
+      if (resubmitReceiptFile) {
+        try {
+          const uploadRes = await paymentsApi.uploadReceipt(resubmitReceiptFile, order.reference);
+          if (uploadRes && uploadRes.receipt_url) {
+            proofUrl = uploadRes.receipt_url;
+          }
+        } catch (uploadErr) {
+          console.warn('Receipt upload fallback:', uploadErr);
+        }
+      }
+
       await paymentsApi.submitPaymentEvidence({
         order_reference: order.reference,
         sender_bank: finalBank,
         sender_account_name: resubmitAccountName.trim(),
         transaction_reference: resubmitRef.trim(),
         amount: String(order.total),
-        payment_proof_url: resubmitReceiptPreview || undefined,
+        payment_proof_url: proofUrl,
         notes: resubmitNotes.trim() || undefined,
       });
 
@@ -289,65 +304,42 @@ export default function OrderDetailPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span
-            style={{
-              backgroundColor: '#faf5ff',
-              color: '#7c3aed',
-              border: '1px solid #e9d5ff',
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              textTransform: 'uppercase',
-            }}
-          >
-            Order Status: {SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] ||
-              order.status.replace(/_/g, ' ')}
-          </span>
-          <span
-            style={{
-              backgroundColor:
-                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                  ? '#ecfdf5'
-                  : order.payment_status === 'PENDING_VERIFICATION'
-                  ? '#eff6ff'
-                  : order.payment_status === 'REJECTED'
-                  ? '#fef2f2'
-                  : '#fffbeb',
-              color:
-                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                  ? '#059669'
-                  : order.payment_status === 'PENDING_VERIFICATION'
-                  ? '#2563eb'
-                  : order.payment_status === 'REJECTED'
-                  ? '#dc2626'
-                  : '#d97706',
-              border: `1px solid ${
-                order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                  ? '#a7f3d0'
-                  : order.payment_status === 'PENDING_VERIFICATION'
-                  ? '#bfdbfe'
-                  : order.payment_status === 'REJECTED'
-                  ? '#fecaca'
-                  : '#fde68a'
-              }`,
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
-              textTransform: 'uppercase',
-            }}
-          >
-            Payment Status: {
-              order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                ? 'Paid / Verified'
-                : order.payment_status === 'PENDING_VERIFICATION'
-                ? 'Pending Verification'
-                : order.payment_status === 'REJECTED'
-                ? 'Rejected'
-                : 'Payment Pending'
-            }
-          </span>
+          {(() => {
+            const fulfillInfo = getCustomerFulfillmentStatusInfo(order.fulfillment_status, order.status);
+            const payInfo = getCustomerPaymentStatusInfo(order.payment_status);
+            return (
+              <>
+                <span
+                  style={{
+                    backgroundColor: fulfillInfo.bg,
+                    color: fulfillInfo.text,
+                    border: `1px solid ${fulfillInfo.border}`,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Order Status: {fulfillInfo.label}
+                </span>
+                <span
+                  style={{
+                    backgroundColor: payInfo.bg,
+                    color: payInfo.text,
+                    border: `1px solid ${payInfo.border}`,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Payment Status: {payInfo.label}
+                </span>
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -1229,7 +1221,7 @@ export default function OrderDetailPage() {
 
             <div style={summaryRowStyles}>
               <span>Payment Status</span>
-              <span style={summaryValStyles}>{order.payment_status}</span>
+              <span style={summaryValStyles}>{getCustomerPaymentStatusInfo(order.payment_status).label}</span>
             </div>
 
             <div style={summaryRowStyles}>

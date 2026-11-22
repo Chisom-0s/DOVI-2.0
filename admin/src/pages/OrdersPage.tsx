@@ -301,11 +301,20 @@ export default function OrdersPage() {
       }
 
       const targetRef = summary.reference || summary.reference_code || orderId;
-      const paymentEvidence =
+      let paymentEvidence =
         (detail as any)?.payment_evidence ||
         summary.payment_evidence ||
         getPaymentByOrderRef(targetRef) ||
         getPaymentByOrderRef(orderId);
+
+      if (!paymentEvidence || !paymentEvidence.sender_bank || !paymentEvidence.payment_proof_url) {
+        try {
+          const remotePayment = await adminApi.getPayment(targetRef);
+          if (remotePayment && (remotePayment.sender_bank || remotePayment.amount || remotePayment.payment_proof_url)) {
+            paymentEvidence = remotePayment;
+          }
+        } catch {}
+      }
 
       const resolvedPaymentStatus =
         paymentEvidence?.status === 'VERIFIED'
@@ -863,6 +872,11 @@ export default function OrdersPage() {
                 (selectedOrder as any).payment_evidence ||
                 getPaymentByOrderRef(targetRef) ||
                 getPaymentByOrderRef(selectedOrder.id);
+              const senderBank = payment?.sender_bank || (selectedOrder as any).sender_bank || 'Not provided';
+              const senderAccountName = payment?.sender_account_name || (selectedOrder as any).sender_account_name || 'Not provided';
+              const transactionRef = payment?.transaction_reference || (selectedOrder as any).transaction_reference || 'N/A';
+              const declaredAmount = payment?.amount || (selectedOrder as any).payment_amount;
+              const receiptProofUrl = payment?.payment_proof_url || (selectedOrder as any).payment_proof_url;
               const orderTotal = (selectedOrder as any).total_amount || selectedOrder.total || '0';
               const pStatus = ((selectedOrder as any).payment_status || payment?.status || 'PENDING_PAYMENT').toUpperCase();
               const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
@@ -956,21 +970,21 @@ export default function OrdersPage() {
                               : '#64748b',
                         }}
                       >
-                        {payment?.amount ? formatCurrency(payment.amount) : 'Not Submitted'}
+                        {declaredAmount ? formatCurrency(declaredAmount) : 'Not Submitted'}
                       </strong>
                     </div>
                     <div>
                       <div style={{ color: '#64748b', marginBottom: '2px' }}>Sender Bank</div>
-                      <strong style={{ color: '#1e293b' }}>{payment?.sender_bank || 'Not provided'}</strong>
+                      <strong style={{ color: '#1e293b' }}>{senderBank}</strong>
                     </div>
                     <div>
                       <div style={{ color: '#64748b', marginBottom: '2px' }}>Sender Account Name</div>
-                      <strong style={{ color: '#1e293b' }}>{payment?.sender_account_name || 'Not provided'}</strong>
+                      <strong style={{ color: '#1e293b' }}>{senderAccountName}</strong>
                     </div>
                     <div>
                       <div style={{ color: '#64748b', marginBottom: '2px' }}>Transaction Reference / Narration</div>
                       <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 600 }}>
-                        {payment?.transaction_reference || 'N/A'}
+                        {transactionRef}
                       </span>
                     </div>
                     <div>
@@ -1035,7 +1049,7 @@ export default function OrdersPage() {
                   )}
 
                   {/* Receipt Image Preview */}
-                  {payment?.payment_proof_url ? (
+                  {receiptProofUrl ? (
                     <div
                       style={{
                         display: 'flex',
@@ -1062,10 +1076,10 @@ export default function OrdersPage() {
                           justifyContent: 'center',
                           flexShrink: 0,
                         }}
-                        onClick={() => setZoomedReceiptUrl(payment.payment_proof_url!)}
+                        onClick={() => setZoomedReceiptUrl(receiptProofUrl!)}
                       >
                         <img
-                          src={payment.payment_proof_url}
+                          src={receiptProofUrl}
                           alt="Receipt proof"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -1079,7 +1093,7 @@ export default function OrdersPage() {
                         </p>
                         <button
                           type="button"
-                          onClick={() => setZoomedReceiptUrl(payment.payment_proof_url!)}
+                          onClick={() => setZoomedReceiptUrl(receiptProofUrl!)}
                           style={{
                             padding: '5px 12px',
                             fontSize: '12px',

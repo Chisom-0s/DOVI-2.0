@@ -133,18 +133,36 @@ export default function PaymentsPage() {
     setSelectedPaymentIds(next);
   };
 
-  const handleReviewSessionPayment = (session: PaymentSession) => {
+  const handleReviewSessionPayment = async (session: PaymentSession) => {
+    try {
+      const remote = await adminApi.getPayment(session.order_reference || session.id);
+      if (remote && (remote.sender_bank || remote.payment_proof_url || remote.order_reference)) {
+        setSelectedPayment({
+          ...remote,
+          customer_name: (remote as any).customer_name || session.customer_name,
+          customer_email: (remote as any).customer_email || session.customer_email,
+        });
+        return;
+      }
+    } catch {}
+
     const match = payments.find(
       (p) =>
         (p.order_reference && p.order_reference === session.order_reference) ||
         (p.id && (p.id === session.payment_evidence_id || p.id === session.id))
     );
     if (match) {
-      setSelectedPayment(match);
+      setSelectedPayment({
+        ...match,
+        customer_name: (match as any).customer_name || session.customer_name,
+        customer_email: (match as any).customer_email || session.customer_email,
+      });
     } else {
       setSelectedPayment({
         id: session.payment_evidence_id || session.id,
         order_reference: session.order_reference,
+        customer_name: session.customer_name,
+        customer_email: session.customer_email,
         amount: session.amount,
         currency: session.currency || 'NGN',
         status: (session.payment_verification_status || (session.status === 'EVIDENCE_SUBMITTED' ? 'PENDING_VERIFICATION' : session.status)) as any,
@@ -923,6 +941,14 @@ export default function PaymentsPage() {
             </div>
 
             <div style={detailsGridStyles}>
+              {Boolean((selectedPayment as any).customer_name || (selectedPayment as any).customer_email) && (
+                <div style={detailItemStyles}>
+                  <span style={detailLabelStyles}>Customer Details</span>
+                  <span style={detailValueStyles}>
+                    {[(selectedPayment as any).customer_name, (selectedPayment as any).customer_email].filter(Boolean).join(' • ')}
+                  </span>
+                </div>
+              )}
               <div style={detailItemStyles}>
                 <span style={detailLabelStyles}>Order Reference</span>
                 <span style={detailValueStyles}>

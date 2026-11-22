@@ -1,3 +1,4 @@
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -138,65 +139,41 @@ export default function OrderHistoryPage() {
                   </div>
 
                   <div style={orderCenterStyles}>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span
-                        className="status-badge"
-                        style={{
-                          backgroundColor: '#faf5ff',
-                          color: '#7c3aed',
-                          border: '1px solid #e9d5ff',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        Order: {(order.fulfillment_status || order.status || 'Processing').replace(/_/g, ' ')}
-                      </span>
-                      <span
-                        style={{
-                          backgroundColor:
-                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                              ? '#ecfdf5'
-                              : order.payment_status === 'PENDING_VERIFICATION'
-                              ? '#eff6ff'
-                              : order.payment_status === 'REJECTED'
-                              ? '#fef2f2'
-                              : '#fffbeb',
-                          color:
-                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                              ? '#059669'
-                              : order.payment_status === 'PENDING_VERIFICATION'
-                              ? '#2563eb'
-                              : order.payment_status === 'REJECTED'
-                              ? '#dc2626'
-                              : '#d97706',
-                          border: `1px solid ${
-                            order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                              ? '#a7f3d0'
-                              : order.payment_status === 'PENDING_VERIFICATION'
-                              ? '#bfdbfe'
-                              : order.payment_status === 'REJECTED'
-                              ? '#fecaca'
-                              : '#fde68a'
-                          }`,
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        Payment: {
-                          order.payment_status === 'PAID' || order.payment_status === 'VERIFIED'
-                            ? 'Paid / Verified'
-                            : order.payment_status === 'PENDING_VERIFICATION'
-                            ? 'Pending Verification'
-                            : order.payment_status === 'REJECTED'
-                            ? 'Rejected'
-                            : 'Payment Pending'
-                        }
-                      </span>
-                    </div>
+                    {(() => {
+                      const fulfillInfo = getCustomerFulfillmentStatusInfo(order.fulfillment_status, order.status);
+                      const payInfo = getCustomerPaymentStatusInfo(order.payment_status);
+                      return (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              backgroundColor: fulfillInfo.bg,
+                              color: fulfillInfo.text,
+                              border: `1px solid ${fulfillInfo.border}`,
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            Order: {fulfillInfo.label}
+                          </span>
+                          <span
+                            style={{
+                              backgroundColor: payInfo.bg,
+                              color: payInfo.text,
+                              border: `1px solid ${payInfo.border}`,
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            Payment: {payInfo.label}
+                          </span>
+                        </div>
+                      );
+                    })()}
                     <span style={itemCountStyles}>
                       {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
                     </span>

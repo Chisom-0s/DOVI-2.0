@@ -440,6 +440,7 @@ export interface Payment {
   verified_by?: string | null;
   rejection_reason?: string | null;
   customer_email?: string;
+  customer_name?: string;
   created_at: string;
   verified_at?: string | null;
 }

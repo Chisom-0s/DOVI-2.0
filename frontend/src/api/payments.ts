@@ -226,6 +226,45 @@ export const paymentsApi = {
     return newSession;
   },
 
+  uploadReceipt: async (file: File, orderRef?: string): Promise<{ success: boolean; receipt_url: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (orderRef) {
+      formData.append('order_reference', orderRef);
+    }
+
+    try {
+      const { data } = await apiClient.post<{ success: boolean; receipt_url: string; filename: string }>(
+        '/api/v1/payments/upload-receipt/',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      if (data && data.receipt_url) {
+        return data;
+      }
+    } catch (err) {
+      console.warn('API receipt upload failed, falling back to data URL', err);
+    }
+
+    // Fallback: convert to Data URL if upload endpoint is unreachable
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({
+          success: true,
+          receipt_url: reader.result as string,
+          filename: file.name,
+        });
+      };
+      reader.onerror = () => reject(new Error('Failed to read receipt file'));
+      reader.readAsDataURL(file);
+    });
+  },
+
   getMethods: async (): Promise<PaymentMethod[]> => {
     return [
       {

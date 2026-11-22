@@ -1,3 +1,4 @@
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -376,49 +377,13 @@ export default function DashboardOverviewPage() {
 
 // Helpers
 function getPaymentBadgeInfo(paymentStatus?: string) {
-  const s = (paymentStatus || 'PENDING_PAYMENT').toUpperCase();
-  switch (s) {
-    case 'PAID':
-    case 'VERIFIED':
-    case 'SUCCESS':
-    case 'SUCCESSFUL':
-      return { label: 'Payment: Paid / Verified', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
-    case 'PENDING_VERIFICATION':
-      return { label: 'Payment: Pending Verification', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' };
-    case 'REJECTED':
-      return { label: 'Payment: Rejected', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
-    default:
-      return { label: 'Payment: Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
-  }
+  const info = getCustomerPaymentStatusInfo(paymentStatus);
+  return { label: `Payment: ${info.label}`, bg: info.bg, text: info.text, border: info.border };
 }
 
 function getFulfillmentBadgeInfo(status?: string, hubStatus?: string) {
-  const s = (hubStatus || status || 'ORDER_PLACED').toUpperCase();
-  switch (s) {
-    case 'DELIVERED':
-    case 'RECEIVED':
-    case 'COMPLETED':
-      return { label: 'Order: Delivered', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
-    case 'DISPATCHED':
-    case 'SHIPPED':
-    case 'OUT_FOR_DELIVERY':
-    case 'IN_TRANSIT':
-      return { label: 'Order: Dispatched', bg: '#f0f9ff', text: '#0284c7', border: '#bae6fd' };
-    case 'PROCESSING':
-    case 'SOURCING_PRODUCTS':
-    case 'AWAITING_PRODUCTS_AT_HUB':
-    case 'PRODUCTS_RECEIVED':
-    case 'QUALITY_CHECK':
-    case 'READY_FOR_PACKAGING':
-    case 'PACKAGED':
-    case 'READY_FOR_DISPATCH':
-      return { label: 'Order: Processing', bg: '#faf5ff', text: '#7c3aed', border: '#e9d5ff' };
-    case 'CANCELLED':
-    case 'REFUNDED':
-      return { label: 'Order: Cancelled', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' };
-    default:
-      return { label: 'Order: Placed', bg: '#f8fafc', text: '#475569', border: '#e2e8f0' };
-  }
+  const info = getCustomerFulfillmentStatusInfo(hubStatus, status);
+  return { label: `Order: ${info.label}`, bg: info.bg, text: info.text, border: info.border };
 }
 
 // Styling

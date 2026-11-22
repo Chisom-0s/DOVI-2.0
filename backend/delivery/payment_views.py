@@ -1,6 +1,8 @@
 import json
 import os
 import uuid
+import base64
+from django.conf import settings
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from rest_framework import permissions, status, views
@@ -69,31 +71,152 @@ class IsAdminRolePermission(permissions.BasePermission):
         return getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False)
 
 
+def save_receipt_file(file_obj=None, base64_str=None, order_ref='receipt'):
+    """
+    Saves a receipt image or document to MEDIA_ROOT / 'receipts' and returns the public media URL.
+    Handles both direct uploaded files (InMemoryUploadedFile) and base64 Data URLs.
+    """
+    media_root = getattr(settings, 'MEDIA_ROOT', None) or (Path(__file__).resolve().parent.parent / 'media')
+    receipts_dir = Path(media_root) / 'receipts'
+    os.makedirs(receipts_dir, exist_ok=True)
+
+    safe_ref = ''.join(c for c in str(order_ref) if c.isalnum() or c in ('-', '_')).strip() or 'rec'
+    ts = int(datetime.now(timezone.utc).timestamp())
+    rand_suffix = uuid.uuid4().hex[:6]
+
+    if file_obj:
+        ext = os.path.splitext(file_obj.name)[1].lower() or '.jpg'
+        if ext not in ('.jpg', '.jpeg', '.png', '.webp', '.pdf'):
+            ext = '.jpg'
+        filename = f"{safe_ref}_{ts}_{rand_suffix}{ext}"
+        dest_path = receipts_dir / filename
+        with open(dest_path, 'wb+') as dest:
+            for chunk in file_obj.chunks():
+                dest.write(chunk)
+        return f"/media/receipts/{filename}"
+
+    if base64_str and isinstance(base64_str, str) and base64_str.startswith('data:'):
+        try:
+            header, encoded = base64_str.split(';base64,', 1)
+            ext = '.jpg'
+            if 'png' in header:
+                ext = '.png'
+            elif 'webp' in header:
+                ext = '.webp'
+            elif 'pdf' in header:
+                ext = '.pdf'
+            filename = f"{safe_ref}_{ts}_{rand_suffix}{ext}"
+            dest_path = receipts_dir / filename
+            data_bytes = base64.b64decode(encoded)
+            with open(dest_path, 'wb+') as dest:
+                dest.write(data_bytes)
+            return f"/media/receipts/{filename}"
+        except Exception:
+            return None
+
+    return None
+
+
+class ReceiptUploadAPIView(views.APIView):
+    """
+    Dedicated secure receipt upload endpoint.
+    Accepts multipart form-data with file under 'receipt', 'file', or 'payment_proof'.
+    Validates:
+    - Allowed file types: JPEG, PNG, WEBP, PDF
+    - Max size: 10MB
+    Stores in MEDIA_ROOT / 'receipts' / <safe_filename>.
+    """
+    permission_classes = [permissions.AllowAny]
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.pdf'}
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+    def post(self, request):
+        uploaded_file = (
+            request.FILES.get('receipt') or
+            request.FILES.get('file') or
+            request.FILES.get('payment_proof') or
+            request.FILES.get('payment_proof_file')
+        )
+        if not uploaded_file:
+            return Response({'error': 'No receipt file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if uploaded_file.size > self.MAX_FILE_SIZE:
+            return Response({'error': 'Receipt image/document size must not exceed 10MB.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if ext not in self.ALLOWED_EXTENSIONS:
+            return Response({
+                'error': f"Invalid file format '{ext}'. Allowed formats are JPEG, PNG, WEBP, and PDF."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        order_ref = request.data.get('order_reference') or 'receipt'
+        receipt_url = save_receipt_file(file_obj=uploaded_file, order_ref=order_ref)
+        if not receipt_url:
+            return Response({'error': 'Failed to save receipt file to storage.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        filename = os.path.basename(receipt_url)
+        return Response({
+            'success': True,
+            'receipt_url': receipt_url,
+            'file_name': filename,
+            'file_size': uploaded_file.size,
+        }, status=status.HTTP_201_CREATED)
+
+
 class SubmitPaymentEvidenceAPIView(views.APIView):
     """
     Customer submits manual bank transfer receipt and transfer details.
-    Creates or updates a payment record with status PENDING_VERIFICATION.
-    Order is NOT marked paid automatically upon submission.
+    Creates or updates an authoritative payment record with status PENDING_VERIFICATION.
+    Preserves all customer-submitted fields:
+    - customer_name
+    - customer_email
+    - order_reference
+    - amount (declared payment amount)
+    - sender_bank
+    - sender_account_name
+    - transaction_reference
+    - payment_proof_url
+    - notes
+    - created_at / submitted_at
+    Updates associated order payment_status to PENDING_VERIFICATION.
+    Fulfillment status remains ORDER_PLACED (never PENDING_PAYMENT).
     """
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         data = request.data or {}
-        order_ref = data.get('order_reference') or data.get('order_id') or ''
+        order_ref = str(data.get('order_reference') or data.get('order_id') or '').strip()
         if not order_ref:
             return Response({'error': 'order_reference is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        sender_bank = data.get('sender_bank', '').strip()
-        sender_account_name = data.get('sender_account_name', '').strip()
+        sender_bank = str(data.get('sender_bank') or '').strip()
+        sender_account_name = str(data.get('sender_account_name') or '').strip()
         if not sender_bank:
             return Response({'error': 'sender_bank is required'}, status=status.HTTP_400_BAD_REQUEST)
         if not sender_account_name:
             return Response({'error': 'sender_account_name is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        amount = str(data.get('amount', '0'))
-        payment_proof_url = data.get('payment_proof_url') or data.get('proof_url') or ''
-        transaction_reference = data.get('transaction_reference') or data.get('narration') or order_ref
-        notes = data.get('notes', '')
+        amount = str(data.get('amount') or '0').strip()
+        transaction_reference = str(data.get('transaction_reference') or data.get('narration') or order_ref).strip()
+        notes = str(data.get('notes') or '').strip()
+
+        # Handle uploaded receipt: multipart file OR base64 Data URL OR existing URL
+        uploaded_file = (
+            request.FILES.get('receipt') or
+            request.FILES.get('file') or
+            request.FILES.get('payment_proof') or
+            request.FILES.get('payment_proof_file')
+        )
+        payment_proof_url = str(data.get('payment_proof_url') or data.get('proof_url') or '').strip()
+
+        if uploaded_file:
+            saved_url = save_receipt_file(file_obj=uploaded_file, order_ref=order_ref)
+            if saved_url:
+                payment_proof_url = saved_url
+        elif payment_proof_url.startswith('data:'):
+            saved_url = save_receipt_file(base64_str=payment_proof_url, order_ref=order_ref)
+            if saved_url:
+                payment_proof_url = saved_url
 
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
@@ -102,18 +225,47 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
         if not isinstance(payments, list):
             payments = []
 
+        # Find associated order in store to get customer details and expected total
+        orders = store.get('orders', [])
+        if not isinstance(orders, list):
+            orders = []
+
+        norm_ref = order_ref.lower().strip()
+        matched_order = next((o for o in orders if (
+            str(o.get('reference', '')).lower().strip() == norm_ref or
+            str(o.get('reference_code', '')).lower().strip() == norm_ref or
+            str(o.get('id', '')).lower().strip() == norm_ref
+        )), None)
+
+        customer_name = (
+            str(data.get('customer_name') or '').strip() or
+            (matched_order.get('buyer_name') if matched_order else None) or
+            ((matched_order.get('delivery_address') or {}).get('recipient_name') if matched_order else None) or
+            sender_account_name
+        )
+        customer_email = (
+            str(data.get('customer_email') or '').strip() or
+            (matched_order.get('buyer_email') if matched_order else None) or
+            ((matched_order.get('delivery_address') or {}).get('email') if matched_order else None) or
+            getattr(request.user, 'email', '')
+        )
+        expected_total = str(matched_order.get('total') or matched_order.get('total_amount') or amount) if matched_order else amount
+
         # Check associated 60-minute payment session
         sessions = store.get('paymentSessions', [])
         if not isinstance(sessions, list):
             sessions = []
-        session = next((s for s in sessions if s.get('order_reference') == order_ref or s.get('id') == data.get('payment_session_id')), None)
+        session = next((s for s in sessions if (
+            str(s.get('order_reference', '')).lower().strip() == norm_ref or
+            str(s.get('id', '')).lower().strip() == str(data.get('payment_session_id', '')).lower().strip()
+        )), None)
+
         if session:
             try:
                 exp_dt = datetime.fromisoformat(session['expires_at'].replace('Z', '+00:00'))
             except Exception:
                 exp_dt = now - timedelta(seconds=1)
 
-            # If session is expired or server received evidence after expiry
             if session.get('status') == 'EXPIRED' or (now > exp_dt and session.get('status') == 'ACTIVE'):
                 session['status'] = 'EXPIRED'
                 save_delivery_store(store)
@@ -124,17 +276,29 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
                     'order_reference': order_ref,
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Valid evidence submitted before expiry
             session['status'] = 'EVIDENCE_SUBMITTED'
             session['evidence_submitted_at'] = now_iso
             session['payment_verification_status'] = 'PENDING_VERIFICATION'
 
         # Check existing submission for this order
-        existing_idx = next((i for i, p in enumerate(payments) if p.get('order_reference') == order_ref), None)
+        existing_idx = next((i for i, p in enumerate(payments) if (
+            str(p.get('order_reference', '')).lower().strip() == norm_ref or
+            str(p.get('order_id', '')).lower().strip() == norm_ref
+        )), None)
+
+        existing_record = payments[existing_idx] if existing_idx is not None else None
+        payment_id = existing_record.get('id') if existing_record else f"pay-{uuid.uuid4().hex[:10]}"
+        payment_ref = existing_record.get('reference') if existing_record else f"PAY-{order_ref}-{uuid.uuid4().hex[:6].upper()}"
+
         payment_record = {
-            'id': f"pay-{uuid.uuid4().hex[:10]}",
-            'reference': f"PAY-{order_ref}-{uuid.uuid4().hex[:6].upper()}",
+            'id': payment_id,
+            'reference': payment_ref,
+            'payment_reference': payment_ref,
             'order_reference': order_ref,
+            'order_id': matched_order.get('id') if matched_order else order_ref,
+            'customer_name': customer_name,
+            'customer_email': customer_email,
+            'expected_amount': expected_total,
             'payment_session_id': session.get('id') if session else data.get('payment_session_id'),
             'provider': 'BANK_TRANSFER',
             'status': 'PENDING_VERIFICATION',
@@ -145,7 +309,7 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
             'transaction_reference': transaction_reference,
             'payment_proof_url': payment_proof_url,
             'notes': notes,
-            'created_at': now_iso,
+            'created_at': existing_record.get('created_at') if existing_record else now_iso,
             'submitted_at': now_iso,
             'verified_at': None,
             'verified_by': None,
@@ -156,7 +320,6 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
             session['payment_evidence_id'] = payment_record['id']
 
         if existing_idx is not None:
-            # Update existing submission (resubmission)
             payments[existing_idx] = payment_record
         else:
             payments.insert(0, payment_record)
@@ -164,17 +327,42 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
         store['payments'] = payments
         store['paymentSessions'] = sessions
 
-        # Update order status in orders array
-        orders = store.get('orders', [])
-        if not isinstance(orders, list):
-            orders = []
-
-        for ord_obj in orders:
-            if ord_obj.get('reference') == order_ref or ord_obj.get('reference_code') == order_ref or ord_obj.get('id') == order_ref:
-                ord_obj['payment_status'] = 'PENDING_VERIFICATION'
-                ord_obj['payment_submitted_at'] = now_iso
-                ord_obj['payment_reference'] = payment_record['reference']
-                break
+        # Update order status: payment_status -> PENDING_VERIFICATION; status -> ORDER_PLACED (never PENDING_PAYMENT)
+        if matched_order:
+            matched_order['payment_status'] = 'PENDING_VERIFICATION'
+            matched_order['payment_submitted_at'] = now_iso
+            matched_order['payment_reference'] = payment_record['reference']
+            matched_order['payment_evidence'] = payment_record
+            matched_order['sender_bank'] = sender_bank
+            matched_order['sender_account_name'] = sender_account_name
+            matched_order['transaction_reference'] = transaction_reference
+            matched_order['payment_proof_url'] = payment_proof_url
+            if matched_order.get('status') in ('PENDING_PAYMENT', None, ''):
+                matched_order['status'] = 'ORDER_PLACED'
+                matched_order['fulfillment_status'] = 'ORDER_PLACED'
+        else:
+            # Create synthetic order record in store so it is always retrievable
+            new_order = {
+                'id': order_ref,
+                'reference': order_ref,
+                'reference_code': order_ref,
+                'buyer_name': customer_name,
+                'buyer_email': customer_email,
+                'status': 'ORDER_PLACED',
+                'fulfillment_status': 'ORDER_PLACED',
+                'payment_status': 'PENDING_VERIFICATION',
+                'payment_submitted_at': now_iso,
+                'payment_reference': payment_record['reference'],
+                'payment_evidence': payment_record,
+                'sender_bank': sender_bank,
+                'sender_account_name': sender_account_name,
+                'transaction_reference': transaction_reference,
+                'payment_proof_url': payment_proof_url,
+                'total': amount,
+                'total_amount': amount,
+                'created_at': now_iso,
+            }
+            orders.insert(0, new_order)
 
         store['orders'] = orders
         save_delivery_store(store)
@@ -184,32 +372,62 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
 
 class PaymentEvidenceDetailAPIView(views.APIView):
     """
-    Retrieves submitted payment evidence by order reference.
+    Retrieves authoritative submitted payment evidence by order reference or payment reference.
+    Enriched with customer details and expected order amount.
     """
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        order_ref = request.query_params.get('order_reference', '')
+        order_ref = str(request.query_params.get('order_reference') or request.query_params.get('reference') or '').strip()
         if not order_ref:
             return Response({'error': 'order_reference parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         store = get_delivery_store()
         payments = store.get('payments', [])
-        match = next((p for p in payments if p.get('order_reference') == order_ref), None)
+        norm_ref = order_ref.lower().strip()
+
+        match = next((p for p in payments if (
+            str(p.get('order_reference', '')).lower().strip() == norm_ref or
+            str(p.get('reference', '')).lower().strip() == norm_ref or
+            str(p.get('id', '')).lower().strip() == norm_ref
+        )), None)
+
+        orders = store.get('orders', [])
+        matched_order = next((o for o in orders if (
+            str(o.get('reference', '')).lower().strip() == norm_ref or
+            str(o.get('reference_code', '')).lower().strip() == norm_ref or
+            str(o.get('id', '')).lower().strip() == norm_ref
+        )), None)
+
         if match:
-            return Response(match, status=status.HTTP_200_OK)
-        return Response({'detail': 'No payment evidence found for this order'}, status=status.HTTP_404_NOT_FOUND)
+            match_dict = dict(match)
+            if matched_order:
+                if not match_dict.get('customer_name'):
+                    match_dict['customer_name'] = matched_order.get('buyer_name') or (matched_order.get('delivery_address') or {}).get('recipient_name') or 'Customer'
+                if not match_dict.get('customer_email'):
+                    match_dict['customer_email'] = matched_order.get('buyer_email') or (matched_order.get('delivery_address') or {}).get('email') or ''
+                if not match_dict.get('expected_amount'):
+                    match_dict['expected_amount'] = str(matched_order.get('total') or matched_order.get('total_amount') or '0')
+            return Response(match_dict, status=status.HTTP_200_OK)
+
+        # If order exists with payment details on the order object itself
+        if matched_order and matched_order.get('payment_evidence'):
+            return Response(matched_order['payment_evidence'], status=status.HTTP_200_OK)
+
+        return Response({'detail': f'No payment evidence found for order reference: {order_ref}'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class AdminPaymentsListAPIView(views.APIView):
     """
-    Lists submitted bank transfer payments with status filtering.
+    Lists submitted bank transfer payments with status filtering and search.
+    Enriches payments with customer details from associated orders.
     """
     permission_classes = [IsAdminRolePermission]
 
     def get(self, request):
         status_filter = request.query_params.get('status', '').strip().upper()
-        page = int(request.query_params.get('page', 1) or 1)
+        search_query = request.query_params.get('search', '').strip().lower()
+        page = max(1, int(request.query_params.get('page', 1) or 1))
         page_size = 20
 
         store = get_delivery_store()
@@ -217,10 +435,51 @@ class AdminPaymentsListAPIView(views.APIView):
         if not isinstance(payments, list):
             payments = []
 
+        orders = store.get('orders', [])
+        orders_by_ref = {}
+        for o in orders:
+            ref = str(o.get('reference') or o.get('reference_code') or o.get('id') or '').lower().strip()
+            if ref:
+                orders_by_ref[ref] = o
+
+        # Enrich payments with order customer details
+        enriched_payments = []
+        for p in payments:
+            pref = str(p.get('order_reference') or p.get('order_id') or '').lower().strip()
+            associated_order = orders_by_ref.get(pref)
+            p_copy = dict(p)
+            if associated_order:
+                if not p_copy.get('customer_name'):
+                    p_copy['customer_name'] = associated_order.get('buyer_name') or (associated_order.get('delivery_address') or {}).get('recipient_name') or 'Customer'
+                if not p_copy.get('customer_email'):
+                    p_copy['customer_email'] = associated_order.get('buyer_email') or (associated_order.get('delivery_address') or {}).get('email') or ''
+                if not p_copy.get('expected_amount'):
+                    p_copy['expected_amount'] = str(associated_order.get('total') or associated_order.get('total_amount') or '0')
+            enriched_payments.append(p_copy)
+
         if status_filter:
-            filtered = [p for p in payments if (p.get('status') or '').upper() == status_filter]
+            if status_filter in ('PENDING', 'PENDING_VERIFICATION'):
+                filtered = [p for p in enriched_payments if (p.get('status') or '').upper() in ('PENDING', 'PENDING_VERIFICATION')]
+            elif status_filter in ('VERIFIED', 'PAID'):
+                filtered = [p for p in enriched_payments if (p.get('status') or '').upper() in ('VERIFIED', 'PAID')]
+            else:
+                filtered = [p for p in enriched_payments if (p.get('status') or '').upper() == status_filter]
         else:
-            filtered = payments
+            filtered = enriched_payments
+
+        if search_query:
+            filtered = [
+                p for p in filtered
+                if (
+                    search_query in str(p.get('order_reference', '')).lower() or
+                    search_query in str(p.get('reference', '')).lower() or
+                    search_query in str(p.get('sender_account_name', '')).lower() or
+                    search_query in str(p.get('sender_bank', '')).lower() or
+                    search_query in str(p.get('customer_email', '')).lower() or
+                    search_query in str(p.get('customer_name', '')).lower() or
+                    search_query in str(p.get('transaction_reference', '')).lower()
+                )
+            ]
 
         total_count = len(filtered)
         start_idx = (page - 1) * page_size
@@ -248,43 +507,71 @@ class AdminPaymentVerifyAPIView(views.APIView):
     def post(self, request, payment_id):
         store = get_delivery_store()
         payments = store.get('payments', [])
-        target = next((p for p in payments if p.get('id') == payment_id or p.get('reference') == payment_id or p.get('order_reference') == payment_id), None)
+        norm_id = str(payment_id).lower().strip()
+
+        target = next((p for p in payments if (
+            str(p.get('id', '')).lower().strip() == norm_id or
+            str(p.get('reference', '')).lower().strip() == norm_id or
+            str(p.get('order_reference', '')).lower().strip() == norm_id
+        )), None)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        admin_email = getattr(request.user, 'email', None) or request.data.get('verified_by') or 'Administrator'
 
         if not target:
-            return Response({'error': 'Payment record not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if (target.get('status') or '').upper() in ('VERIFIED', 'PAID'):
+            # Create verified payment entry if matching order exists
+            target = {
+                'id': f"pay-{uuid.uuid4().hex[:10]}",
+                'reference': f"PAY-{payment_id}",
+                'order_reference': payment_id,
+                'provider': 'BANK_TRANSFER',
+                'status': 'VERIFIED',
+                'amount': str(request.data.get('amount') or '0'),
+                'currency': 'NGN',
+                'created_at': now_iso,
+                'verified_at': now_iso,
+                'verified_by': admin_email,
+                'notes': request.data.get('notes', ''),
+            }
+            payments.insert(0, target)
+        elif (target.get('status') or '').upper() in ('VERIFIED', 'PAID'):
             return Response({
                 'already_verified': True,
                 'message': 'Payment is already verified.',
                 'payment': target,
             }, status=status.HTTP_200_OK)
+        else:
+            target['status'] = 'VERIFIED'
+            target['verified_at'] = now_iso
+            target['verified_by'] = admin_email
+            target['notes'] = request.data.get('notes', target.get('notes', ''))
 
-        now_iso = datetime.now(timezone.utc).isoformat()
-        admin_email = getattr(request.user, 'email', None) or request.data.get('verified_by') or 'Administrator'
-
-        target['status'] = 'VERIFIED'
-        target['verified_at'] = now_iso
-        target['verified_by'] = admin_email
-        target['notes'] = request.data.get('notes', target.get('notes', ''))
-
-        order_ref = target.get('order_reference')
+        order_ref = target.get('order_reference') or payment_id
+        norm_order_ref = str(order_ref).lower().strip()
         orders = store.get('orders', [])
         for ord_obj in orders:
-            if ord_obj.get('reference') == order_ref or ord_obj.get('reference_code') == order_ref or ord_obj.get('id') == order_ref:
+            if (
+                str(ord_obj.get('reference', '')).lower().strip() == norm_order_ref or
+                str(ord_obj.get('reference_code', '')).lower().strip() == norm_order_ref or
+                str(ord_obj.get('id', '')).lower().strip() == norm_order_ref
+            ):
                 ord_obj['payment_status'] = 'PAID'
                 curr_f = ord_obj.get('status')
-                if curr_f in ('PENDING_PAYMENT', 'ORDER_PLACED', None):
+                if curr_f in ('PENDING_PAYMENT', 'ORDER_PLACED', None, ''):
                     ord_obj['status'] = 'PROCESSING'
                 ord_obj['fulfillment_status'] = ord_obj.get('status')
                 ord_obj['verified_at'] = now_iso
                 ord_obj['verified_by'] = admin_email
+                ord_obj['payment_evidence'] = target
                 break
 
         # Update associated payment session
         sessions = store.get('paymentSessions', [])
         for s in sessions:
-            if s.get('order_reference') == order_ref or s.get('id') == target.get('payment_session_id'):
+            if (
+                str(s.get('order_reference', '')).lower().strip() == norm_order_ref or
+                str(s.get('id', '')).lower().strip() == str(target.get('payment_session_id', '')).lower().strip()
+            ):
                 s['payment_verification_status'] = 'VERIFIED'
                 s['status'] = 'CLOSED'
 
@@ -316,7 +603,13 @@ class AdminPaymentRejectAPIView(views.APIView):
 
         store = get_delivery_store()
         payments = store.get('payments', [])
-        target = next((p for p in payments if p.get('id') == payment_id or p.get('reference') == payment_id or p.get('order_reference') == payment_id), None)
+        norm_id = str(payment_id).lower().strip()
+
+        target = next((p for p in payments if (
+            str(p.get('id', '')).lower().strip() == norm_id or
+            str(p.get('reference', '')).lower().strip() == norm_id or
+            str(p.get('order_reference', '')).lower().strip() == norm_id
+        )), None)
 
         if not target:
             return Response({'error': 'Payment record not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -329,18 +622,27 @@ class AdminPaymentRejectAPIView(views.APIView):
         target['verified_at'] = now_iso
         target['verified_by'] = admin_email
 
-        order_ref = target.get('order_reference')
+        order_ref = target.get('order_reference') or payment_id
+        norm_order_ref = str(order_ref).lower().strip()
         orders = store.get('orders', [])
         for ord_obj in orders:
-            if ord_obj.get('reference') == order_ref or ord_obj.get('reference_code') == order_ref or ord_obj.get('id') == order_ref:
+            if (
+                str(ord_obj.get('reference', '')).lower().strip() == norm_order_ref or
+                str(ord_obj.get('reference_code', '')).lower().strip() == norm_order_ref or
+                str(ord_obj.get('id', '')).lower().strip() == norm_order_ref
+            ):
                 ord_obj['payment_status'] = 'REJECTED'
                 ord_obj['payment_rejection_reason'] = reason
+                ord_obj['payment_evidence'] = target
                 break
 
         # Update associated payment session
         sessions = store.get('paymentSessions', [])
         for s in sessions:
-            if s.get('order_reference') == order_ref or s.get('id') == target.get('payment_session_id'):
+            if (
+                str(s.get('order_reference', '')).lower().strip() == norm_order_ref or
+                str(s.get('id', '')).lower().strip() == str(target.get('payment_session_id', '')).lower().strip()
+            ):
                 s['payment_verification_status'] = 'REJECTED'
 
         store['payments'] = payments
@@ -353,7 +655,6 @@ class AdminPaymentRejectAPIView(views.APIView):
             'message': f"Payment for order {order_ref} rejected. Reason: {reason}",
             'payment': target,
         }, status=status.HTTP_200_OK)
-
 
 class OrderTransitionAPIView(views.APIView):
     """
@@ -832,7 +1133,7 @@ class OrderListCreateAPIView(views.APIView):
             all_payments = []
         payment_by_ref = {}
         for p in all_payments:
-            pref = p.get('order_reference') or p.get('order_id')
+            pref = str(p.get('order_reference') or p.get('order_id') or p.get('reference') or '').lower().strip()
             if pref:
                 payment_by_ref[pref] = p
 
@@ -868,10 +1169,17 @@ class OrderListCreateAPIView(views.APIView):
                 if curr_status != param_status:
                     continue
 
+            # Normalize fulfillment status so it never displays PENDING_PAYMENT
+            if o.get('status') in ('PENDING_PAYMENT', None, ''):
+                o['status'] = 'ORDER_PLACED'
+                o['fulfillment_status'] = 'ORDER_PLACED'
+
             # Attach latest payment verification status and evidence
-            p = payment_by_ref.get(ref) or payment_by_ref.get(o.get('id'))
+            norm_ref = str(ref).lower().strip()
+            norm_id = str(o.get('id', '')).lower().strip()
+            p = payment_by_ref.get(norm_ref) or payment_by_ref.get(norm_id)
             if p:
-                if p.get('status') == 'VERIFIED':
+                if p.get('status') in ('VERIFIED', 'PAID'):
                     o['payment_status'] = 'PAID'
                 elif p.get('status') == 'REJECTED':
                     o['payment_status'] = 'REJECTED'
@@ -1015,12 +1323,22 @@ class OrderDetailAPIView(views.APIView):
                 if not match_found:
                     return Response({'detail': 'You do not have permission to view this order.'}, status=status.HTTP_403_FORBIDDEN)
 
+        # Normalize fulfillment status so it never displays PENDING_PAYMENT
+        if matched.get('status') in ('PENDING_PAYMENT', None, ''):
+            matched['status'] = 'ORDER_PLACED'
+            matched['fulfillment_status'] = 'ORDER_PLACED'
+
         # Attach payment details if available
         payments = store.get('payments', [])
         ref = matched.get('reference') or matched.get('reference_code') or matched.get('id')
-        p = next((pay for pay in payments if pay.get('order_reference') == ref or pay.get('order_id') == ref), None)
+        norm_ref = str(ref).lower().strip()
+        p = next((pay for pay in payments if (
+            str(pay.get('order_reference', '')).lower().strip() == norm_ref or
+            str(pay.get('order_id', '')).lower().strip() == norm_ref or
+            str(pay.get('reference', '')).lower().strip() == norm_ref
+        )), None)
         if p:
-            if p.get('status') == 'VERIFIED':
+            if p.get('status') in ('VERIFIED', 'PAID'):
                 matched['payment_status'] = 'PAID'
             elif p.get('status') == 'REJECTED':
                 matched['payment_status'] = 'REJECTED'
