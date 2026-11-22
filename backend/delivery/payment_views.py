@@ -357,31 +357,85 @@ class AdminPaymentRejectAPIView(views.APIView):
 
 class OrderTransitionAPIView(views.APIView):
     """
-    Updates order fulfillment status across allowed lifecycles:
-    ORDER_PLACED -> PROCESSING -> READY_FOR_DISPATCH -> DISPATCHED -> DELIVERED (or CANCELLED)
+    Updates order fulfillment status across the simplified 7-stage lifecycle:
+    ORDER_PLACED -> PROCESSING -> READY_FOR_DISPATCH -> DISPATCHED -> OUT_FOR_DELIVERY -> DELIVERED (or CANCELLED)
+    Enforces valid status transitions and synchronizes individual shipments.
     """
     permission_classes = [IsAdminRolePermission]
 
+    VALID_STATUSES = [
+        'ORDER_PLACED',
+        'PROCESSING',
+        'READY_FOR_DISPATCH',
+        'DISPATCHED',
+        'OUT_FOR_DELIVERY',
+        'DELIVERED',
+        'CANCELLED',
+    ]
+
     def post(self, request, order_id):
-        new_status = request.data.get('status', '').strip().upper()
-        if not new_status:
+        raw_status = request.data.get('status', '').strip().upper()
+        if not raw_status:
             return Response({'error': 'status is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Normalize legacy / historical statuses safely
+        new_status = raw_status
+        if new_status in ('SOURCING_PRODUCTS', 'AWAITING_PRODUCTS_AT_HUB', 'PRODUCTS_RECEIVED', 'QUALITY_CHECK', 'READY_FOR_PACKAGING', 'AWAITING_DELIVERY_CONFIRMATION', 'DELIVERY_FEE_CONFIRMED'):
+            new_status = 'PROCESSING'
+        elif new_status == 'PACKAGED':
+            new_status = 'READY_FOR_DISPATCH'
+        elif new_status in ('SHIPPED', 'IN_TRANSIT'):
+            new_status = 'DISPATCHED'
+        elif new_status in ('RECEIVED', 'COMPLETED'):
+            new_status = 'DELIVERED'
+
+        if new_status not in self.VALID_STATUSES:
+            return Response({
+                'error': f"Invalid fulfillment status '{raw_status}'. Allowed statuses are: {', '.join(self.VALID_STATUSES)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         store = get_delivery_store()
         orders = store.get('orders', [])
         matched = next((o for o in orders if o.get('id') == order_id or o.get('reference') == order_id or o.get('reference_code') == order_id), None)
 
         now_iso = datetime.now(timezone.utc).isoformat()
+        notes = request.data.get('notes', '')
+
+        # Check existing status to validate transitions
         if matched:
+            current_status = matched.get('status') or matched.get('fulfillment_status') or 'ORDER_PLACED'
+            # CANCELLED is a terminal status; require explicit force/override to revive
+            if current_status == 'CANCELLED' and new_status != 'CANCELLED' and not request.data.get('override_cancelled'):
+                return Response({
+                    'error': 'Order is Cancelled. Cancelled orders cannot be transitioned without an authorized override.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             matched['status'] = new_status
+            matched['fulfillment_status'] = new_status
             matched['updated_at'] = now_iso
+            if notes:
+                matched['fulfillment_notes'] = notes
+
+            # Synchronize single-shipment orders
+            shipments_map = store.get('order_shipments', {})
+            ref = matched.get('reference') or matched.get('reference_code') or matched.get('id')
+            shipments = shipments_map.get(ref) or shipments_map.get(matched.get('id'))
+            if isinstance(shipments, list) and len(shipments) == 1:
+                shipments[0]['status'] = new_status
+                shipments[0]['updated_at'] = now_iso
+                if new_status == 'DISPATCHED' and not shipments[0].get('dispatched_at'):
+                    shipments[0]['dispatched_at'] = now_iso
+                elif new_status == 'DELIVERED':
+                    shipments[0]['delivered_at'] = now_iso
         else:
             matched = {
                 'id': order_id,
                 'reference': order_id,
                 'reference_code': order_id,
                 'status': new_status,
+                'fulfillment_status': new_status,
                 'updated_at': now_iso,
+                'fulfillment_notes': notes,
             }
             orders.append(matched)
 

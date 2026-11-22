@@ -736,35 +736,84 @@ export const PARCEL_CLASSIFICATION_DESCRIPTIONS: Record<ParcelClassification, st
   SPECIAL_MANUAL_QUOTE: 'Fragile, oversized, or custom-crated items requiring manual transport quotation',
 };
 
-export const SHIPMENT_STATUS_LABELS: Record<ShipmentFulfillmentStatus, string> = {
+export const ACTIVE_FULFILLMENT_STATUSES: ShipmentFulfillmentStatus[] = [
+  'ORDER_PLACED',
+  'PROCESSING',
+  'READY_FOR_DISPATCH',
+  'DISPATCHED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'CANCELLED',
+];
+
+export const SHIPMENT_STATUS_LABELS: Record<string, string> = {
   ORDER_PLACED: 'Order Placed',
-  AWAITING_DELIVERY_CONFIRMATION: 'Awaiting Delivery Confirmation',
-  DELIVERY_FEE_CONFIRMED: 'Delivery Fee Confirmed',
-  SOURCING_PRODUCTS: 'Sourcing Products',
-  AWAITING_PRODUCTS_AT_HUB: 'Procurement & Sourcing',
-  PRODUCTS_RECEIVED: 'Products Sourced & Verified',
-  QUALITY_CHECK: 'Quality Check & Inspection',
-  READY_FOR_PACKAGING: 'Ready for Packaging',
-  PACKAGED: 'Packaged for Direct Delivery',
+  PROCESSING: 'Processing',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
-  DISPATCHED: 'Dispatched to Customer',
+  DISPATCHED: 'Dispatched',
   OUT_FOR_DELIVERY: 'Out for Delivery',
   DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  // Historical / legacy mappings
+  AWAITING_DELIVERY_CONFIRMATION: 'Processing',
+  DELIVERY_FEE_CONFIRMED: 'Processing',
+  SOURCING_PRODUCTS: 'Processing',
+  AWAITING_PRODUCTS_AT_HUB: 'Processing',
+  PRODUCTS_RECEIVED: 'Processing',
+  QUALITY_CHECK: 'Processing',
+  READY_FOR_PACKAGING: 'Processing',
+  PACKAGED: 'Ready for Dispatch',
+  SHIPPED: 'Dispatched',
+  IN_TRANSIT: 'Dispatched',
+  RECEIVED: 'Delivered',
+  COMPLETED: 'Delivered',
 };
 
 export const SHIPMENT_STATUS_ORDER: ShipmentFulfillmentStatus[] = [
   'ORDER_PLACED',
-  'SOURCING_PRODUCTS',
-  'AWAITING_PRODUCTS_AT_HUB',
-  'PRODUCTS_RECEIVED',
-  'QUALITY_CHECK',
-  'READY_FOR_PACKAGING',
-  'PACKAGED',
+  'PROCESSING',
   'READY_FOR_DISPATCH',
   'DISPATCHED',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
 ];
+
+export function normalizeFulfillmentStatus(rawStatus?: string): ShipmentFulfillmentStatus {
+  if (!rawStatus) return 'ORDER_PLACED';
+  const s = rawStatus.toUpperCase().trim();
+  switch (s) {
+    case 'ORDER_PLACED':
+    case 'PENDING_PAYMENT':
+      return 'ORDER_PLACED';
+    case 'PROCESSING':
+    case 'SOURCING_PRODUCTS':
+    case 'AWAITING_PRODUCTS_AT_HUB':
+    case 'PRODUCTS_RECEIVED':
+    case 'QUALITY_CHECK':
+    case 'READY_FOR_PACKAGING':
+    case 'DELIVERY_FEE_CONFIRMED':
+    case 'AWAITING_DELIVERY_CONFIRMATION':
+      return 'PROCESSING';
+    case 'READY_FOR_DISPATCH':
+    case 'PACKAGED':
+      return 'READY_FOR_DISPATCH';
+    case 'DISPATCHED':
+    case 'SHIPPED':
+    case 'IN_TRANSIT':
+      return 'DISPATCHED';
+    case 'OUT_FOR_DELIVERY':
+      return 'OUT_FOR_DELIVERY';
+    case 'DELIVERED':
+    case 'RECEIVED':
+    case 'COMPLETED':
+      return 'DELIVERED';
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return 'CANCELLED';
+    default:
+      return 'ORDER_PLACED';
+  }
+}
 
 export const NIGERIAN_STATES: string[] = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -2413,7 +2462,11 @@ export function updateShipmentStatus(
     delivery_notes?: string;
     tracking_reference?: string;
   }
-): { updatedShipment: OrderShipment; allShipments: OrderShipment[]; overallOrderStatus: string } {
+): {
+  updatedShipment: OrderShipment;
+  allShipments: OrderShipment[];
+  overallOrderStatus: ShipmentFulfillmentStatus;
+} {
   assertAuthorizedAdmin(actor);
 
   const shipments = getOrderShipments(orderIdOrRef);
@@ -2425,67 +2478,7 @@ export function updateShipmentStatus(
   const shipment = { ...shipments[sIdx], items: shipments[sIdx].items.map((i) => ({ ...i })) };
   const now = new Date().toISOString();
 
-  const postHubStatuses: ShipmentFulfillmentStatus[] = [
-    'READY_FOR_DISPATCH',
-    'DISPATCHED',
-    'OUT_FOR_DELIVERY',
-    'DELIVERED',
-  ];
-
-  if (postHubStatuses.includes(newStatus)) {
-    const unreceived = shipment.items.filter((i) => !i.hub_received);
-    const uninspected = shipment.items.filter((i) => !i.quality_checked);
-    const unpackaged = shipment.items.filter((i) => !i.packaged);
-
-    if (unreceived.length > 0 || uninspected.length > 0 || unpackaged.length > 0) {
-      const missingNames = Array.from(
-        new Set([...unreceived, ...uninspected, ...unpackaged].map((i) => i.product_name))
-      ).join(', ');
-      throw new Error(
-        `Fulfillment Guard: Cannot mark shipment as "${SHIPMENT_STATUS_LABELS[newStatus]}" while items (${missingNames}) have not completed hub receipt, quality inspection, and packaging. Please confirm hub steps or approve split delivery first.`
-      );
-    }
-  }
-
-  if (newStatus === 'PACKAGED') {
-    const unready = shipment.items.filter((i) => !i.hub_received || !i.quality_checked);
-    if (unready.length > 0) {
-      throw new Error(
-        `Cannot mark shipment as Packaged until all items (${unready.map((i) => i.product_name).join(', ')}) have arrived prior to dispatch and passed quality inspection.`
-      );
-    }
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      packaged: true,
-      packaged_at: i.packaged_at || now,
-    }));
-    shipment.hub_packaged_confirmed = true;
-  }
-
-  if (newStatus === 'PRODUCTS_RECEIVED') {
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      hub_received: true,
-      hub_received_at: i.hub_received_at || now,
-    }));
-    shipment.hub_received_confirmed = true;
-  }
-
-  if (newStatus === 'QUALITY_CHECK' || newStatus === 'READY_FOR_PACKAGING') {
-    if (!shipment.items.every((i) => i.hub_received)) {
-      throw new Error(
-        'Cannot complete Quality Check until all products in this shipment have been received prior to dispatch.'
-      );
-    }
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      quality_checked: true,
-      quality_checked_at: i.quality_checked_at || now,
-    }));
-    shipment.hub_inspected_confirmed = true;
-  }
-
-  shipment.status = newStatus;
+  shipment.status = normalizeFulfillmentStatus(newStatus);
   if (options?.transport_arrangement !== undefined) {
     shipment.transport_arrangement = options.transport_arrangement;
   }
@@ -2495,10 +2488,10 @@ export function updateShipmentStatus(
   if (options?.tracking_reference !== undefined) {
     shipment.tracking_reference = options.tracking_reference;
   }
-  if (newStatus === 'DISPATCHED' && !shipment.dispatched_at) {
+  if (shipment.status === 'DISPATCHED' && !shipment.dispatched_at) {
     shipment.dispatched_at = now;
   }
-  if (newStatus === 'DELIVERED') {
+  if (shipment.status === 'DELIVERED') {
     shipment.dispatched_at = shipment.dispatched_at || now;
     shipment.delivered_at = now;
   }
@@ -2657,32 +2650,48 @@ export function customerRespondToManualQuote(
 
 export function deriveOverallOrderStatus(
   shipments: OrderShipment[]
-): 'PENDING_PAYMENT' | 'PROCESSING' | 'SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' {
+): ShipmentFulfillmentStatus {
   if (!shipments || shipments.length === 0) return 'PROCESSING';
 
-  const allDelivered = shipments.every((s) => s.status === 'DELIVERED');
-  if (allDelivered) {
+  const normalized = shipments.map((s) => normalizeFulfillmentStatus(s.status));
+
+  // Single shipment orders: overall order fulfillment strictly reflects shipment status
+  if (normalized.length === 1) {
+    return normalized[0];
+  }
+
+  // All shipments cancelled
+  if (normalized.every((s) => s === 'CANCELLED')) {
+    return 'CANCELLED';
+  }
+
+  const active = normalized.filter((s) => s !== 'CANCELLED');
+  if (active.length === 0) return 'CANCELLED';
+
+  // 1. If every active shipment is DELIVERED, overall order is DELIVERED
+  if (active.every((s) => s === 'DELIVERED')) {
     return 'DELIVERED';
   }
 
-  const anyOutForDeliveryOrDelivered = shipments.some(
-    (s) => s.status === 'OUT_FOR_DELIVERY' || s.status === 'DELIVERED'
-  );
-  if (anyOutForDeliveryOrDelivered) {
-    return 'IN_TRANSIT';
+  // 2. If any active shipment is still being prepared, order CANNOT show Delivered or Out for Delivery
+  const anyPreparing = active.some((s) => s === 'ORDER_PLACED' || s === 'PROCESSING');
+  if (anyPreparing) {
+    return 'PROCESSING';
   }
 
-  const anyDispatched = shipments.some((s) => s.status === 'DISPATCHED');
+  // 3. If all active shipments are in final stage and at least one is Out for Delivery
+  const allFinal = active.every((s) => s === 'OUT_FOR_DELIVERY' || s === 'DELIVERED');
+  if (allFinal && active.some((s) => s === 'OUT_FOR_DELIVERY')) {
+    return 'OUT_FOR_DELIVERY';
+  }
+
+  // 4. If any shipment is Dispatched
+  const anyDispatched = active.some((s) => s === 'DISPATCHED' || s === 'OUT_FOR_DELIVERY' || s === 'DELIVERED');
   if (anyDispatched) {
-    return 'SHIPPED';
+    return 'DISPATCHED';
   }
 
-  const anyAwaitingQuote = shipments.some((s) => s.status === 'AWAITING_DELIVERY_CONFIRMATION');
-  if (anyAwaitingQuote) {
-    return 'PENDING_PAYMENT';
-  }
-
-  return 'PROCESSING';
+  return 'READY_FOR_DISPATCH';
 }
 
 export function deriveOverallHubFulfillmentStatus(shipments: OrderShipment[]): ShipmentFulfillmentStatus {

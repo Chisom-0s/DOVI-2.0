@@ -21,15 +21,22 @@ import { Skeleton } from '@/components/common/Skeleton';
 
 const TIMELINE_KEY_STEPS: ShipmentFulfillmentStatus[] = [
   'ORDER_PLACED',
-  'SOURCING_PRODUCTS',
-  'AWAITING_PRODUCTS_AT_HUB',
-  'PRODUCTS_RECEIVED',
-  'QUALITY_CHECK',
-  'PACKAGED',
+  'PROCESSING',
+  'READY_FOR_DISPATCH',
   'DISPATCHED',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
 ];
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  ORDER_PLACED: 'Your order has been placed and received by our team.',
+  PROCESSING: 'Your order is being sourced and prepared.',
+  READY_FOR_DISPATCH: 'Your order is packed and ready for dispatch.',
+  DISPATCHED: 'Your order has been dispatched and is on its way.',
+  OUT_FOR_DELIVERY: 'Your order is out for final delivery to your address.',
+  DELIVERED: 'Your order has been delivered.',
+  CANCELLED: 'This order has been cancelled.',
+};
 
 
 const NIGERIAN_BANKS = [
@@ -826,7 +833,7 @@ export default function OrderDetailPage() {
                           </span>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                          Origin: <strong>{shipment.dispatch_origin} Hub</strong> &rarr;{' '}
+                          Route: <strong>Direct Delivery</strong> &rarr;{' '}
                           <strong>
                             {shipment.destination_city}, {shipment.destination_state}
                           </strong>{' '}
@@ -867,61 +874,97 @@ export default function OrderDetailPage() {
                     >
                       <div
                         style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: '#475569',
-                          textTransform: 'uppercase',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
                           marginBottom: '10px',
+                          flexWrap: 'wrap',
+                          gap: '6px',
                         }}
                       >
-                        Delivery Fulfillment Progress
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Delivery Fulfillment Progress
+                        </div>
+                        {STATUS_DESCRIPTIONS[shipment.status] && (
+                          <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600 }}>
+                            {STATUS_DESCRIPTIONS[shipment.status]}
+                          </div>
+                        )}
                       </div>
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))',
-                          gap: '8px',
-                        }}
-                      >
-                        {TIMELINE_KEY_STEPS.map((stepStatus, stepIdx) => {
-                          const stepRank = SHIPMENT_STATUS_ORDER.indexOf(stepStatus);
-                          const isCompleted = currentRank >= stepRank;
-                          const isCurrent = shipment.status === stepStatus;
-                          return (
-                            <div
-                              key={stepStatus}
-                              style={{
-                                padding: '6px 8px',
-                                borderRadius: '6px',
-                                border: `1px solid ${
-                                  isCurrent
-                                    ? 'var(--color-primary)'
+
+                      {shipment.status === 'CANCELLED' || order.status === 'CANCELLED' ? (
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            backgroundColor: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            color: '#991b1b',
+                          }}
+                        >
+                          <strong style={{ display: 'block', fontSize: '13px', marginBottom: '2px' }}>
+                            ✕ Order Cancelled
+                          </strong>
+                          <span style={{ fontSize: '12px', color: '#b91c1c' }}>
+                            This order has been cancelled and is no longer active for fulfillment.
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                            gap: '8px',
+                          }}
+                        >
+                          {TIMELINE_KEY_STEPS.map((stepStatus, stepIdx) => {
+                            const stepRank = SHIPMENT_STATUS_ORDER.indexOf(stepStatus);
+                            const isCompleted = currentRank >= stepRank;
+                            const isCurrent = shipment.status === stepStatus;
+                            return (
+                              <div
+                                key={stepStatus}
+                                style={{
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${
+                                    isCurrent
+                                      ? 'var(--color-primary)'
+                                      : isCompleted
+                                      ? '#bbf7d0'
+                                      : '#e2e8f0'
+                                  }`,
+                                  backgroundColor: isCurrent
+                                    ? '#fff7ed'
                                     : isCompleted
-                                    ? '#bbf7d0'
-                                    : '#e2e8f0'
-                                }`,
-                                backgroundColor: isCurrent
-                                  ? '#fff7ed'
-                                  : isCompleted
-                                  ? '#f0fdf4'
-                                  : '#ffffff',
-                                fontSize: '10px',
-                                fontWeight: isCurrent || isCompleted ? 700 : 500,
-                                color: isCurrent
-                                  ? '#9a3412'
-                                  : isCompleted
-                                  ? '#166534'
-                                  : '#94a3b8',
-                              }}
-                            >
-                              <div>
-                                {isCompleted ? '✓ ' : `${stepIdx + 1}. `}
-                                {SHIPMENT_STATUS_LABELS[stepStatus]}
+                                    ? '#f0fdf4'
+                                    : '#ffffff',
+                                  fontSize: '11px',
+                                  fontWeight: isCurrent || isCompleted ? 700 : 500,
+                                  color: isCurrent
+                                    ? '#9a3412'
+                                    : isCompleted
+                                    ? '#166534'
+                                    : '#94a3b8',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                <div style={{ fontSize: '10px', marginBottom: '2px' }}>
+                                  {isCompleted ? '✓ Step ' + (stepIdx + 1) : 'Step ' + (stepIdx + 1)}
+                                </div>
+                                <div>{SHIPMENT_STATUS_LABELS[stepStatus]}</div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {/* Shipment Items */}
@@ -966,40 +1009,15 @@ export default function OrderDetailPage() {
                               <span
                                 style={{
                                   fontSize: '10px',
-                                  padding: '1px 6px',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
-                                  backgroundColor: item.hub_received ? '#dcfce7' : '#f1f5f9',
-                                  color: item.hub_received ? '#166534' : '#64748b',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#475569',
+                                  fontWeight: 600,
                                 }}
                               >
-                                {item.hub_received ? '✓ Sourced & Verified' : '• Sourcing Item'}
+                                {PARCEL_CLASSIFICATION_LABELS[item.delivery_classification]}
                               </span>
-                              {item.quality_checked && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#dcfce7',
-                                    color: '#166534',
-                                  }}
-                                >
-                                  ✓ Quality Inspected
-                                </span>
-                              )}
-                              {item.packaged && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#dcfce7',
-                                    color: '#166534',
-                                  }}
-                                >
-                                  ✓ Packaged
-                                </span>
-                              )}
                             </div>
                           </div>
                           <span style={itemPriceStyles}>

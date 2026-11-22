@@ -1106,6 +1106,12 @@ export interface DeliveryRateChangeRecord {
 
 export type ShipmentFulfillmentStatus =
   | 'ORDER_PLACED'
+  | 'PROCESSING'
+  | 'READY_FOR_DISPATCH'
+  | 'DISPATCHED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED'
   | 'AWAITING_DELIVERY_CONFIRMATION'
   | 'DELIVERY_FEE_CONFIRMED'
   | 'SOURCING_PRODUCTS'
@@ -1114,10 +1120,8 @@ export type ShipmentFulfillmentStatus =
   | 'QUALITY_CHECK'
   | 'READY_FOR_PACKAGING'
   | 'PACKAGED'
-  | 'READY_FOR_DISPATCH'
-  | 'DISPATCHED'
-  | 'OUT_FOR_DELIVERY'
-  | 'DELIVERED';
+  | 'SHIPPED'
+  | 'IN_TRANSIT';
 
 export type DeliveryConfirmationStatus =
   | 'NOT_REQUIRED'

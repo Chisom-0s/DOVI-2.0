@@ -1931,13 +1931,13 @@ export const adminApi = {
     } as any;
   },
 
-  updateOrderStatus: async (id: string, status: string): Promise<Order> => {
+  updateOrderStatus: async (id: string, status: string, notes?: string): Promise<Order> => {
     try {
-      await apiClient.post(`/api/v1/orders/${id}/transition/`, { status });
+      await apiClient.post(`/api/v1/orders/${id}/transition/`, { status, notes });
     } catch {}
 
     updateOrderStatusSync(id, status);
-    addAuditLogEntry('ORDER_STATUS_UPDATED', `Updated order ${id} status to ${status}`, id);
+    addAuditLogEntry('ORDER_STATUS_UPDATED', `Updated order ${id} status to ${status}${notes ? ` (${notes})` : ''}`, id);
     return adminApi.getOrder(id);
   },
 
