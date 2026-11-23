@@ -1,7 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { useState } from 'react';
-import CorporateFooter from '@/components/common/CorporateFooter';
 
 interface NavItem {
   label: string;
@@ -291,7 +290,6 @@ export default function AdminLayout() {
           <div style={contentCardWrapperStyles}>
             <Outlet />
           </div>
-          <CorporateFooter />
         </main>
       </div>
     </div>

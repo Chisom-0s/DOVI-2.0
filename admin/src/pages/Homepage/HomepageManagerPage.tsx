@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { adminApi } from '@/api/admin';
+import { adminApi, DEFAULT_HERO_BANNERS } from '@/api/admin';
 import type { HomepageBanner, HomepageSection, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -112,6 +112,21 @@ export default function HomepageManagerPage() {
     } catch {
       toast.error('Failed to update banner order.');
       await fetchData();
+    }
+  };
+
+  const handleResetDefaultCampaigns = async () => {
+    const confirm = window.confirm(
+      'Reset carousel to the 6 official promotional campaigns?\n(Christmas Deals, Limited-Time Deals, Free Gifts & Rewards, Launch Campaign, Black Friday Mega Deals, Save2Own Promo)'
+    );
+    if (!confirm) return;
+    try {
+      localStorage.setItem('dovi_homepage_banners_db', JSON.stringify(DEFAULT_HERO_BANNERS));
+      window.dispatchEvent(new Event('dovi:banners_updated'));
+      toast.success('Restored 6 promotional campaigns successfully.');
+      await fetchData();
+    } catch {
+      toast.error('Failed to reset banners.');
     }
   };
 
@@ -244,18 +259,33 @@ export default function HomepageManagerPage() {
         <div style={cardStyles}>
           <div style={cardHeaderRowStyles}>
             <div style={infoAlertStyles}>
-              💡 <strong>Carousel Banners:</strong> Reordering changes the rotation sequence. Setting start/end dates will auto-schedule the banner activation window.
+              💡 <strong>Carousel Campaigns:</strong> Reordering changes the rotation sequence. Setting start/end dates will auto-schedule the banner activation window. Expired campaigns are automatically hidden from buyers.
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedBanner(null);
-                setShowBannerForm(true);
-              }}
-              style={actionBtnStyles}
-            >
-              + Create Banner
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleResetDefaultCampaigns}
+                style={{
+                  ...actionBtnStyles,
+                  backgroundColor: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                }}
+                title="Restore default 6 campaigns"
+              >
+                🔄 Restore 6 Campaigns
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBanner(null);
+                  setShowBannerForm(true);
+                }}
+                style={actionBtnStyles}
+              >
+                + Create Banner
+              </button>
+            </div>
           </div>
 
           {banners.length === 0 ? (
@@ -264,99 +294,135 @@ export default function HomepageManagerPage() {
               title="No Carousel Banners"
               subtitle="Get started by creating your first promotional hero banner."
               action={{
-                label: "Create Banner",
-                onClick: () => {
-                  setSelectedBanner(null);
-                  setShowBannerForm(true);
-                }
+                label: "Restore Default Campaigns",
+                onClick: handleResetDefaultCampaigns
               }}
             />
           ) : (
             <div style={listContainerStyles}>
-              {banners.map((b, idx) => (
-                <div key={b.id} style={listItemStyles}>
-                  {/* Sorting handles */}
-                  <div style={sortingWrapperStyles}>
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={() => handleMoveBanner(idx, 'up')}
-                      style={sortBtnStyles}
-                    >
-                      ▲
-                    </button>
-                    <span style={orderLabelStyles}>{idx + 1}</span>
-                    <button
-                      type="button"
-                      disabled={idx === banners.length - 1}
-                      onClick={() => handleMoveBanner(idx, 'down')}
-                      style={sortBtnStyles}
-                    >
-                      ▼
-                    </button>
-                  </div>
+              {banners.map((b, idx) => {
+                const now = new Date();
+                const isExpired = b.end_date && new Date(b.end_date) < now;
+                const isScheduledFuture = b.start_date && new Date(b.start_date) > now;
+                const isLive = b.is_active && !isExpired && !isScheduledFuture;
 
-                  {/* Thumbnail */}
-                  <img
-                    src={b.desktop_image_url || '/logo.jpg?v=2'}
-                    alt={b.title}
-                    style={bannerThumbnailStyles}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                return (
+                  <div
+                    key={b.id}
+                    style={{
+                      ...listItemStyles,
+                      opacity: isExpired || !b.is_active ? 0.75 : 1,
+                      backgroundColor: isExpired ? '#fef2f2' : '#ffffff',
                     }}
-                  />
+                  >
+                    {/* Sorting handles */}
+                    <div style={sortingWrapperStyles}>
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => handleMoveBanner(idx, 'up')}
+                        style={sortBtnStyles}
+                      >
+                        ▲
+                      </button>
+                      <span style={orderLabelStyles}>{idx + 1}</span>
+                      <button
+                        type="button"
+                        disabled={idx === banners.length - 1}
+                        onClick={() => handleMoveBanner(idx, 'down')}
+                        style={sortBtnStyles}
+                      >
+                        ▼
+                      </button>
+                    </div>
 
-                  {/* Info details */}
-                  <div style={{ flex: 1 }}>
-                    <strong style={bannerTitleStyles}>{b.title}</strong>
-                    {b.subtitle && <span style={bannerSubStyles}>{b.subtitle}</span>}
-                    <div style={metaRowStyles}>
-                      {b.cta_text && (
-                        <span style={badgeStyles}>
-                          CTA: {b.cta_text} ➔ {b.cta_url}
-                        </span>
-                      )}
-                      {b.start_date && (
-                        <span style={scheduleBadgeStyles}>
-                          📅 {new Date(b.start_date).toLocaleDateString()} - {b.end_date ? new Date(b.end_date).toLocaleDateString() : 'Forever'}
-                        </span>
-                      )}
+                    {/* Thumbnail */}
+                    <img
+                      src={b.desktop_image_url || '/logo.jpg?v=2'}
+                      alt={b.title}
+                      style={bannerThumbnailStyles}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
+                      }}
+                    />
+
+                    {/* Info details */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <strong style={bannerTitleStyles}>{b.title}</strong>
+                        {isLive && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#065f46', backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '9999px' }}>
+                            🟢 Live Now
+                          </span>
+                        )}
+                        {isScheduledFuture && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#92400e', backgroundColor: '#fef3c7', padding: '2px 8px', borderRadius: '9999px' }}>
+                            ⏳ Scheduled
+                          </span>
+                        )}
+                        {isExpired && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#991b1b', backgroundColor: '#fee2e2', padding: '2px 8px', borderRadius: '9999px' }}>
+                            ❌ Expired
+                          </span>
+                        )}
+                        {!b.is_active && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#4b5563', backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '9999px' }}>
+                            ⏸️ Deactivated
+                          </span>
+                        )}
+                      </div>
+                      {b.subtitle && <span style={bannerSubStyles}>{b.subtitle}</span>}
+                      <div style={metaRowStyles}>
+                        {b.cta_text && (
+                          <span style={badgeStyles}>
+                            CTA: {b.cta_text} ➔ {b.cta_url}
+                          </span>
+                        )}
+                        {(b.start_date || b.end_date) && (
+                          <span style={{
+                            ...scheduleBadgeStyles,
+                            color: isExpired ? '#991b1b' : scheduleBadgeStyles.color,
+                          }}>
+                            📅 {b.start_date ? new Date(b.start_date).toLocaleDateString() : 'Immediate'} &ndash; {b.end_date ? new Date(b.end_date).toLocaleDateString() : 'Indefinite'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Operations */}
+                    <div style={actionsGroupStyles}>
+                      <button
+                        type="button"
+                        onClick={() => handleBannerToggleActive(b)}
+                        style={{
+                          ...toggleBtnStyles,
+                          backgroundColor: b.is_active ? '#d1fae5' : '#fee2e2',
+                          color: b.is_active ? '#065f46' : '#991b1b',
+                        }}
+                      >
+                        {b.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedBanner(b);
+                          setShowBannerForm(true);
+                        }}
+                        style={editBtnStyles}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBannerDelete(b)}
+                        style={deleteBtnStyles}
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-
-                  {/* Operations */}
-                  <div style={actionsGroupStyles}>
-                    <button
-                      type="button"
-                      onClick={() => handleBannerToggleActive(b)}
-                      style={{
-                        ...toggleBtnStyles,
-                        backgroundColor: b.is_active ? '#d1fae5' : '#fee2e2',
-                        color: b.is_active ? '#065f46' : '#991b1b',
-                      }}
-                    >
-                      {b.is_active ? 'Active' : 'Inactive'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedBanner(b);
-                        setShowBannerForm(true);
-                      }}
-                      style={editBtnStyles}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleBannerDelete(b)}
-                      style={deleteBtnStyles}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

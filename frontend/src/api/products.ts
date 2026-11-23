@@ -23,6 +23,55 @@ export interface ProductFilters {
   min_rating?: number;
   vendor?: string;
   in_stock?: boolean;
+  campaign?: string;
+}
+
+export function filterProductsByCampaign(products: ProductSummary[], campaign?: string): ProductSummary[] {
+  if (!campaign) return products;
+  const normCampaign = campaign.toLowerCase().trim();
+  if (!normCampaign) return products;
+
+  if (normCampaign === 'christmas' || normCampaign === 'holiday') {
+    const keywords = [
+      'crystal', 'bulb', 'diamond', 'perfume', 'fragrance', 'diffuser',
+      'aromatherapy', 'humidifier', 'watch', 'pyjamas', 'jeans',
+      'tv', 'power bank', 'clippers'
+    ];
+    const matched = products.filter(p => {
+      const text = `${p.name} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+    return matched.length > 0 ? matched : products;
+  }
+
+  if (normCampaign === 'limited-deals' || normCampaign === 'deals' || normCampaign === 'flash-deals') {
+    const keywords = ['tv', 'watch', 'diffuser', 'power bank', 'clippers', 'washing machine', 'humidifier'];
+    const matched = products.filter(p => {
+      const text = `${p.name} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+    return matched.length > 0 ? matched : products;
+  }
+
+  if (normCampaign === 'rewards' || normCampaign === 'free-gifts') {
+    const keywords = ['watch', 'tv', 'crystal', 'bulb', 'diffuser', 'diamond', 'power bank'];
+    const matched = products.filter(p => {
+      const text = `${p.name} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+    return matched.length > 0 ? matched : products;
+  }
+
+  if (normCampaign === 'black-friday') {
+    const keywords = ['tv', 'watch', 'washing machine', 'power bank', 'clippers', 'humidifier', 'bulb'];
+    const matched = products.filter(p => {
+      const text = `${p.name} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+      return keywords.some(k => text.includes(k));
+    });
+    return matched.length > 0 ? matched : products;
+  }
+
+  return products;
 }
 
 function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Review[] {
@@ -83,6 +132,9 @@ export const productsApi = {
       if (filters?.min_rating) {
         realProducts = realProducts.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
       }
+      if (filters?.campaign) {
+        realProducts = filterProductsByCampaign(realProducts, filters.campaign);
+      }
       if (filters?.sort === 'rating') {
         realProducts = [...realProducts].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
       }
@@ -94,6 +146,7 @@ export const productsApi = {
         !filters?.max_price &&
         !filters?.in_stock &&
         !filters?.min_rating &&
+        !filters?.campaign &&
         !filters?.q &&
         (filters?.page || 1) === 1;
       if (isDefaultView && realProducts.length > 0) {
@@ -144,6 +197,17 @@ export const productsApi = {
         if (filters?.category || filters?.subcategory) {
           cleaned = cleaned.filter((p) =>
             doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+          );
+        }
+        if (filters?.campaign) {
+          cleaned = filterProductsByCampaign(cleaned, filters.campaign);
+        }
+        if (filters?.q || filters?.search) {
+          const qStr = (filters.q || filters.search || '').toLowerCase().trim();
+          cleaned = cleaned.filter((p) =>
+            p.name.toLowerCase().includes(qStr) ||
+            (p.description && p.description.toLowerCase().includes(qStr)) ||
+            (p.category && String(p.category).toLowerCase().includes(qStr))
           );
         }
         if (filters?.min_rating) {

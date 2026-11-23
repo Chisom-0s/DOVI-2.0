@@ -592,6 +592,18 @@ export const homepageApi = {
         return data;
       }
     } catch {}
+
+    try {
+      const stored = localStorage.getItem('dovi_homepage_banners_db');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((b: any) => b.id && (b.id.includes('campaign') || b.id.includes('christmas')))) {
+          return parsed;
+        }
+      }
+      localStorage.setItem('dovi_homepage_banners_db', JSON.stringify(DEFAULT_HERO_BANNERS));
+    } catch {}
+
     return DEFAULT_HERO_BANNERS;
   },
 
@@ -611,13 +623,13 @@ export const homepageApi = {
 
 export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
   {
-    id: 'ban-hero-save2own',
-    title: 'Smart Savings for the Things You Love',
-    subtitle: 'Save in flexible micro-payments towards phones, laptops, and gadgets with zero debt.',
-    cta_text: 'Explore Save2Own',
-    cta_url: '/save2own',
-    desktop_image_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80',
-    mobile_image_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+    id: 'ban-campaign-christmas',
+    title: 'Christmas Deals',
+    subtitle: 'Up to 60% OFF holiday gifts, sneakers, luxury bags, perfumes & festive essentials.',
+    cta_text: 'Shop Now',
+    cta_url: '/products?campaign=christmas',
+    desktop_image_url: '/images/promotions/christmas_deals.jpg',
+    mobile_image_url: '/images/promotions/christmas_deals.jpg',
     is_active: true,
     display_order: 1,
     slide_interval_ms: 5000,
@@ -625,13 +637,13 @@ export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
     end_date: null,
   },
   {
-    id: 'ban-hero-deals',
-    title: 'Mega Tech Deals & Verified Sellers',
-    subtitle: 'Shop the latest smartphones, computers, and accessories with doorstep warranty.',
-    cta_text: 'Shop Tech Deals',
-    cta_url: '/products',
-    desktop_image_url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1600&q=80',
-    mobile_image_url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80',
+    id: 'ban-campaign-limited-deals',
+    title: 'Limited-Time Deals',
+    subtitle: 'Up to 50% OFF flash discounts on iPhones, smartwatches, blenders & AirPods.',
+    cta_text: 'Shop Limited Deals',
+    cta_url: '/products?campaign=limited-deals',
+    desktop_image_url: '/images/promotions/limited_time_deals.jpg',
+    mobile_image_url: '/images/promotions/limited_time_deals.jpg',
     is_active: true,
     display_order: 2,
     slide_interval_ms: 5000,
@@ -639,15 +651,57 @@ export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
     end_date: null,
   },
   {
-    id: 'ban-hero-auto',
-    title: 'Dovi Auto Hub — Cars, Parts & Care',
-    subtitle: 'Verified foreign used and brand new vehicles with nationwide inspection.',
-    cta_text: 'Explore Dovi Auto',
-    cta_url: '/auto',
-    desktop_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80',
-    mobile_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
+    id: 'ban-campaign-rewards',
+    title: 'Free Gifts & Shopping Rewards',
+    subtitle: 'Shop qualifying products and unlock exciting complimentary gifts & perks.',
+    cta_text: 'Claim Your Free Gift',
+    cta_url: '/products?campaign=rewards',
+    desktop_image_url: '/images/promotions/free_gifts_rewards.jpg',
+    mobile_image_url: '/images/promotions/free_gifts_rewards.jpg',
     is_active: true,
     display_order: 3,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+  {
+    id: 'ban-campaign-launch',
+    title: 'DOVI Launch Campaign',
+    subtitle: 'Discover More, Shop Smart — Fast delivery, secure payment & premier savings.',
+    cta_text: 'Shop Now',
+    cta_url: '/products?campaign=launch',
+    desktop_image_url: '/images/promotions/launch_campaign.jpg',
+    mobile_image_url: '/images/promotions/launch_campaign.jpg',
+    is_active: true,
+    display_order: 4,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+  {
+    id: 'ban-campaign-black-friday',
+    title: 'Black Friday Mega Deals',
+    subtitle: 'Up to 70% OFF mega savings on laptops, smartphones, headphones & appliances.',
+    cta_text: 'Shop the Deals',
+    cta_url: '/products?campaign=black-friday',
+    desktop_image_url: '/images/promotions/black_friday_deals.jpg',
+    mobile_image_url: '/images/promotions/black_friday_deals.jpg',
+    is_active: true,
+    display_order: 5,
+    slide_interval_ms: 5000,
+    start_date: null,
+    end_date: null,
+  },
+  {
+    id: 'ban-campaign-save2own',
+    title: 'Save2Own Savings Campaign',
+    subtitle: 'Contribute in flexible micro-installments towards electronics & vehicles with 0% interest.',
+    cta_text: 'Explore Save2Own',
+    cta_url: '/save2own',
+    desktop_image_url: '/images/promotions/save2own_campaign.jpg',
+    mobile_image_url: '/images/promotions/save2own_campaign.jpg',
+    is_active: true,
+    display_order: 6,
     slide_interval_ms: 5000,
     start_date: null,
     end_date: null,

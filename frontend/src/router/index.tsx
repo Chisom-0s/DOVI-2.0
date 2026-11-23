@@ -92,6 +92,8 @@ const router = createBrowserRouter([
           { path: 'products', element: <ProductListingPage /> },
           { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'campaigns/:slug', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'deals', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'search', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'about', element: <AboutPage /> },
           { path: 'faq', element: <FAQPage /> },

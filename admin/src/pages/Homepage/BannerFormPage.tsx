@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { HomepageBanner } from '@/types';
 
 interface BannerFormPageProps {
@@ -6,6 +6,57 @@ interface BannerFormPageProps {
   onClose: () => void;
   onSave: (payload: any) => Promise<void>;
 }
+
+const CAMPAIGN_PRESETS = [
+  {
+    label: '🎄 Christmas Deals',
+    title: 'Christmas Deals',
+    subtitle: 'Up to 60% OFF holiday gifts, sneakers, luxury bags, perfumes & festive essentials.',
+    ctaText: 'Shop Now',
+    ctaUrl: '/products?campaign=christmas',
+    image: '/images/promotions/christmas_deals.jpg',
+  },
+  {
+    label: '⚡ Limited-Time Deals',
+    title: 'Limited-Time Deals',
+    subtitle: 'Up to 50% OFF flash discounts on iPhones, smartwatches, blenders & AirPods.',
+    ctaText: 'Shop Limited Deals',
+    ctaUrl: '/products?campaign=limited-deals',
+    image: '/images/promotions/limited_time_deals.jpg',
+  },
+  {
+    label: '🎁 Free Gifts & Rewards',
+    title: 'Free Gifts & Shopping Rewards',
+    subtitle: 'Shop qualifying products and unlock exciting complimentary gifts & perks.',
+    ctaText: 'Claim Your Free Gift',
+    ctaUrl: '/products?campaign=rewards',
+    image: '/images/promotions/free_gifts_rewards.jpg',
+  },
+  {
+    label: '🚀 Launch Campaign',
+    title: 'DOVI Launch Campaign',
+    subtitle: 'Discover More, Shop Smart — Fast delivery, secure payment & premier savings.',
+    ctaText: 'Shop Now',
+    ctaUrl: '/products?campaign=launch',
+    image: '/images/promotions/launch_campaign.jpg',
+  },
+  {
+    label: '🔥 Black Friday Mega Deals',
+    title: 'Black Friday Mega Deals',
+    subtitle: 'Up to 70% OFF mega savings on laptops, smartphones, headphones & appliances.',
+    ctaText: 'Shop the Deals',
+    ctaUrl: '/products?campaign=black-friday',
+    image: '/images/promotions/black_friday_deals.jpg',
+  },
+  {
+    label: '💡 Save2Own Promo',
+    title: 'Save2Own Savings Campaign',
+    subtitle: 'Contribute in flexible micro-installments towards electronics & vehicles with 0% interest.',
+    ctaText: 'Explore Save2Own',
+    ctaUrl: '/save2own',
+    image: '/images/promotions/save2own_campaign.jpg',
+  },
+];
 
 export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPageProps) {
   const [title, setTitle] = useState(banner?.title || '');
@@ -15,6 +66,7 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
   const [desktopImageUrl, setDesktopImageUrl] = useState(banner?.desktop_image_url || '');
   const [mobileImageUrl, setMobileImageUrl] = useState(banner?.mobile_image_url || '');
   const [slideIntervalMs, setSlideIntervalMs] = useState(banner?.slide_interval_ms || 5000);
+  const [isActive, setIsActive] = useState<boolean>(banner ? banner.is_active : true);
   
   // Schedule
   const [startDate, setStartDate] = useState(banner?.start_date ? banner.start_date.substring(0, 16) : '');
@@ -22,10 +74,56 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File upload handler
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setDesktopImageUrl(dataUrl);
+        setMobileImageUrl(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Preset selector
+  const handleSelectPreset = (preset: typeof CAMPAIGN_PRESETS[0]) => {
+    setTitle(preset.title);
+    setSubtitle(preset.subtitle);
+    setCtaText(preset.ctaText);
+    setCtaUrl(preset.ctaUrl);
+    setDesktopImageUrl(preset.image);
+    setMobileImageUrl(preset.image);
+  };
+
+  // Calculate schedule status badge
+  const now = new Date();
+  let scheduleStatus = 'Always Active';
+  let scheduleBadgeColor = '#059669';
+
+  if (!isActive) {
+    scheduleStatus = 'Deactivated / Hidden';
+    scheduleBadgeColor = '#dc2626';
+  } else if (endDate && new Date(endDate) < now) {
+    scheduleStatus = 'Expired (Not Advertised)';
+    scheduleBadgeColor = '#991b1b';
+  } else if (startDate && new Date(startDate) > now) {
+    scheduleStatus = `Scheduled to start on ${new Date(startDate).toLocaleDateString()}`;
+    scheduleBadgeColor = '#d97706';
+  } else if (startDate || endDate) {
+    scheduleStatus = 'Running Live (Scheduled)';
+    scheduleBadgeColor = '#059669';
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !desktopImageUrl || !mobileImageUrl) return;
+    if (!title || !desktopImageUrl) return;
 
     setIsSubmitting(true);
     try {
@@ -35,8 +133,9 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
         cta_text: ctaText || null,
         cta_url: ctaUrl || null,
         desktop_image_url: desktopImageUrl,
-        mobile_image_url: mobileImageUrl,
+        mobile_image_url: mobileImageUrl || desktopImageUrl,
         slide_interval_ms: slideIntervalMs,
+        is_active: isActive,
         start_date: startDate ? new Date(startDate).toISOString() : null,
         end_date: endDate ? new Date(endDate).toISOString() : null,
       };
@@ -53,9 +152,14 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
       <div style={modalContentStyles}>
         {/* Modal Header */}
         <div style={headerStyles}>
-          <h3 style={titleStyles}>
-            {banner ? 'Modify Hero Banner Settings' : 'Create New Hero Banner'}
-          </h3>
+          <div>
+            <h3 style={titleStyles}>
+              {banner ? 'Modify Hero Banner Settings' : 'Create New Hero Banner'}
+            </h3>
+            <span style={{ fontSize: '12px', color: scheduleBadgeColor, fontWeight: 700, display: 'inline-block', marginTop: '4px' }}>
+              ● {scheduleStatus}
+            </span>
+          </div>
           <button type="button" onClick={onClose} style={closeBtnStyles}>&times;</button>
         </div>
 
@@ -63,13 +167,31 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
         <div style={splitBodyStyles}>
           {/* Form */}
           <form onSubmit={handleSubmit} style={formStyles}>
+            {/* Quick Presets Picker */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyles}>Quick Campaign Presets (1-Click Fill):</label>
+              <div style={presetBarStyles}>
+                {CAMPAIGN_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => handleSelectPreset(p)}
+                    style={presetBtnStyles}
+                    title={p.subtitle}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div style={inputGroupRowStyles}>
               <div style={inputGroupStyles}>
                 <label style={labelStyles}>Banner Title *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Save 10% on Auto Parts"
+                  placeholder="e.g. Christmas Deals"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   style={inputStyles}
@@ -79,7 +201,7 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
                 <label style={labelStyles}>Subtitle Description</label>
                 <input
                   type="text"
-                  placeholder="e.g. Limited time discount on OEM filters"
+                  placeholder="e.g. Up to 60% OFF holiday gifts & essentials"
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
                   style={inputStyles}
@@ -99,10 +221,11 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
                 />
               </div>
               <div style={inputGroupStyles}>
-                <label style={labelStyles}>CTA Redirection URL</label>
+                <label style={labelStyles}>CTA Redirection URL *</label>
                 <input
                   type="text"
-                  placeholder="e.g. /products/filters"
+                  required
+                  placeholder="e.g. /products?campaign=christmas"
                   value={ctaUrl}
                   onChange={(e) => setCtaUrl(e.target.value)}
                   style={inputStyles}
@@ -110,28 +233,41 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
               </div>
             </div>
 
-            <div style={inputGroupStyles}>
-              <label style={labelStyles}>Desktop Image URL *</label>
-              <input
-                type="text"
-                required
-                placeholder="https://example.com/images/desktop-banner.jpg"
-                value={desktopImageUrl}
-                onChange={(e) => setDesktopImageUrl(e.target.value)}
-                style={inputStyles}
-              />
-            </div>
+            {/* Image File Upload & Replace */}
+            <div style={{ ...inputGroupStyles, backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+              <label style={{ ...labelStyles, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Banner Artwork Image *</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={uploadBtnStyles}
+                >
+                  📁 Upload / Replace File
+                </button>
+              </label>
 
-            <div style={inputGroupStyles}>
-              <label style={labelStyles}>Mobile Image URL *</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+
               <input
                 type="text"
                 required
-                placeholder="https://example.com/images/mobile-banner.jpg"
-                value={mobileImageUrl}
-                onChange={(e) => setMobileImageUrl(e.target.value)}
-                style={inputStyles}
+                placeholder="/images/promotions/christmas_deals.jpg or https://..."
+                value={desktopImageUrl}
+                onChange={(e) => {
+                  setDesktopImageUrl(e.target.value);
+                  if (!mobileImageUrl) setMobileImageUrl(e.target.value);
+                }}
+                style={{ ...inputStyles, marginTop: '6px' }}
               />
+              <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                Upload an image directly from your computer or select a pre-designed campaign graphic above.
+              </span>
             </div>
 
             <div style={inputGroupRowStyles}>
@@ -155,16 +291,29 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
               </div>
             </div>
 
-            <div style={inputGroupStyles}>
-              <label style={labelStyles}>Slide Interval Rotation (ms)</label>
-              <input
-                type="number"
-                min={1000}
-                max={60000}
-                value={slideIntervalMs}
-                onChange={(e) => setSlideIntervalMs(parseInt(e.target.value) || 5000)}
-                style={inputStyles}
-              />
+            <div style={inputGroupRowStyles}>
+              <div style={inputGroupStyles}>
+                <label style={labelStyles}>Slide Interval Rotation (ms)</label>
+                <input
+                  type="number"
+                  min={1000}
+                  max={60000}
+                  value={slideIntervalMs}
+                  onChange={(e) => setSlideIntervalMs(parseInt(e.target.value) || 5000)}
+                  style={inputStyles}
+                />
+              </div>
+              <div style={inputGroupStyles}>
+                <label style={labelStyles}>Campaign Status</label>
+                <select
+                  value={isActive ? 'active' : 'inactive'}
+                  onChange={(e) => setIsActive(e.target.value === 'active')}
+                  style={inputStyles}
+                >
+                  <option value="active">Active (Visible)</option>
+                  <option value="inactive">Inactive (Hidden)</option>
+                </select>
+              </div>
             </div>
 
             <div style={modalActionsStyles}>
@@ -198,7 +347,7 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
                     color: previewMode === 'desktop' ? '#ffffff' : '#4b5563',
                   }}
                 >
-                  Desktop Preview
+                  Desktop
                 </button>
                 <button
                   type="button"
@@ -209,42 +358,24 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
                     color: previewMode === 'mobile' ? '#ffffff' : '#4b5563',
                   }}
                 >
-                  Mobile Preview
+                  Mobile
                 </button>
               </div>
             </div>
 
             {/* Preview Viewport Canvas */}
             <div style={viewportContainerStyles}>
-              {previewMode === 'desktop' ? (
-                // Desktop preview box
-                <div
-                  style={{
-                    ...desktopPreviewCanvasStyles,
-                    backgroundImage: `url(${desktopImageUrl || '/logo.jpg?v=2'})`,
-                  }}
-                >
-                  <div style={bannerOverlayStyles}>
-                    <h4 style={previewBannerTitleStyles}>{title || 'Main Headline Title'}</h4>
-                    <p style={previewBannerSubStyles}>{subtitle || 'Supporting banner descriptor text'}</p>
-                    {ctaText && <span style={previewCtaBtnStyles}>{ctaText}</span>}
-                  </div>
-                </div>
-              ) : (
-                // Mobile preview box
-                <div
-                  style={{
-                    ...mobilePreviewCanvasStyles,
-                    backgroundImage: `url(${mobileImageUrl || '/logo.jpg?v=2'})`,
-                  }}
-                >
-                  <div style={bannerOverlayStyles}>
-                    <h4 style={{ ...previewBannerTitleStyles, fontSize: '15px' }}>{title || 'Main Headline Title'}</h4>
-                    <p style={{ ...previewBannerSubStyles, fontSize: '11px' }}>{subtitle || 'Supporting description'}</p>
-                    {ctaText && <span style={{ ...previewCtaBtnStyles, padding: '4px 10px', fontSize: '10px' }}>{ctaText}</span>}
-                  </div>
-                </div>
-              )}
+              <div
+                style={{
+                  ...(previewMode === 'desktop' ? desktopPreviewCanvasStyles : mobilePreviewCanvasStyles),
+                  backgroundImage: `url(${desktopImageUrl || '/logo.jpg?v=2'})`,
+                }}
+              >
+                {/* Clean edge-to-edge artwork preview */}
+              </div>
+              <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
+                Redirects to: <strong style={{ color: '#ff7a00' }}>{ctaUrl || '/products'}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -258,72 +389,64 @@ export default function BannerFormPage({ banner, onClose, onSave }: BannerFormPa
 // ----------------------------------------------------------
 const backdropStyles: React.CSSProperties = {
   position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-  backgroundColor: 'rgba(0,0,0,0.5)',
+  inset: 0,
+  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+  backdropFilter: 'blur(4px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 999,
+  zIndex: 1000,
   padding: '24px',
 };
 
 const modalContentStyles: React.CSSProperties = {
   backgroundColor: '#ffffff',
-  borderRadius: '12px',
-  padding: '24px',
-  maxWidth: '960px',
+  borderRadius: '16px',
   width: '100%',
+  maxWidth: '960px',
   maxHeight: '90vh',
   overflowY: 'auto',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
   display: 'flex',
   flexDirection: 'column',
-  gap: '16px',
+  boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.3)',
 };
 
 const headerStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center',
+  alignItems: 'flex-start',
+  padding: '20px 24px',
   borderBottom: '1px solid #e5e7eb',
-  paddingBottom: '12px',
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: '16px',
-  fontWeight: 700,
-  color: '#1f2937',
   margin: 0,
+  fontSize: '18px',
+  fontWeight: 700,
+  color: '#111827',
 };
 
 const closeBtnStyles: React.CSSProperties = {
-  fontSize: '24px',
-  border: 'none',
   background: 'none',
-  cursor: 'pointer',
+  border: 'none',
+  fontSize: '24px',
   color: '#9ca3af',
-  lineHeight: 1,
+  cursor: 'pointer',
+  padding: '0 4px',
 };
 
 const splitBodyStyles: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1.1fr 0.9fr',
+  display: 'flex',
+  flexDirection: 'row',
   gap: '24px',
-  alignItems: 'start',
+  padding: '24px',
 };
 
 const formStyles: React.CSSProperties = {
+  flex: 1.2,
   display: 'flex',
   flexDirection: 'column',
-  gap: '12px',
-};
-
-const inputGroupRowStyles: React.CSSProperties = {
-  display: 'flex',
-  gap: '12px',
+  gap: '14px',
 };
 
 const inputGroupStyles: React.CSSProperties = {
@@ -333,10 +456,15 @@ const inputGroupStyles: React.CSSProperties = {
   flex: 1,
 };
 
+const inputGroupRowStyles: React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+};
+
 const labelStyles: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   fontWeight: 600,
-  color: '#4b5563',
+  color: '#374151',
 };
 
 const inputStyles: React.CSSProperties = {
@@ -345,155 +473,129 @@ const inputStyles: React.CSSProperties = {
   border: '1px solid #d1d5db',
   fontSize: '13px',
   outline: 'none',
-  backgroundColor: '#ffffff',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
+const presetBarStyles: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  marginTop: '6px',
+};
+
+const presetBtnStyles: React.CSSProperties = {
+  backgroundColor: '#f1f5f9',
+  border: '1px solid #cbd5e1',
+  borderRadius: '6px',
+  padding: '4px 10px',
+  fontSize: '11px',
+  fontWeight: 600,
+  color: '#334155',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+};
+
+const uploadBtnStyles: React.CSSProperties = {
+  backgroundColor: '#ff7a00',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '6px',
+  padding: '4px 10px',
+  fontSize: '11px',
+  fontWeight: 700,
+  cursor: 'pointer',
 };
 
 const modalActionsStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
-  gap: '8px',
-  marginTop: '16px',
-  borderTop: '1px solid #e5e7eb',
-  paddingTop: '16px',
+  gap: '12px',
+  marginTop: '12px',
 };
 
 const cancelFormBtnStyles: React.CSSProperties = {
   padding: '8px 16px',
-  borderRadius: '9999px',
+  borderRadius: '8px',
   border: '1px solid #d1d5db',
   backgroundColor: '#ffffff',
-  fontSize: '12px',
-  fontWeight: 700,
-  color: '#4b5563',
+  color: '#374151',
+  fontSize: '13px',
+  fontWeight: 600,
   cursor: 'pointer',
 };
 
 const submitBtnStyles: React.CSSProperties = {
   padding: '8px 20px',
-  borderRadius: '9999px',
-  backgroundColor: '#ff7a00',
-  fontSize: '12px',
-  fontWeight: 700,
-  color: '#ffffff',
-  cursor: 'pointer',
+  borderRadius: '8px',
   border: 'none',
+  backgroundColor: '#ff7a00',
+  color: '#ffffff',
+  fontSize: '13px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  boxShadow: '0 2px 8px rgba(255, 122, 0, 0.3)',
 };
 
 const previewColumnStyles: React.CSSProperties = {
+  flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  gap: '16px',
-  backgroundColor: '#f9fafb',
-  borderRadius: '8px',
-  border: '1px solid #e5e7eb',
-  padding: '16px',
+  gap: '12px',
 };
 
 const previewHeaderStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: '8px',
 };
 
 const previewTitleStyles: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: '13px',
   fontWeight: 700,
-  color: '#4b5563',
+  color: '#111827',
 };
 
 const tabGroupStyles: React.CSSProperties = {
   display: 'flex',
-  border: '1px solid #d1d5db',
   borderRadius: '6px',
   overflow: 'hidden',
+  border: '1px solid #e5e7eb',
 };
 
 const previewTabBtnStyles: React.CSSProperties = {
+  border: 'none',
+  padding: '4px 10px',
   fontSize: '11px',
   fontWeight: 600,
-  padding: '4px 10px',
-  border: 'none',
   cursor: 'pointer',
-  outline: 'none',
 };
 
 const viewportContainerStyles: React.CSSProperties = {
+  backgroundColor: '#0f172a',
+  borderRadius: '12px',
+  padding: '16px',
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   minHeight: '260px',
-  backgroundColor: '#f3f4f6',
-  borderRadius: '8px',
-  padding: '16px',
-  border: '1px dotted #d1d5db',
 };
 
 const desktopPreviewCanvasStyles: React.CSSProperties = {
   width: '100%',
-  height: '180px',
+  aspectRatio: '2.15 / 1',
+  borderRadius: '8px',
   backgroundSize: 'cover',
   backgroundPosition: 'center',
-  borderRadius: '8px',
-  position: 'relative',
-  overflow: 'hidden',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  display: 'flex',
-  alignItems: 'flex-end',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
 };
 
 const mobilePreviewCanvasStyles: React.CSSProperties = {
-  width: '160px',
-  height: '240px',
+  width: '260px',
+  aspectRatio: '2 / 1',
+  borderRadius: '8px',
   backgroundSize: 'cover',
   backgroundPosition: 'center',
-  borderRadius: '8px',
-  position: 'relative',
-  overflow: 'hidden',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  display: 'flex',
-  alignItems: 'flex-end',
-};
-
-const bannerOverlayStyles: React.CSSProperties = {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-  backgroundColor: 'rgba(0,0,0,0.4)', // Dark gradient simulation
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  padding: '16px',
-  color: '#ffffff',
-  gap: '4px',
-};
-
-const previewBannerTitleStyles: React.CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 800,
-  margin: 0,
-  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-};
-
-const previewBannerSubStyles: React.CSSProperties = {
-  fontSize: '12px',
-  margin: 0,
-  opacity: 0.9,
-  textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-};
-
-const previewCtaBtnStyles: React.CSSProperties = {
-  alignSelf: 'flex-start',
-  backgroundColor: '#ff7a00',
-  color: '#ffffff',
-  padding: '6px 12px',
-  borderRadius: '4px',
-  fontSize: '11px',
-  fontWeight: 700,
-  marginTop: '8px',
-  textTransform: 'uppercase',
-  boxShadow: '0 2px 4px rgba(255,122,0,0.3)',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
 };

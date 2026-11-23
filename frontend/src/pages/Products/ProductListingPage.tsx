@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useLocation } from 'react-router-dom';
 import { productsApi } from '@/api/products';
 import type { APIError, ProductSummary } from '@/types';
 import ProductCard from '@/components/product/ProductCard';
@@ -23,6 +23,8 @@ const PRICE_PRESETS = [
 
 export default function ProductListingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const routeParams = useParams<{ slug?: string }>();
+  const location = useLocation();
 
   // Extract query filters from URL search params
   const categoryParam = searchParams.get('category') ?? '';
@@ -33,6 +35,13 @@ export default function ProductListingPage() {
   const minRatingParam = searchParams.get('min_rating') ?? '';
   const inStockParam = searchParams.get('in_stock') === 'true';
   const searchParam = searchParams.get('q') || searchParams.get('search') || '';
+  const isDealsPage = location.pathname.includes('/deals');
+  const campaignParam =
+    routeParams.slug ||
+    searchParams.get('campaign') ||
+    searchParams.get('promo') ||
+    searchParams.get('collection') ||
+    (isDealsPage ? 'limited-deals' : '');
 
   // Synchronous cache seed for instant 0ms mount
   const [products, setProducts] = useState<ProductSummary[]>(() => {
@@ -138,6 +147,7 @@ export default function ProductListingPage() {
         min_rating: minRatingParam ? parseFloat(minRatingParam) : undefined,
         in_stock: inStockParam ? true : undefined,
         q: searchParam.trim() || undefined,
+        campaign: campaignParam || undefined,
       });
 
       setProducts(response.results);
@@ -145,7 +155,7 @@ export default function ProductListingPage() {
       setPage(1);
       setHasMore(response.results.length < response.count && Boolean(response.next));
 
-      if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && response.results.length > 0) {
+      if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && !campaignParam && response.results.length > 0) {
         try {
           sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(response.results));
         } catch {}
@@ -164,7 +174,7 @@ export default function ProductListingPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
+  }, [categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam, campaignParam]);
 
   useEffect(() => {
     fetchProducts();
@@ -187,6 +197,7 @@ export default function ProductListingPage() {
         min_rating: minRatingParam ? parseFloat(minRatingParam) : undefined,
         in_stock: inStockParam ? true : undefined,
         q: searchParam.trim() || undefined,
+        campaign: campaignParam || undefined,
       });
 
       setProducts(prev => {
@@ -203,7 +214,7 @@ export default function ProductListingPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoading, isLoadingMore, hasMore, page, categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam]);
+  }, [isLoading, isLoadingMore, hasMore, page, categoryParam, subcategoryParam, sortParam, minPriceParam, maxPriceParam, minRatingParam, inStockParam, searchParam, campaignParam]);
 
   // IntersectionObserver to auto-load next batch when sentinel enters viewport
   useEffect(() => {
@@ -249,6 +260,7 @@ export default function ProductListingPage() {
       min_rating: null,
       in_stock: null,
       q: null,
+      campaign: null,
     });
     setIsFilterDrawerOpen(false);
   };
@@ -263,9 +275,10 @@ export default function ProductListingPage() {
     Boolean(minPriceParam || maxPriceParam),
     Boolean(minRatingParam),
     Boolean(inStockParam),
+    Boolean(campaignParam),
   ].filter(Boolean).length;
 
-  const hasActiveFilters = Boolean(searchParam || categoryParam || subcategoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam);
+  const hasActiveFilters = Boolean(searchParam || categoryParam || subcategoryParam || minPriceParam || maxPriceParam || minRatingParam || inStockParam || campaignParam);
   const activeCategoryObj = categories.find(c => c.slug === categoryParam) || (categoryParam ? findMainCategory(categoryParam) : undefined);
   const activeSubcategories = categoryParam ? getSubcategoriesForCategory(categoryParam) : [];
   const activeSubcategoryObj = subcategoryParam
@@ -590,6 +603,57 @@ export default function ProductListingPage() {
           </div>
         )}
 
+        {/* Campaign Header Showcase */}
+        {campaignParam && (
+          <div
+            style={{
+              ...campaignShowcaseStyles,
+              background:
+                campaignParam === 'christmas'
+                  ? 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #047857 100%)'
+                  : campaignParam === 'limited-deals'
+                  ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #b91c1c 100%)'
+                  : campaignParam === 'rewards'
+                  ? 'linear-gradient(135deg, #4c1d95 0%, #581c87 50%, #6b21a8 100%)'
+                  : campaignParam === 'black-friday'
+                  ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #31104b 100%)'
+                  : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)',
+            }}
+          >
+            <div style={campaignShowcaseContentStyles}>
+              <div style={campaignTagBadgeStyles}>
+                {campaignParam === 'christmas' ? '🎄 CHRISTMAS DEALS' :
+                 campaignParam === 'limited-deals' ? '⚡ FLASH & LIMITED DEALS' :
+                 campaignParam === 'rewards' ? '🎁 SHOPPING REWARDS' :
+                 campaignParam === 'black-friday' ? '🔥 BLACK FRIDAY MEGA DEALS' :
+                 campaignParam === 'launch' ? '🚀 OFFICIAL LAUNCH' : '🎉 SPECIAL PROMOTION'}
+              </div>
+              <h1 style={campaignTitleStyles}>
+                {campaignParam === 'christmas' ? 'Christmas Deals — Up to 60% OFF' :
+                 campaignParam === 'limited-deals' ? 'Limited-Time Deals — Up to 50% OFF' :
+                 campaignParam === 'rewards' ? 'Free Gifts & Shopping Rewards' :
+                 campaignParam === 'black-friday' ? 'Black Friday Mega Deals — Up to 70% OFF' :
+                 campaignParam === 'launch' ? 'DOVI Launch Campaign — Shop Smart' : 'Promotional Campaign'}
+              </h1>
+              <p style={campaignSubtitleStyles}>
+                {campaignParam === 'christmas' ? 'Explore selected holiday perfumes, luxury bags, footwear, smart TVs, ambient decor, and gifts with doorstep delivery.' :
+                 campaignParam === 'limited-deals' ? "Don't miss out on special offers on verified electronics, gadgets, smartwatches, and appliances." :
+                 campaignParam === 'rewards' ? 'Shop qualifying verified products and unlock exclusive rewards, complimentary gifts, and bonus savings.' :
+                 campaignParam === 'black-friday' ? 'Massive price slashes on high-demand laptops, smart TVs, audio systems, and lifestyle essentials.' :
+                 campaignParam === 'launch' ? 'Enjoy rapid campus fulfillment, 100% Escrow Buyer Protection, and launch markdowns across all categories.' : 'Special promotional selection curated for you.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => updateFilters({ campaign: null })}
+              style={campaignDismissBtnStyles}
+              title="View all products"
+            >
+              View All Products &times;
+            </button>
+          </div>
+        )}
+
         {/* Results Header Info & Active Filters Bar */}
         <div style={resultsHeaderStyles}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -655,6 +719,16 @@ export default function ProductListingPage() {
                   <span style={chipStyles}>
                     &ldquo;{searchParam}&rdquo;
                     <button type="button" onClick={handleClearSearch} style={chipRemoveBtnStyles}>&times;</button>
+                  </span>
+                )}
+                {campaignParam && (
+                  <span style={{ ...chipStyles, backgroundColor: '#fff7ed', color: '#c2410c', borderColor: '#ffedd5', fontWeight: 600 }}>
+                    Campaign: {campaignParam === 'christmas' ? '🎄 Christmas Deals' :
+                               campaignParam === 'limited-deals' ? '⚡ Limited-Time Deals' :
+                               campaignParam === 'rewards' ? '🎁 Free Gifts & Rewards' :
+                               campaignParam === 'black-friday' ? '🔥 Black Friday Mega Deals' :
+                               campaignParam === 'launch' ? '🚀 Launch Specials' : campaignParam}
+                    <button type="button" onClick={() => updateFilters({ campaign: null })} style={chipRemoveBtnStyles}>&times;</button>
                   </span>
                 )}
                 <button type="button" onClick={handleClearAllFilters} style={chipClearAllStyles}>
@@ -1606,4 +1680,66 @@ const categoryQuickPillStyles: React.CSSProperties = {
   cursor: 'pointer',
   transition: 'all var(--transition-fast)',
   flexShrink: 0,
+};
+
+const campaignShowcaseStyles: React.CSSProperties = {
+  color: '#ffffff',
+  borderRadius: 'var(--radius-lg, 12px)',
+  padding: 'var(--space-6) var(--space-6)',
+  marginBottom: 'var(--space-6)',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 'var(--space-4)',
+  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+};
+
+const campaignShowcaseContentStyles: React.CSSProperties = {
+  flex: 1,
+  minWidth: '260px',
+};
+
+const campaignTagBadgeStyles: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: '0.72rem',
+  fontWeight: 800,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  color: '#ffffff',
+  border: '1px solid rgba(255, 255, 255, 0.35)',
+  padding: '3px 10px',
+  borderRadius: '9999px',
+  marginBottom: '8px',
+};
+
+const campaignTitleStyles: React.CSSProperties = {
+  fontSize: 'clamp(1.2rem, 3vw, 1.6rem)',
+  fontWeight: 800,
+  color: '#ffffff',
+  margin: '0 0 6px 0',
+  letterSpacing: '-0.01em',
+};
+
+const campaignSubtitleStyles: React.CSSProperties = {
+  fontSize: '0.88rem',
+  color: 'rgba(255, 255, 255, 0.9)',
+  margin: 0,
+  lineHeight: 1.45,
+  maxWidth: '700px',
+};
+
+const campaignDismissBtnStyles: React.CSSProperties = {
+  backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  color: '#ffffff',
+  border: '1px solid rgba(255, 255, 255, 0.35)',
+  borderRadius: '9999px',
+  padding: '8px 16px',
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  cursor: 'pointer',
+  backdropFilter: 'blur(8px)',
+  transition: 'all 0.2s ease',
+  alignSelf: 'center',
 };
