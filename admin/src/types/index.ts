@@ -714,17 +714,20 @@ export interface Save2OwnGoalSummary {
 // ----------------------------------------------------------
 export interface HomepageBanner {
   id: string;
+  campaign_key?: string;
   title: string;
   subtitle: string | null;
   cta_text: string | null;
   cta_url: string | null;
   desktop_image_url: string;
   mobile_image_url: string;
+  image_url?: string;
   slide_interval_ms: number;
   display_order: number;
   start_date: string | null;
   end_date: string | null;
   is_active: boolean;
+  product_ids?: string[];
 }
 
 export interface HomepageSection {

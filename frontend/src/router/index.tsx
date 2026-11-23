@@ -18,6 +18,7 @@ import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
+import CampaignCollectionPage from '@/pages/Promotions/CampaignCollectionPage';
 
 
 function DynamicOrderRedirect() {
@@ -100,7 +101,8 @@ const router = createBrowserRouter([
           { path: 'products', element: <ProductListingPage /> },
           { path: 'products/:id', element: <ProductDetailPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'categories/:slug', element: <CategoryPage />, errorElement: <RouteErrorBoundary /> },
-          { path: 'campaigns/:slug', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'promotions/:slug', element: <CampaignCollectionPage />, errorElement: <RouteErrorBoundary /> },
+          { path: 'campaigns/:slug', element: <CampaignCollectionPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'deals', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'search', element: <ProductListingPage />, errorElement: <RouteErrorBoundary /> },
           { path: 'about', element: <AboutPage /> },

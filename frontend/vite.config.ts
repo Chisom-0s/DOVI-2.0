@@ -1006,6 +1006,52 @@ function doviSharedDeliveryDbPlugin() {
       return;
     }
 
+    // Homepage Banners API (Customer-facing)
+    if (req.url && (req.url === '/api/v1/homepage/banners/' || req.url.startsWith('/api/v1/homepage/banners/'))) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+      const store = readStore();
+      const banners = (store.homepageBanners || []).filter((b: any) => b.is_active);
+      banners.sort((a: any, b: any) => (a.display_order || 99) - (b.display_order || 99));
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(banners));
+      return;
+    }
+
+    // Campaign Products API
+    if (req.url && req.url.startsWith('/api/v1/campaigns/')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+      const store = readStore();
+      const match = req.url.match(/\/api\/v1\/campaigns\/([^/]+)\/products\/?/);
+      const campaignKey = match ? match[1] : '';
+      const banners = store.homepageBanners || [];
+      const banner = banners.find((b: any) => b.campaign_key === campaignKey || b.id === campaignKey) || null;
+      const allProducts = store.products || [];
+      const targetIds = (banner?.product_ids || []) as string[];
+      let matching = targetIds.length > 0 ? allProducts.filter((p: any) => targetIds.includes(p.id)) : allProducts.slice(0, 12);
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        campaign_key: campaignKey,
+        banner,
+        total_products: matching.length,
+        products: matching,
+      }));
+      return;
+    }
+
     next();
   };
   return {

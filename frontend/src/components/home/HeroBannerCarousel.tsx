@@ -1,99 +1,128 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { homepageApi, DEFAULT_HERO_BANNERS } from '@/api/homepage';
+import { homepageApi } from '@/api/homepage';
 import type { HomepageBanner } from '@/types';
 
-export default function HeroBannerCarousel() {
-  const [allBanners, setAllBanners] = useState<HomepageBanner[]>(() => {
-    try {
-      const stored = localStorage.getItem('dovi_homepage_banners_db');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((b: any) => b.id && (b.id.includes('campaign') || b.id.includes('christmas')))) {
-          return parsed;
-        }
-      }
-    } catch {}
-    return DEFAULT_HERO_BANNERS;
-  });
+export interface HeroSlide {
+  id: string;
+  campaign_key?: string;
+  image_url: string;
+  title: string;
+  subtitle?: string | null;
+  cta_text?: string | null;
+  cta_url: string;
+  display_order?: number;
+}
 
+export const PROMOTIONAL_HERO_SLIDES: HeroSlide[] = [
+  {
+    id: 'ban-hero-launch',
+    campaign_key: 'launch',
+    image_url: '/images/hero/hero_launch_campaign.jpg',
+    title: 'DOVI Launch Campaign',
+    subtitle: 'Discover More, Shop Smart',
+    cta_text: 'Shop Now',
+    cta_url: '/promotions/launch',
+    display_order: 1,
+  },
+  {
+    id: 'ban-hero-black-friday',
+    campaign_key: 'black-friday',
+    image_url: '/images/hero/hero_black_friday.jpg',
+    title: 'Black Friday Mega Deals',
+    subtitle: 'Up to 70% OFF on Selected Products',
+    cta_text: 'Shop the Deals',
+    cta_url: '/promotions/black-friday',
+    display_order: 2,
+  },
+  {
+    id: 'ban-hero-price-drops',
+    campaign_key: 'price-drops',
+    image_url: '/images/hero/hero_price_drops.jpg',
+    title: 'Price Drops',
+    subtitle: 'More Value, Less Spending on Selected Products',
+    cta_text: 'Shop Price Drops',
+    cta_url: '/promotions/price-drops',
+    display_order: 3,
+  },
+  {
+    id: 'ban-hero-free-gifts',
+    campaign_key: 'rewards',
+    image_url: '/images/hero/hero_free_gifts.jpg',
+    title: 'Free Gifts & Shopping Rewards',
+    subtitle: 'Shop qualifying products and unlock exciting rewards!',
+    cta_text: 'Claim Your Free Gift',
+    cta_url: '/promotions/giveaway',
+    display_order: 4,
+  },
+  {
+    id: 'ban-hero-limited-deals',
+    campaign_key: 'limited-deals',
+    image_url: '/images/hero/hero_limited_deals.jpg',
+    title: 'Limited-Time Deals',
+    subtitle: "Don't Miss Out on Special Offers - Up to 50% OFF",
+    cta_text: 'Shop Limited Deals',
+    cta_url: '/promotions/limited-deals',
+    display_order: 5,
+  },
+  {
+    id: 'ban-hero-christmas-deals',
+    campaign_key: 'christmas',
+    image_url: '/images/hero/hero_christmas_deals.jpg',
+    title: 'Christmas Deals',
+    subtitle: 'Up to 60% OFF - Festive Gifts & Luxury Items',
+    cta_text: 'Shop Now',
+    cta_url: '/promotions/christmas',
+    display_order: 6,
+  },
+];
+
+// Backward compatibility export
+export const STATIC_SLIDES = PROMOTIONAL_HERO_SLIDES;
+
+export default function HeroBannerCarousel() {
+  const [slides, setSlides] = useState<HeroSlide[]>(PROMOTIONAL_HERO_SLIDES);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
-  // Sync banners from API & localStorage
-  const loadBanners = async () => {
-    try {
-      const banners = await homepageApi.getBanners();
-      if (Array.isArray(banners) && banners.length > 0) {
-        setAllBanners(banners);
-      }
-    } catch (err) {
-      console.warn('Failed to load dynamic banners, using local defaults', err);
-    }
-  };
-
+  // Sync with homepage banners API (admin CMS driven with fallback)
   useEffect(() => {
-    loadBanners();
-
-    // Listen for changes from admin dashboard tab or window events
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'dovi_homepage_banners_db' && e.newValue) {
-        try {
-          const updated = JSON.parse(e.newValue);
-          if (Array.isArray(updated) && updated.length > 0) {
-            setAllBanners(updated);
-          }
-        } catch {}
+    let isMounted = true;
+    homepageApi.getBanners().then((banners: HomepageBanner[]) => {
+      if (!isMounted) return;
+      if (Array.isArray(banners) && banners.length > 0) {
+        const active = banners
+          .filter((b) => b.is_active)
+          .sort((a, b) => a.display_order - b.display_order)
+          .map((b) => ({
+            id: b.id,
+            campaign_key: (b as any).campaign_key,
+            image_url: b.desktop_image_url || (b as any).image_url || '/images/hero/hero_launch_campaign.jpg',
+            title: b.title,
+            subtitle: b.subtitle,
+            cta_text: b.cta_text,
+            cta_url: b.cta_url || '/',
+            display_order: b.display_order,
+          }));
+        if (active.length > 0) {
+          setSlides(active);
+        }
       }
-    };
-
-    const handleCustomUpdate = () => {
-      loadBanners();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('dovi:banners_updated', handleCustomUpdate);
+    }).catch(() => {
+      // Fallback remains PROMOTIONAL_HERO_SLIDES
+    });
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('dovi:banners_updated', handleCustomUpdate);
+      isMounted = false;
     };
   }, []);
 
-  // Filter for active, scheduled, and unexpired banners
-  const visibleBanners = useMemo(() => {
-    const now = new Date();
-    const filtered = allBanners
-      .filter((banner) => {
-        if (!banner.is_active) return false;
-        // Schedule: Not yet started
-        if (banner.start_date && new Date(banner.start_date) > now) return false;
-        // Schedule: Expired
-        if (banner.end_date && new Date(banner.end_date) < now) return false;
-        return true;
-      })
-      .sort((a, b) => a.display_order - b.display_order);
-
-    return filtered.length > 0 ? filtered : DEFAULT_HERO_BANNERS;
-  }, [allBanners]);
-
-  // Adjust current index if it exceeds active banners count
-  useEffect(() => {
-    if (currentIndex >= visibleBanners.length) {
-      setCurrentIndex(0);
-    }
-  }, [visibleBanners.length, currentIndex]);
-
-  // Auto-slide rotation with custom slide duration
-  const currentBanner = visibleBanners[currentIndex] || visibleBanners[0];
-  const slideDuration = currentBanner?.slide_interval_ms || 5000;
-
+  // Auto-slide logic (5 seconds per slide)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (mediaQuery.matches) return;
-    if (visibleBanners.length <= 1) return;
+    if (mediaQuery.matches || slides.length <= 1) return;
 
     if (isPaused) {
       const resumeTimer = setTimeout(() => {
@@ -103,19 +132,19 @@ export default function HeroBannerCarousel() {
     }
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev === visibleBanners.length - 1 ? 0 : prev + 1));
-    }, slideDuration);
+      setCurrentIndex((prev) => (prev >= slides.length - 1 ? 0 : prev + 1));
+    }, 5000);
 
     return () => clearInterval(timer);
-  }, [isPaused, currentIndex, visibleBanners.length, slideDuration]);
+  }, [isPaused, currentIndex, slides.length]);
 
   const handleNext = () => {
-    setCurrentIndex((prev) => (prev === visibleBanners.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => (prev >= slides.length - 1 ? 0 : prev + 1));
     setIsPaused(true);
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => (prev === 0 ? visibleBanners.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev <= 0 ? slides.length - 1 : prev - 1));
     setIsPaused(true);
   };
 
@@ -146,38 +175,35 @@ export default function HeroBannerCarousel() {
     .hero-carousel-container {
       position: relative;
       width: 100%;
+      aspect-ratio: 2 / 1;
+      max-height: 440px;
+      min-height: 175px;
       overflow: hidden;
       border-radius: var(--radius-xl, 16px);
       background-color: #0f172a;
       outline: none;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      aspect-ratio: 2.15 / 1;
-      max-height: 440px;
-      min-height: 180px;
-      transition: box-shadow 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(0, 0, 0, 0.06);
     }
 
     @media (max-width: 1024px) {
       .hero-carousel-container {
-        aspect-ratio: 2.1 / 1;
+        border-radius: var(--radius-lg, 14px);
         max-height: 380px;
       }
     }
 
     @media (max-width: 767px) {
       .hero-carousel-container {
-        aspect-ratio: 2 / 1;
-        border-radius: var(--radius-lg, 12px);
-        max-height: 250px;
-        min-height: 160px;
+        border-radius: var(--radius-md, 10px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        max-height: 260px;
       }
       .hero-nav-btn {
         display: none !important;
       }
       .hero-dots {
         bottom: 8px !important;
-        right: 12px !important;
       }
     }
 
@@ -203,7 +229,6 @@ export default function HeroBannerCarousel() {
       height: 100%;
       position: relative;
       text-decoration: none;
-      color: inherit;
       cursor: pointer;
     }
 
@@ -213,7 +238,9 @@ export default function HeroBannerCarousel() {
       object-fit: cover;
       object-position: center;
       display: block;
-      transition: transform 600ms ease;
+      transition: transform 450ms ease;
+      user-select: none;
+      -webkit-user-drag: none;
     }
 
     .hero-carousel-container:hover .hero-slide-wrapper.active .hero-slide-image {
@@ -225,22 +252,23 @@ export default function HeroBannerCarousel() {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      background-color: rgba(15, 23, 42, 0.55);
+      background-color: rgba(15, 23, 42, 0.65);
       color: #ffffff;
-      font-size: 1.15rem;
+      font-size: 1.25rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 10;
       opacity: 0;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
     
     .hero-carousel-container:hover .hero-nav-btn,
@@ -252,31 +280,37 @@ export default function HeroBannerCarousel() {
       background-color: var(--color-primary, #ff7a00);
       border-color: var(--color-primary, #ff7a00);
       transform: translateY(-50%) scale(1.08);
-      box-shadow: 0 4px 14px rgba(255, 122, 0, 0.45);
+      box-shadow: 0 4px 16px rgba(255, 122, 0, 0.5);
     }
 
     /* Dot Indicators */
     .hero-dots {
       position: absolute;
-      bottom: 14px;
-      right: 24px;
+      bottom: 12px;
+      right: 20px;
       display: flex;
       gap: 6px;
       z-index: 10;
-      background-color: rgba(15, 23, 42, 0.45);
+      background-color: rgba(15, 23, 42, 0.6);
       padding: 5px 10px;
       border-radius: 9999px;
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     @media (max-width: 767px) {
       .hero-dots {
-        padding: 4px 8px;
+        right: 50%;
+        transform: translateX(50%);
+        bottom: 8px !important;
+        padding: 3px 8px;
         gap: 4px;
       }
     }
   `;
+
+  if (slides.length === 0) return null;
 
   return (
     <div
@@ -292,61 +326,40 @@ export default function HeroBannerCarousel() {
       tabIndex={0}
       role="region"
       aria-roledescription="carousel"
-      aria-label="DOVI Promotional Campaigns"
+      aria-label="Promotional Campaigns Carousel"
     >
       <style dangerouslySetInnerHTML={{ __html: inlineStyles }} />
 
-      {/* Render all campaign slides with smooth cross-fade */}
-      {visibleBanners.map((slide, index) => {
+      {/* Render promotional campaign slides directly with high-fidelity graphics */}
+      {slides.map((slide, index) => {
         const isActive = index === currentIndex;
-        const targetUrl = slide.cta_url || '/products';
-        const isExternal = targetUrl.startsWith('http');
-
         return (
           <div
             key={slide.id}
             className={`hero-slide-wrapper ${isActive ? 'active' : ''}`}
             aria-hidden={!isActive}
           >
-            {isExternal ? (
-              <a
-                href={targetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hero-slide-link"
-                title={`${slide.title}${slide.subtitle ? ` — ${slide.subtitle}` : ''}`}
-                aria-label={`${slide.title}: ${slide.cta_text || 'View Campaign'}`}
-                tabIndex={isActive ? 0 : -1}
-              >
-                <img
-                  src={slide.desktop_image_url}
-                  alt={slide.title}
-                  className="hero-slide-image"
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                />
-              </a>
-            ) : (
-              <Link
-                to={targetUrl}
-                className="hero-slide-link"
-                title={`${slide.title}${slide.subtitle ? ` — ${slide.subtitle}` : ''}`}
-                aria-label={`${slide.title}: ${slide.cta_text || 'View Campaign'}`}
-                tabIndex={isActive ? 0 : -1}
-              >
-                <img
-                  src={slide.desktop_image_url}
-                  alt={slide.title}
-                  className="hero-slide-image"
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                />
-              </Link>
-            )}
+            <Link
+              to={slide.cta_url}
+              className="hero-slide-link"
+              title={`${slide.title}${slide.cta_text ? ` — ${slide.cta_text}` : ''}`}
+              aria-label={`${slide.title}${slide.cta_text ? `: ${slide.cta_text}` : ''}`}
+              tabIndex={isActive ? 0 : -1}
+            >
+              <img
+                src={slide.image_url}
+                alt={slide.title}
+                className="hero-slide-image"
+                loading={index === 0 ? 'eager' : 'lazy'}
+                draggable={false}
+              />
+            </Link>
           </div>
         );
       })}
 
-      {/* Manual Left/Right Controls (Desktop) */}
-      {visibleBanners.length > 1 && (
+      {/* Manual Left/Right Navigation Buttons */}
+      {slides.length > 1 && (
         <>
           <button
             type="button"
@@ -357,7 +370,7 @@ export default function HeroBannerCarousel() {
               handlePrev();
             }}
             style={{ left: '16px' }}
-            aria-label="Previous campaign slide"
+            aria-label="Previous promotional slide"
           >
             &#10094;
           </button>
@@ -370,43 +383,45 @@ export default function HeroBannerCarousel() {
               handleNext();
             }}
             style={{ right: '16px' }}
-            aria-label="Next campaign slide"
+            aria-label="Next promotional slide"
           >
             &#10095;
           </button>
-
-          {/* Dot Indicators */}
-          <div className="hero-dots" role="tablist" aria-label="Campaign navigation">
-            {visibleBanners.map((slide, index) => {
-              const isActive = index === currentIndex;
-              return (
-                <button
-                  type="button"
-                  role="tab"
-                  key={slide.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setCurrentIndex(index);
-                    setIsPaused(true);
-                  }}
-                  style={{
-                    width: isActive ? '22px' : '7px',
-                    height: '7px',
-                    borderRadius: '9999px',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    backgroundColor: isActive ? 'var(--color-primary, #ff7a00)' : 'rgba(255, 255, 255, 0.65)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  aria-label={`Go to slide ${index + 1}: ${slide.title}`}
-                  aria-selected={isActive}
-                />
-              );
-            })}
-          </div>
         </>
+      )}
+
+      {/* Slide Dot Indicators */}
+      {slides.length > 1 && (
+        <div className="hero-dots" role="tablist" aria-label="Slide indicators">
+          {slides.map((slide, index) => {
+            const isActive = index === currentIndex;
+            return (
+              <button
+                type="button"
+                role="tab"
+                key={slide.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentIndex(index);
+                  setIsPaused(true);
+                }}
+                style={{
+                  width: isActive ? '24px' : '7px',
+                  height: '7px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  backgroundColor: isActive ? 'var(--color-primary, #ff7a00)' : 'rgba(255, 255, 255, 0.6)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                aria-label={`Go to ${slide.title}`}
+                aria-selected={isActive}
+              />
+            );
+          })}
+        </div>
       )}
     </div>
   );

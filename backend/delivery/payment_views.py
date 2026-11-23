@@ -2053,3 +2053,393 @@ class AdminPromotionalCampaignDuplicateAPIView(views.APIView):
             'message': f"Campaign duplicated as '{duplicated['name']}'.",
             'campaign': duplicated,
         }, status=status.HTTP_201_CREATED)
+
+
+# ==============================================================================
+# HOMEPAGE HERO PROMOTIONAL BANNERS CMS & CAMPAIGN DESTINATIONS
+# ==============================================================================
+
+DEFAULT_HERO_PROMOTIONAL_BANNERS = [
+    {
+        'id': 'ban-hero-launch',
+        'campaign_key': 'launch',
+        'title': 'DOVI Launch Campaign',
+        'subtitle': 'Discover More, Shop Smart',
+        'cta_text': 'Shop Now',
+        'cta_url': '/promotions/launch',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_launch_campaign.jpg',
+        'mobile_image_url': '/images/hero/hero_launch_campaign.jpg',
+        'image_url': '/images/hero/hero_launch_campaign.jpg',
+        'is_active': True,
+        'display_order': 1,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': [
+            '7a16b38e-6767-4d3e-b95e-1ea5e5df233e',
+            '81e58fb1-05fb-4e70-8ffe-206aa97a5a30',
+            '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+            '675dcfa8-cede-4398-93fe-26ebf3c5bf2a',
+            '04d1916c-5dc3-4d37-9247-a6a37be3ba1e',
+            '27e513ea-8080-4b57-98a9-6b1d02ca0427'
+        ]
+    },
+    {
+        'id': 'ban-hero-black-friday',
+        'campaign_key': 'black-friday',
+        'title': 'Black Friday Mega Deals',
+        'subtitle': 'Up to 70% OFF on Selected Products',
+        'cta_text': 'Shop the Deals',
+        'cta_url': '/promotions/black-friday',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_black_friday.jpg',
+        'mobile_image_url': '/images/hero/hero_black_friday.jpg',
+        'image_url': '/images/hero/hero_black_friday.jpg',
+        'is_active': True,
+        'display_order': 2,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': [
+            '81e58fb1-05fb-4e70-8ffe-206aa97a5a30',
+            '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+            '45d9616d-4af0-491b-b0d5-9b185404732f',
+            '74993487-eee2-4648-925c-53e3beaf5429',
+            '38897758-8093-46e3-a005-63a4581e3bb7'
+        ]
+    },
+    {
+        'id': 'ban-hero-price-drops',
+        'campaign_key': 'price-drops',
+        'title': 'Price Drops',
+        'subtitle': 'More Value, Less Spending on Selected Products',
+        'cta_text': 'Shop Price Drops',
+        'cta_url': '/promotions/price-drops',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_price_drops.jpg',
+        'mobile_image_url': '/images/hero/hero_price_drops.jpg',
+        'image_url': '/images/hero/hero_price_drops.jpg',
+        'is_active': True,
+        'display_order': 3,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': []
+    },
+    {
+        'id': 'ban-hero-free-gifts',
+        'campaign_key': 'rewards',
+        'title': 'Free Gifts & Shopping Rewards',
+        'subtitle': 'Shop qualifying products and unlock exciting rewards!',
+        'cta_text': 'Claim Your Free Gift',
+        'cta_url': '/promotions/giveaway',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_free_gifts.jpg',
+        'mobile_image_url': '/images/hero/hero_free_gifts.jpg',
+        'image_url': '/images/hero/hero_free_gifts.jpg',
+        'is_active': True,
+        'display_order': 4,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': []
+    },
+    {
+        'id': 'ban-hero-limited-deals',
+        'campaign_key': 'limited-deals',
+        'title': 'Limited-Time Deals',
+        'subtitle': "Don't Miss Out on Special Offers - Up to 50% OFF",
+        'cta_text': 'Shop Limited Deals',
+        'cta_url': '/promotions/limited-deals',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_limited_deals.jpg',
+        'mobile_image_url': '/images/hero/hero_limited_deals.jpg',
+        'image_url': '/images/hero/hero_limited_deals.jpg',
+        'is_active': True,
+        'display_order': 5,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': []
+    },
+    {
+        'id': 'ban-hero-christmas-deals',
+        'campaign_key': 'christmas',
+        'title': 'Christmas Deals',
+        'subtitle': 'Up to 60% OFF - Festive Gifts & Luxury Items',
+        'cta_text': 'Shop Now',
+        'cta_url': '/promotions/christmas',
+        'destination_type': 'CAMPAIGN',
+        'desktop_image_url': '/images/hero/hero_christmas_deals.jpg',
+        'mobile_image_url': '/images/hero/hero_christmas_deals.jpg',
+        'image_url': '/images/hero/hero_christmas_deals.jpg',
+        'is_active': True,
+        'display_order': 6,
+        'slide_interval_ms': 5000,
+        'start_date': '2026-11-20T00:00:00Z',
+        'end_date': '2026-12-31T23:59:59Z',
+        'product_ids': [
+            '81e58fb1-05fb-4e70-8ffe-206aa97a5a30',
+            '9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d',
+            '45d9616d-4af0-491b-b0d5-9b185404732f',
+            '4afb3918-78db-4ab3-ab3a-960ecba22ef0',
+            '27e513ea-8080-4b57-98a9-6b1d02ca0427',
+            '675dcfa8-cede-4398-93fe-26ebf3c5bf2a',
+            '04d1916c-5dc3-4d37-9247-a6a37be3ba1e',
+            '74993487-eee2-4648-925c-53e3beaf5429',
+            '38897758-8093-46e3-a005-63a4581e3bb7',
+            '97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa'
+        ]
+    }
+]
+
+
+def get_homepage_banners(store):
+    banners = store.get('homepageBanners')
+    if not banners or not isinstance(banners, list) or len(banners) == 0:
+        banners = list(DEFAULT_HERO_PROMOTIONAL_BANNERS)
+        store['homepageBanners'] = banners
+        save_delivery_store(store)
+    return banners
+
+
+class PublicHomepageBannersAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        now_ts = datetime.now(timezone.utc).timestamp()
+
+        active_banners = []
+        for b in banners:
+            if not b.get('is_active', True):
+                continue
+            start_str = b.get('start_date')
+            end_str = b.get('end_date')
+            if start_str:
+                try:
+                    st = datetime.fromisoformat(start_str.replace('Z', '+00:00')).timestamp()
+                    if now_ts < st:
+                        continue
+                except:
+                    pass
+            if end_str:
+                try:
+                    et = datetime.fromisoformat(end_str.replace('Z', '+00:00')).timestamp()
+                    if now_ts > et:
+                        continue
+                except:
+                    pass
+            active_banners.append(b)
+
+        active_banners.sort(key=lambda x: x.get('display_order', 99))
+        return Response(active_banners, status=status.HTTP_200_OK)
+
+
+class AdminHomepageBannersAPIView(APIView):
+    permission_classes = [IsAdminRolePermission]
+
+    def get(self, request):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        sorted_banners = sorted(banners, key=lambda x: x.get('display_order', 99))
+        return Response(sorted_banners, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        data = request.data or {}
+
+        title = (data.get('title') or '').strip()
+        desktop_img = data.get('desktop_image_url') or data.get('image_url') or ''
+        mobile_img = data.get('mobile_image_url') or desktop_img
+
+        if not title or not desktop_img:
+            return Response({'error': 'Title and banner image are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_id = f"ban-{int(datetime.now(timezone.utc).timestamp())}-{uuid.uuid4().hex[:4]}"
+        max_order = max([b.get('display_order', 0) for b in banners] or [0])
+
+        new_banner = {
+            'id': new_id,
+            'campaign_key': data.get('campaign_key') or f"campaign-{uuid.uuid4().hex[:6]}",
+            'title': title,
+            'subtitle': data.get('subtitle') or '',
+            'cta_text': data.get('cta_text') or 'Shop Now',
+            'cta_url': data.get('cta_url') or '/products',
+            'destination_type': data.get('destination_type') or 'CAMPAIGN',
+            'desktop_image_url': desktop_img,
+            'mobile_image_url': mobile_img,
+            'image_url': desktop_img,
+            'is_active': data.get('is_active', True),
+            'display_order': data.get('display_order') or (max_order + 1),
+            'slide_interval_ms': int(data.get('slide_interval_ms') or 5000),
+            'start_date': data.get('start_date') or None,
+            'end_date': data.get('end_date') or None,
+            'product_ids': data.get('product_ids') or [],
+        }
+
+        banners.append(new_banner)
+        store['homepageBanners'] = banners
+        save_delivery_store(store)
+
+        return Response(new_banner, status=status.HTTP_201_CREATED)
+
+
+class AdminHomepageBannerDetailAPIView(APIView):
+    permission_classes = [IsAdminRolePermission]
+
+    def get(self, request, banner_id):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        b = next((x for x in banners if str(x.get('id')).lower() == str(banner_id).lower()), None)
+        if not b:
+            return Response({'error': 'Banner not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(b, status=status.HTTP_200_OK)
+
+    def patch(self, request, banner_id):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        b = next((x for x in banners if str(x.get('id')).lower() == str(banner_id).lower()), None)
+        if not b:
+            return Response({'error': 'Banner not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data or {}
+        for k in ['title', 'subtitle', 'cta_text', 'cta_url', 'destination_type',
+                  'desktop_image_url', 'mobile_image_url', 'image_url',
+                  'is_active', 'display_order', 'slide_interval_ms', 'start_date',
+                  'end_date', 'product_ids', 'campaign_key']:
+            if k in data:
+                b[k] = data[k]
+
+        if 'desktop_image_url' in data and 'image_url' not in data:
+            b['image_url'] = data['desktop_image_url']
+        if 'image_url' in data and 'desktop_image_url' not in data:
+            b['desktop_image_url'] = data['image_url']
+            b['mobile_image_url'] = data['image_url']
+
+        save_delivery_store(store)
+        return Response(b, status=status.HTTP_200_OK)
+
+    def put(self, request, banner_id):
+        return self.patch(request, banner_id)
+
+    def delete(self, request, banner_id):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        idx = next((i for i, x in enumerate(banners) if str(x.get('id')).lower() == str(banner_id).lower()), None)
+        if idx is None:
+            return Response({'error': 'Banner not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        removed = banners.pop(idx)
+        store['homepageBanners'] = banners
+        save_delivery_store(store)
+        return Response({'success': True, 'message': f"Banner '{removed.get('title')}' deleted."}, status=status.HTTP_200_OK)
+
+
+class AdminHomepageBannerToggleAPIView(APIView):
+    permission_classes = [IsAdminRolePermission]
+
+    def post(self, request, banner_id, action):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        b = next((x for x in banners if str(x.get('id')).lower() == str(banner_id).lower()), None)
+        if not b:
+            return Response({'error': 'Banner not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        b['is_active'] = (action == 'activate')
+        save_delivery_store(store)
+        return Response({'success': True, 'is_active': b['is_active']}, status=status.HTTP_200_OK)
+
+
+class AdminHomepageBannersReorderAPIView(APIView):
+    permission_classes = [IsAdminRolePermission]
+
+    def post(self, request):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        ids = request.data.get('ids', [])
+
+        id_map = {b['id']: b for b in banners}
+        new_list = []
+        for index, b_id in enumerate(ids):
+            if b_id in id_map:
+                item = id_map.pop(b_id)
+                item['display_order'] = index + 1
+                new_list.append(item)
+
+        # Append any remaining
+        for item in id_map.values():
+            item['display_order'] = len(new_list) + 1
+            new_list.append(item)
+
+        store['homepageBanners'] = new_list
+        save_delivery_store(store)
+        return Response({'success': True, 'banners': new_list}, status=status.HTTP_200_OK)
+
+
+class CampaignProductsAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, campaign_key):
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        banner = next((b for b in banners if b.get('campaign_key') == campaign_key or b.get('id') == campaign_key), None)
+
+        all_products = store.get('products', [])
+        target_ids = (banner.get('product_ids') if banner else []) or []
+
+        if target_ids:
+            matching_products = [p for p in all_products if p.get('id') in target_ids]
+        else:
+            # Fallback based on campaign semantics
+            key_lower = campaign_key.lower()
+            if 'price-drop' in key_lower:
+                matching_products = [
+                    p for p in all_products
+                    if 'DOVI_HOMEPAGE' in p.get('description', '') and ('"is_flash_deal":true' in p.get('description', '') or '"is_discount":true' in p.get('description', ''))
+                ]
+            elif 'limited' in key_lower:
+                matching_products = [
+                    p for p in all_products
+                    if 'DOVI_HOMEPAGE' in p.get('description', '') and '"is_flash_deal":true' in p.get('description', '')
+                ]
+            elif 'reward' in key_lower or 'giveaway' in key_lower:
+                matching_products = [
+                    p for p in all_products
+                    if float(p.get('base_price', 0)) >= 30000 or p.get('category_name') in ['Phones & Electronics', 'Electronics']
+                ]
+            else:
+                matching_products = all_products[:12]
+
+        return Response({
+            'campaign_key': campaign_key,
+            'banner': banner,
+            'total_products': len(matching_products),
+            'products': matching_products
+        }, status=status.HTTP_200_OK)
+
+    def post(self, request, campaign_key):
+        # Admin assignment of products to a campaign (e.g. Christmas Deals)
+        if not request.user or not getattr(request.user, 'is_staff', False):
+            # Also allow IsAdminRolePermission check
+            pass
+
+        store = get_delivery_store()
+        banners = get_homepage_banners(store)
+        banner = next((b for b in banners if b.get('campaign_key') == campaign_key or b.get('id') == campaign_key), None)
+        if not banner:
+            return Response({'error': f"Campaign '{campaign_key}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        product_ids = request.data.get('product_ids', [])
+        banner['product_ids'] = product_ids
+        save_delivery_store(store)
+
+        return Response({
+            'success': True,
+            'campaign_key': campaign_key,
+            'assigned_count': len(product_ids),
+            'product_ids': product_ids
+        }, status=status.HTTP_200_OK)

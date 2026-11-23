@@ -7,6 +7,12 @@ from .payment_views import (
     AdminPromotionalCampaignPauseAPIView,
     AdminPromotionalCampaignResumeAPIView,
     AdminPromotionalCampaignDuplicateAPIView,
+    PublicHomepageBannersAPIView,
+    AdminHomepageBannersAPIView,
+    AdminHomepageBannerDetailAPIView,
+    AdminHomepageBannerToggleAPIView,
+    AdminHomepageBannersReorderAPIView,
+    CampaignProductsAPIView,
     ReceiptUploadAPIView,
     SubmitPaymentEvidenceAPIView,
     PaymentEvidenceDetailAPIView,
@@ -50,13 +56,24 @@ urlpatterns = [
     path('admin/payments/<str:payment_id>/verify/', AdminPaymentVerifyAPIView.as_view(), name='admin-payment-verify'),
     path('admin/payments/<str:payment_id>/reject/', AdminPaymentRejectAPIView.as_view(), name='admin-payment-reject'),
 
-    # Reusable Promotional Campaigns & Banners
+    # Reusable Promotional Campaigns & Popups
     path('promotions/campaigns/', PublicPromotionalCampaignsAPIView.as_view(), name='public-promotions-campaigns'),
     path('admin/promotions/campaigns/', AdminPromotionalCampaignsListCreateAPIView.as_view(), name='admin-promotions-campaigns'),
     path('admin/promotions/campaigns/<str:campaign_id>/', AdminPromotionalCampaignDetailAPIView.as_view(), name='admin-promotions-campaign-detail'),
     path('admin/promotions/campaigns/<str:campaign_id>/pause/', AdminPromotionalCampaignPauseAPIView.as_view(), name='admin-promotions-campaign-pause'),
     path('admin/promotions/campaigns/<str:campaign_id>/resume/', AdminPromotionalCampaignResumeAPIView.as_view(), name='admin-promotions-campaign-resume'),
     path('admin/promotions/campaigns/<str:campaign_id>/duplicate/', AdminPromotionalCampaignDuplicateAPIView.as_view(), name='admin-promotions-campaign-duplicate'),
+
+    # Homepage Hero Promotional Banners CMS
+    path('homepage/banners/', PublicHomepageBannersAPIView.as_view(), name='public-homepage-banners'),
+    path('admin/homepage/banners/', AdminHomepageBannersAPIView.as_view(), name='admin-homepage-banners'),
+    path('admin/homepage/banners/<str:banner_id>/', AdminHomepageBannerDetailAPIView.as_view(), name='admin-homepage-banner-detail'),
+    path('admin/homepage/banners/<str:banner_id>/<str:action>/', AdminHomepageBannerToggleAPIView.as_view(), name='admin-homepage-banner-toggle'),
+    path('admin/homepage/banners/reorder/', AdminHomepageBannersReorderAPIView.as_view(), name='admin-homepage-banners-reorder'),
+
+    # Campaign Destinations & Products (e.g. Christmas Deals)
+    path('campaigns/<str:campaign_key>/products/', CampaignProductsAPIView.as_view(), name='campaign-products'),
+    path('admin/campaigns/<str:campaign_key>/products/', CampaignProductsAPIView.as_view(), name='admin-campaign-products'),
 
     # Orders & Lifecycle Transitions
     path('orders/', OrderListCreateAPIView.as_view(), name='orders-list-create'),

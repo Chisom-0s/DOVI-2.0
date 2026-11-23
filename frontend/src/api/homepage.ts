@@ -5,80 +5,16 @@ import { parsePriceNumber } from '@/utils/currency';
 import { normalizeUrl } from '@/utils/image';
 import { enrichProductWithDelivery } from '@/services/deliveryPricingService';
 import { enrichProductWithCategory } from '@/services/categoryService';
+import {
+  getProductHomepagePlacement,
+  isDiscountActiveNow,
+  syncHomepagePlacementsFromServer,
+  listMerchandisingSections,
+  DEFAULT_CORE_SECTIONS,
+} from '@/services/homepagePlacementService';
 import type { HomepageData, HomepageBanner, HomepageSection, ProductSummary } from '@/types';
 
 const SEED_SECTIONS: HomepageSection[] = [
-  {
-    id: 'sec-flash-deals',
-    name: 'Flash Deals',
-    key: 'FLASH_DEALS',
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers — ending soon!',
-    is_active: true,
-    visible: true,
-    sort_order: 1,
-    display_order: 1,
-    display_limit: 6,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-new-arrivals',
-    name: 'New Arrivals',
-    key: 'NEW_ARRIVALS',
-    title: 'New Arrivals',
-    subtitle: 'Freshly added to the catalog',
-    is_active: true,
-    visible: true,
-    sort_order: 2,
-    display_order: 2,
-    display_limit: 4,
-    configuration: {
-      layout: 'PRODUCT_GRID',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-special-promo',
-    name: 'Special Promo',
-    key: 'SPECIAL_PROMO',
-    title: 'Unlock Save2Own Benefits',
-    subtitle: 'Contribute in bits towards purchasing high-value items without any interest.',
-    is_active: true,
-    visible: true,
-    sort_order: 3,
-    display_order: 3,
-    display_limit: 1,
-    configuration: {
-      layout: 'BANNER',
-      source: 'AUTOMATIC',
-      cta_text: 'Start Saving',
-      cta_url: '/save2own',
-      background_color: 'rgba(255, 122, 0, 0.05)',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-hot-sales',
-    name: 'Hot Sales',
-    key: 'HOT_SALES',
-    title: 'Hot Sales',
-    subtitle: 'Most popular purchases this week',
-    is_active: true,
-    visible: true,
-    sort_order: 4,
-    display_order: 4,
-    display_limit: 6,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
   {
     id: 'sec-best-sellers',
     name: 'Best Sellers',
@@ -87,12 +23,33 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'Top performing products in the catalog',
     is_active: true,
     visible: true,
-    sort_order: 5,
-    display_order: 5,
-    display_limit: 4,
+    sort_order: 1,
+    display_order: 1,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=best-sellers',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-discounts',
+    name: 'Deals & Discounts',
+    key: 'DISCOUNTS',
+    title: 'Deals & Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
+    is_active: true,
+    visible: true,
+    sort_order: 2,
+    display_order: 2,
+    display_limit: 24,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=deals-and-discounts',
     },
     config: {},
   },
@@ -104,46 +61,91 @@ const SEED_SECTIONS: HomepageSection[] = [
     subtitle: 'High demand products right now',
     is_active: true,
     visible: true,
-    sort_order: 6,
-    display_order: 6,
-    display_limit: 6,
+    sort_order: 3,
+    display_order: 3,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=trending',
     },
     config: {},
   },
   {
-    id: 'sec-save2own',
-    name: 'Save2Own Featured',
-    key: 'SAVE2OWN_FEATURED',
-    title: 'Featured Save2Own items',
-    subtitle: 'Start saving in micro-payments today',
+    id: 'sec-special-promo',
+    name: 'Save2Own',
+    key: 'SPECIAL_PROMO',
+    title: 'Unlock Save2Own Benefits',
+    subtitle: 'Contribute in bits towards purchasing high-value items without any interest.',
+    is_active: true,
+    visible: true,
+    sort_order: 4,
+    display_order: 4,
+    display_limit: 1,
+    configuration: {
+      layout: 'BANNER',
+      source: 'AUTOMATIC',
+      cta_text: 'Start Saving',
+      cta_url: '/save2own',
+      background_color: 'rgba(255, 122, 0, 0.05)',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-new-arrivals',
+    name: 'New Arrivals',
+    key: 'NEW_ARRIVALS',
+    title: 'New Arrivals',
+    subtitle: 'Freshly added to the catalog',
+    is_active: true,
+    visible: true,
+    sort_order: 5,
+    display_order: 5,
+    display_limit: 24,
+    configuration: {
+      layout: 'PRODUCT_GRID',
+      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=new-arrivals',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-hot-sales',
+    name: 'Hot Sales',
+    key: 'HOT_SALES',
+    title: 'Hot Sales',
+    subtitle: 'Most popular purchases this week',
+    is_active: true,
+    visible: true,
+    sort_order: 6,
+    display_order: 6,
+    display_limit: 24,
+    configuration: {
+      layout: 'HORIZONTAL_CAROUSEL',
+      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=hot-sales',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-featured',
+    name: 'Featured Products',
+    key: 'FEATURED_PRODUCTS',
+    title: 'Featured Products',
+    subtitle: 'Hand-picked essentials curated for you',
     is_active: true,
     visible: true,
     sort_order: 7,
     display_order: 7,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-dovi-auto',
-    name: 'Dovi Auto',
-    key: 'DOVI_AUTO',
-    title: 'Dovi Auto Hub',
-    subtitle: 'Premium car deals and accessories',
-    is_active: true,
-    visible: true,
-    sort_order: 8,
-    display_order: 8,
-    display_limit: 4,
-    configuration: {
-      layout: 'AUTO_LISTING_GRID',
-      source: 'AUTOMATIC',
+      cta_text: 'View All',
+      cta_url: '/products?section=featured',
     },
     config: {},
   },
@@ -180,25 +182,25 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     typeof p.vendor === 'object' && p.vendor !== null
       ? p.vendor
       : {
-          id: String(p.vendor || 'vend-real'),
-          name: vendorName,
-          logo_url: null,
-          rating: 4.9,
-          review_count: 14,
-          location: 'Lagos, Nigeria',
-          slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
-        };
+        id: String(p.vendor || 'vend-real'),
+        name: vendorName,
+        logo_url: null,
+        rating: 0,
+        review_count: 0,
+        location: 'Lagos, Nigeria',
+        slug: vendorName.toLowerCase().replace(/\s+/g, '-'),
+      };
 
   const categoryName = p.category_name || (typeof p.category === 'object' ? p.category?.name : 'General');
   const categoryObj =
     typeof p.category === 'object' && p.category !== null
       ? p.category
       : {
-          id: String(p.category || 'cat-real'),
-          name: categoryName,
-          slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
-          icon_url: null,
-        };
+        id: String(p.category || 'cat-real'),
+        name: categoryName,
+        slug: (p.category_slug || categoryName).toLowerCase().replace(/\s+/g, '-'),
+        icon_url: null,
+      };
 
   const normalizedImages = (Array.isArray(p.images) ? p.images : []).map((img: any) => {
     if (!img) return img;
@@ -213,13 +215,39 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     };
   });
 
+  // Authoritative Admin-controlled Homepage Placement & Discount configuration
+  const placement = getProductHomepagePlacement({ id: p.id, description: p.description });
+  const isBestSeller = Boolean(placement ? placement.is_best_seller : p.is_best_seller);
+  const isTrending = Boolean(placement ? placement.is_trending : p.is_trending);
+  const isHotSale = Boolean(placement ? placement.is_hot_sale : p.is_hot_sale);
+  const isNewArrival = Boolean(placement ? placement.is_new_arrival : p.is_new_arrival);
+  const isFeatured = Boolean(placement ? placement.is_featured : (p as any).is_featured);
+
+  // Deals & Discounts is the ONLY section responsible for product discounts across DOVI.
+  const discountConfig = placement?.discount_config ?? p.discount_config ?? null;
+  const isDiscountActive = isDiscountActiveNow(discountConfig);
+  const isDiscount = Boolean((placement ? placement.is_discount : (p as any).is_discount) && isDiscountActive);
+
+  let finalPrice = priceStr;
+  let finalOriginalPrice: string | null = p.original_price != null ? String(p.original_price) : null;
+  let finalDiscount = Number(p.discount_percentage) || 0;
+
+  if (isDiscount && discountConfig?.discount_price) {
+    finalPrice = String(discountConfig.discount_price);
+    finalOriginalPrice = discountConfig.original_price ? String(discountConfig.original_price) : priceStr;
+    const origNum = Number(finalOriginalPrice) || Number(priceStr);
+    if (origNum > discountConfig.discount_price) {
+      finalDiscount = Math.round(((origNum - discountConfig.discount_price) / origNum) * 100);
+    }
+  }
+
   const summary: ProductSummary = {
     id: p.id,
     name: p.name,
     description: p.description || '',
-    price: priceStr,
-    base_price: priceStr,
-    original_price: p.original_price ?? null,
+    price: finalPrice,
+    base_price: finalPrice,
+    original_price: finalOriginalPrice,
     primary_image_url: resolvedPrimary,
     image_url: resolvedPrimary || undefined,
     images: normalizedImages,
@@ -228,16 +256,20 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     category_name: categoryName,
     vendor: vendorObj,
     vendor_name: vendorName,
-    average_rating: Number(p.average_rating) || 4.9,
-    review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 12),
+    average_rating: Number(p.average_rating) || 0,
+    review_count: Number(p.review_count) || (p.reviews ? p.reviews.length : 0),
     stock_quantity: stock,
     status: (p.status || 'PUBLISHED') as any,
-    discount_percentage: Number(p.discount_percentage) || 0,
-    is_flash_deal: Boolean(p.is_flash_deal),
-    is_trending: Boolean(p.is_trending),
-    is_best_seller: Boolean(p.is_best_seller),
-    is_hot_sale: Boolean(p.is_hot_sale),
-    is_new_arrival: Boolean(p.is_new_arrival),
+    discount_percentage: finalDiscount,
+    is_flash_deal: false,
+    flash_sale: null,
+    is_discount: isDiscount,
+    discount_config: discountConfig,
+    is_trending: isTrending,
+    is_best_seller: isBestSeller,
+    is_hot_sale: isHotSale,
+    is_new_arrival: isNewArrival,
+    is_featured: isFeatured,
     created_at: p.created_at || new Date().toISOString(),
     in_stock: stock > 0,
     delivery_classification: p.delivery_classification,
@@ -257,10 +289,11 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
  * Uses sessionStorage cache as immediate fallback for speed and offline stability.
  */
 export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
+  await syncHomepagePlacementsFromServer().catch(() => { });
   let deletedIds: string[] = [];
   try {
     deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
-  } catch {}
+  } catch { }
 
   const filterActive = (list: ProductSummary[]) =>
     list
@@ -268,10 +301,41 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       .map((p) => enrichProductWithDelivery(p));
 
   try {
-    const { data } = await apiClient.get('/api/v1/products/', { params: { page_size: 100 } });
-    const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
-    if (rawList && rawList.length > 0) {
-      const normalized = rawList
+    const allRaw: any[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    // Fetch products in safe batches across pages (avoids 502 crash on single large page_size)
+    while (hasMore && page <= 10) {
+      try {
+        const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
+        const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
+        if (rawList && rawList.length > 0) {
+          allRaw.push(...rawList);
+        }
+        const totalCount = typeof data?.count === 'number' ? data.count : allRaw.length;
+        if (!data?.next || allRaw.length >= totalCount || rawList.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } catch (pageErr) {
+        // Stop pagination on error, preserve products retrieved so far
+        hasMore = false;
+      }
+    }
+
+    if (allRaw && allRaw.length > 0) {
+      const seen = new Set<string>();
+      const uniqueRaw: any[] = [];
+      for (const p of allRaw) {
+        if (p && p.id && !seen.has(p.id)) {
+          seen.add(p.id);
+          uniqueRaw.push(p);
+        }
+      }
+
+      const normalized = uniqueRaw
         .filter((p: any) => {
           if (!p) return false;
           if (deletedIds.includes(p.id)) return false;
@@ -283,7 +347,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       try {
         sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
         localStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
-      } catch {}
+      } catch { }
       return normalized;
     }
   } catch (err) {
@@ -299,7 +363,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         return filterActive(parsed);
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback 2: localStorage (survives tab closing & browser restart)
   try {
@@ -310,7 +374,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         return filterActive(parsed);
       }
     }
-  } catch {}
+  } catch { }
 
   // Fallback 3: Verified seed products (guarantees instant 0ms first render)
   if (SEED_REAL_PRODUCTS.length > 0) {
@@ -323,7 +387,7 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
   let sections: HomepageSection[] = [];
-  if (!data || data === '[]' || !data.includes('sec-new-arrivals')) {
+  if (!data || data === '[]' || !data.includes('sec-new-arrivals') || data.includes('sec-flash-deals')) {
     localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
     sections = SEED_SECTIONS;
   } else {
@@ -333,199 +397,186 @@ function getMockSections(): HomepageSection[] {
       sections = SEED_SECTIONS;
     }
   }
-  return sections.filter(
-    (s) =>
-      s.key !== 'FEATURED_CATEGORIES' &&
-      s.key !== 'TOP_VENDORS' &&
-      s.configuration?.layout !== 'VENDOR_GRID' &&
-      s.configuration?.layout !== 'CATEGORY_GRID' &&
-      s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
-      s.configuration?.layout !== 'CATEGORY_PILLS' &&
-      s.configuration?.layout !== 'BRAND_GRID'
-  );
+  const CANONICAL_ORDER_RANK: Record<string, number> = {
+    BEST_SELLERS: 1,
+    'sec-best-sellers': 1,
+    DISCOUNTS: 2,
+    DEALS_AND_DISCOUNTS: 2,
+    'sec-discounts': 2,
+    TRENDING_NOW: 3,
+    TRENDING: 3,
+    'sec-trending': 3,
+    SPECIAL_PROMO: 4,
+    SAVE2OWN: 4,
+    'sec-special-promo': 4,
+    NEW_ARRIVALS: 5,
+    'sec-new-arrivals': 5,
+    HOT_SALES: 6,
+    'sec-hot-sales': 6,
+    FEATURED_PRODUCTS: 7,
+    FEATURED: 7,
+    'sec-featured': 7,
+  };
+
+  return sections
+    .filter(
+      (s) =>
+        s.key !== 'FLASH_DEALS' &&
+        s.id !== 'sec-flash-deals' &&
+        s.key !== 'FEATURED_CATEGORIES' &&
+        s.key !== 'TOP_VENDORS' &&
+        s.configuration?.layout !== 'VENDOR_GRID' &&
+        s.configuration?.layout !== 'CATEGORY_GRID' &&
+        s.configuration?.layout !== 'CATEGORY_CIRCLES' &&
+        s.configuration?.layout !== 'CATEGORY_PILLS' &&
+        s.configuration?.layout !== 'BRAND_GRID'
+    )
+    .map((s) => {
+      const rank = CANONICAL_ORDER_RANK[s.key] || CANONICAL_ORDER_RANK[s.id] || s.sort_order || 99;
+      if (s.key === 'DISCOUNTS' || s.id === 'sec-discounts') {
+        return {
+          ...s,
+          name: 'Deals & Discounts',
+          title: 'Deals & Discounts',
+          sort_order: 2,
+          display_order: 2,
+        };
+      }
+      return {
+        ...s,
+        sort_order: rank,
+        display_order: rank,
+      };
+    })
+    .sort((a, b) => (CANONICAL_ORDER_RANK[a.key] || a.sort_order || 99) - (CANONICAL_ORDER_RANK[b.key] || b.sort_order || 99));
 }
 
 // Helper to filter and combine real products + mock products matching section config
 function populateProductsForSection(section: HomepageSection, realProducts: ProductSummary[] = []): ProductSummary[] {
   if (!realProducts || realProducts.length === 0) return [];
+  if (section.configuration?.layout === 'BANNER' || section.key === 'SPECIAL_PROMO') return [];
 
-  const source = section.configuration?.source || 'AUTOMATIC';
-  const sourceId = section.configuration?.source_id;
+  const mSections = listMerchandisingSections();
+  const mSec = mSections.find((s) => s.id === section.id || s.key === section.key);
+  const orderedIds = mSec?.product_ids || section.configuration?.manual_product_ids || [];
 
-  // 1. Manual Curation (Admin manually selected specific products)
-  if (source === 'MANUAL' && Array.isArray(section.configuration?.manual_product_ids) && section.configuration.manual_product_ids.length > 0) {
-    const idSet = new Set(section.configuration.manual_product_ids);
-    const manualMatches = realProducts.filter((p) => idSet.has(p.id));
-    if (manualMatches.length > 0) return manualMatches.slice(0, section.display_limit || 12);
-  }
-
-  // 2. Category Restriction (Admin set section to a specific category)
-  if (source === 'CATEGORY' && sourceId) {
-    const catMatches = realProducts.filter((p) => {
-      const cId = typeof p.category === 'object' ? p.category?.id : p.category;
-      const cSlug = typeof p.category === 'object' ? p.category?.slug : '';
-      return cId === sourceId || cSlug === sourceId || (p.category_name && p.category_name.toLowerCase() === sourceId.toLowerCase());
-    });
-    if (catMatches.length > 0) return catMatches.slice(0, section.display_limit || 12);
-  }
-
-  // 3. Vendor Restriction
-  if (source === 'VENDOR' && sourceId) {
-    const vendMatches = realProducts.filter((p) => {
-      const vId = typeof p.vendor === 'object' ? p.vendor?.id : p.vendor;
-      const vSlug = typeof p.vendor === 'object' ? p.vendor?.slug : '';
-      return vId === sourceId || vSlug === sourceId;
-    });
-    if (vendMatches.length > 0) return vendMatches.slice(0, section.display_limit || 12);
-  }
-
-  // 4. Automatic Section-Specific Logic
   let candidates: ProductSummary[] = [];
 
   switch (section.key) {
-    case 'NEW_ARRIVALS': {
-      // Sort strictly by newest creation date
-      candidates = [...realProducts].sort((a, b) => {
-        const dateA = new Date(a.created_at || 0).getTime();
-        const dateB = new Date(b.created_at || 0).getTime();
-        return dateB - dateA;
-      });
-      break;
-    }
-
-    case 'SAVE2OWN_FEATURED':
-    case 'SAVE2OWN_PRODUCTS': {
-      // High-value aspirational items specifically suited for micro-payment installment plans
-      // Filter >= ₦40,000, sorted from highest price down (TCL TVs, luxury hair, washing machine, cookers)
-      const highValue = realProducts.filter((p) => parsePriceNumber(p) >= 40000);
-      candidates = highValue.length >= 3 
-        ? highValue.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a))
-        : [...realProducts].sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
-      break;
-    }
-
-    case 'FLASH_DEALS':
-    case 'DEALS_OF_THE_DAY':
-    case 'LIMITED_TIME_OFFERS': {
-      // Deals, impulse purchases, and accessible price points (< ₦25,000 or high discount)
-      const deals = realProducts.filter((p) => {
-        const price = parsePriceNumber(p);
-        const discount = p.discount_percentage || 0;
-        return discount > 0 || (price > 0 && price <= 25000);
-      });
-      // Sort by price ascending
-      candidates = deals.length >= 4 
-        ? deals.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b))
-        : [...realProducts].sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
-      break;
-    }
-
-    case 'HOT_SALES': {
-      // Popular, high-demand tech & shoes & accessories (smartwatches, power banks, shoes, clippers, cookers)
-      candidates = realProducts.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const cat = (p.category_name || '').toLowerCase();
-        return /watch|power bank|clipper|cooker|shoe|sandal|rack|charger/i.test(name) ||
-               /watch|shoe|electronics/i.test(cat);
-      });
-      if (candidates.length < 4) {
-        // Fallback: items in moderate price bracket ₦10k - ₦50k
-        candidates = realProducts.filter((p) => {
-          const price = parsePriceNumber(p);
-          return price >= 10000 && price <= 50000;
-        });
-      }
-      break;
-    }
-
     case 'BEST_SELLERS': {
-      // Top performing essentials (apparel, kitchenware, diffusers, home goods)
-      candidates = realProducts.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const cat = (p.category_name || '').toLowerCase();
-        return /jean|pyjama|diffuser|slicer|plate|drainer|towel|shirt|belt/i.test(name) ||
-               /fashion|home|kitchen/i.test(cat);
-      });
-      if (candidates.length < 4) {
-        candidates = [...realProducts].sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+      let effectiveBestIds = [...orderedIds];
+      if (effectiveBestIds.length === 0) {
+        const defaultBestSec = DEFAULT_CORE_SECTIONS.find((s) => s.key === 'BEST_SELLERS');
+        if (defaultBestSec?.product_ids && defaultBestSec.product_ids.length > 0) {
+          effectiveBestIds = [...defaultBestSec.product_ids];
+        }
+      }
+
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_best_seller) || effectiveBestIds.includes(p.id)) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'DISCOUNTS':
+    case 'DEALS_AND_DISCOUNTS': {
+      candidates = realProducts.filter(
+        (p) => (Boolean((p as any).is_discount) || orderedIds.includes(p.id)) &&
+          isDiscountActiveNow((p as any).discount_config) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
+      if (candidates.length === 0 && orderedIds.length > 0) {
+        candidates = realProducts.filter(
+          (p) => orderedIds.includes(p.id) &&
+            (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+            p.in_stock !== false
+        );
       }
       break;
     }
 
     case 'TRENDING_NOW': {
-      // Viral, trending lifestyle & gadget items (headsets, LEDs, humidifiers, 2pcs sets)
-      candidates = realProducts.filter((p) => {
-        const name = (p.name || '').toLowerCase();
-        const cat = (p.category_name || '').toLowerCase();
-        return /headset|earbud|bluetooth|led|crystal|humidifier|2pcs|smart|pixie/i.test(name) ||
-               /phone|audio|beauty|decor/i.test(cat);
-      });
-      if (candidates.length < 4) {
-        candidates = realProducts.slice(4).concat(realProducts.slice(0, 4));
-      }
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_trending) || orderedIds.includes(p.id)) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
       break;
     }
 
-    case 'DOVI_AUTO':
-    case 'AUTO_PARTS':
-    case 'AUTO_ACCESSORIES': {
-      candidates = realProducts.filter((p) => {
-        const catSlug = (p.category?.slug || '').toLowerCase();
-        const catName = (p.category_name || '').toLowerCase();
-        const name = (p.name || '').toLowerCase();
-        return catSlug.includes('auto') || /auto|car|vehicle|motor|brake|engine|tire/i.test(catName + ' ' + name);
-      });
+    case 'NEW_ARRIVALS': {
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_new_arrival) || orderedIds.includes(p.id) || !p.created_at || (Date.now() - new Date(p.created_at).getTime() < 60 * 24 * 3600 * 1000)) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'HOT_SALES': {
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_hot_sale) || orderedIds.includes(p.id)) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'FEATURED_PRODUCTS':
+    case 'FEATURED': {
+      candidates = realProducts.filter(
+        (p) => (Boolean(p.is_featured) || orderedIds.includes(p.id)) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
+      break;
+    }
+
+    case 'SAVE2OWN_FEATURED':
+    case 'SAVE2OWN_PRODUCTS': {
+      candidates = realProducts.filter(
+        (p) => parsePriceNumber(p) >= 40000 &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false
+      );
       break;
     }
 
     default: {
-      candidates = [...realProducts];
+      const customMatches = realProducts.filter((p) => {
+        const placement = getProductHomepagePlacement({ id: p.id, description: p.description });
+        const hasCustom = placement?.custom_section_ids?.includes(section.id) || placement?.custom_section_ids?.includes(section.key);
+        return (orderedIds.includes(p.id) || hasCustom) &&
+          (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
+          p.in_stock !== false;
+      });
+      candidates = customMatches;
       break;
     }
   }
 
-  // 5. Custom Filters
-  const filters = section.configuration?.filters;
-  if (filters) {
-    if (filters.min_rating) {
-      candidates = candidates.filter((p) => (p.average_rating || 0) >= (filters.min_rating ?? 0));
-    }
-    if (filters.in_stock_only) {
-      candidates = candidates.filter((p) => (p.stock_quantity ?? 0) > 0);
-    }
-    if (filters.price_min) {
-      candidates = candidates.filter((p) => parsePriceNumber(p) >= (filters.price_min ?? 0));
-    }
-    if (filters.price_max) {
-      candidates = candidates.filter((p) => parsePriceNumber(p) <= (filters.price_max ?? 99999999));
-    }
+  // Deduplicate and order by admin sequence if orderedIds is specified
+  if (orderedIds.length > 0) {
+    const candidateMap = new Map(candidates.map((p) => [p.id, p]));
+    const orderedCandidates: ProductSummary[] = [];
+    orderedIds.forEach((id) => {
+      const p = candidateMap.get(id);
+      if (p) {
+        orderedCandidates.push(p);
+        candidateMap.delete(id);
+      }
+    });
+    // Append remaining candidates that matched flags
+    candidateMap.forEach((p) => orderedCandidates.push(p));
+    candidates = orderedCandidates;
   }
 
-  // 6. Deduplicate candidates
-  const seenIds = new Set<string>();
-  const combined: ProductSummary[] = [];
-
-  for (const p of candidates) {
-    if (p && p.id && !seenIds.has(p.id)) {
-      seenIds.add(p.id);
-      combined.push(p);
-    }
-  }
-
-  // 7. Sorting rules
-  const sortBy = section.configuration?.sort_by;
-  if (sortBy === 'price_asc') {
-    combined.sort((a, b) => parsePriceNumber(a) - parsePriceNumber(b));
-  } else if (sortBy === 'price_desc') {
-    combined.sort((a, b) => parsePriceNumber(b) - parsePriceNumber(a));
-  } else if (sortBy === 'newest') {
-    combined.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
-  } else if (sortBy === 'highest_discount') {
-    combined.sort((a, b) => (b.discount_percentage ?? 0) - (a.discount_percentage ?? 0));
-  }
-
-  const limit = section.display_limit || 6;
-  return combined.slice(0, limit);
+  // Respect admin configured display_limit if set, otherwise return all eligible candidates without an arbitrary 24 cap
+  const limit = mSec?.display_limit ?? section.display_limit;
+  return (typeof limit === 'number' && limit > 0) ? candidates.slice(0, limit) : candidates;
 }
 
 export const homepageApi = {
@@ -558,7 +609,7 @@ export const homepageApi = {
                 realVendorsMap.set(vId, {
                   id: vId,
                   name: rp.vendor_name,
-                  rating: rp.average_rating || '4.9',
+                  rating: rp.average_rating || '0.0',
                   location: 'Lagos, Nigeria',
                 });
               }
@@ -577,7 +628,7 @@ export const homepageApi = {
 
     try {
       localStorage.setItem('dovi_cached_homepage_sections', JSON.stringify(sections));
-    } catch {}
+    } catch { }
 
     return {
       banners: DEFAULT_HERO_BANNERS,
@@ -591,20 +642,23 @@ export const homepageApi = {
       if (Array.isArray(data) && data.length > 0) {
         return data;
       }
-    } catch {}
-
-    try {
-      const stored = localStorage.getItem('dovi_homepage_banners_db');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((b: any) => b.id && (b.id.includes('campaign') || b.id.includes('christmas')))) {
-          return parsed;
-        }
-      }
-      localStorage.setItem('dovi_homepage_banners_db', JSON.stringify(DEFAULT_HERO_BANNERS));
-    } catch {}
-
+    } catch { }
     return DEFAULT_HERO_BANNERS;
+  },
+
+  getCampaignProducts: async (campaignKey: string): Promise<{ campaign_key: string; banner: HomepageBanner | null; total_products: number; products: ProductSummary[] }> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/campaigns/${campaignKey}/products/`);
+      if (data && Array.isArray(data.products)) {
+        return data;
+      }
+    } catch { }
+    return {
+      campaign_key: campaignKey,
+      banner: DEFAULT_HERO_BANNERS.find(b => b.campaign_key === campaignKey || b.id === campaignKey) || null,
+      total_products: 0,
+      products: [],
+    };
   },
 
   getSections: async (): Promise<HomepageSection[]> => {
@@ -623,88 +677,100 @@ export const homepageApi = {
 
 export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
   {
-    id: 'ban-campaign-christmas',
-    title: 'Christmas Deals',
-    subtitle: 'Up to 60% OFF holiday gifts, sneakers, luxury bags, perfumes & festive essentials.',
+    id: 'ban-hero-launch',
+    campaign_key: 'launch',
+    title: 'DOVI Launch Campaign',
+    subtitle: 'Discover More, Shop Smart',
     cta_text: 'Shop Now',
-    cta_url: '/products?campaign=christmas',
-    desktop_image_url: '/images/promotions/christmas_deals.jpg',
-    mobile_image_url: '/images/promotions/christmas_deals.jpg',
+    cta_url: '/promotions/launch',
+    desktop_image_url: '/images/hero/hero_launch_campaign.jpg',
+    mobile_image_url: '/images/hero/hero_launch_campaign.jpg',
+    image_url: '/images/hero/hero_launch_campaign.jpg',
     is_active: true,
     display_order: 1,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-limited-deals',
-    title: 'Limited-Time Deals',
-    subtitle: 'Up to 50% OFF flash discounts on iPhones, smartwatches, blenders & AirPods.',
-    cta_text: 'Shop Limited Deals',
-    cta_url: '/products?campaign=limited-deals',
-    desktop_image_url: '/images/promotions/limited_time_deals.jpg',
-    mobile_image_url: '/images/promotions/limited_time_deals.jpg',
+    id: 'ban-hero-black-friday',
+    campaign_key: 'black-friday',
+    title: 'Black Friday Mega Deals',
+    subtitle: 'Up to 70% OFF on Selected Products',
+    cta_text: 'Shop the Deals',
+    cta_url: '/promotions/black-friday',
+    desktop_image_url: '/images/hero/hero_black_friday.jpg',
+    mobile_image_url: '/images/hero/hero_black_friday.jpg',
+    image_url: '/images/hero/hero_black_friday.jpg',
     is_active: true,
     display_order: 2,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-rewards',
-    title: 'Free Gifts & Shopping Rewards',
-    subtitle: 'Shop qualifying products and unlock exciting complimentary gifts & perks.',
-    cta_text: 'Claim Your Free Gift',
-    cta_url: '/products?campaign=rewards',
-    desktop_image_url: '/images/promotions/free_gifts_rewards.jpg',
-    mobile_image_url: '/images/promotions/free_gifts_rewards.jpg',
+    id: 'ban-hero-price-drops',
+    campaign_key: 'price-drops',
+    title: 'Price Drops',
+    subtitle: 'More Value, Less Spending on Selected Products',
+    cta_text: 'Shop Price Drops',
+    cta_url: '/promotions/price-drops',
+    desktop_image_url: '/images/hero/hero_price_drops.jpg',
+    mobile_image_url: '/images/hero/hero_price_drops.jpg',
+    image_url: '/images/hero/hero_price_drops.jpg',
     is_active: true,
     display_order: 3,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-launch',
-    title: 'DOVI Launch Campaign',
-    subtitle: 'Discover More, Shop Smart — Fast delivery, secure payment & premier savings.',
-    cta_text: 'Shop Now',
-    cta_url: '/products?campaign=launch',
-    desktop_image_url: '/images/promotions/launch_campaign.jpg',
-    mobile_image_url: '/images/promotions/launch_campaign.jpg',
+    id: 'ban-hero-free-gifts',
+    campaign_key: 'rewards',
+    title: 'Free Gifts & Shopping Rewards',
+    subtitle: 'Shop qualifying products and unlock exciting rewards!',
+    cta_text: 'Claim Your Free Gift',
+    cta_url: '/promotions/giveaway',
+    desktop_image_url: '/images/hero/hero_free_gifts.jpg',
+    mobile_image_url: '/images/hero/hero_free_gifts.jpg',
+    image_url: '/images/hero/hero_free_gifts.jpg',
     is_active: true,
     display_order: 4,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-black-friday',
-    title: 'Black Friday Mega Deals',
-    subtitle: 'Up to 70% OFF mega savings on laptops, smartphones, headphones & appliances.',
-    cta_text: 'Shop the Deals',
-    cta_url: '/products?campaign=black-friday',
-    desktop_image_url: '/images/promotions/black_friday_deals.jpg',
-    mobile_image_url: '/images/promotions/black_friday_deals.jpg',
+    id: 'ban-hero-limited-deals',
+    campaign_key: 'limited-deals',
+    title: 'Limited-Time Deals',
+    subtitle: "Don't Miss Out on Special Offers - Up to 50% OFF",
+    cta_text: 'Shop Limited Deals',
+    cta_url: '/promotions/limited-deals',
+    desktop_image_url: '/images/hero/hero_limited_deals.jpg',
+    mobile_image_url: '/images/hero/hero_limited_deals.jpg',
+    image_url: '/images/hero/hero_limited_deals.jpg',
     is_active: true,
     display_order: 5,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-save2own',
-    title: 'Save2Own Savings Campaign',
-    subtitle: 'Contribute in flexible micro-installments towards electronics & vehicles with 0% interest.',
-    cta_text: 'Explore Save2Own',
-    cta_url: '/save2own',
-    desktop_image_url: '/images/promotions/save2own_campaign.jpg',
-    mobile_image_url: '/images/promotions/save2own_campaign.jpg',
+    id: 'ban-hero-christmas-deals',
+    campaign_key: 'christmas',
+    title: 'Christmas Deals',
+    subtitle: 'Up to 60% OFF - Festive Gifts & Luxury Items',
+    cta_text: 'Shop Now',
+    cta_url: '/promotions/christmas',
+    desktop_image_url: '/images/hero/hero_christmas_deals.jpg',
+    mobile_image_url: '/images/hero/hero_christmas_deals.jpg',
+    image_url: '/images/hero/hero_christmas_deals.jpg',
     is_active: true,
     display_order: 6,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
 ];
 
@@ -731,19 +797,19 @@ export function getCachedHomepageSections(): HomepageSection[] {
           }));
       }
     }
-  } catch {}
+  } catch { }
 
   try {
     let cachedReal: ProductSummary[] = [];
     try {
       const fromSession = sessionStorage.getItem('dovi_real_products_cache');
       if (fromSession) cachedReal = JSON.parse(fromSession);
-    } catch {}
+    } catch { }
     if (!cachedReal || cachedReal.length === 0) {
       try {
         const fromLocal = localStorage.getItem('dovi_real_products_cache');
         if (fromLocal) cachedReal = JSON.parse(fromLocal);
-      } catch {}
+      } catch { }
     }
     if (!cachedReal || cachedReal.length === 0) {
       cachedReal = SEED_REAL_PRODUCTS;

@@ -82,17 +82,17 @@ export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     updated_at: '2026-11-22T15:50:00Z',
   },
   {
-    id: '84470acd-69f6-48a9-8f20-26cca4cebac3',
+    id: 'acc-mkt-default',
     account_type: 'marketplace',
-    bank_name: 'PalmPay',
-    account_name: 'Ezeofor Chioma',
-    account_number: '7067402413',
+    bank_name: 'Zenith Bank',
+    account_name: 'Dovi Direct Commerce Limited',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
-      'For direct marketplace checkout bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) as narration.',
+      'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-11-23T12:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
 ];
 
@@ -236,32 +236,84 @@ async function fetchAllPages(
   return { items, truncated: true };
 }
 
-function isTestUserOrEmail(_email?: string, _name?: string): boolean {
-  // Artificial filtering removed to maintain full data integrity and display true database records
+function isTestUserOrEmail(email?: string, name?: string): boolean {
+  if (!email && !name) return false;
+  const em = (email || '').toLowerCase().trim();
+  const nm = (name || '').toLowerCase().trim();
+  if (em === 'admin@dovi.com') return false;
+  return (
+    em.includes('test') ||
+    em.includes('demo') ||
+    em.includes('example.com') ||
+    em.includes('invalid-mail') ||
+    em.includes('campus.edu') ||
+    em === 'user@dovi.com' ||
+    em === 'buyer@dovi.com' ||
+    em === 'customer@dovi.com' ||
+    em === 'participant@dovi.com' ||
+    em.startsWith('test_') ||
+    em.startsWith('user_') ||
+    nm.includes('test') ||
+    nm.includes('demo')
+  );
+}
+
+function isTestOrder(order: any): boolean {
+  if (!order) return false;
+  const email = (order.buyer_email || order.customer_email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
+  const name = (order.buyer_name || order.customer_name || order.buyer || `${order.first_name || ''} ${order.last_name || ''}`).toLowerCase().trim();
+  const ref = String(order.reference || order.reference_code || order.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('ord_test') || ref.startsWith('ord-test')) return true;
   return false;
 }
 
-function isTestOrder(_order: any): boolean {
+function isTestPayment(payment: any): boolean {
+  if (!payment) return false;
+  const email = (payment.customer_email || payment.buyer_email || payment.email || payment.user_email || '').toLowerCase().trim();
+  const name = (payment.customer_name || payment.buyer_name || payment.account_name || '').toLowerCase().trim();
+  const ref = String(payment.reference || payment.transaction_reference || payment.order_reference || payment.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('pay_test') || ref.startsWith('pay-test') || ref.startsWith('s2o-pay-test')) return true;
   return false;
 }
 
-function isTestPayment(_payment: any): boolean {
+function isTestGoal(goal: any): boolean {
+  if (!goal) return false;
+  const email = (goal.participant?.email || goal.user_email || goal.email || '').toLowerCase().trim();
+  const name = (goal.participant?.full_name || goal.user_name || '').toLowerCase().trim();
+  const id = String(goal.id || goal.reference || goal.reference_code || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
   return false;
 }
 
-function isTestGoal(_goal: any): boolean {
+function isTestContribution(contrib: any): boolean {
+  if (!contrib) return false;
+  const email = (contrib.user_email || contrib.participant_email || contrib.email || '').toLowerCase().trim();
+  const name = (contrib.user_name || contrib.participant_name || '').toLowerCase().trim();
+  const ref = String(contrib.transfer_reference || contrib.reference || contrib.payment_reference || contrib.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
   return false;
 }
 
-function isTestContribution(_contrib: any): boolean {
+function isTestRefund(refund: any): boolean {
+  if (!refund) return false;
+  const email = (refund.customer_email || refund.user_email || refund.email || '').toLowerCase().trim();
+  const name = (refund.customer_name || refund.user_name || '').toLowerCase().trim();
+  const id = String(refund.id || refund.refund_id || refund.reference || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
   return false;
 }
 
-function isTestRefund(_refund: any): boolean {
-  return false;
-}
-
-function isTestPaymentSession(_session: any): boolean {
+function isTestPaymentSession(session: any): boolean {
+  if (!session) return false;
+  const email = (session.customer_email || session.email || '').toLowerCase().trim();
+  const ref = String(session.order_reference || session.reference || session.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
   return false;
 }
 
@@ -525,88 +577,112 @@ function saveMockSections(sections: HomepageSection[]) {
 
 export const DEFAULT_HERO_BANNERS: HomepageBanner[] = [
   {
-    id: 'ban-campaign-christmas',
-    title: 'Christmas Deals',
-    subtitle: 'Up to 60% OFF holiday gifts, sneakers, luxury bags, perfumes & festive essentials.',
+    id: 'ban-hero-launch',
+    campaign_key: 'launch',
+    title: 'DOVI Launch Campaign',
+    subtitle: 'Discover More, Shop Smart',
     cta_text: 'Shop Now',
-    cta_url: '/products?campaign=christmas',
-    desktop_image_url: '/images/promotions/christmas_deals.jpg',
-    mobile_image_url: '/images/promotions/christmas_deals.jpg',
+    cta_url: '/promotions/launch',
+    desktop_image_url: '/images/hero/hero_launch_campaign.jpg',
+    mobile_image_url: '/images/hero/hero_launch_campaign.jpg',
+    image_url: '/images/hero/hero_launch_campaign.jpg',
     is_active: true,
     display_order: 1,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-limited-deals',
-    title: 'Limited-Time Deals',
-    subtitle: 'Up to 50% OFF flash discounts on iPhones, smartwatches, blenders & AirPods.',
-    cta_text: 'Shop Limited Deals',
-    cta_url: '/products?campaign=limited-deals',
-    desktop_image_url: '/images/promotions/limited_time_deals.jpg',
-    mobile_image_url: '/images/promotions/limited_time_deals.jpg',
+    id: 'ban-hero-black-friday',
+    campaign_key: 'black-friday',
+    title: 'Black Friday Mega Deals',
+    subtitle: 'Up to 70% OFF on Selected Products',
+    cta_text: 'Shop the Deals',
+    cta_url: '/promotions/black-friday',
+    desktop_image_url: '/images/hero/hero_black_friday.jpg',
+    mobile_image_url: '/images/hero/hero_black_friday.jpg',
+    image_url: '/images/hero/hero_black_friday.jpg',
     is_active: true,
     display_order: 2,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-rewards',
-    title: 'Free Gifts & Shopping Rewards',
-    subtitle: 'Shop qualifying products and unlock exciting complimentary gifts & perks.',
-    cta_text: 'Claim Your Free Gift',
-    cta_url: '/products?campaign=rewards',
-    desktop_image_url: '/images/promotions/free_gifts_rewards.jpg',
-    mobile_image_url: '/images/promotions/free_gifts_rewards.jpg',
+    id: 'ban-hero-price-drops',
+    campaign_key: 'price-drops',
+    title: 'Price Drops',
+    subtitle: 'More Value, Less Spending on Selected Products',
+    cta_text: 'Shop Price Drops',
+    cta_url: '/promotions/price-drops',
+    desktop_image_url: '/images/hero/hero_price_drops.jpg',
+    mobile_image_url: '/images/hero/hero_price_drops.jpg',
+    image_url: '/images/hero/hero_price_drops.jpg',
     is_active: true,
     display_order: 3,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-launch',
-    title: 'DOVI Launch Campaign',
-    subtitle: 'Discover More, Shop Smart — Fast delivery, secure payment & premier savings.',
-    cta_text: 'Shop Now',
-    cta_url: '/products?campaign=launch',
-    desktop_image_url: '/images/promotions/launch_campaign.jpg',
-    mobile_image_url: '/images/promotions/launch_campaign.jpg',
+    id: 'ban-hero-free-gifts',
+    campaign_key: 'rewards',
+    title: 'Free Gifts & Shopping Rewards',
+    subtitle: 'Shop qualifying products and unlock exciting rewards!',
+    cta_text: 'Claim Your Free Gift',
+    cta_url: '/promotions/giveaway',
+    desktop_image_url: '/images/hero/hero_free_gifts.jpg',
+    mobile_image_url: '/images/hero/hero_free_gifts.jpg',
+    image_url: '/images/hero/hero_free_gifts.jpg',
     is_active: true,
     display_order: 4,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-black-friday',
-    title: 'Black Friday Mega Deals',
-    subtitle: 'Up to 70% OFF mega savings on laptops, smartphones, headphones & appliances.',
-    cta_text: 'Shop the Deals',
-    cta_url: '/products?campaign=black-friday',
-    desktop_image_url: '/images/promotions/black_friday_deals.jpg',
-    mobile_image_url: '/images/promotions/black_friday_deals.jpg',
+    id: 'ban-hero-limited-deals',
+    campaign_key: 'limited-deals',
+    title: 'Limited-Time Deals',
+    subtitle: "Don't Miss Out on Special Offers - Up to 50% OFF",
+    cta_text: 'Shop Limited Deals',
+    cta_url: '/promotions/limited-deals',
+    desktop_image_url: '/images/hero/hero_limited_deals.jpg',
+    mobile_image_url: '/images/hero/hero_limited_deals.jpg',
+    image_url: '/images/hero/hero_limited_deals.jpg',
     is_active: true,
     display_order: 5,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
   },
   {
-    id: 'ban-campaign-save2own',
-    title: 'Save2Own Savings Campaign',
-    subtitle: 'Contribute in flexible micro-installments towards electronics & vehicles with 0% interest.',
-    cta_text: 'Explore Save2Own',
-    cta_url: '/save2own',
-    desktop_image_url: '/images/promotions/save2own_campaign.jpg',
-    mobile_image_url: '/images/promotions/save2own_campaign.jpg',
+    id: 'ban-hero-christmas-deals',
+    campaign_key: 'christmas',
+    title: 'Christmas Deals',
+    subtitle: 'Up to 60% OFF - Festive Gifts & Luxury Items',
+    cta_text: 'Shop Now',
+    cta_url: '/promotions/christmas',
+    desktop_image_url: '/images/hero/hero_christmas_deals.jpg',
+    mobile_image_url: '/images/hero/hero_christmas_deals.jpg',
+    image_url: '/images/hero/hero_christmas_deals.jpg',
     is_active: true,
     display_order: 6,
     slide_interval_ms: 5000,
-    start_date: null,
-    end_date: null,
+    start_date: '2026-11-20T00:00:00Z',
+    end_date: '2026-12-31T23:59:59Z',
+    product_ids: [
+      "81e58fb1-05fb-4e70-8ffe-206aa97a5a30",
+      "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+      "45d9616d-4af0-491b-b0d5-9b185404732f",
+      "4afb3918-78db-4ab3-ab3a-960ecba22ef0",
+      "27e513ea-8080-4b57-98a9-6b1d02ca0427",
+      "675dcfa8-cede-4398-93fe-26ebf3c5bf2a",
+      "04d1916c-5dc3-4d37-9247-a6a37be3ba1e",
+      "74993487-eee2-4648-925c-53e3beaf5429",
+      "38897758-8093-46e3-a005-63a4581e3bb7",
+      "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa"
+    ],
   },
 ];
 
@@ -615,9 +691,7 @@ function getStoredBanners(): HomepageBanner[] {
     const data = localStorage.getItem('dovi_homepage_banners_db');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed.some(b => b.id && (b.id.includes('campaign') || b.id.includes('christmas')))) {
-        return parsed;
-      }
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
     localStorage.setItem('dovi_homepage_banners_db', JSON.stringify(DEFAULT_HERO_BANNERS));
     return DEFAULT_HERO_BANNERS;
@@ -629,7 +703,6 @@ function getStoredBanners(): HomepageBanner[] {
 function saveStoredBanners(banners: HomepageBanner[]) {
   try {
     localStorage.setItem('dovi_homepage_banners_db', JSON.stringify(banners));
-    window.dispatchEvent(new Event('dovi:banners_updated'));
   } catch {}
 }
 
@@ -829,6 +902,33 @@ export const adminApi = {
       const list = getStoredBanners();
       saveStoredBanners(list.map(b => b.id === id ? { ...b, is_active: false } : b));
       return { success: true };
+    }
+  },
+
+  getCampaignProducts: async (campaignKey: string): Promise<{ campaign_key: string; banner: HomepageBanner | null; total_products: number; products: any[] }> => {
+    try {
+      const { data } = await apiClient.get(`/api/v1/campaigns/${campaignKey}/products/`);
+      return data;
+    } catch {
+      const banners = getStoredBanners();
+      const banner = banners.find(b => b.campaign_key === campaignKey || b.id === campaignKey) || null;
+      return {
+        campaign_key: campaignKey,
+        banner,
+        total_products: (banner?.product_ids || []).length,
+        products: [],
+      };
+    }
+  },
+
+  assignCampaignProducts: async (campaignKey: string, productIds: string[]): Promise<any> => {
+    try {
+      const { data } = await apiClient.post(`/api/v1/admin/campaigns/${campaignKey}/products/`, { product_ids: productIds });
+      return data;
+    } catch {
+      const list = getStoredBanners();
+      saveStoredBanners(list.map(b => (b.campaign_key === campaignKey || b.id === campaignKey) ? { ...b, product_ids: productIds } : b));
+      return { success: true, campaign_key: campaignKey, product_ids: productIds };
     }
   },
 
@@ -1374,7 +1474,7 @@ export const adminApi = {
   deleteUser: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`/api/v1/admin/users/${id}/`);
-    } finally {
+    } catch {
       try {
         const stored = localStorage.getItem('dovi_admin_users_db');
         if (stored) {
@@ -1382,7 +1482,6 @@ export const adminApi = {
           localStorage.setItem('dovi_admin_users_db', JSON.stringify(list.filter((u) => u.id !== id)));
         }
       } catch {}
-      adminCache.clear();
     }
   },
 
