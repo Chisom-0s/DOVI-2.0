@@ -5,6 +5,7 @@ import type {
   ProductSummary,
   ProductCategoryAssignment,
 } from '@/types';
+import { fetchSharedDbOnce } from './sharedDbSync';
 
 // ============================================================================
 // DOVI OFFICIAL 12 MAIN CATEGORIES & 74 INITIAL SUBCATEGORIES (SECTIONS 3 & 5)
@@ -284,8 +285,6 @@ export const LEGACY_CATEGORY_MAP: Record<
   // Automotive & Motor Accessories
   automotive: { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
   'automotive-motor-accessories': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories' },
-  'auto-cars': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
-  'cat-auto': { categoryId: 'cat-automotive-motor', categorySlug: 'automotive-motor-accessories', subcategoryId: 'sub-car-accessories' },
 
   // Books & Stationery
   books: { categoryId: 'cat-books-stationery', categorySlug: 'books-stationery', subcategoryId: 'sub-books' },
@@ -529,10 +528,8 @@ async function pushCategoryStoreToServer(payload: {
 
 export async function syncCategoriesFromServer(): Promise<void> {
   try {
-    if (typeof fetch === 'undefined') return;
-    const res = await fetch('/__dovi_delivery_db__', { method: 'GET' });
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await fetchSharedDbOnce();
+    if (!data) return;
     if (Array.isArray(data?.categories) && data.categories.length > 0) {
       writeLocal(STORAGE_KEYS.CATEGORIES, data.categories);
     }

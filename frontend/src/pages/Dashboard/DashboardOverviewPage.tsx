@@ -1,8 +1,12 @@
+import { resolveOrderDisplay } from '@/utils/orderImageHelper';
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ordersApi } from '@/api/orders';
 import { notificationsApi } from '@/api/notifications';
+import { save2ownApi } from '@/api/save2own';
+import type { Save2OwnGoalSummary } from '@/types';
 import { formatPrice } from '@/utils/currency';
 import type { OrderSummary, Notification } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -11,6 +15,8 @@ export default function DashboardOverviewPage() {
   const { user } = useAuth();
   const [recentOrders, setRecentOrders] = useState<OrderSummary[]>([]);
   const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
+  const [activeGoals, setActiveGoals] = useState<Save2OwnGoalSummary[]>([]);
+  const [isLoadingGoals, setIsLoadingGoals] = useState(true);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
 
@@ -39,6 +45,18 @@ export default function DashboardOverviewPage() {
 
     loadOrders();
     loadNotifications();
+
+    const loadGoals = async () => {
+      try {
+        const data = await save2ownApi.listGoals();
+        setActiveGoals((data.results || []).filter(g => !['COMPLETED', 'CANCELLED'].includes((g.status || '').toUpperCase())));
+      } catch (err) {
+        console.warn('Failed to load active Save2Own goals on dashboard overview:', err);
+      } finally {
+        setIsLoadingGoals(false);
+      }
+    };
+    loadGoals();
   }, []);
 
   const formatCurrency = (val: string) => formatPrice(val);
@@ -52,7 +70,7 @@ export default function DashboardOverviewPage() {
           <p style={welcomeSubStyles}>Manage your account, track active orders, or set up saving goals.</p>
         </div>
         <a
-          href="https://wa.me/2347014109517?text=Hello%20Dovi%20Support%2C%20I%20need%20assistance%20with%20my%20account."
+          href="https://wa.me/2347067402413?text=Hello%20Dovi%20Support%2C%20I%20need%20assistance%20with%20my%20account."
           target="_blank"
           rel="noopener noreferrer"
           className="dashboard-greeting-whatsapp-btn"
@@ -67,6 +85,71 @@ export default function DashboardOverviewPage() {
       </div>
 
       <div style={gridStyles}>
+        {/* Active Save2Own Goal Card */}
+        <div style={widgetCardStyles}>
+          <div style={widgetHeaderStyles}>
+            <h3 style={widgetTitleStyles}>Save2Own Savings Goal</h3>
+            <Link to="/save2own/goals" style={widgetLinkStyles}>View Goals</Link>
+          </div>
+
+          {isLoadingGoals ? (
+            <div style={listContainerStyles}>
+              <Skeleton width="100%" height="80px" borderRadius="var(--radius-md)" />
+            </div>
+          ) : activeGoals.length === 0 ? (
+            <div style={emptyStyles}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+              </svg>
+              <p style={emptyTextStyles}>No active Save2Own goal in progress.</p>
+              <Link to="/products" style={actionLinkStyles}>Browse Eligible Items</Link>
+            </div>
+          ) : (
+            <div style={listContainerStyles}>
+              {activeGoals.slice(0, 2).map((goal) => (
+                <Link
+                  key={goal.id}
+                  to={`/save2own/goals/${goal.id}`}
+                  style={{ ...orderItemStyles, display: 'block', padding: '12px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <strong style={{ fontSize: '13px', color: 'var(--color-text-main)' }}>{goal.product?.name || 'Selected Item'}</strong>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(39, 174, 96, 0.12)',
+                        color: 'var(--color-success)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {goal.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+                    <span>Saved: <strong style={{ color: 'var(--color-text-main)' }}>{formatCurrency(goal.total_contributed || '0')}</strong></span>
+                    <span>Target: {formatCurrency(goal.target_amount)}</span>
+                  </div>
+                  <div style={{ height: '6px', width: '100%', backgroundColor: '#e5e7eb', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${Math.min(100, Math.max(0, goal.progress_percentage || 0))}%`,
+                        backgroundColor: '#ff7a00',
+                        borderRadius: '3px',
+                      }}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Recent Orders Card */}
         <div style={widgetCardStyles}>
           <div style={widgetHeaderStyles}>
@@ -77,51 +160,179 @@ export default function DashboardOverviewPage() {
           {isLoadingOrders ? (
             <div style={listContainerStyles}>
               {Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} width="100%" height="60px" borderRadius="var(--radius-md)" />
+                <Skeleton key={i} width="100%" height="68px" borderRadius="var(--radius-md)" />
               ))}
             </div>
           ) : recentOrders.length === 0 ? (
             <div style={emptyStyles}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
               </svg>
-              <p style={emptyTextStyles}>No orders placed yet.</p>
-              <Link to="/products" style={actionLinkStyles}>Start Shopping</Link>
+              <p style={{ ...emptyTextStyles, fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>No orders placed yet.</p>
+              <p style={{ ...emptyTextStyles, fontSize: '11px', marginTop: '2px', marginBottom: '8px' }}>Explore the marketplace and your orders will show up here.</p>
+              <Link
+                to="/products"
+                style={{
+                  ...actionLinkStyles,
+                  display: 'inline-flex',
+                  padding: '6px 14px',
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+              >
+                Start Shopping
+              </Link>
             </div>
           ) : (
             <div style={listContainerStyles}>
-              {recentOrders.map((order) => (
-                <Link
-                  key={order.id}
-                  to={`/dashboard/orders/${order.reference}`}
-                  style={orderItemStyles}
-                >
-                  <div>
-                    <strong style={orderRefStyles}>#{order.reference}</strong>
-                    <span style={orderDateStyles}>
-                      {new Date(order.created_at).toLocaleDateString('en-NG', {
-                        day: 'numeric', month: 'short',
-                      })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                    <span
-                      className="status-badge"
-                      style={{
-                        backgroundColor: statusColor(order.status).bg,
-                        color: statusColor(order.status).text,
-                        fontSize: '9px',
-                        padding: '2px 8px',
-                      }}
-                    >
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
-                    <strong style={orderTotalStyles}>{formatCurrency(order.total)}</strong>
-                  </div>
-                </Link>
-              ))}
+              {recentOrders.map((order) => {
+                const payBadge = getPaymentBadgeInfo(order.payment_status);
+                const fulfillBadge = getFulfillmentBadgeInfo(order.status, order.fulfillment_status);
+                const display = resolveOrderDisplay(order);
+                const thumbUrl = display.primaryImageUrl;
+                const productName = display.primaryProductName;
+                const extraItemsCount = Math.max(0, (order.item_count || 1) - 1);
+
+                return (
+                  <Link
+                    key={order.id || order.reference}
+                    to={`/dashboard/orders/${order.reference}`}
+                    style={orderItemStyles}
+                    className="dashboard-recent-order-card"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                      {/* Product Thumbnail */}
+                      <div
+                        style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          backgroundColor: '#ffffff',
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid #e5e7eb',
+                          padding: '2px',
+                        }}
+                      >
+                        {thumbUrl ? (
+                          <img
+                            src={thumbUrl}
+                            alt={productName}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              const fallback = parent?.querySelector('.fallback-bag-icon') as HTMLElement;
+                              if (fallback) fallback.style.display = 'block';
+                            }}
+                          />
+                        ) : null}
+                        <svg
+                          className="fallback-bag-icon"
+                          style={{ display: thumbUrl ? 'none' : 'block' }}
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#9ca3af"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                          <line x1="3" y1="6" x2="21" y2="6"></line>
+                          <path d="M16 10a4 4 0 0 1-8 0"></path>
+                        </svg>
+                      </div>
+
+                      {/* Order & Product Summary */}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontSize: '13px', color: 'var(--color-text-main)', letterSpacing: '0.2px' }}>
+                            #{order.reference}
+                          </strong>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                            {new Date(order.created_at).toLocaleDateString('en-NG', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+
+                        <p
+                          style={{
+                            margin: '0 0 6px 0',
+                            fontSize: '12px',
+                            color: 'var(--color-text-muted)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={productName}
+                        >
+                          {productName}
+                          {extraItemsCount > 0 && (
+                            <span style={{ color: 'var(--color-primary)', fontWeight: 600, marginLeft: '4px' }}>
+                              +{extraItemsCount} more
+                            </span>
+                          )}
+                        </p>
+
+                        {/* Status Badges */}
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: payBadge.bg,
+                              color: payBadge.text,
+                              border: `1px solid ${payBadge.border}`,
+                            }}
+                          >
+                            {payBadge.label}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: fulfillBadge.bg,
+                              color: fulfillBadge.text,
+                              border: `1px solid ${fulfillBadge.border}`,
+                            }}
+                          >
+                            {fulfillBadge.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Amount & Arrow */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, paddingLeft: '8px' }}>
+                      <strong style={{ fontSize: '14px', color: 'var(--color-text-main)', fontWeight: 700 }}>
+                        {formatCurrency(order.total)}
+                      </strong>
+                      <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        View Details →
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
@@ -176,18 +387,14 @@ export default function DashboardOverviewPage() {
 }
 
 // Helpers
-function statusColor(status: string) {
-  switch (status) {
-    case 'PAID':
-    case 'DELIVERED':
-    case 'COMPLETED':
-      return { bg: 'rgba(46, 213, 115, 0.12)', text: 'var(--color-success)' };
-    case 'CANCELLED':
-    case 'REFUNDED':
-      return { bg: 'rgba(231, 76, 60, 0.12)', text: 'var(--color-danger)' };
-    default:
-      return { bg: 'rgba(255, 165, 2, 0.12)', text: 'var(--color-warning)' };
-  }
+function getPaymentBadgeInfo(paymentStatus?: string) {
+  const info = getCustomerPaymentStatusInfo(paymentStatus);
+  return { label: `Payment: ${info.label}`, bg: info.bg, text: info.text, border: info.border };
+}
+
+function getFulfillmentBadgeInfo(status?: string, hubStatus?: string) {
+  const info = getCustomerFulfillmentStatusInfo(hubStatus, status);
+  return { label: `Order: ${info.label}`, bg: info.bg, text: info.text, border: info.border };
 }
 
 // Styling
@@ -269,28 +476,12 @@ const orderItemStyles: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: 'var(--space-3)',
+  padding: '12px',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--radius-md)',
+  backgroundColor: '#ffffff',
   textDecoration: 'none',
-  transition: 'background-color var(--transition-fast)',
-};
-
-const orderRefStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  fontWeight: 'var(--font-bold)',
-  color: 'var(--color-text)',
-  display: 'block',
-};
-
-const orderDateStyles: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--color-text-muted)',
-};
-
-const orderTotalStyles: React.CSSProperties = {
-  fontSize: 'var(--text-xs)',
-  color: 'var(--color-text)',
+  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
 };
 
 const notifItemStyles: React.CSSProperties = {

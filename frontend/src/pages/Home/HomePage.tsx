@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroBannerCarousel from '@/components/home/HeroBannerCarousel';
 import ProductCard from '@/components/product/ProductCard';
+import DealsAndDiscountsSection from '@/components/home/DealsAndDiscountsSection';
+import TrendingNowCarousel from '@/components/home/TrendingNowCarousel';
 import { homepageApi, getCachedHomepageSections } from '@/api/homepage';
 import type { HomepageSection, ProductSummary } from '@/types';
 import {
@@ -9,83 +11,122 @@ import {
   SectionSkeleton,
 } from '@/components/common/Skeleton';
 
+// Mandatory Homepage Section Ordering Specification:
+// 1. Hero Banner
+// 2. Best Sellers
+// 3. Deals & Discounts
+// 4. Trending Now
+// 5. Save2Own
+// 6. New Arrivals
+// 7. Hot Sales
+// 8. Featured Products
 
-// LazySection component defers below-the-fold content rendering until within 350px of viewport
-function LazySection({ children, priority = false }: { children: React.ReactNode; priority?: boolean }) {
-  const [isVisible, setIsVisible] = useState(priority);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (priority || isVisible) return;
-    const el = containerRef.current;
-    if (!el) return;
-
-    if (!('IntersectionObserver' in window)) {
-      setIsVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '350px' }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [priority, isVisible]);
-
-  if (!isVisible) {
-    return (
-      <div ref={containerRef} style={{ minHeight: '260px', margin: 'var(--space-6) 0' }}>
-        <SectionSkeleton layout="HORIZONTAL_CAROUSEL" count={4} />
-      </div>
-    );
-  }
-
-  return <div ref={containerRef}>{children}</div>;
+interface SectionSlotConfig {
+  key: string;
+  alternateKeys?: string[];
+  defaultTitle: string;
+  defaultSubtitle: string;
+  defaultLayout: 'PRODUCT_GRID' | 'HORIZONTAL_CAROUSEL' | 'BANNER';
+  ctaUrl: string;
+  ctaText: string;
 }
 
+const ORDERED_SECTION_SLOTS: SectionSlotConfig[] = [
+  {
+    key: 'BEST_SELLERS',
+    alternateKeys: ['sec-best-sellers'],
+    defaultTitle: 'Best Sellers',
+    defaultSubtitle: 'Top performing products in the catalog',
+    defaultLayout: 'PRODUCT_GRID',
+    ctaUrl: '/products?section=best-sellers',
+    ctaText: 'View All',
+  },
+  {
+    key: 'DISCOUNTS',
+    alternateKeys: ['DEALS_AND_DISCOUNTS', 'sec-discounts'],
+    defaultTitle: 'Deals & Discounts',
+    defaultSubtitle: 'Exclusive markdowns and limited-time discounts',
+    defaultLayout: 'HORIZONTAL_CAROUSEL',
+    ctaUrl: '/products?section=deals-and-discounts',
+    ctaText: 'View All',
+  },
+  {
+    key: 'TRENDING_NOW',
+    alternateKeys: ['TRENDING', 'sec-trending'],
+    defaultTitle: 'Trending Now',
+    defaultSubtitle: 'High demand products right now',
+    defaultLayout: 'HORIZONTAL_CAROUSEL',
+    ctaUrl: '/products?section=trending',
+    ctaText: 'View All',
+  },
+  {
+    key: 'SPECIAL_PROMO',
+    alternateKeys: ['SAVE2OWN', 'sec-special-promo'],
+    defaultTitle: 'Unlock Save2Own Benefits',
+    defaultSubtitle: 'Contribute in bits towards purchasing high-value items without any interest.',
+    defaultLayout: 'BANNER',
+    ctaUrl: '/save2own',
+    ctaText: 'Start Saving',
+  },
+  {
+    key: 'NEW_ARRIVALS',
+    alternateKeys: ['sec-new-arrivals'],
+    defaultTitle: 'New Arrivals',
+    defaultSubtitle: 'Freshly added to the catalog',
+    defaultLayout: 'PRODUCT_GRID',
+    ctaUrl: '/products?section=new-arrivals',
+    ctaText: 'View All',
+  },
+  {
+    key: 'HOT_SALES',
+    alternateKeys: ['sec-hot-sales'],
+    defaultTitle: 'Hot Sales',
+    defaultSubtitle: 'Most popular purchases this week',
+    defaultLayout: 'HORIZONTAL_CAROUSEL',
+    ctaUrl: '/products?section=hot-sales',
+    ctaText: 'View All',
+  },
+  {
+    key: 'FEATURED_PRODUCTS',
+    alternateKeys: ['FEATURED', 'sec-featured'],
+    defaultTitle: 'Featured Products',
+    defaultSubtitle: 'Hand-picked essentials curated for you',
+    defaultLayout: 'PRODUCT_GRID',
+    ctaUrl: '/products?section=featured',
+    ctaText: 'View All',
+  },
+];
+
 export default function HomePage() {
-  // 1. Mount immediately with synchronous cached/seed sections (0ms perceived load time)
-  const [sections, setSections] = useState<HomepageSection[]>(() => getCachedHomepageSections());
-  const [isLoading, setIsLoading] = useState<boolean>(() => sections.length === 0);
+  // Mount with cached sections for immediate render
+  const [sectionsMap, setSectionsMap] = useState<Record<string, HomepageSection>>(() => {
+    const cached = getCachedHomepageSections();
+    const map: Record<string, HomepageSection> = {};
+    for (const s of cached) {
+      map[s.key] = s;
+      if (s.id) map[s.id] = s;
+    }
+    return map;
+  });
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => Object.keys(sectionsMap).length === 0);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadHomeData = async () => {
       try {
-        if (sections.length === 0) {
-          setIsLoading(true);
-        }
         const data = await homepageApi.getData();
-        const now = new Date();
-        const active = (data.sections || []).filter(section => {
-          if (!section.is_active) return false;
-          if (
-            section.key === 'FEATURED_CATEGORIES' ||
-            section.key === 'TOP_VENDORS' ||
-            section.configuration?.layout === 'VENDOR_GRID' ||
-            section.configuration?.layout === 'CATEGORY_GRID' ||
-            section.configuration?.layout === 'CATEGORY_CIRCLES' ||
-            section.configuration?.layout === 'CATEGORY_PILLS' ||
-            section.configuration?.layout === 'BRAND_GRID'
-          ) return false;
-          if (section.starts_at && new Date(section.starts_at) > now) return false;
-          if (section.ends_at && new Date(section.ends_at) < now) return false;
-          return true;
-        });
-
-        if (isMounted) {
-          setSections(active.sort((a, b) => a.sort_order - b.sort_order));
+        if (isMounted && data && Array.isArray(data.sections)) {
+          const map: Record<string, HomepageSection> = {};
+          for (const s of data.sections) {
+            map[s.key] = s;
+            if (s.id) map[s.id] = s;
+          }
+          setSectionsMap(map);
         }
       } catch (err) {
-        console.error('Failed to revalidate homepage sections:', err);
+        console.error('Failed to load homepage data:', err);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -95,134 +136,187 @@ export default function HomePage() {
 
     loadHomeData();
 
+    window.addEventListener('dovi-merchandising-updated', loadHomeData);
+    window.addEventListener('dovi-homepage-placements-updated', loadHomeData);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('dovi-merchandising-updated', loadHomeData);
+      window.removeEventListener('dovi-homepage-placements-updated', loadHomeData);
     };
   }, []);
 
-  // Registry parser mapping configuration layout rules dynamically to HTML blocks
-  const renderLayout = (section: HomepageSection) => {
-    const layout = section.configuration?.layout || 'PRODUCT_GRID';
-    const products: ProductSummary[] = section.products || [];
+  const findSection = (slot: SectionSlotConfig): HomepageSection | null => {
+    if (sectionsMap[slot.key]) return sectionsMap[slot.key];
+    if (slot.alternateKeys) {
+      for (const k of slot.alternateKeys) {
+        if (sectionsMap[k]) return sectionsMap[k];
+      }
+    }
+    return null;
+  };
 
-    // If section products are still loading, show individual skeletons matching layout
-    if (products.length === 0 && layout !== 'BANNER') {
-      if (isLoading) {
+  const renderSectionContent = (slot: SectionSlotConfig, section: HomepageSection | null) => {
+    const products: ProductSummary[] = section?.products || [];
+    const layout = section?.configuration?.layout || slot.defaultLayout;
+
+    // Loading State
+    if (isLoading && products.length === 0 && layout !== 'BANNER') {
+      return (
+        <div style={{ marginTop: '12px' }}>
+          {layout === 'HORIZONTAL_CAROUSEL' ? (
+            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" count={4} />
+          ) : (
+            <div className="marketplace-product-grid">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <ProductCardSkeleton key={idx} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Save2Own / Special Promo Banner
+    if (layout === 'BANNER' || slot.key === 'SPECIAL_PROMO') {
+      return (
+        <div
+          style={{
+            ...bannerStyles,
+            backgroundColor: section?.configuration?.background_color || 'rgba(255, 122, 0, 0.05)',
+          }}
+        >
+          <div style={bannerContentStyles}>
+            <h3 style={bannerTitleStyles}>{section?.title || slot.defaultTitle}</h3>
+            <p style={bannerSubtitleStyles}>{section?.subtitle || slot.defaultSubtitle}</p>
+            <Link to={section?.configuration?.cta_url || slot.ctaUrl} style={bannerCtaStyles}>
+              {section?.configuration?.cta_text || slot.ctaText} →
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // Deals & Discounts Dedicated Component
+    if (slot.key === 'DISCOUNTS' || slot.key === 'DEALS_AND_DISCOUNTS') {
+      return (
+        <DealsAndDiscountsSection
+          products={products}
+          title={section?.title || slot.defaultTitle}
+          subtitle={section?.subtitle || slot.defaultSubtitle}
+          viewAllUrl={section?.configuration?.cta_url || slot.ctaUrl}
+        />
+      );
+    }
+
+    // Trending Now Dedicated Carousel
+    if (slot.key === 'TRENDING_NOW') {
+      return <TrendingNowCarousel products={products} />;
+    }
+
+    // Horizontal Carousel Layout
+    if (layout === 'HORIZONTAL_CAROUSEL') {
+      if (products.length === 0) {
         return (
-          <div className="marketplace-product-grid">
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <ProductCardSkeleton key={idx} />
-            ))}
+          <div style={emptySectionStyles}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+              No items currently listed in this collection. Check back soon!
+            </p>
           </div>
         );
       }
-      return null;
-    }
-
-    switch (layout) {
-      case 'PRODUCT_GRID':
-      case 'HORIZONTAL_CAROUSEL':
-      case 'COMPACT_LIST':
-      case 'LARGE_PRODUCT_CARDS':
-      case 'AUTO_LISTING_GRID':
-        return (
-          <div className="marketplace-product-grid">
-            {products.map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        );
-
-      case 'CATEGORY_GRID':
-      case 'CATEGORY_CIRCLES':
-      case 'CATEGORY_PILLS':
-      case 'VENDOR_GRID':
-      case 'BRAND_GRID':
-        return null;
-
-      case 'BANNER':
-        return (
-          <div
-            style={{
-              ...bannerStyles,
-              backgroundColor: section.configuration?.background_color || 'rgba(255, 122, 0, 0.05)',
-            }}
-          >
-            <div style={bannerContentStyles}>
-              <h3 style={bannerTitleStyles}>{section.title}</h3>
-              {section.subtitle && <p style={bannerSubtitleStyles}>{section.subtitle}</p>}
-              {section.configuration?.cta_text && (
-                <a href={section.configuration.cta_url || '#'} style={bannerCtaStyles}>
-                  {section.configuration.cta_text}
-                </a>
-              )}
+      return (
+        <div
+          className="homepage-carousel-container"
+          style={{
+            display: 'flex',
+            gap: '16px',
+            overflowX: 'auto',
+            paddingBottom: '16px',
+            paddingTop: '4px',
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'thin',
+          }}
+        >
+          {products.map((p) => (
+            <div key={p.id} style={{ flex: '0 0 230px', minWidth: '220px', scrollSnapAlign: 'start' }}>
+              <ProductCard product={p} />
             </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="marketplace-product-grid">
-            {products.map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        );
+          ))}
+        </div>
+      );
     }
+
+    // Product Grid Layout (Default)
+    if (products.length === 0) {
+      return (
+        <div style={emptySectionStyles}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+            No items currently listed in this collection. Check back soon!
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="marketplace-product-grid">
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    );
   };
 
   return (
     <div style={pageStyles}>
-      {/* Top Banner Carousel */}
+      {/* SECTION 1: Hero Banner */}
       <div className="container" style={topBannerWrapperStyles}>
         <HeroBannerCarousel />
       </div>
 
-      {/* Dynamic Sections Grid */}
+      {/* STRICT HOMEPAGE SECTION SLOTS (Sections 2 through 8 in immutable order) */}
       <div className="container" style={sectionsListStyles}>
-        {isLoading && sections.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            <SectionSkeleton layout="CATEGORY_PILLS" title="Categories" />
-            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Flash Deals" count={5} />
-            <SectionSkeleton layout="PRODUCT_GRID" title="New Arrivals" count={4} />
-            <SectionSkeleton layout="HORIZONTAL_CAROUSEL" title="Trending Now" count={5} />
-            <SectionSkeleton layout="PRODUCT_GRID" title="Best Sellers" count={4} />
-          </div>
-        ) : sections.length > 0 ? (
-          sections
-          .filter(section => section.configuration?.layout === 'BANNER' || (section.products && section.products.length > 0))
-          .map((section, idx) => (
-            <LazySection key={section.id} priority={idx < 2}>
-              <section style={sectionWrapperStyles}>
-              {/* Section Header */}
-              {section.configuration?.layout !== 'BANNER' && (
+        {ORDERED_SECTION_SLOTS.map((slot, index) => {
+          const section = findSection(slot);
+          const hasProducts = Boolean(section?.products && section.products.length > 0);
+          const isBanner = slot.defaultLayout === 'BANNER';
+
+          // Gracefully omit empty product collections so no blank space or empty boxes appear
+          if (!isBanner && !hasProducts && !isLoading) {
+            return null;
+          }
+                    const isCustomSpecial = slot.key === 'DISCOUNTS' || slot.key === 'DEALS_AND_DISCOUNTS' || slot.key === 'TRENDING_NOW';
+          const title = section?.title || slot.defaultTitle;
+          const subtitle = section?.subtitle || slot.defaultSubtitle;
+          const ctaUrl = section?.configuration?.cta_url || slot.ctaUrl;
+          const ctaText = section?.configuration?.cta_text || slot.ctaText;
+
+          return (
+            <section
+              key={slot.key}
+              data-section-order={index + 2}
+              data-section-key={slot.key}
+              style={sectionWrapperStyles}
+            >
+              {/* Section Header (rendered for standard product grid / carousel sections) */}
+              {!isBanner && !isCustomSpecial && (
                 <div style={sectionHeaderStyles}>
-                  <div>
-                    <h2 style={sectionTitleStyles}>
-                      {section.icon && <span style={{ marginRight: '8px' }}>{section.icon}</span>}
-                      {section.title}
-                    </h2>
-                    {section.subtitle && <p style={sectionSubtitleStyles}>{section.subtitle}</p>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <h2 style={sectionTitleStyles}>{title}</h2>
+                    {subtitle && <p style={sectionSubtitleStyles}>{subtitle}</p>}
                   </div>
-                  {section.configuration?.cta_text && (
-                    <Link to={section.configuration.cta_url || '/products'} style={seeAllStyles}>
-                      {section.configuration.cta_text} &gt;
-                    </Link>
-                  )}
+                  <Link to={ctaUrl} style={seeAllStyles}>
+                    {ctaText} &gt;
+                  </Link>
                 </div>
               )}
 
-              {/* Dynamic Layout Parser */}
-              {renderLayout(section)}
+              {/* Section Content */}
+              {renderSectionContent(slot, section)}
             </section>
-          </LazySection>
-        ))
-        ) : (
-          <div style={emptyStyles}>
-            <h3>No Sections Active</h3>
-            <p>Go to Admin Dashboard homepage manager to configure section layouts.</p>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
@@ -237,7 +331,7 @@ const pageStyles: React.CSSProperties = {
   paddingBottom: 'var(--space-12)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 'var(--space-3)',
+  gap: 'var(--space-8)',
 };
 
 const topBannerWrapperStyles: React.CSSProperties = {
@@ -248,6 +342,7 @@ const sectionsListStyles: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 'var(--space-8)',
+  width: '100%',
 };
 
 const sectionWrapperStyles: React.CSSProperties = {
@@ -286,7 +381,6 @@ const seeAllStyles: React.CSSProperties = {
   textDecoration: 'none',
   whiteSpace: 'nowrap',
 };
-
 
 const bannerStyles: React.CSSProperties = {
   display: 'flex',
@@ -329,10 +423,10 @@ const bannerCtaStyles: React.CSSProperties = {
   fontSize: 'var(--text-xs)',
 };
 
-const emptyStyles: React.CSSProperties = {
+const emptySectionStyles: React.CSSProperties = {
+  padding: '24px',
+  backgroundColor: '#f8fafc',
+  borderRadius: '8px',
+  border: '1px dashed #cbd5e1',
   textAlign: 'center',
-  padding: 'var(--space-16) 0',
-  border: '1px dashed var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--color-text-muted)',
 };

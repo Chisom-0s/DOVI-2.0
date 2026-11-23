@@ -1,3 +1,4 @@
+import { getProductHomepagePlacement, isDiscountActiveNow, resolveProductSellingPrice } from '@/services/homepagePlacementService';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -63,7 +64,6 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(() => !initialProduct);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [isBuying, setIsBuying] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<ProductSummary[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [fetchError, setFetchError] = useState<APIError | null>(null);
@@ -152,6 +152,7 @@ export default function ProductDetailPage() {
   }, [id, navigate]);
 
   const { addToCart } = useCart();
+  const [justAdded, setJustAdded] = useState(false);
 
   useEffect(() => {
     lastFetchedIdRef.current = null;
@@ -163,10 +164,17 @@ export default function ProductDetailPage() {
     setIsAddingToCart(true);
 
     try {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1500);
+      const currentPricing = resolveProductSellingPrice(product);
+      const actualSellingPrice = selectedVariant
+        ? (selectedVariant.price_override ?? selectedVariant.price)
+        : (currentPricing.isDiscountActive ? currentPricing.sellingPrice : (product.base_price ?? product.price));
+
       await addToCart(product, quantity, {
         variantId: selectedVariant ? selectedVariant.id : undefined,
         variantName: selectedVariant?.name,
-        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
+        price: actualSellingPrice,
         imageUrl: product.primary_image_url || product.image_url || undefined,
       });
       toast.success(`Added ${product.name} to cart!`);
@@ -175,40 +183,6 @@ export default function ProductDetailPage() {
       toast.error('Could not add to cart. Please try again.');
     } finally {
       setIsAddingToCart(false);
-    }
-  };
-
-  const handleBuyNow = async () => {
-    if (!product || isOutOfStock) return;
-    setIsBuying(true);
-
-    try {
-      await addToCart(product, quantity, {
-        variantId: selectedVariant ? selectedVariant.id : undefined,
-        variantName: selectedVariant?.name,
-        price: selectedVariant?.price_override ?? selectedVariant?.price ?? product.base_price ?? product.price,
-        imageUrl: product.primary_image_url || product.image_url || undefined,
-      });
-      navigate('/checkout', {
-        state: {
-          directBuy: true,
-          product,
-          quantity,
-          variant: selectedVariant,
-        },
-      });
-    } catch (err) {
-      console.error('Failed to buy item:', err);
-      navigate('/checkout', {
-        state: {
-          directBuy: true,
-          product,
-          quantity,
-          variant: selectedVariant,
-        },
-      });
-    } finally {
-      setIsBuying(false);
     }
   };
 
@@ -262,11 +236,27 @@ export default function ProductDetailPage() {
   }
 
   // Display price and stock matching either the variant (if overridden) or the base product
+  const placement = getProductHomepagePlacement({ id: product.id, description: product.description });
+  const pricing = resolveProductSellingPrice(product);
+  const discountConfig = placement?.discount_config ?? (product as any).discount_config ?? null;
+  const isDiscountActive = pricing.isDiscountActive || isDiscountActiveNow(discountConfig);
+
   const variantPrice = selectedVariant
     ? (selectedVariant.price_override || selectedVariant.price)
     : null;
-  const rawPrice = variantPrice || product.base_price || product.price;
-  const displayPrice = formatPrice(rawPrice);
+
+  let effectivePrice: any = variantPrice || (pricing.isDiscountActive ? pricing.sellingPrice : (product.base_price || product.price));
+  let originalPriceForDisplay: string | null = pricing.originalPrice
+    ? formatPrice(pricing.originalPrice)
+    : ((product as any).original_price ? formatPrice((product as any).original_price) : null);
+
+  if (isDiscountActive && !variantPrice) {
+    effectivePrice = pricing.sellingPrice;
+    originalPriceForDisplay = pricing.originalPrice
+      ? formatPrice(pricing.originalPrice)
+      : formatPrice(product.base_price || product.price);
+  }
+  const displayPrice = formatPrice(effectivePrice);
 
   const displaySku = selectedVariant?.sku || product.sku || product.reference_code || 'N/A';
 
@@ -276,13 +266,7 @@ export default function ProductDetailPage() {
   const displayStock = typeof rawStock === 'number' ? rawStock : (parseInt(String(rawStock || '0'), 10) || 0);
   const isOutOfStock = displayStock <= 0;
 
-  const avgRating = typeof product.average_rating === 'number'
-    ? product.average_rating
-    : (parseFloat(String(product.average_rating || 0)) || 0);
-
-  const reviewCount = typeof product.review_count === 'number'
-    ? product.review_count
-    : (parseInt(String(product.review_count || 0), 10) || 0);
+  // Rating & review displays temporarily disabled for initial launch
 
   const deliveryAttrs = resolveProductDeliveryAttributes(product);
   const resolvedCat = resolveProductCategoryAndSubcategory(product);
@@ -361,14 +345,8 @@ export default function ProductDetailPage() {
           )}
           <h1 style={titleStyles}>{product.name}</h1>
           
-          {/* Rating aggregate display banner */}
-          <div style={ratingRowStyles}>
-            <span style={{ color: '#f39c12', fontWeight: 'bold' }}>
-              ★ {avgRating.toFixed(1)}
-            </span>
-            <span style={countTextStyles}>
-              ({reviewCount} customer {reviewCount === 1 ? 'review' : 'reviews'})
-            </span>
+          {/* Product Meta SKU */}
+          <div style={skuRowStyles}>
             <span style={skuStyles}>SKU: {displaySku}</span>
           </div>
 
@@ -376,15 +354,36 @@ export default function ProductDetailPage() {
 
           {/* Pricing area */}
           <div style={priceContainerStyles}>
-            <span style={priceStyles}>
-              {displayPrice}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+              <span style={priceStyles}>
+                {displayPrice}
+              </span>
+              {isDiscountActive && originalPriceForDisplay && (
+                <span style={{ fontSize: '15px', color: '#9ca3af', textDecoration: 'line-through' }}>
+                  {originalPriceForDisplay}
+                </span>
+              )}
+            </div>
+            {isDiscountActive && (
+              <span style={{
+                backgroundColor: '#4f46e5',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 800,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                🏷️ Deals & Discounts
+              </span>
+            )}
             <span style={isOutOfStock ? outOfStockBadgeStyles : inStockBadgeStyles}>
               {isOutOfStock ? 'Out of Stock' : 'In Stock'}
             </span>
           </div>
 
-          {/* DOVI Onitsha Hub Delivery Classification & Consolidation Banner */}
+          {/* DOVI Direct Destination Delivery Banner */}
           <div
             style={{
               backgroundColor: '#fff7ed',
@@ -400,7 +399,7 @@ export default function ProductDetailPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
               <span style={{ fontWeight: 700 }}>
-                🚚 DOVI Onitsha Hub Consolidated Dispatch
+                🚚 DOVI Direct Delivery
               </span>
               <span
                 style={{
@@ -417,7 +416,7 @@ export default function ProductDetailPage() {
               </span>
             </div>
             <div style={{ color: '#9a3412', lineHeight: 1.4 }}>
-              Inspected & packaged at our Onitsha Hub. Combine multiple products across categories in your cart for a single consolidated shipment fee whenever practical.
+              Direct delivery to your destination. Add multiple items across categories to your cart to calculate consolidated destination delivery at checkout.
               {deliveryAttrs.weight_kg ? ` · Est. Weight: ${deliveryAttrs.weight_kg} kg` : ''}
               {deliveryAttrs.dimensions_cm ? ` · Dimensions: ${deliveryAttrs.dimensions_cm} cm` : ''}
             </div>
@@ -432,7 +431,7 @@ export default function ProductDetailPage() {
             />
           )}
 
-          {/* Purchase Actions (Quantity selector & Add button) */}
+          {/* Purchase Actions (Quantity selector & Add to Cart) */}
           <div style={purchaseWrapperStyles}>
             {!isOutOfStock && (
               <div style={qtyWrapperStyles}>
@@ -456,26 +455,21 @@ export default function ProductDetailPage() {
 
             <button
               onClick={handleAddToCart}
-              disabled={isOutOfStock || isAddingToCart || isBuying}
+              disabled={isOutOfStock || isAddingToCart}
               style={{
                 ...cartBtnStyles,
-                opacity: (isOutOfStock || isAddingToCart || isBuying) ? 0.6 : 1,
-                cursor: (isOutOfStock || isAddingToCart || isBuying) ? 'not-allowed' : 'pointer',
+                flex: 1,
+                opacity: (isOutOfStock || isAddingToCart) ? 0.6 : 1,
+                cursor: (isOutOfStock || isAddingToCart) ? 'not-allowed' : 'pointer',
               }}
             >
-              {isAddingToCart ? 'Adding to Cart...' : '🛒 Add to Cart'}
-            </button>
-
-            <button
-              onClick={handleBuyNow}
-              disabled={isOutOfStock || isBuying || isAddingToCart}
-              style={{
-                ...buyBtnStyles,
-                opacity: (isOutOfStock || isBuying || isAddingToCart) ? 0.6 : 1,
-                cursor: (isOutOfStock || isBuying || isAddingToCart) ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {isBuying ? 'Opening Checkout...' : '⚡ Buy Now'}
+              {isOutOfStock
+                ? 'Out of Stock'
+                : isAddingToCart
+                ? 'Adding to Cart...'
+                : justAdded
+                ? '✓ Added to Cart!'
+                : '🛒 Add to Cart'}
             </button>
           </div>
 
@@ -512,8 +506,8 @@ export default function ProductDetailPage() {
 // Styling Tokens
 // ----------------------------------------------------------
 const pageWrapperStyles: React.CSSProperties = {
-  paddingTop: 'var(--space-6)',
-  paddingBottom: 'var(--space-12)',
+  paddingTop: 'var(--space-4)',
+  paddingBottom: 'var(--space-16)',
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
@@ -552,21 +546,17 @@ const rightColStyles: React.CSSProperties = {
 };
 
 const titleStyles: React.CSSProperties = {
-  fontSize: 'var(--text-2xl)',
+  fontSize: 'clamp(1.25rem, 4.5vw, 1.75rem)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
-  lineHeight: 'var(--leading-tight)',
+  lineHeight: '1.25',
+  wordBreak: 'break-word',
 };
 
-const ratingRowStyles: React.CSSProperties = {
+const skuRowStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-2)',
-  fontSize: 'var(--text-sm)',
-  flexWrap: 'wrap',
-};
-
-const countTextStyles: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
   color: 'var(--color-text-muted)',
 };
 
@@ -586,6 +576,9 @@ const priceContainerStyles: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+  flexWrap: 'wrap',
+  gap: '10px',
+  width: '100%',
 };
 
 const priceStyles: React.CSSProperties = {
@@ -649,7 +642,8 @@ const qtyValStyles: React.CSSProperties = {
 };
 
 const cartBtnStyles: React.CSSProperties = {
-  flex: '1',
+  flex: '1 1 180px',
+  minWidth: '160px',
   height: '48px',
   borderRadius: 'var(--radius-md)',
   backgroundColor: 'var(--color-primary)',
@@ -659,7 +653,6 @@ const cartBtnStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   cursor: 'pointer',
   transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
-  minWidth: '180px',
   boxShadow: '0 4px 14px rgba(255, 122, 0, 0.28)',
 };
 
@@ -677,24 +670,6 @@ const save2ownBtnStyles: React.CSSProperties = {
   boxShadow: '0 4px 14px rgba(39, 174, 96, 0.22)',
 };
 
-const buyBtnStyles: React.CSSProperties = {
-  flex: '1',
-  height: '48px',
-  borderRadius: 'var(--radius-md)',
-  backgroundColor: '#111827',
-  color: '#ffffff',
-  border: 'none',
-  fontSize: 'var(--text-base)',
-  fontWeight: 'var(--font-bold)',
-  cursor: 'pointer',
-  transition: 'background-color var(--transition-fast), transform var(--transition-fast)',
-  minWidth: '160px',
-  boxShadow: '0 4px 14px rgba(17, 24, 39, 0.2)',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '6px',
-};
 
 const descriptionSectionStyles: React.CSSProperties = {
   marginTop: 'var(--space-8)',

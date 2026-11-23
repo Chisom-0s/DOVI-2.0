@@ -1,3 +1,5 @@
+import { resolveOrderDisplay } from '@/utils/orderImageHelper';
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -64,42 +66,137 @@ export default function OrderHistoryPage() {
       {!isLoading && data && data.results.length > 0 && (
         <>
           <div style={listStyles}>
-            {data.results.map((order) => (
-              <Link
-                key={order.id}
-                to={`/dashboard/orders/${order.reference}`}
-                style={orderCardStyles}
-              >
-                <div style={orderLeftStyles}>
-                  <span style={refStyles}>#{order.reference}</span>
-                  <span style={dateStyles}>
-                    {new Date(order.created_at).toLocaleDateString('en-NG', {
-                      day: 'numeric', month: 'short', year: 'numeric',
-                    })}
-                  </span>
-                </div>
+            {data.results.map((order) => {
+              const display = resolveOrderDisplay(order);
+              const thumbUrl = display.primaryImageUrl;
+              const productName = display.primaryProductName;
 
-                <div style={orderCenterStyles}>
-                  <span
-                    className="status-badge"
-                    style={{
-                      backgroundColor: statusColor(order.status).bg,
-                      color: statusColor(order.status).text,
-                    }}
-                  >
-                    {order.status.replace(/_/g, ' ')}
-                  </span>
-                  <span style={itemCountStyles}>
-                    {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
-                  </span>
-                </div>
+              return (
+                <Link
+                  key={order.id || order.reference}
+                  to={`/dashboard/orders/${order.reference}`}
+                  style={orderCardStyles}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
+                    {/* Thumbnail */}
+                    <div
+                      style={{
+                        width: '52px',
+                        height: '52px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        backgroundColor: '#ffffff',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #e5e7eb',
+                        padding: '2px',
+                      }}
+                    >
+                      {thumbUrl ? (
+                        <img
+                          src={thumbUrl}
+                          alt={productName}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLElement;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            const fallback = parent?.querySelector('.fallback-bag-icon') as HTMLElement;
+                            if (fallback) fallback.style.display = 'block';
+                          }}
+                        />
+                      ) : null}
+                      <svg
+                        className="fallback-bag-icon"
+                        style={{ display: thumbUrl ? 'none' : 'block' }}
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#9ca3af"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                      </svg>
+                    </div>
 
-                <div style={orderRightStyles}>
-                  <span style={totalStyles}>{formatCurrency(order.total)}</span>
-                  <span style={chevronStyles}>›</span>
-                </div>
-              </Link>
-            ))}
+                    <div style={orderLeftStyles}>
+                      <span style={refStyles}>#{order.reference}</span>
+                      <span style={dateStyles}>
+                        {new Date(order.created_at).toLocaleDateString('en-NG', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                        })}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--color-text-muted)',
+                          maxWidth: '220px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginTop: '2px',
+                        }}
+                      >
+                        {productName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={orderCenterStyles}>
+                    {(() => {
+                      const fulfillInfo = getCustomerFulfillmentStatusInfo(order.fulfillment_status, order.status);
+                      const payInfo = getCustomerPaymentStatusInfo(order.payment_status);
+                      return (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              backgroundColor: fulfillInfo.bg,
+                              color: fulfillInfo.text,
+                              border: `1px solid ${fulfillInfo.border}`,
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            Order: {fulfillInfo.label}
+                          </span>
+                          <span
+                            style={{
+                              backgroundColor: payInfo.bg,
+                              color: payInfo.text,
+                              border: `1px solid ${payInfo.border}`,
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            Payment: {payInfo.label}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <span style={itemCountStyles}>
+                      {order.item_count} {order.item_count === 1 ? 'item' : 'items'}
+                    </span>
+                  </div>
+
+                  <div style={orderRightStyles}>
+                    <span style={totalStyles}>{formatCurrency(order.total)}</span>
+                    <span style={chevronStyles}>›</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Pagination */}
@@ -135,7 +232,7 @@ export default function OrderHistoryPage() {
 }
 
 // Helpers
-function statusColor(status: string) {
+export function statusColor(status: string) {
   switch (status) {
     case 'PAID':
     case 'DELIVERED':
@@ -293,3 +390,5 @@ const primaryBtnStyles: React.CSSProperties = {
   fontWeight: 'var(--font-bold)',
   fontSize: 'var(--text-sm)',
 };
+
+// removed unused paymentBadgeStyle

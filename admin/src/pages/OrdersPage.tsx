@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type {
   Order,
@@ -9,16 +10,16 @@ import type {
   OrderShipment,
   ShipmentFulfillmentStatus,
 } from '@/types';
+import { getPaymentByOrderRef } from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
   getOrderShipments,
   getAllStoredOrderShipments,
   saveOrderShipments,
   updateShipmentStatus,
-  updateShipmentItemHubStatus,
+  ACTIVE_FULFILLMENT_STATUSES,
   confirmManualDeliveryQuote,
-  approvePartialSplitDelivery,
-  deriveOverallOrderStatus,
+    deriveOverallOrderStatus,
   SHIPMENT_STATUS_LABELS,
   SHIPMENT_STATUS_ORDER,
   PARCEL_CLASSIFICATION_LABELS,
@@ -31,8 +32,11 @@ import { EmptyState } from '@/components/common/EmptyState';
 
 export default function OrdersPage() {
   const { user } = useAdminAuth();
-  const [orders, setOrders] = useState<OrderSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderSummary[]>(() => {
+    const cached = adminCache.get<any>('orders:list:1::');
+    return cached?.data?.results || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('orders:list:1::'));
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -42,6 +46,14 @@ export default function OrdersPage() {
   const [orderShipments, setOrderShipments] = useState<OrderShipment[]>([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isActionPending, setIsActionPending] = useState(false);
+
+  // Payment verification modal & receipt zoom preview state
+  const [zoomedReceiptUrl, setZoomedReceiptUrl] = useState<string | null>(null);
+  const [showRejectPaymentModal, setShowRejectPaymentModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('Payment not received in DOVI bank account');
+  const [customRejectionReason, setCustomRejectionReason] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [fulfillmentNotes, setFulfillmentNotes] = useState('');
 
   // Per-shipment form drafts (transport arrangement, notes, tracking, manual quote fee)
   const [shipmentDrafts, setShipmentDrafts] = useState<
@@ -78,7 +90,9 @@ export default function OrdersPage() {
   };
 
   const fetchOrders = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `orders:list:${page}:${statusFilter || ''}:${searchTerm || ''}`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && orders.length === 0) setIsLoading(true);
     setError(null);
     try {
       await syncDeliveryStoreFromServer();
@@ -219,7 +233,7 @@ export default function OrdersPage() {
       return existing;
     }
 
-    // Automatically build consolidated Onitsha Hub shipment(s) for orders without stored shipments
+    // Automatically build consolidated Fulfillment shipment(s) for orders without stored shipments
     const destState =
       orderObj.shipping_state ||
       orderObj.delivery_address?.state ||
@@ -255,7 +269,7 @@ export default function OrdersPage() {
       })),
       destState,
       destCity,
-      'Onitsha'
+      ''
     );
 
     const built = buildOrderShipmentsFromCalculation(
@@ -286,9 +300,39 @@ export default function OrdersPage() {
         }
       }
 
+      const targetRef = summary.reference || summary.reference_code || orderId;
+      let paymentEvidence =
+        (detail as any)?.payment_evidence ||
+        summary.payment_evidence ||
+        getPaymentByOrderRef(targetRef) ||
+        getPaymentByOrderRef(orderId);
+
+      if (!paymentEvidence || !paymentEvidence.sender_bank || !paymentEvidence.payment_proof_url) {
+        try {
+          const remotePayment = await adminApi.getPayment(targetRef);
+          if (remotePayment && (remotePayment.sender_bank || remotePayment.amount || remotePayment.payment_proof_url)) {
+            paymentEvidence = remotePayment;
+          }
+        } catch {}
+      }
+
+      const resolvedPaymentStatus =
+        paymentEvidence?.status === 'VERIFIED'
+          ? 'PAID'
+          : paymentEvidence?.status ||
+            detail?.payment_status ||
+            summary.payment_status ||
+            'PENDING_PAYMENT';
+
       const resolvedOrder: Order =
         detail && detail.id && (detail.items?.length || !summary.items?.length)
-          ? { ...summary, ...detail, items: detail.items?.length ? detail.items : summary.items || [] }
+          ? {
+              ...summary,
+              ...detail,
+              items: detail.items?.length ? detail.items : summary.items || [],
+              payment_status: resolvedPaymentStatus,
+              payment_evidence: paymentEvidence || null,
+            }
           : {
               id: summary.id || summary.reference || 'ord-inspect',
               reference: summary.reference || summary.reference_code || 'ORD-UNKNOWN',
@@ -300,7 +344,8 @@ export default function OrdersPage() {
               subtotal: summary.subtotal || summary.total || '0',
               delivery_fee: summary.delivery_fee || '0',
               total: summary.total || summary.total_amount || '0',
-              payment_status: summary.payment_status || 'PAID',
+              payment_status: resolvedPaymentStatus,
+              payment_evidence: paymentEvidence || null,
               payment_method: summary.payment_method || 'Bank Transfer',
               tracking: summary.tracking || [],
               can_cancel: false,
@@ -314,6 +359,11 @@ export default function OrdersPage() {
       const shipments = ensureOrderShipmentsInitialized(resolvedOrder);
       setOrderShipments(shipments);
       hydrateDraftsForShipments(shipments);
+      setFulfillmentNotes(
+        (resolvedOrder as any)?.fulfillment_notes ||
+        (resolvedOrder as any)?.admin_notes ||
+        ''
+      );
       setSelectedOrder({
         ...resolvedOrder,
         shipments,
@@ -326,20 +376,76 @@ export default function OrdersPage() {
     }
   };
 
+  const handleApproveOrderPayment = async () => {
+    if (!selectedOrder) return;
+    const ref = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+    if (
+      !window.confirm(
+        `Approve bank transfer payment for Order #${ref}? This will mark payment as PAID and advance order fulfillment to PROCESSING.`
+      )
+    ) {
+      return;
+    }
+    setIsActionPending(true);
+    try {
+      await adminApi.verifyPayment(ref, { notes: paymentNotes || 'Verified by Admin in Order Hub' });
+      toast.success(`Payment for Order #${ref} approved! Status updated to Paid and Processing.`);
+      const updatedOrder = await adminApi.getOrder(ref);
+      setSelectedOrder(updatedOrder);
+      await fetchOrders(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to approve payment.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleRejectOrderPayment = async () => {
+    if (!selectedOrder) return;
+    const ref = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+    const reason = rejectionReason === 'Other' ? customRejectionReason.trim() : rejectionReason;
+    if (!reason) {
+      toast.error('Please specify a rejection reason.');
+      return;
+    }
+    setIsActionPending(true);
+    try {
+      await adminApi.rejectPayment(ref, { rejection_reason: reason });
+      toast.success(`Payment rejected for Order #${ref}. Customer has been notified.`);
+      setShowRejectPaymentModal(false);
+      const updatedOrder = await adminApi.getOrder(ref);
+      setSelectedOrder(updatedOrder);
+      await fetchOrders(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reject payment.');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (!selectedOrder) return;
 
-    // Enforce Section 6 Rule: Do not mark an order as DELIVERED until all required shipments have been delivered
+    // Separation of Payment Status and Order Status
+    // Rule: An order cannot transition to READY_FOR_DISPATCH, DISPATCHED, OUT_FOR_DELIVERY or DELIVERED unless payment status is PAID
+    const pStatus = ((selectedOrder as any).payment_status || '').toUpperCase();
+    const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
     if (
-      (newStatus === 'DELIVERED' || newStatus === 'COMPLETED' || newStatus === 'RECEIVED') &&
-      orderShipments.length > 0
+      ['READY_FOR_DISPATCH', 'DISPATCHED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus) &&
+      !isPaid
     ) {
+      toast.error(
+        `Cannot advance order to ${SHIPMENT_STATUS_LABELS[newStatus as ShipmentFulfillmentStatus] || newStatus}: Customer payment is currently ${pStatus || 'PENDING_PAYMENT'}. Payment must be verified before proceeding.`
+      );
+      return;
+    }
+
+    // Rule: Do not mark an order as DELIVERED until all required shipments have been delivered
+    if (newStatus === 'DELIVERED' && orderShipments.length > 0) {
       const undelivered = orderShipments.filter((s) => s.status !== 'DELIVERED');
       if (undelivered.length > 0) {
         toast.error(
-          `Cannot mark order as ${newStatus}: ${undelivered.length} shipment(s) (${undelivered
-            .map((s) => s.shipment_reference)
-            .join(', ')}) have not yet been marked as DELIVERED.`
+          `Cannot mark order as Delivered: ${undelivered.length} shipment(s) have not yet been marked as Delivered.`
         );
         return;
       }
@@ -348,9 +454,25 @@ export default function OrdersPage() {
     setIsActionPending(true);
     try {
       const orderId = selectedOrder.id || selectedOrder.reference;
-      const updated = await adminApi.updateOrderStatus(orderId, newStatus);
-      toast.success(`Order ${selectedOrder.reference || selectedOrder.id} status updated to ${newStatus}.`);
-      setSelectedOrder((prev) => (prev ? { ...prev, status: updated.status || (newStatus as any) } : prev));
+      const updated = await adminApi.updateOrderStatus(orderId, newStatus, fulfillmentNotes);
+      toast.success(`Order status updated to ${SHIPMENT_STATUS_LABELS[newStatus as ShipmentFulfillmentStatus] || newStatus}.`);
+
+      // Two-way synchronization for single-shipment orders
+      if (orderShipments.length === 1 && ACTIVE_FULFILLMENT_STATUSES.includes(newStatus as ShipmentFulfillmentStatus)) {
+        const actor = {
+          id: user?.id,
+          email: user?.email || 'admin@dovi.com',
+          name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Admin',
+          role: user?.role || 'ADMIN',
+        };
+        const orderKey = selectedOrder.id || selectedOrder.reference;
+        updateShipmentStatus(orderKey, orderShipments[0].id, newStatus as ShipmentFulfillmentStatus, actor);
+        const updatedShipments = getOrderShipments(orderKey, selectedOrder.reference);
+        setOrderShipments(updatedShipments);
+        hydrateDraftsForShipments(updatedShipments);
+      }
+
+      setSelectedOrder((prev) => (prev ? { ...prev, status: (updated.status || newStatus) as any, fulfillment_notes: fulfillmentNotes } : prev));
       setOrders((prev) =>
         prev.map((o) =>
           o.id === selectedOrder.id || o.reference === selectedOrder.reference
@@ -365,36 +487,18 @@ export default function OrdersPage() {
     }
   };
 
-  const handleToggleItemHubCheck = (
-    shipmentId: string,
-    itemId: string,
-    field: 'hub_received' | 'quality_checked' | 'packaged',
-    currentVal: boolean
-  ) => {
+  const handleSaveFulfillmentNotes = async () => {
     if (!selectedOrder) return;
+    setIsActionPending(true);
     try {
-      const orderKey = selectedOrder.id || selectedOrder.reference;
-      const actor = {
-        id: user?.id,
-        email: user?.email || 'admin@dovi.com',
-        name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Admin',
-        role: user?.role || 'ADMIN',
-      };
-      updateShipmentItemHubStatus(
-        orderKey,
-        shipmentId,
-        itemId,
-        { [field]: !currentVal },
-        actor
-      );
-      const updatedShipments = getOrderShipments(orderKey, selectedOrder.reference);
-      setOrderShipments([...updatedShipments]);
-      hydrateDraftsForShipments(updatedShipments);
-      const overall = deriveOverallOrderStatus(updatedShipments);
-      setSelectedOrder((prev) => (prev ? { ...prev, status: overall as any, shipments: updatedShipments } : prev));
-      toast.success('Onitsha Hub item status updated.');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update hub item check.');
+      const orderId = selectedOrder.id || selectedOrder.reference;
+      await adminApi.updateOrderStatus(orderId, selectedOrder.status, fulfillmentNotes);
+      setSelectedOrder((prev) => (prev ? { ...prev, fulfillment_notes: fulfillmentNotes } as any : prev));
+      toast.success('Fulfillment notes saved.');
+    } catch {
+      toast.error('Failed to save fulfillment notes.');
+    } finally {
+      setIsActionPending(false);
     }
   };
 
@@ -426,6 +530,10 @@ export default function OrdersPage() {
       setOrderShipments([...updatedShipments]);
       hydrateDraftsForShipments(updatedShipments);
       const overall = result.overallOrderStatus;
+
+      const orderId = selectedOrder.id || selectedOrder.reference;
+      adminApi.updateOrderStatus(orderId, overall, fulfillmentNotes).catch(() => {});
+
       setSelectedOrder((prev) => (prev ? { ...prev, status: overall as any, shipments: updatedShipments } : prev));
       setOrders((prev) =>
         prev.map((o) =>
@@ -466,7 +574,7 @@ export default function OrdersPage() {
             shipmentId: shipment.id,
             confirmedDeliveryFee: feeNum,
             transportArrangement: draft.transport_arrangement || shipment.transport_arrangement,
-            deliveryNotes: draft.quote_notes || 'Manual delivery quotation confirmed by Onitsha Logistics Desk.',
+            deliveryNotes: draft.quote_notes || 'Delivery fee confirmed by administrator.',
           },
         ],
         actor
@@ -494,30 +602,6 @@ export default function OrdersPage() {
     }
   };
 
-  const handleApproveSplitDelivery = (shipment: OrderShipment) => {
-    if (!selectedOrder) return;
-    try {
-      const orderKey = selectedOrder.id || selectedOrder.reference;
-      const actor = {
-        id: user?.id,
-        email: user?.email || 'admin@dovi.com',
-        name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Admin',
-        role: user?.role || 'ADMIN',
-      };
-      const updatedShipments = approvePartialSplitDelivery(
-        orderKey,
-        shipment.id,
-        actor,
-        0
-      );
-      setOrderShipments([...updatedShipments]);
-      hydrateDraftsForShipments(updatedShipments);
-      toast.success('Split delivery approved! Arrived items separated into an active shipment.');
-    } catch (err: any) {
-      toast.error(err.message || 'Could not split shipment.');
-    }
-  };
-
   const formatCurrency = (val: string | number | null | undefined) => {
     if (val === null || val === undefined || val === '') return 'Manual Quote Required';
     const num = typeof val === 'number' ? val : parseFloat(val);
@@ -532,7 +616,7 @@ export default function OrdersPage() {
   if (isLoading) {
     return (
       <div style={containerStyles}>
-        <h2 style={titleStyles}>Order Logs & Onitsha Hub Fulfillment</h2>
+        <h2 style={titleStyles}>Order Logs & Direct Delivery Fulfillment</h2>
         <Skeleton width="100%" height="48px" borderRadius="8px" />
         <div style={{ marginTop: '24px' }}>
           <Skeleton width="100%" height="300px" borderRadius="12px" />
@@ -545,9 +629,9 @@ export default function OrdersPage() {
     <div style={containerStyles}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h2 style={titleStyles}>Order Logs & Onitsha Hub Fulfillment</h2>
+          <h2 style={titleStyles}>Order Logs & Direct Delivery Fulfillment</h2>
           <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
-            Manage supplier sourcing, Onitsha Hub product receipt, quality inspection, consolidated packaging, and dispatch.
+            Manage customer orders, direct destination delivery arrangement, supplier sourcing, quality inspection, and dispatch.
           </p>
         </div>
       </div>
@@ -577,22 +661,13 @@ export default function OrdersPage() {
             }}
             style={selectStyles}
           >
-            <option value="">All Orders</option>
-            <option value="AWAITING_DELIVERY_CONFIRMATION">Awaiting Delivery Quote</option>
-            <option value="DELIVERY_FEE_CONFIRMED">Delivery Fee Confirmed</option>
+            <option value="">All Fulfillment Statuses</option>
             <option value="ORDER_PLACED">Order Placed</option>
-            <option value="SOURCING_PRODUCTS">Sourcing Products</option>
-            <option value="AWAITING_PRODUCTS_AT_HUB">Awaiting Products at Onitsha Hub</option>
-            <option value="PRODUCTS_RECEIVED">Products Received at Hub</option>
-            <option value="QUALITY_CHECK">Quality Check</option>
-            <option value="READY_FOR_PACKAGING">Ready for Packaging</option>
-            <option value="PACKAGED">Packaged</option>
+            <option value="PROCESSING">Processing</option>
             <option value="READY_FOR_DISPATCH">Ready for Dispatch</option>
             <option value="DISPATCHED">Dispatched</option>
             <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
             <option value="DELIVERED">Delivered</option>
-            <option value="PENDING_PAYMENT">Pending Payment</option>
-            <option value="PAID">Paid</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
@@ -612,9 +687,13 @@ export default function OrdersPage() {
               <thead>
                 <tr style={tableHeaderRowStyles}>
                   <th style={tableHeaderCellStyles}>Reference</th>
-                  <th style={tableHeaderCellStyles}>Date</th>
-                  <th style={tableHeaderCellStyles}>Items & Shipments</th>
-                  <th style={tableHeaderCellStyles}>Total Amount</th>
+                  <th style={tableHeaderCellStyles}>Customer</th>
+                  <th style={tableHeaderCellStyles}>Destination</th>
+                  <th style={tableHeaderCellStyles}>Products</th>
+                  <th style={tableHeaderCellStyles}>Subtotal</th>
+                  <th style={tableHeaderCellStyles}>Delivery Fee</th>
+                  <th style={tableHeaderCellStyles}>Total Payable</th>
+                  <th style={tableHeaderCellStyles}>Payment Status</th>
                   <th style={tableHeaderCellStyles}>Fulfillment Status</th>
                   <th style={{ ...tableHeaderCellStyles, textAlign: 'center' }}>Actions</th>
                 </tr>
@@ -629,6 +708,9 @@ export default function OrdersPage() {
                     <tr key={o.id || ref} style={tableRowStyles}>
                       <td style={{ ...tableCellStyles, fontWeight: 700 }}>
                         <div>{ref}</div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 400 }}>
+                          {o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}
+                        </div>
                         {o.requires_manual_quote && (
                           <span
                             style={{
@@ -638,27 +720,50 @@ export default function OrdersPage() {
                               fontWeight: 700,
                               padding: '2px 6px',
                               borderRadius: '4px',
-                              backgroundColor: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fecaca',
+                              backgroundColor: '#fffbeb',
+                              color: '#b45309',
+                              border: '1px solid #fde68a',
                             }}
                           >
-                            Manual Delivery Quote Needed
+                            💬 WhatsApp / Quote Needed
                           </span>
                         )}
                       </td>
                       <td style={tableCellStyles}>
-                        {o.created_at ? new Date(o.created_at).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td style={tableCellStyles}>
-                        <div style={{ fontWeight: 600 }}>
-                          {itemCount} item{itemCount !== 1 ? 's' : ''}
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {o.buyer_name || o.shipping_full_name || (o.buyer_email ? o.buyer_email.split(' ')[0] : 'Customer')}
                         </div>
                         <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                          {shipmentCount} shipment{shipmentCount !== 1 ? 's' : ''} (Origin: Onitsha)
+                          {o.buyer_email || o.buyer_phone || ''}
                         </div>
                       </td>
-                      <td style={{ ...tableCellStyles, fontWeight: 700 }}>{formatCurrency(total)}</td>
+                      <td style={tableCellStyles}>
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {o.shipping_city || o.delivery_address?.city || 'Town N/A'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                          {o.shipping_state || o.delivery_address?.state || 'State N/A'}
+                        </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {itemCount} item{itemCount !== 1 ? 's' : ''} ({shipmentCount} parcel{shipmentCount !== 1 ? 's' : ''})
+                        </div>
+                      </td>
+                      <td style={tableCellStyles}>
+                        {formatCurrency(o.subtotal || total)}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 600, color: o.delivery_fee && o.delivery_fee !== '0' ? '#047857' : '#d97706' }}>
+                        {o.requires_manual_quote ? 'Pending Quote' : formatCurrency(o.delivery_fee || '0')}
+                      </td>
+                      <td style={{ ...tableCellStyles, fontWeight: 800, color: '#111827' }}>
+                        {formatCurrency(total)}
+                      </td>
+                      <td style={tableCellStyles}>
+                        <span style={paymentBadgeStyles(o.payment_status)}>
+                          {(o.payment_status || 'PENDING_PAYMENT').replace(/_/g, ' ')}
+                        </span>
+                      </td>
                       <td style={tableCellStyles}>
                         <span style={statusBadgeStyles(o.status)}>
                           {SHIPMENT_STATUS_LABELS[o.status as ShipmentFulfillmentStatus] ||
@@ -671,7 +776,7 @@ export default function OrdersPage() {
                           onClick={() => handleInspectOrder(o)}
                           style={viewBtnStyles}
                         >
-                          Manage Fulfillment
+                          {o.requires_manual_quote ? 'Record Fee / Manage' : 'Manage Order'}
                         </button>
                       </td>
                     </tr>
@@ -708,30 +813,45 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Inspect Order & Onitsha Hub Shipment Management Modal */}
+      {/* Inspect Order & Fulfillment Shipment Management Modal */}
       {selectedOrder && (
         <div style={modalBackdropStyles}>
           <div
             style={{
               ...modalContentStyles,
-              maxWidth: '880px',
-              maxHeight: '90vh',
+              maxWidth: '920px',
+              maxHeight: '92vh',
               overflowY: 'auto',
+              backgroundColor: '#f8fafc',
             }}
           >
-            <div style={modalHeaderStyles}>
+            {/* Modal Header */}
+            <div
+              style={{
+                ...modalHeaderStyles,
+                backgroundColor: '#ffffff',
+                padding: '16px 20px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                border: '1px solid #e2e8f0',
+              }}
+            >
               <div>
-                <h3 style={modalTitleStyles}>
-                  Onitsha Hub Order & Shipment Fulfillment —{' '}
-                  {(selectedOrder as any).reference_code || selectedOrder.reference}
-                </h3>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                  Dispatch Origin: <strong>Onitsha Hub</strong> · Shipments:{' '}
-                  <strong>{orderShipments.length || 1}</strong> · Overall Status:{' '}
-                  <strong>
-                    {SHIPMENT_STATUS_LABELS[selectedOrder.status as ShipmentFulfillmentStatus] ||
-                      selectedOrder.status}
-                  </strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                    Order #{(selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id}
+                  </h3>
+                  <span style={statusBadgeStyles(selectedOrder.status)}>
+                    {SHIPMENT_STATUS_LABELS[selectedOrder.status as ShipmentFulfillmentStatus] || selectedOrder.status}
+                  </span>
+                  <span style={paymentBadgeStyles((selectedOrder as any).payment_status)}>
+                    {((selectedOrder as any).payment_status || 'PENDING_PAYMENT').replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                  Customer: <strong>{(selectedOrder as any).buyer_email || 'Customer'}</strong> · Placed:{' '}
+                  <strong>{new Date(selectedOrder.created_at).toLocaleString()}</strong> · Shipments:{' '}
+                  <strong>{orderShipments.length || 1}</strong>
                 </div>
               </div>
               <button
@@ -743,165 +863,643 @@ export default function OrdersPage() {
               </button>
             </div>
 
+            {/* ============================================================ */}
+            {/* SECTION A: PAYMENT INFORMATION                               */}
+            {/* ============================================================ */}
+            {(() => {
+              const targetRef = (selectedOrder as any).reference_code || selectedOrder.reference || selectedOrder.id;
+              const payment =
+                (selectedOrder as any).payment_evidence ||
+                getPaymentByOrderRef(targetRef) ||
+                getPaymentByOrderRef(selectedOrder.id);
+              const senderBank = payment?.sender_bank || (selectedOrder as any).sender_bank || 'Not provided';
+              const senderAccountName = payment?.sender_account_name || (selectedOrder as any).sender_account_name || 'Not provided';
+              const transactionRef = payment?.transaction_reference || (selectedOrder as any).transaction_reference || 'N/A';
+              const declaredAmount = payment?.amount || (selectedOrder as any).payment_amount;
+              const receiptProofUrl = payment?.payment_proof_url || (selectedOrder as any).payment_proof_url;
+              const orderTotal = (selectedOrder as any).total_amount || selectedOrder.total || '0';
+              const pStatus = ((selectedOrder as any).payment_status || payment?.status || 'PENDING_PAYMENT').toUpperCase();
+              const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
+              const isRejected = pStatus === 'REJECTED';
+              const isPendingVerification = pStatus === 'PENDING_VERIFICATION';
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '14px',
+                      paddingBottom: '12px',
+                      borderBottom: '1px solid #f1f5f9',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                        💳 Section A: Payment Information
+                      </h4>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                        Order payment totals, customer payment method, transaction reference, and verification controls.
+                      </p>
+                    </div>
+                    <span style={paymentBadgeStyles(pStatus)}>
+                      {pStatus.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  {/* Payment Details Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '12px',
+                      backgroundColor: '#f8fafc',
+                      padding: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '12px',
+                      marginBottom: '14px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Total Order Amount</div>
+                      <strong style={{ fontSize: '15px', color: 'var(--color-primary)' }}>
+                        {formatCurrency(orderTotal)}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Product Subtotal</div>
+                      <strong style={{ fontSize: '13px', color: '#1e293b' }}>
+                        {formatCurrency(selectedOrder.subtotal)}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Delivery Fee</div>
+                      <strong style={{ fontSize: '13px', color: '#1e293b' }}>
+                        {formatCurrency(selectedOrder.delivery_fee)}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Payment Method</div>
+                      <strong style={{ fontSize: '13px', color: '#1e293b' }}>
+                        {(selectedOrder as any).payment_method || 'Bank Transfer'}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Declared Payment Amount</div>
+                      <strong
+                        style={{
+                          fontSize: '13px',
+                          color:
+                            payment?.amount && Number(payment.amount) >= Number(orderTotal)
+                              ? '#16a34a'
+                              : payment?.amount
+                              ? '#d97706'
+                              : '#64748b',
+                        }}
+                      >
+                        {declaredAmount ? formatCurrency(declaredAmount) : 'Not Submitted'}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Sender Bank</div>
+                      <strong style={{ color: '#1e293b' }}>{senderBank}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Sender Account Name</div>
+                      <strong style={{ color: '#1e293b' }}>{senderAccountName}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Transaction Reference / Narration</div>
+                      <span style={{ fontFamily: 'monospace', color: '#1e293b', fontWeight: 600 }}>
+                        {transactionRef}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Submission Timestamp</div>
+                      <span style={{ color: '#1e293b' }}>
+                        {payment?.created_at ? new Date(payment.created_at).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Verification Timestamp</div>
+                      <span style={{ color: '#1e293b' }}>
+                        {payment?.verified_at ? new Date(payment.verified_at).toLocaleString() : (isPaid ? 'Verified' : 'Pending Verification')}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', marginBottom: '2px' }}>Verified By</div>
+                      <strong style={{ color: '#1e293b' }}>
+                        {payment?.verified_by || (isPaid ? 'Administrator' : 'Not yet verified')}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Status Badges & Alerts */}
+                  {isPaid && (
+                    <div
+                      style={{
+                        backgroundColor: '#ecfdf5',
+                        border: '1px solid #a7f3d0',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#065f46',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      <strong>✓ Payment Confirmed & Verified</strong>
+                      {payment?.verified_by && ` by ${payment.verified_by}`}
+                      {payment?.verified_at && ` on ${new Date(payment.verified_at).toLocaleString()}`}.
+                      {payment?.notes && <div style={{ marginTop: '4px' }}>Notes: {payment.notes}</div>}
+                    </div>
+                  )}
+
+                  {isRejected && (
+                    <div
+                      style={{
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#991b1b',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      <strong>✕ Payment Verification Unsuccessful / Rejected:</strong>{' '}
+                      {payment?.rejection_reason || 'Declined by Administrator'}
+                      {payment?.verified_at && ` (${new Date(payment.verified_at).toLocaleString()})`}.
+                      <div style={{ marginTop: '4px', fontSize: '11px', color: '#b91c1c' }}>
+                        The customer has been notified and can resubmit their payment proof from their order tracking page.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Receipt Image Preview */}
+                  {receiptProofUrl ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
+                        padding: '12px 14px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '70px',
+                          height: '70px',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          border: '1px solid #cbd5e1',
+                          cursor: 'pointer',
+                          backgroundColor: '#f1f5f9',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                        onClick={() => setZoomedReceiptUrl(receiptProofUrl!)}
+                      >
+                        <img
+                          src={receiptProofUrl}
+                          alt="Receipt proof"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                          Customer Transfer Receipt / Teller Proof
+                        </div>
+                        <p style={{ margin: '2px 0 8px 0', fontSize: '12px', color: '#64748b' }}>
+                          Click to inspect the high-resolution receipt image and verify transaction authenticity.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setZoomedReceiptUrl(receiptProofUrl!)}
+                          style={{
+                            padding: '5px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            backgroundColor: '#0284c7',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🔍 Preview & Zoom Receipt
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #fde68a',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#92400e',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      {isPendingVerification
+                        ? 'Customer submitted transfer reference details without image attachment.'
+                        : 'No bank transfer receipt has been uploaded yet for this order.'}
+                    </div>
+                  )}
+
+                  {/* Payment Verification Action Buttons */}
+                  {!isPaid && (
+                    <div>
+                      <div style={{ width: '100%', marginBottom: '10px' }}>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#475569',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          Admin Verification Notes (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Bank credit confirmed via Zenith App narration ORD-12345"
+                          value={paymentNotes}
+                          onChange={(e) => setPaymentNotes(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '7px 10px',
+                            fontSize: '12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#ffffff',
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={handleApproveOrderPayment}
+                          style={{
+                            padding: '9px 20px',
+                            backgroundColor: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {isActionPending ? 'Processing...' : '✓ Approve & Confirm Payment'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={() => {
+                            setRejectionReason('Payment not received in DOVI bank account');
+                            setCustomRejectionReason('');
+                            setShowRejectPaymentModal(true);
+                          }}
+                          style={{
+                            padding: '9px 18px',
+                            backgroundColor: '#ffffff',
+                            color: '#dc2626',
+                            border: '1px solid #dc2626',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✕ Reject Payment
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ============================================================ */}
+            {/* SECTION B: ORDER FULFILLMENT                                 */}
+            {/* ============================================================ */}
+            {(() => {
+              const FULFILLMENT_STEPS: ShipmentFulfillmentStatus[] = [
+                'ORDER_PLACED',
+                'PROCESSING',
+                'READY_FOR_DISPATCH',
+                'DISPATCHED',
+                'OUT_FOR_DELIVERY',
+                'DELIVERED',
+              ];
+              const isCancelled = selectedOrder.status === 'CANCELLED';
+              const currentStepIndex = FULFILLMENT_STEPS.indexOf(selectedOrder.status as ShipmentFulfillmentStatus);
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '14px',
+                      paddingBottom: '12px',
+                      borderBottom: '1px solid #f1f5f9',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                        📦 Section B: Order Fulfillment
+                      </h4>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                        Simplified fulfillment lifecycle: Order Placed &rarr; Processing &rarr; Ready for Dispatch &rarr; Dispatched &rarr; Out for Delivery &rarr; Delivered.
+                      </p>
+                    </div>
+                    <span style={statusBadgeStyles(selectedOrder.status)}>
+                      {SHIPMENT_STATUS_LABELS[selectedOrder.status as ShipmentFulfillmentStatus] || selectedOrder.status}
+                    </span>
+                  </div>
+
+                  {/* 6-Step Visual Progress Bar or Cancelled Banner */}
+                  {isCancelled ? (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        borderRadius: '8px',
+                        color: '#991b1b',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <strong style={{ display: 'block', fontSize: '13px', marginBottom: '2px' }}>
+                        ✕ Order Fulfillment Cancelled
+                      </strong>
+                      <span style={{ fontSize: '12px', color: '#b91c1c' }}>
+                        This order has been cancelled and is no longer moving through the fulfillment lifecycle.
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                        gap: '8px',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      {FULFILLMENT_STEPS.map((step, idx) => {
+                        const isCompleted = currentStepIndex >= idx;
+                        const isCurrent = selectedOrder.status === step;
+                        return (
+                          <div
+                            key={step}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: `1px solid ${isCurrent ? '#2563eb' : isCompleted ? '#86efac' : '#e2e8f0'}`,
+                              backgroundColor: isCurrent ? '#eff6ff' : isCompleted ? '#f0fdf4' : '#f8fafc',
+                              textAlign: 'center',
+                              fontSize: '11px',
+                              fontWeight: isCurrent ? 800 : isCompleted ? 700 : 500,
+                              color: isCurrent ? '#1d4ed8' : isCompleted ? '#15803d' : '#64748b',
+                            }}
+                          >
+                            <div style={{ fontSize: '10px', color: isCurrent ? '#2563eb' : isCompleted ? '#16a34a' : '#94a3b8', marginBottom: '2px' }}>
+                              {isCompleted ? '✓ Step ' + (idx + 1) : 'Step ' + (idx + 1)}
+                            </div>
+                            <div>{SHIPMENT_STATUS_LABELS[step]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Fulfillment Controls & Internal Notes */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                      gap: '14px',
+                      alignItems: 'end',
+                    }}
+                  >
+                    <div>
+                      <label style={modalLabelStyles}>
+                        Advance Fulfillment Status
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <select
+                          disabled={isActionPending}
+                          value={selectedOrder.status}
+                          onChange={(e) => handleStatusChange(e.target.value)}
+                          style={{ ...selectStyles, flex: 1 }}
+                        >
+                          <option value="ORDER_PLACED">1. Order Placed</option>
+                          <option value="PROCESSING">2. Processing</option>
+                          <option value="READY_FOR_DISPATCH">3. Ready for Dispatch</option>
+                          <option value="DISPATCHED">4. Dispatched</option>
+                          <option value="OUT_FOR_DELIVERY">5. Out for Delivery</option>
+                          <option value="DELIVERED">6. Delivered</option>
+                          <option value="CANCELLED">✕ Cancelled</option>
+                        </select>
+                        {selectedOrder.status !== 'DELIVERED' && selectedOrder.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            disabled={isActionPending}
+                            onClick={() => handleStatusChange('DELIVERED')}
+                            style={{
+                              padding: '8px 14px',
+                              backgroundColor: '#16a34a',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="Quickly advance status to Delivered"
+                          >
+                            ✓ Mark Delivered
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={modalLabelStyles}>
+                        Fulfillment Notes (Internal)
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          placeholder="e.g. Sourced from supplier X, direct driver Y assigned"
+                          value={fulfillmentNotes}
+                          onChange={(e) => setFulfillmentNotes(e.target.value)}
+                          style={{ ...searchInputStyles, flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={handleSaveFulfillmentNotes}
+                          style={{
+                            padding: '8px 14px',
+                            backgroundColor: '#1e293b',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Save Notes
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ============================================================ */}
+            {/* SECTION C: DELIVERY INFORMATION                              */}
+            {/* ============================================================ */}
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '20px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '20px',
                 marginBottom: '20px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
               }}
             >
-              {/* Left Side: Summary */}
-              <div style={modalSummaryStyles}>
-                <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Order Date</span>
-                  <span style={detailValueStyles}>
-                    {new Date(selectedOrder.created_at).toLocaleString()}
-                  </span>
-                </div>
-                <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Customer</span>
-                  <span style={detailValueStyles}>
-                    {(selectedOrder as any).buyer_email || 'Customer'}
-                  </span>
-                </div>
-                <div style={detailItemStyles}>
-                  <span style={detailLabelStyles}>Overall Fulfillment Status</span>
-                  <span style={statusBadgeStyles(selectedOrder.status)}>
-                    {SHIPMENT_STATUS_LABELS[selectedOrder.status as ShipmentFulfillmentStatus] ||
-                      selectedOrder.status}
-                  </span>
-                </div>
-                <div style={{ ...detailItemStyles, border: 'none' }}>
-                  <span style={detailLabelStyles}>Product Subtotal</span>
-                  <span style={detailValueStyles}>{formatCurrency(selectedOrder.subtotal)}</span>
-                </div>
-                <div style={{ ...detailItemStyles, border: 'none' }}>
-                  <span style={detailLabelStyles}>
-                    Consolidated Delivery Fee ({orderShipments.length || 1} shipment
-                    {orderShipments.length === 1 ? '' : 's'})
-                  </span>
-                  <span style={detailValueStyles}>
-                    {orderShipments.some(
-                      (s) => s.requires_manual_quote && s.manual_quote_status === 'PENDING_ADMIN_QUOTE'
-                    )
-                      ? 'Manual Quote Pending'
-                      : formatCurrency(selectedOrder.delivery_fee)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    ...detailItemStyles,
-                    border: 'none',
-                    borderTop: '1px solid #e5e7eb',
-                    paddingTop: '8px',
-                  }}
-                >
-                  <span
-                    style={{
-                      ...detailLabelStyles,
-                      color: 'var(--color-primary)',
-                      fontWeight: 700,
-                    }}
-                  >
-                    Total Payable
-                  </span>
-                  <span
-                    style={{
-                      ...detailValueStyles,
-                      color: 'var(--color-primary)',
-                      fontSize: '15px',
-                    }}
-                  >
-                    {formatCurrency((selectedOrder as any).total_amount || selectedOrder.total)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Side: Shipping & Overall Order Control */}
-              <div style={modalSummaryStyles}>
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: '#6b7280',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    marginBottom: '4px',
-                  }}
-                >
-                  Customer Delivery Destination
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.4, color: '#1f2937' }}>
-                  {(selectedOrder as any).shipping_address_line_1 ||
-                    (selectedOrder as any).delivery_address?.address_line_1 ||
-                    orderShipments[0]?.destination_address ||
-                    'Delivery Address'}
-                  <br />
-                  {(selectedOrder as any).shipping_city ||
-                    (selectedOrder as any).delivery_address?.city ||
-                    orderShipments[0]?.destination_city ||
-                    'Lagos'}
-                  ,{' '}
-                  {(selectedOrder as any).shipping_state ||
-                    (selectedOrder as any).delivery_address?.state ||
-                    orderShipments[0]?.destination_state ||
-                    'Lagos'}
-                  <br />
-                  {(selectedOrder as any).shipping_country ||
-                    (selectedOrder as any).delivery_address?.country ||
-                    'Nigeria'}
-                </p>
-
-                {/* Overall Order Status Override Control */}
-                <div style={{ marginTop: '12px' }}>
-                  <label style={modalLabelStyles}>
-                    Overall Order Status (Requires all shipments DELIVERED before marking Delivered)
-                  </label>
-                  <select
-                    disabled={isActionPending}
-                    value={selectedOrder.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    style={{ ...selectStyles, width: '100%' }}
-                  >
-                    <option value="AWAITING_DELIVERY_CONFIRMATION">Awaiting Delivery Confirmation</option>
-                    <option value="DELIVERY_FEE_CONFIRMED">Delivery Fee Confirmed</option>
-                    <option value="ORDER_PLACED">Order Placed</option>
-                    <option value="SOURCING_PRODUCTS">Sourcing Products</option>
-                    <option value="AWAITING_PRODUCTS_AT_HUB">Awaiting Products at Hub</option>
-                    <option value="PRODUCTS_RECEIVED">Products Received</option>
-                    <option value="QUALITY_CHECK">Quality Check</option>
-                    <option value="READY_FOR_PACKAGING">Ready for Packaging</option>
-                    <option value="PACKAGED">Packaged</option>
-                    <option value="READY_FOR_DISPATCH">Ready for Dispatch</option>
-                    <option value="DISPATCHED">Dispatched</option>
-                    <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-                    <option value="DELIVERED">Delivered</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* ONITSHA HUB SHIPMENT GROUPS SECTION */}
-            <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  marginBottom: '12px',
+                  marginBottom: '14px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid #f1f5f9',
+                  flexWrap: 'wrap',
+                  gap: '8px',
                 }}
               >
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#111827' }}>
-                    Onitsha Hub Consolidated Shipments ({orderShipments.length})
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                    🚚 Section C: Delivery Information
                   </h4>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-                    Receive items from suppliers at the Onitsha Hub, inspect condition, consolidate & package, and update shipment status.
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                    Customer delivery destination, transport carrier arrangements, waybill references and shipment statuses.
                   </p>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  Total Shipments: <strong>{orderShipments.length || 1}</strong>
                 </div>
               </div>
 
+              {/* Destination Address & Recipient Card */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '12px',
+                  backgroundColor: '#f8fafc',
+                  padding: '14px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                }}
+              >
+                <div>
+                  <div style={{ color: '#64748b', marginBottom: '2px' }}>Recipient Name</div>
+                  <strong style={{ color: '#0f172a' }}>
+                    {(selectedOrder as any).shipping_recipient_name ||
+                      orderShipments[0]?.recipient_name ||
+                      (selectedOrder as any).buyer_email ||
+                      'Customer'}
+                  </strong>
+                </div>
+                <div>
+                  <div style={{ color: '#64748b', marginBottom: '2px' }}>Contact Phone</div>
+                  <strong style={{ color: '#0f172a' }}>
+                    {(selectedOrder as any).shipping_recipient_phone ||
+                      orderShipments[0]?.recipient_phone ||
+                      'Not provided'}
+                  </strong>
+                </div>
+                <div>
+                  <div style={{ color: '#64748b', marginBottom: '2px' }}>Destination Address</div>
+                  <strong style={{ color: '#0f172a' }}>
+                    {(selectedOrder as any).shipping_address_line_1 ||
+                      (selectedOrder as any).delivery_address?.address_line_1 ||
+                      orderShipments[0]?.destination_address ||
+                      'Delivery Address'}
+                  </strong>
+                  <div style={{ color: '#64748b' }}>
+                    {(selectedOrder as any).shipping_city ||
+                      (selectedOrder as any).delivery_address?.city ||
+                      orderShipments[0]?.destination_city ||
+                      'Lagos'}
+                    ,{' '}
+                    {(selectedOrder as any).shipping_state ||
+                      (selectedOrder as any).delivery_address?.state ||
+                      orderShipments[0]?.destination_state ||
+                      'Lagos'}
+                    , Nigeria
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#64748b', marginBottom: '2px' }}>Delivery Fee & Method</div>
+                  <strong style={{ color: '#0f172a' }}>
+                    {formatCurrency(selectedOrder.delivery_fee)}
+                  </strong>
+                  <div style={{ color: '#64748b' }}>
+                    {selectedOrder.delivery_method || 'Direct Destination Delivery'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Shipments List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {orderShipments.map((shipment, idx) => {
                   const draft = shipmentDrafts[shipment.id] || {
@@ -913,21 +1511,14 @@ export default function OrdersPage() {
                     quote_notes: shipment.delivery_notes || '',
                   };
 
-                  const receivedCount = shipment.items.filter((i) => i.hub_received).length;
-                  const totalItemsInShipment = shipment.items.length;
-                  const hasSupplierDelay =
-                    totalItemsInShipment > 1 &&
-                    receivedCount > 0 &&
-                    receivedCount < totalItemsInShipment;
-
                   return (
                     <div
                       key={shipment.id}
                       style={{
-                        border: '1px solid #d1d5db',
-                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
                         padding: '16px',
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: '#ffffff',
                       }}
                     >
                       {/* Shipment Header */}
@@ -939,13 +1530,13 @@ export default function OrdersPage() {
                           flexWrap: 'wrap',
                           gap: '8px',
                           paddingBottom: '10px',
-                          borderBottom: '1px solid #e5e7eb',
+                          borderBottom: '1px solid #f1f5f9',
                           marginBottom: '12px',
                         }}
                       >
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
                               Shipment #{idx + 1}: {shipment.shipment_reference}
                             </span>
                             <span
@@ -964,48 +1555,21 @@ export default function OrdersPage() {
                               {SHIPMENT_STATUS_LABELS[shipment.status]}
                             </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '4px' }}>
-                            Route: <strong>{shipment.dispatch_origin}</strong> &rarr;{' '}
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            Destination: <strong>{shipment.destination_city}, {shipment.destination_state}</strong> · Weight:{' '}
                             <strong>
-                              {shipment.destination_city}, {shipment.destination_state}
-                            </strong>{' '}
-                            · Weight:{' '}
-                            <strong>
-                              {shipment.combined_weight_kg
-                                ? `${shipment.combined_weight_kg} kg`
-                                : 'Standard'}
+                              {shipment.combined_weight_kg ? `${shipment.combined_weight_kg} kg` : 'Standard'}
                             </strong>
                             {shipment.combined_dimensions_cm && (
-                              <>
-                                {' '}
-                                · Dimensions: <strong>{shipment.combined_dimensions_cm}</strong>
-                              </>
+                              <> · Dimensions: <strong>{shipment.combined_dimensions_cm}</strong></>
                             )}
                           </div>
-                          {shipment.separation_reason && (
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                color: '#1e40af',
-                                backgroundColor: '#eff6ff',
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                marginTop: '6px',
-                              }}
-                            >
-                              <strong>Consolidation / Grouping Note:</strong> {shipment.separation_reason}
-                            </div>
-                          )}
                         </div>
 
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>
-                            Shipment Delivery Fee
-                          </div>
-                          <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>
-                            {shipment.delivery_fee !== null
-                              ? formatCurrency(shipment.delivery_fee)
-                              : 'Manual Quote Required'}
+                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Shipment Fee</div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                            {shipment.delivery_fee !== null ? formatCurrency(shipment.delivery_fee) : 'Manual Quote Needed'}
                           </div>
                         </div>
                       </div>
@@ -1030,12 +1594,10 @@ export default function OrdersPage() {
                               marginBottom: '6px',
                             }}
                           >
-                            ⚠️ Manual Delivery Quotation Required (Customer Awaiting Confirmation)
+                            ⚠️ Custom Delivery Quotation Required
                           </div>
                           <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#78350f' }}>
-                            Enter the actual transport partner quotation from Onitsha to{' '}
-                            {shipment.destination_city}, {shipment.destination_state}. Once confirmed,
-                            the customer will be notified to review and accept the fee before payment/dispatch.
+                            Enter the confirmed delivery fee to {shipment.destination_city}, {shipment.destination_state}.
                           </p>
                           <div
                             style={{
@@ -1069,32 +1631,12 @@ export default function OrdersPage() {
                               </label>
                               <input
                                 type="text"
-                                placeholder="e.g. Onitsha Bulky Haulage Partner"
+                                placeholder="e.g. Direct Courier Partner"
                                 value={draft.transport_arrangement}
                                 onChange={(e) =>
                                   setShipmentDrafts((prev) => ({
                                     ...prev,
-                                    [shipment.id]: {
-                                      ...draft,
-                                      transport_arrangement: e.target.value,
-                                    },
-                                  }))
-                                }
-                                style={{ ...searchInputStyles, width: '100%' }}
-                              />
-                            </div>
-                            <div>
-                              <label style={{ ...modalLabelStyles, color: '#92400e' }}>
-                                Quotation Explanation / Notes
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="Reason / carrier details for customer"
-                                value={draft.quote_notes}
-                                onChange={(e) =>
-                                  setShipmentDrafts((prev) => ({
-                                    ...prev,
-                                    [shipment.id]: { ...draft, quote_notes: e.target.value },
+                                    [shipment.id]: { ...draft, transport_arrangement: e.target.value },
                                   }))
                                 }
                                 style={{ ...searchInputStyles, width: '100%' }}
@@ -1107,72 +1649,31 @@ export default function OrdersPage() {
                                 backgroundColor: '#d97706',
                                 color: '#fff',
                                 border: 'none',
-                                borderRadius: '8px',
+                                borderRadius: '6px',
                                 padding: '9px 14px',
                                 fontSize: '12px',
                                 fontWeight: 700,
                                 cursor: 'pointer',
                               }}
                             >
-                              Confirm Fee & Notify Customer
+                              Confirm Delivery Fee
                             </button>
                           </div>
                         </div>
                       )}
 
-                      {/* Supplier Delay / Partial Consolidation Alert */}
-                      {hasSupplierDelay && (
-                        <div
-                          style={{
-                            backgroundColor: '#eff6ff',
-                            border: '1px solid #bfdbfe',
-                            borderRadius: '8px',
-                            padding: '10px 12px',
-                            marginBottom: '12px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '10px',
-                          }}
-                        >
-                          <div style={{ fontSize: '12px', color: '#1e3a8a' }}>
-                            <strong>Pending Consolidation at Onitsha Hub:</strong> {receivedCount} of{' '}
-                            {totalItemsInShipment} products have arrived at the Onitsha Hub. Arrived
-                            products are held pending remaining supplier deliveries so the order ships
-                            together.
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleApproveSplitDelivery(shipment)}
-                            style={{
-                              backgroundColor: '#2563eb',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '6px 12px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Approve Split Delivery for Arrived Items
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Onitsha Hub Item-Level Checkboxes */}
-                      <div style={{ marginBottom: '12px' }}>
+                      {/* Associated Items in this Shipment (Clean list, no hub checkboxes) */}
+                      <div style={{ marginBottom: '14px' }}>
                         <div
                           style={{
                             fontSize: '11px',
                             fontWeight: 700,
-                            color: '#4b5563',
+                            color: '#475569',
                             textTransform: 'uppercase',
                             marginBottom: '6px',
                           }}
                         >
-                          Products in Shipment & Onitsha Hub Verification ({shipment.items.length})
+                          Associated Items in this Shipment ({shipment.items.length})
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {shipment.items.map((item) => (
@@ -1184,18 +1685,18 @@ export default function OrdersPage() {
                                 alignItems: 'center',
                                 flexWrap: 'wrap',
                                 gap: '8px',
-                                padding: '8px 10px',
-                                backgroundColor: '#ffffff',
-                                border: '1px solid #e5e7eb',
+                                padding: '8px 12px',
+                                backgroundColor: '#f8fafc',
+                                border: '1px solid #e2e8f0',
                                 borderRadius: '6px',
                               }}
                             >
                               <div>
-                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
                                   {item.product_name}
                                 </span>
                                 {item.variant_name && (
-                                  <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '6px' }}>
+                                  <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '6px' }}>
                                     ({item.variant_name})
                                   </span>
                                 )}
@@ -1203,7 +1704,7 @@ export default function OrdersPage() {
                                   style={{
                                     fontSize: '11px',
                                     fontWeight: 600,
-                                    color: '#374151',
+                                    color: '#334155',
                                     marginLeft: '8px',
                                   }}
                                 >
@@ -1215,61 +1716,16 @@ export default function OrdersPage() {
                                     marginLeft: '8px',
                                     padding: '1px 6px',
                                     borderRadius: '4px',
-                                    backgroundColor: '#f3f4f6',
-                                    color: '#4b5563',
+                                    backgroundColor: '#e2e8f0',
+                                    color: '#475569',
                                   }}
                                 >
                                   {PARCEL_CLASSIFICATION_LABELS[item.delivery_classification]}
                                 </span>
                               </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(item.hub_received)}
-                                    onChange={() =>
-                                      handleToggleItemHubCheck(
-                                        shipment.id,
-                                        item.id,
-                                        'hub_received',
-                                        Boolean(item.hub_received)
-                                      )
-                                    }
-                                  />
-                                  <span>1. Received at Hub</span>
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(item.quality_checked)}
-                                    onChange={() =>
-                                      handleToggleItemHubCheck(
-                                        shipment.id,
-                                        item.id,
-                                        'quality_checked',
-                                        Boolean(item.quality_checked)
-                                      )
-                                    }
-                                  />
-                                  <span>2. Quality Checked</span>
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(item.packaged)}
-                                    onChange={() =>
-                                      handleToggleItemHubCheck(
-                                        shipment.id,
-                                        item.id,
-                                        'packaged',
-                                        Boolean(item.packaged)
-                                      )
-                                    }
-                                  />
-                                  <span>3. Packaged</span>
-                                </label>
-                              </div>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                                {formatCurrency((Number(item.unit_price) || 0) * (Number(item.quantity) || 1))}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -1282,12 +1738,12 @@ export default function OrdersPage() {
                           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                           gap: '10px',
                           alignItems: 'end',
-                          paddingTop: '8px',
-                          borderTop: '1px dashed #e5e7eb',
+                          paddingTop: '10px',
+                          borderTop: '1px dashed #e2e8f0',
                         }}
                       >
                         <div>
-                          <label style={modalLabelStyles}>Shipment Fulfillment Status</label>
+                          <label style={modalLabelStyles}>Shipment Status</label>
                           <select
                             value={draft.status}
                             onChange={(e) =>
@@ -1310,7 +1766,7 @@ export default function OrdersPage() {
                         </div>
 
                         <div>
-                          <label style={modalLabelStyles}>Transport Arrangement</label>
+                          <label style={modalLabelStyles}>Delivery Provider / Transport</label>
                           <input
                             type="text"
                             value={draft.transport_arrangement}
@@ -1320,7 +1776,7 @@ export default function OrdersPage() {
                                 [shipment.id]: { ...draft, transport_arrangement: e.target.value },
                               }))
                             }
-                            placeholder="e.g. Consolidated Heavy Van"
+                            placeholder="e.g. Direct Courier / Haulage Partner"
                             style={{ ...searchInputStyles, width: '100%' }}
                           />
                         </div>
@@ -1336,13 +1792,13 @@ export default function OrdersPage() {
                                 [shipment.id]: { ...draft, tracking_reference: e.target.value },
                               }))
                             }
-                            placeholder="e.g. ONI-WB-9021"
+                            placeholder="e.g. TRK-90218"
                             style={{ ...searchInputStyles, width: '100%' }}
                           />
                         </div>
 
                         <div>
-                          <label style={modalLabelStyles}>Hub / Dispatch Notes</label>
+                          <label style={modalLabelStyles}>Delivery Notes</label>
                           <input
                             type="text"
                             value={draft.delivery_notes}
@@ -1352,7 +1808,7 @@ export default function OrdersPage() {
                                 [shipment.id]: { ...draft, delivery_notes: e.target.value },
                               }))
                             }
-                            placeholder="Packaging or dispatch notes"
+                            placeholder="Instructions for driver or customer"
                             style={{ ...searchInputStyles, width: '100%' }}
                           />
                         </div>
@@ -1361,10 +1817,10 @@ export default function OrdersPage() {
                           type="button"
                           onClick={() => handleUpdateShipment(shipment)}
                           style={{
-                            backgroundColor: '#1f2937',
+                            backgroundColor: '#0f172a',
                             color: '#ffffff',
                             border: 'none',
-                            borderRadius: '8px',
+                            borderRadius: '6px',
                             padding: '9px 14px',
                             fontSize: '12px',
                             fontWeight: 700,
@@ -1374,52 +1830,6 @@ export default function OrdersPage() {
                           Save Shipment Update
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Items Log list */}
-            <div style={borderCoolStyles}>
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: '#6b7280',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  marginBottom: '8px',
-                }}
-              >
-                Order Line Items ({selectedOrder.items?.length || 0})
-              </div>
-              <div style={itemsListStyles}>
-                {selectedOrder.items?.map((item: any) => {
-                  const prodName = item.product_name || item.product?.name || 'Product';
-                  const variantName =
-                    item.variant_sku ||
-                    item.variant?.name ||
-                    (typeof item.variant === 'string' ? '' : '');
-                  const price =
-                    item.line_total ||
-                    (parseFloat(item.unit_price || '0') * (item.quantity || 1)).toString();
-                  const img = item.product?.primary_image_url || '/logo.jpg?v=2';
-                  return (
-                    <div key={item.id} style={itemRowStyles}>
-                      <img
-                        src={img}
-                        alt={prodName}
-                        style={itemImgStyles}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/logo.jpg?v=2';
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <span style={itemNameStyles}>{prodName}</span>
-                        {variantName && <span style={itemVariantStyles}>{variantName}</span>}
-                        <span style={itemQtyStyles}>Quantity: {item.quantity}</span>
-                      </div>
-                      <span style={itemPriceStyles}>{formatCurrency(price)}</span>
                     </div>
                   );
                 })}
@@ -1445,14 +1855,236 @@ export default function OrdersPage() {
           >
             <Skeleton width="40px" height="40px" borderRadius="50%" />
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563' }}>
-              Loading Order & Onitsha Hub Shipments...
+              Loading Order & Delivery Shipments...
             </span>
+          </div>
+        </div>
+      )}
+      {/* Receipt Image Zoom Modal */}
+      {zoomedReceiptUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+          onClick={() => setZoomedReceiptUrl(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedReceiptUrl}
+              alt="Payment receipt proof"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+              }}
+            />
+            <div style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
+              <a
+                href={zoomedReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                }}
+              >
+                Open Original in New Tab
+              </a>
+              <button
+                type="button"
+                onClick={() => setZoomedReceiptUrl(null)}
+                style={{
+                  padding: '8px 20px',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Payment Reason Modal */}
+      {showRejectPaymentModal && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '480px' }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', fontWeight: 800, color: '#991b1b' }}>
+              Reject Bank Transfer Payment Proof
+            </h3>
+            <p style={{ fontSize: '13px', color: '#4b5563', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+              Select or provide a clear reason for rejecting this payment. The customer will be informed immediately and will be prompted to resubmit their transfer details.
+            </p>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                Rejection Reason
+              </label>
+              <select
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '13px',
+                }}
+              >
+                <option value="Payment not received in DOVI bank account">Payment not received in DOVI bank account</option>
+                <option value="Amount paid does not match order total">Amount paid does not match order total</option>
+                <option value="Invalid or illegible payment receipt image">Invalid or illegible payment receipt image</option>
+                <option value="Transaction reference cannot be verified">Transaction reference cannot be verified</option>
+                <option value="Incorrect account credited">Incorrect account credited</option>
+                <option value="Other">Other (specify custom reason below)</option>
+              </select>
+            </div>
+            {rejectionReason === 'Other' && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                  Custom Explanation
+                </label>
+                <textarea
+                  value={customRejectionReason}
+                  onChange={(e) => setCustomRejectionReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why the bank transfer proof was declined..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #d1d5db',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRejectPaymentModal(false)}
+                disabled={isActionPending}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: '1px solid #d1d5db',
+                  background: '#ffffff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectOrderPayment}
+                disabled={isActionPending}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
+                {isActionPending ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+// Payment badge helper
+const paymentBadgeStyles = (status?: string): React.CSSProperties => {
+  const s = (status || 'PENDING_PAYMENT').toUpperCase();
+  if (s === 'PAID' || s === 'VERIFIED' || s === 'SUCCESS' || s === 'SUCCESSFUL') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#ecfdf5',
+      color: '#065f46',
+      border: '1px solid #a7f3d0',
+    };
+  }
+  if (s === 'PENDING_VERIFICATION') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#eff6ff',
+      color: '#1e40af',
+      border: '1px solid #bfdbfe',
+    };
+  }
+  if (s === 'REJECTED' || s === 'FAILED') {
+    return {
+      display: 'inline-block',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontWeight: 700,
+      backgroundColor: '#fef2f2',
+      color: '#991b1b',
+      border: '1px solid #fecaca',
+    };
+  }
+  return {
+    display: 'inline-block',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: 700,
+    backgroundColor: '#fffbeb',
+    color: '#92400e',
+    border: '1px solid #fde68a',
+  };
+};
 
 // Badge status helper
 const statusBadgeStyles = (status: string): React.CSSProperties => {
@@ -1686,12 +2318,7 @@ const modalHeaderStyles: React.CSSProperties = {
   marginBottom: '20px',
 };
 
-const modalTitleStyles: React.CSSProperties = {
-  fontSize: '16px',
-  fontWeight: 700,
-  color: '#1f2937',
-  margin: 0,
-};
+
 
 const closeBtnStyles: React.CSSProperties = {
   fontSize: '24px',
@@ -1702,28 +2329,13 @@ const closeBtnStyles: React.CSSProperties = {
   lineHeight: 1,
 };
 
-const modalSummaryStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-};
 
-const detailItemStyles: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  fontSize: '12px',
-  borderBottom: '1px solid #f3f4f6',
-  paddingBottom: '6px',
-};
 
-const detailLabelStyles: React.CSSProperties = {
-  color: '#6b7280',
-};
 
-const detailValueStyles: React.CSSProperties = {
-  fontWeight: 600,
-  color: '#1f2937',
-};
+
+
+
+
 
 const modalLabelStyles: React.CSSProperties = {
   display: 'block',
@@ -1733,57 +2345,18 @@ const modalLabelStyles: React.CSSProperties = {
   marginBottom: '4px',
 };
 
-const borderCoolStyles: React.CSSProperties = {
-  borderTop: '1px solid #e5e7eb',
-  paddingTop: '16px',
-  marginTop: '16px',
-};
 
-const itemsListStyles: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-  maxHeight: '180px',
-  overflowY: 'auto',
-};
 
-const itemRowStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  padding: '6px 0',
-  borderBottom: '1px solid #f9fafb',
-};
 
-const itemImgStyles: React.CSSProperties = {
-  width: '40px',
-  height: '40px',
-  objectFit: 'cover',
-  borderRadius: '4px',
-  border: '1px solid #e5e7eb',
-};
 
-const itemNameStyles: React.CSSProperties = {
-  display: 'block',
-  fontSize: '12px',
-  fontWeight: 600,
-  color: '#1f2937',
-};
 
-const itemVariantStyles: React.CSSProperties = {
-  display: 'block',
-  fontSize: '10px',
-  color: '#6b7280',
-};
 
-const itemQtyStyles: React.CSSProperties = {
-  display: 'block',
-  fontSize: '10px',
-  color: '#9ca3af',
-};
 
-const itemPriceStyles: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 700,
-  color: '#1f2937',
-};
+
+
+
+
+
+
+
+

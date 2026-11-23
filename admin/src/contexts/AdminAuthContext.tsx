@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { authApi } from '@/api/auth';
 import { tokenStore } from '@/api/client';
@@ -16,9 +16,13 @@ interface AdminAuthContextType {
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const cachedUser = tokenStore.getUser<User>();
+  const [user, setUser] = useState<User | null>(cachedUser);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    Boolean(tokenStore.get() && cachedUser)
+  );
   const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializingRef = useRef(false);
 
   const logout = useCallback(async () => {
     try {
@@ -34,23 +38,36 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await authApi.getMe();
       if (me.role !== 'ADMIN') {
-        // Forbidden for non-admins
         await logout();
         throw new Error('Access denied. Admin role required.');
       }
+      tokenStore.setUser(me);
       setUser(me);
       setIsAuthenticated(true);
-    } catch (err) {
-      setUser(null);
-      setIsAuthenticated(false);
-      tokenStore.clear();
-      throw err;
+    } catch (err: any) {
+      const isDefinitiveAuthFailure =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        err?.code === 'FORBIDDEN' ||
+        err?.code === 'UNAUTHORIZED';
+
+      if (isDefinitiveAuthFailure) {
+        setUser(null);
+        setIsAuthenticated(false);
+        tokenStore.clear();
+        throw err;
+      }
+      // On temporary network errors or backend wakeups, keep existing cached session
+      console.warn('[AdminAuthContext] Transient error refreshing admin profile. Preserving cached session.');
     }
   }, [logout]);
 
   const login = async (credentials: LoginRequest) => {
     const tokens = await authApi.login(credentials);
     tokenStore.set(tokens.access);
+    if (tokens.refresh) {
+      tokenStore.setRefresh(tokens.refresh);
+    }
     try {
       await refreshUser();
     } catch (err) {
@@ -59,19 +76,39 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // On mount: attempt to load user profile (survival on browser refresh)
+  // On mount: restore and verify session
   useEffect(() => {
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
+
     const initializeAuth = async () => {
       try {
         const existingToken = tokenStore.get();
-        if (existingToken) {
+        const existingRefresh = tokenStore.getRefresh();
+
+        if (existingToken || existingRefresh) {
+          // If token refresh is available, try refreshing token first to ensure validity
+          if (existingRefresh) {
+            try {
+              await authApi.refreshToken(existingRefresh);
+            } catch (refErr: any) {
+              const isExpired = refErr?.status === 401 || refErr?.status === 400;
+              if (isExpired) {
+                tokenStore.clear();
+                setUser(null);
+                setIsAuthenticated(false);
+                return;
+              }
+            }
+          }
           await refreshUser();
+        } else {
+          tokenStore.clear();
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch {
-        // Clear invalid token
-        tokenStore.clear();
-        setUser(null);
-        setIsAuthenticated(false);
+        // If profile fetch fails definitively, tokenStore was cleared in refreshUser
       } finally {
         setIsInitialized(true);
       }
@@ -82,7 +119,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     // Listen to global logout and forbidden events dispatched by Axios client interceptors
     const handleLogoutEvent = () => logout();
     const handleForbiddenEvent = () => {
-      // Redirect or clear
+      logout();
     };
 
     window.addEventListener('auth:logout', handleLogoutEvent);
@@ -93,6 +130,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('auth:forbidden', handleForbiddenEvent);
     };
   }, [refreshUser, logout]);
+
+  // Periodic proactive token refresh (every 10 minutes) to prevent automatic session logout
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(async () => {
+      const refresh = tokenStore.getRefresh();
+      if (!refresh) return;
+
+      try {
+        await authApi.refreshToken(refresh);
+      } catch (err) {
+        console.warn('[AdminAuthContext] Proactive token refresh failed.', err);
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   return (
     <AdminAuthContext.Provider

@@ -4,9 +4,16 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
+      "source": "/delivery_store.json",
+      "destination": "/delivery_store.json"
+    },
+    {
+      "source": "/__dovi_delivery_db__",
+      "destination": "/api/__dovi_delivery_db__"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
-

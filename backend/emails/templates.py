@@ -515,7 +515,7 @@ def build_admin_email_shell(
               </p>
               <p style="margin: 0; font-size: 11px; line-height: 1.5; color: #6b7280;">
                 This operational dispatch was sent to authorized administrative personnel.<br>
-                Central Logistics Hub: Onitsha, Anambra State, Nigeria.
+                DOVI Fulfillment & Operations, Nigeria.
               </p>
             </td>
           </tr>
@@ -2055,14 +2055,14 @@ Dovi — Shop Smart. Feel Good.
         customer_email = ctx.get("customer_email") or ctx.get("recipient_email") or "Not provided"
         customer_phone = ctx.get("customer_phone") or "Not provided"
         delivery_address = ctx.get("delivery_address") or "Standard Campus Delivery"
-        delivery_method = ctx.get("delivery_method") or "Campus Express Hub"
+        delivery_method = ctx.get("delivery_method") or "Direct Courier Delivery"
         payment_status = ctx.get("payment_status") or "PAID / ESCROW SECURED"
         order_date = ctx.get("order_date") or ctx.get("date_time") or "Just now"
         items = ctx.get("items") or ctx.get("order_items") or []
 
         subject = f"New Order Received — Dovi #{order_ref}"
         title = f"New Order Placed: #{order_ref}"
-        summary = f"A new customer order has been placed on the Dovi marketplace for <strong>{format_currency(total)}</strong>. The order is recorded in the system and ready for processing at the Onitsha Logistics Hub."
+        summary = f"A new customer order has been placed on the Dovi marketplace for <strong>{format_currency(total)}</strong>. The order is recorded in the system and ready for processing for direct customer delivery."
 
         cust_rows = [
             ("Customer Name", customer_name),
@@ -2131,7 +2131,7 @@ Review in Admin Dashboard: {cta_url}
             ("Order Amount", format_currency(total)),
         ]
 
-        action_html = "Verify that physical fulfillment or courier dispatch has been halted at the Onitsha Hub. Confirm inventory quantities have been restored."
+        action_html = "Verify that physical fulfillment or courier dispatch has been halted. Confirm vendor dispatch status. Confirm inventory quantities have been restored."
         cta_url = ctx.get("admin_order_url") or f"{app_url}/admin/orders/{order_ref}"
 
         html_body = build_admin_email_shell(
@@ -2175,7 +2175,7 @@ Admin Link: {cta_url}
             ("Customer Reason", reason),
             ("Current Status", ctx.get("order_status", "Awaiting Admin Review")),
         ]
-        action_html = "Inspect courier tracking status. If package has not left the hub, approve cancellation and authorize automatic refund release. Otherwise, reject and notify customer."
+        action_html = "Inspect courier tracking status. If package has not been dispatched to customer, approve cancellation and authorize automatic refund release. Otherwise, reject and notify customer."
         cta_url = ctx.get("admin_action_url") or f"{app_url}/admin/orders/{order_ref}"
 
         html_body = build_admin_email_shell(
@@ -2294,7 +2294,7 @@ Admin Link: {cta_url}
             ("Exception Details", exception_desc),
             ("Courier Status", ctx.get("courier_status", "Attempt 1 Failed")),
         ]
-        action_html = "Contact recipient via phone or SMS to arrange immediate redelivery before package returns to hub."
+        action_html = "Contact recipient via phone or SMS to arrange immediate redelivery before courier returns package."
         cta_url = ctx.get("admin_order_url") or f"{app_url}/admin/orders/{order_ref}"
 
         html_body = build_admin_email_shell(
@@ -2581,12 +2581,12 @@ Admin Link: {cta_url}
 
         subject = f"Action Required: Refund Approval — Dovi #{order_ref}"
         title = f"Refund Approval Required: #{order_ref}"
-        summary = f"Item has been returned to the Onitsha Logistics Hub and inspected. Administrative approval is required to release <strong>{format_currency(amount)}</strong> back to the customer."
+        summary = f"Item has been returned and inspected. Administrative approval is required to release <strong>{format_currency(amount)}</strong> back to the customer."
 
         details_rows = [
             ("Order Reference", order_ref),
             ("Refund Amount", format_currency(amount)),
-            ("Hub Inspection Result", ctx.get("inspection_notes", "Physical defect confirmed; returned item verified.")),
+            ("Inspection Result", ctx.get("inspection_notes", "Physical defect confirmed; returned item verified.")),
             ("Original Payment Gateway", ctx.get("payment_method", "Paystack")),
         ]
         action_html = "Review inspection photos and click 'Approve Refund' to initiate automatic disbursement to customer's account or wallet."
@@ -2896,7 +2896,7 @@ Link: {cta_url}
         plain_text = f"""[DOVI ADMIN] LOW STOCK ALERT: {product_name}
 Remaining Units: {stock} (Threshold: {threshold})
 SKU: {ctx.get('sku', 'N/A')}
-Action: Restock inventory at Onitsha Hub.
+Action: Restock inventory.
 Link: {cta_url}
 """
         return subject, html_body, plain_text

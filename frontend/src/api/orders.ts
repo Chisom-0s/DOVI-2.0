@@ -1,6 +1,11 @@
+import { resolveOrderDisplay } from '@/utils/orderImageHelper';
 // Orders API — /api/v1/orders/*
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
 import { getLocalOrdersMap, saveLocalOrder } from './checkout';
+import {
+  syncPaymentsAndOrdersFromServer,
+  getPaymentByOrderRef,
+} from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
   getOrderShipments,
@@ -10,7 +15,7 @@ import {
   buildOrderShipmentsFromCalculation,
   customerRespondToManualQuote,
 } from '@/services/deliveryPricingService';
-import type { Order, OrderSummary, PaginatedResponse } from '@/types';
+import type { Order, OrderSummary, PaginatedResponse, User } from '@/types';
 
 function enrichOrderWithShipments(order: Order): Order {
   let shipments = getOrderShipments(order.reference);
@@ -19,14 +24,15 @@ function enrichOrderWithShipments(order: Order): Order {
   }
 
   // If an existing order does not yet have persisted shipment records, synthesize them cleanly
-  // from its items and delivery address so every order has structured Onitsha Hub shipment tracking.
+  // from its items and delivery address so every order has structured direct delivery shipment tracking.
   if ((!shipments || shipments.length === 0) && Array.isArray(order.items) && order.items.length > 0) {
-    const destState = order.delivery_address?.state || 'Lagos';
-    const destCity = order.delivery_address?.city || 'Lagos';
+    // Never invent a destination: a missing address must not silently be priced as Lagos.
+    const destState = order.delivery_address?.state || '';
+    const destCity = order.delivery_address?.city || '';
     const calc = calculateOrderDelivery({
       destinationState: destState,
       destinationCity: destCity,
-      dispatchOrigin: 'Onitsha',
+      dispatchOrigin: '',
       items: order.items.map((oi) => ({
         id: oi.id,
         product_id: String(oi.product?.id || oi.id),
@@ -114,35 +120,92 @@ function enrichOrderWithShipments(order: Order): Order {
 export const ordersApi = {
   list: async (page?: number): Promise<PaginatedResponse<OrderSummary>> => {
     await syncDeliveryStoreFromServer();
+    await syncPaymentsAndOrdersFromServer().catch(() => {});
+
+    const currentUser = tokenStore.getUser<User>();
+    const uId = currentUser ? String(currentUser.id).trim() : '';
+    const uEmail = currentUser ? String(currentUser.email).toLowerCase().trim() : '';
+
+    const isUserOrder = (order: any): boolean => {
+      if (!currentUser) return true; // Guest or unauthenticated fallback
+      const cId = String(order.customer_id || order.buyer_id || order.buyer?.id || order.user_id || '').trim();
+      const cEmail = String(order.buyer_email || order.buyer?.email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
+
+      if (uId && cId && cId === uId) return true;
+      if (uEmail && cEmail && cEmail === uEmail) return true;
+
+      // If order in local storage has neither customer_id nor buyer_email, claim it for this active session
+      if (!cId && !cEmail) {
+        order.customer_id = uId;
+        order.buyer_id = uId;
+        order.buyer_email = uEmail;
+        return true;
+      }
+      return false;
+    };
+
     const localOrders = Object.values(getLocalOrdersMap());
     const uniqueLocalMap = new Map<string, Order>();
     for (const lo of localOrders) {
-      uniqueLocalMap.set(lo.reference, enrichOrderWithShipments(lo));
+      if (isUserOrder(lo)) {
+        uniqueLocalMap.set(lo.reference, enrichOrderWithShipments(lo));
+      }
     }
 
     try {
-      const { data } = await apiClient.get('/api/v1/orders/', { params: { page } });
-      const results: OrderSummary[] = Array.isArray(data?.results) ? data.results : [];
+      const { data } = await apiClient.get('/api/v1/orders/', {
+        params: {
+          page,
+          customer_id: uId || undefined,
+          buyer_email: uEmail || undefined,
+        },
+      });
+      const results: any[] = Array.isArray(data?.results) ? data.results : [];
 
       const seenRefs = new Set<string>();
       const merged: OrderSummary[] = [];
 
-      // Include any local / manual-quote orders first
+      // Include local scoped orders first
       for (const lo of uniqueLocalMap.values()) {
-        seenRefs.add(lo.reference);
+        const ref = lo.reference || lo.id;
+        seenRefs.add(ref);
+        const payment = getPaymentByOrderRef(ref);
+        const pStatus =
+          payment?.status === 'VERIFIED'
+            ? 'PAID'
+            : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
+
+        const items = lo.items || [];
+        const display = resolveOrderDisplay(lo);
+        const productNames = display.allNames.length > 0 ? display.allNames : items.map((i: any) => i.product?.name || i.product_name || i.name).filter(Boolean);
+        const productImages = display.allImages;
+
         merged.push({
-          id: lo.id,
+          id: lo.id || ref,
           reference: lo.reference,
+          reference_code: lo.reference,
           order_reference: lo.reference,
+          customer_id: lo.customer_id || uId || undefined,
+          buyer_id: lo.buyer_id || uId || undefined,
+          buyer_email: lo.buyer_email || uEmail || undefined,
+          buyer_name: lo.buyer_name || undefined,
           status: lo.status,
-          item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
+          payment_status: pStatus,
+          fulfillment_status: lo.hub_fulfillment_status || lo.status,
+          payment_evidence: payment || (lo as any).payment_evidence || null,
+          item_count: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
+          items,
+          product_names: productNames,
+          product_images: productImages,
           total: lo.total,
-          created_at: lo.created_at,
+          created_at: lo.created_at || new Date().toISOString(),
         });
       }
 
+      // Merge server results (also scoped to user)
       for (const r of results) {
-        const ref = r.reference || r.order_reference || r.id;
+        if (!isUserOrder(r)) continue;
+        const ref = r.reference || r.reference_code || r.order_reference || r.id;
         if (!seenRefs.has(ref)) {
           seenRefs.add(ref);
           const shipments = getOrderShipments(ref);
@@ -154,12 +217,40 @@ export const ordersApi = {
               status = 'DELIVERED';
             }
           }
+          const payment = getPaymentByOrderRef(ref);
+          const pStatus =
+            payment?.status === 'VERIFIED'
+              ? 'PAID'
+              : payment?.status || r.payment_status || 'PENDING_PAYMENT';
+
+          const items = r.items || [];
+          const display = resolveOrderDisplay(r);
+          const productNames = display.allNames.length > 0 ? display.allNames : (r.product_names || items.map((i: any) => i.product?.name || i.name).filter(Boolean));
+          const productImages = display.allImages;
+
           merged.push({
             ...r,
+            id: r.id || ref,
+            reference: ref,
+            reference_code: ref,
+            order_reference: ref,
+            customer_id: r.customer_id || uId || undefined,
+            buyer_id: r.buyer_id || uId || undefined,
+            buyer_email: r.buyer_email || uEmail || undefined,
             status,
+            payment_status: pStatus,
+            fulfillment_status: r.fulfillment_status || r.hub_fulfillment_status || status,
+            payment_evidence: payment || r.payment_evidence || null,
+            item_count: r.item_count || items.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0),
+            items,
+            product_names: productNames,
+            product_images: productImages,
           });
         }
       }
+
+      // Sort descending (newest first)
+      merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
       return {
         count: Math.max(data?.count || 0, merged.length),
@@ -167,40 +258,89 @@ export const ordersApi = {
         previous: data?.previous || null,
         results: merged,
       };
-    } catch (err) {
-      if (uniqueLocalMap.size > 0) {
-        const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => ({
-          id: lo.id,
-          reference: lo.reference,
-          order_reference: lo.reference,
-          status: lo.status,
-          item_count: (lo.items || []).reduce((sum, i) => sum + i.quantity, 0),
-          total: lo.total,
-          created_at: lo.created_at,
-        }));
+    } catch {
+      // Graceful fallback to local scoped orders
+      const localSummaries: OrderSummary[] = Array.from(uniqueLocalMap.values()).map((lo) => {
+        const ref = lo.reference || lo.id;
+        const payment = getPaymentByOrderRef(ref);
+        const pStatus =
+          payment?.status === 'VERIFIED'
+            ? 'PAID'
+            : payment?.status || lo.payment_status || 'PENDING_PAYMENT';
+        const items = lo.items || [];
+        const productNames = items
+          .map((i: any) => i.product?.name || i.product_name || i.name)
+          .filter(Boolean);
+        const productImages = items
+          .map((i: any) => i.product?.primary_image_url || i.product?.image_url || i.image_url)
+          .filter(Boolean);
+
         return {
-          count: localSummaries.length,
-          next: null,
-          previous: null,
-          results: localSummaries,
+          id: lo.id || ref,
+          reference: lo.reference,
+          reference_code: lo.reference,
+          order_reference: lo.reference,
+          customer_id: lo.customer_id || uId || undefined,
+          buyer_id: lo.buyer_id || uId || undefined,
+          buyer_email: lo.buyer_email || uEmail || undefined,
+          buyer_name: lo.buyer_name || undefined,
+          status: lo.status,
+          payment_status: pStatus,
+          fulfillment_status: lo.hub_fulfillment_status || lo.status,
+          payment_evidence: payment || null,
+          item_count: items.reduce((sum, i) => sum + (i.quantity || 1), 0),
+          items,
+          product_names: productNames,
+          product_images: productImages,
+          total: lo.total,
+          created_at: lo.created_at || new Date().toISOString(),
         };
-      }
-      throw normalizeApiError(err);
+      });
+
+      localSummaries.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      return {
+        count: localSummaries.length,
+        next: null,
+        previous: null,
+        results: localSummaries,
+      };
     }
   },
 
   getByRef: async (ref: string): Promise<Order> => {
     await syncDeliveryStoreFromServer();
+    await syncPaymentsAndOrdersFromServer().catch(() => {});
+    const payment = getPaymentByOrderRef(ref);
+
+    let rawOrder: any = null;
     try {
       const { data } = await apiClient.get(`/api/v1/orders/${ref}/`);
-      return enrichOrderWithShipments(data);
+      rawOrder = data;
     } catch (err) {
-      const localOrder = getLocalOrdersMap()[ref];
-      if (localOrder) {
-        return enrichOrderWithShipments(localOrder);
+      const localMap = getLocalOrdersMap();
+      const match = localMap[ref] || Object.values(localMap).find(
+        (o: any) => o && (o.reference === ref || o.id === ref || o.reference_code === ref || o.order_reference === ref)
+      );
+      if (match) {
+        rawOrder = match;
+      } else {
+        throw normalizeApiError(err);
       }
-      throw normalizeApiError(err);
     }
+
+    const enriched = enrichOrderWithShipments(rawOrder);
+    if (payment) {
+      enriched.payment_status = payment.status === 'VERIFIED' ? 'PAID' : payment.status;
+      (enriched as any).payment_evidence = payment;
+      if (
+        payment.status === 'VERIFIED' &&
+        (enriched.status === 'PENDING_PAYMENT' || enriched.status === 'ORDER_PLACED')
+      ) {
+        enriched.status = 'PROCESSING';
+      }
+    }
+    return enriched;
   },
 
   respondToDeliveryQuote: async (

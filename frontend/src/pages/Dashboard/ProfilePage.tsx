@@ -55,7 +55,7 @@ export default function ProfilePage() {
           <p style={welcomeSubStyles}>Manage your profile details and personal account settings.</p>
         </div>
         <a
-          href="https://wa.me/2347014109517?text=Hello%20Dovi%20Support%2C%20I%20need%20assistance%20with%20my%20account."
+          href="https://wa.me/2347067402413?text=Hello%20Dovi%20Support%2C%20I%20need%20assistance%20with%20my%20account."
           target="_blank"
           rel="noopener noreferrer"
           className="dashboard-greeting-whatsapp-btn"

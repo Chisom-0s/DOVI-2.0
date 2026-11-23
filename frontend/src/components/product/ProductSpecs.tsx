@@ -7,11 +7,7 @@ interface ProductSpecsProps {
 export default function ProductSpecs({ product }: ProductSpecsProps) {
   if (!product) return null;
 
-  const avgRating = typeof product.average_rating === 'number'
-    ? product.average_rating
-    : (parseFloat(String(product.average_rating || 0)) || 0);
-
-  const stockQty = typeof product.stock_quantity === 'number'
+    const stockQty = typeof product.stock_quantity === 'number'
     ? product.stock_quantity
     : (parseInt(String(product.stock_quantity || (product as { stock?: number }).stock || 0), 10) || 0);
 
@@ -79,8 +75,7 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
     { label: 'Category', value: categoryName || 'General' },
     { label: 'Vendor Partner', value: vendorName || 'Dovi Partner' },
     { label: 'Item SKU Reference', value: product.sku || product.reference_code || 'N/A' },
-    { label: 'Aggregate Rating', value: avgRating > 0 ? `${avgRating.toFixed(1)} / 5.0 Stars` : 'No ratings yet' },
-    { label: 'Listing ID', value: product.id },
+        { label: 'Listing ID', value: product.id },
   ];
 
   return (

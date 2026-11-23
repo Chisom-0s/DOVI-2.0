@@ -1,6 +1,6 @@
 // ============================================================
 // DOVI 2.0 — Authoritative Delivery Pricing, Consolidation &
-// Onitsha Hub Fulfillment Service
+// Fulfillment Fulfillment Service
 // ============================================================
 
 import type {
@@ -17,8 +17,710 @@ import type {
   Product,
   ProductSummary,
 } from '../types';
+import { fetchSharedDbOnce } from './sharedDbSync';
 
 export const PRIMARY_DISPATCH_ORIGIN = 'Onitsha';
+
+export const DEFAULT_SEED_ROUTES: DeliveryRoute[] = [
+  {
+    "id": "route_f3b4eb8cde34",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Awka",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_38c2c3d4686a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Onitsha",
+    "small_parcel_rate": 1500,
+    "heavy_parcel_rate": 4000,
+    "furniture_bulky_rate": 12000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 17000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "Same day - 1 business day",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_6d41a0751d24",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Nnewi",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_8122825125d3",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Anambra",
+    "destination_city": "Ekwulobia",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e9242d7245a9",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Ikeja",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_78d07e897dd1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Lekki",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_535857e8c217",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Victoria Island",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_84f705a3e8c5",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Surulere",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_a9089b597b37",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "Yaba",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_cd1f4bb6a12a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Lagos",
+    "destination_city": "All Cities",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_9497935c6844",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Garki",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_b93e1332d216",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Wuse",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_3c47a115e4f1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Maitama",
+    "small_parcel_rate": 5500,
+    "heavy_parcel_rate": 12000,
+    "furniture_bulky_rate": 28000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 33000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e68180dde014",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "Gwarinpa",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_775b3100f11e",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "FCT - Abuja",
+    "destination_city": "All Cities",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 11000,
+    "furniture_bulky_rate": 25000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 30000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_7ded7f673ffc",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Enugu",
+    "destination_city": "Enugu",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e7736fb6ac88",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Enugu",
+    "destination_city": "Nsukka",
+    "small_parcel_rate": 3500,
+    "heavy_parcel_rate": 7500,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_7740670fcc15",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Rivers",
+    "destination_city": "Port Harcourt",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_e5dd3bbc64d1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Rivers",
+    "destination_city": "Obio-Akpor",
+    "small_parcel_rate": 4000,
+    "heavy_parcel_rate": 9000,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 25000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-3 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_d2820439f57e",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Delta",
+    "destination_city": "Asaba",
+    "small_parcel_rate": 1500,
+    "heavy_parcel_rate": 4000,
+    "furniture_bulky_rate": 12000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 17000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "Same day - 1 business day",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_c5c58ae45a65",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Delta",
+    "destination_city": "Warri",
+    "small_parcel_rate": 5000,
+    "heavy_parcel_rate": 8500,
+    "furniture_bulky_rate": 20000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-20T18:04:01.335Z",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_eaeb30500543",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Imo",
+    "destination_city": "Owerri",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_75926d44bac7",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Imo",
+    "destination_city": "Orlu",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_a9a747d564e1",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Abia",
+    "destination_city": "Aba",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_56c88181f47a",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Abia",
+    "destination_city": "Umuahia",
+    "small_parcel_rate": 2500,
+    "heavy_parcel_rate": 6000,
+    "furniture_bulky_rate": 15000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 20000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_9b3216e90057",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Oyo",
+    "destination_city": "Ibadan",
+    "small_parcel_rate": 4500,
+    "heavy_parcel_rate": 10000,
+    "furniture_bulky_rate": 22000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 27000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "2-4 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_57f8fe59ace6",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Edo",
+    "destination_city": "Benin City",
+    "small_parcel_rate": 3000,
+    "heavy_parcel_rate": 7000,
+    "furniture_bulky_rate": 18000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 23000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "1-2 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_f1e657b7c14c",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Kano",
+    "destination_city": "Kano",
+    "small_parcel_rate": 6000,
+    "heavy_parcel_rate": 14000,
+    "furniture_bulky_rate": 30000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 35000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "3-5 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  },
+  {
+    "id": "route_c0d79e5e1a99",
+    "dispatch_origin": "Onitsha",
+    "destination_state": "Kaduna",
+    "destination_city": "Kaduna",
+    "small_parcel_rate": 5500,
+    "heavy_parcel_rate": 13000,
+    "furniture_bulky_rate": 28000,
+    "combined_small_heavy_rate": null,
+    "combined_furniture_rate": 33000,
+    "special_handling_surcharge": null,
+    "allows_furniture_small_consolidation": true,
+    "max_furniture_items_consolidated": 2,
+    "max_small_parcel_weight_kg": 15,
+    "max_heavy_parcel_weight_kg": 80,
+    "special_delivery_requirements": null,
+    "estimated_delivery_days": "3-5 business days",
+    "is_active": true,
+    "created_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_at": "2026-11-19T11:47:11.437760+00:00",
+    "updated_by_id": "admin-system",
+    "updated_by_email": "admin@dovi.com",
+    "updated_by_name": "Administrator"
+  }
+];
+
+
 
 export const PARCEL_CLASSIFICATION_LABELS: Record<ParcelClassification, string> = {
   SMALL_PARCEL: 'Small Parcel',
@@ -34,35 +736,84 @@ export const PARCEL_CLASSIFICATION_DESCRIPTIONS: Record<ParcelClassification, st
   SPECIAL_MANUAL_QUOTE: 'Fragile, oversized, or custom-crated items requiring manual transport quotation',
 };
 
-export const SHIPMENT_STATUS_LABELS: Record<ShipmentFulfillmentStatus, string> = {
+export const ACTIVE_FULFILLMENT_STATUSES: ShipmentFulfillmentStatus[] = [
+  'ORDER_PLACED',
+  'PROCESSING',
+  'READY_FOR_DISPATCH',
+  'DISPATCHED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'CANCELLED',
+];
+
+export const SHIPMENT_STATUS_LABELS: Record<string, string> = {
   ORDER_PLACED: 'Order Placed',
-  AWAITING_DELIVERY_CONFIRMATION: 'Awaiting Delivery Confirmation',
-  DELIVERY_FEE_CONFIRMED: 'Delivery Fee Confirmed',
-  SOURCING_PRODUCTS: 'Sourcing Products',
-  AWAITING_PRODUCTS_AT_HUB: 'Awaiting Products at Hub',
-  PRODUCTS_RECEIVED: 'Products Received at Onitsha Hub',
-  QUALITY_CHECK: 'Quality Check & Inspection',
-  READY_FOR_PACKAGING: 'Ready for Packaging',
-  PACKAGED: 'Packaged & Consolidated',
+  PROCESSING: 'Processing',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
-  DISPATCHED: 'Dispatched from Onitsha Hub',
+  DISPATCHED: 'Dispatched',
   OUT_FOR_DELIVERY: 'Out for Delivery',
   DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  // Historical / legacy mappings
+  AWAITING_DELIVERY_CONFIRMATION: 'Processing',
+  DELIVERY_FEE_CONFIRMED: 'Processing',
+  SOURCING_PRODUCTS: 'Processing',
+  AWAITING_PRODUCTS_AT_HUB: 'Processing',
+  PRODUCTS_RECEIVED: 'Processing',
+  QUALITY_CHECK: 'Processing',
+  READY_FOR_PACKAGING: 'Processing',
+  PACKAGED: 'Ready for Dispatch',
+  SHIPPED: 'Dispatched',
+  IN_TRANSIT: 'Dispatched',
+  RECEIVED: 'Delivered',
+  COMPLETED: 'Delivered',
 };
 
 export const SHIPMENT_STATUS_ORDER: ShipmentFulfillmentStatus[] = [
   'ORDER_PLACED',
-  'SOURCING_PRODUCTS',
-  'AWAITING_PRODUCTS_AT_HUB',
-  'PRODUCTS_RECEIVED',
-  'QUALITY_CHECK',
-  'READY_FOR_PACKAGING',
-  'PACKAGED',
+  'PROCESSING',
   'READY_FOR_DISPATCH',
   'DISPATCHED',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
 ];
+
+export function normalizeFulfillmentStatus(rawStatus?: string): ShipmentFulfillmentStatus {
+  if (!rawStatus) return 'ORDER_PLACED';
+  const s = rawStatus.toUpperCase().trim();
+  switch (s) {
+    case 'ORDER_PLACED':
+    case 'PENDING_PAYMENT':
+      return 'ORDER_PLACED';
+    case 'PROCESSING':
+    case 'SOURCING_PRODUCTS':
+    case 'AWAITING_PRODUCTS_AT_HUB':
+    case 'PRODUCTS_RECEIVED':
+    case 'QUALITY_CHECK':
+    case 'READY_FOR_PACKAGING':
+    case 'DELIVERY_FEE_CONFIRMED':
+    case 'AWAITING_DELIVERY_CONFIRMATION':
+      return 'PROCESSING';
+    case 'READY_FOR_DISPATCH':
+    case 'PACKAGED':
+      return 'READY_FOR_DISPATCH';
+    case 'DISPATCHED':
+    case 'SHIPPED':
+    case 'IN_TRANSIT':
+      return 'DISPATCHED';
+    case 'OUT_FOR_DELIVERY':
+      return 'OUT_FOR_DELIVERY';
+    case 'DELIVERED':
+    case 'RECEIVED':
+    case 'COMPLETED':
+      return 'DELIVERED';
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return 'CANCELLED';
+    default:
+      return 'ORDER_PLACED';
+  }
+}
 
 export const NIGERIAN_STATES: string[] = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -116,7 +867,7 @@ export interface EvaluableOrderItem {
 
 // In-memory store for environments without localStorage (e.g., Node test runner)
 const memoryStore: DeliveryStoreState = {
-  routes: [],
+  routes: [...DEFAULT_SEED_ROUTES],
   rate_history: [],
   product_delivery_attributes: {},
   order_shipments: {},
@@ -132,7 +883,7 @@ function hasLocalStorage(): boolean {
 
 function readLocal<T>(key: string, fallback: T): T {
   if (!hasLocalStorage()) {
-    if (key === STORAGE_KEYS.ROUTES) return memoryStore.routes as unknown as T;
+    if (key === STORAGE_KEYS.ROUTES) return (memoryStore.routes && memoryStore.routes.length > 0 ? memoryStore.routes : fallback) as unknown as T;
     if (key === STORAGE_KEYS.RATE_HISTORY) return memoryStore.rate_history as unknown as T;
     if (key === STORAGE_KEYS.PRODUCT_ATTRS) return memoryStore.product_delivery_attributes as unknown as T;
     if (key === STORAGE_KEYS.ORDER_SHIPMENTS) return memoryStore.order_shipments as unknown as T;
@@ -141,7 +892,11 @@ function readLocal<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw) as T;
+    if (key === STORAGE_KEYS.ROUTES && Array.isArray(parsed) && parsed.length === 0) {
+      return fallback;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -171,65 +926,85 @@ export async function syncDeliveryStoreFromServer(): Promise<DeliveryStoreState>
   if (typeof window === 'undefined' || typeof fetch === 'undefined') {
     return getLocalDeliveryStore();
   }
-  try {
-    const res = await fetch('/__dovi_delivery_db__', {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-    });
-    if (res.ok) {
-      const serverData = (await res.json()) as Partial<DeliveryStoreState>;
-      const local = getLocalDeliveryStore();
+  let serverData: Partial<DeliveryStoreState> | null = await fetchSharedDbOnce();
 
-      // Merge routes by ID (taking newest updated_at)
-      const routeMap = new Map<string, DeliveryRoute>();
-      for (const r of local.routes) routeMap.set(r.id, r);
-      for (const r of serverData.routes || []) {
-        const existing = routeMap.get(r.id);
-        if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
-          routeMap.set(r.id, r);
-        }
+  if (!serverData || !Array.isArray(serverData.routes) || serverData.routes.length === 0) {
+    try {
+      const resStatic = await fetch('/delivery_store.json', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const cTypeStatic = resStatic.headers.get('content-type') || '';
+      if (resStatic.ok && cTypeStatic.includes('application/json')) {
+        serverData = (await resStatic.json()) as Partial<DeliveryStoreState>;
       }
-      const mergedRoutes = Array.from(routeMap.values());
-
-      // Merge rate history by ID
-      const historyMap = new Map<string, DeliveryRateChangeRecord>();
-      for (const h of local.rate_history) historyMap.set(h.id, h);
-      for (const h of serverData.rate_history || []) historyMap.set(h.id, h);
-      const mergedHistory = Array.from(historyMap.values()).sort(
-        (a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
-      );
-
-      // Merge product delivery attributes
-      const mergedProductAttrs: Record<string, ProductDeliveryAttributes> = {
-        ...local.product_delivery_attributes,
-        ...(serverData.product_delivery_attributes || {}),
-      };
-
-      // Merge order shipments
-      const mergedShipments: Record<string, OrderShipment[]> = {
-        ...local.order_shipments,
-        ...(serverData.order_shipments || {}),
-      };
-
-      writeLocal(STORAGE_KEYS.ROUTES, mergedRoutes);
-      writeLocal(STORAGE_KEYS.RATE_HISTORY, mergedHistory);
-      writeLocal(STORAGE_KEYS.PRODUCT_ATTRS, mergedProductAttrs);
-      writeLocal(STORAGE_KEYS.ORDER_SHIPMENTS, mergedShipments);
-
-      return {
-        routes: mergedRoutes,
-        rate_history: mergedHistory,
-        product_delivery_attributes: mergedProductAttrs,
-        order_shipments: mergedShipments,
-      };
+    } catch {
+      // Non-fatal
     }
-  } catch {
-    // Offline or non-Vite environment
   }
-  return getLocalDeliveryStore();
+
+  const local = getLocalDeliveryStore();
+  const destKey = (r: DeliveryRoute) => `${canonicalStateKey(r.destination_state)}|${canonicalCityKey(r.destination_city)}`;
+  const mergedMap = new Map<string, DeliveryRoute>();
+
+  // 1. Seed routes as baseline
+  for (const r of DEFAULT_SEED_ROUTES) {
+    if (r && r.destination_state) mergedMap.set(destKey(r), r);
+  }
+  // 2. Local routes
+  for (const r of local.routes || []) {
+    if (r && r.destination_state) mergedMap.set(destKey(r), r);
+  }
+  // 3. Server routes (override if newer or present)
+  const serverRoutes = Array.isArray(serverData?.routes) ? serverData.routes : [];
+  for (const r of serverRoutes) {
+    if (r && r.destination_state) {
+      const key = destKey(r);
+      const existing = mergedMap.get(key);
+      if (!existing || new Date(r.updated_at).getTime() >= new Date(existing.updated_at).getTime()) {
+        mergedMap.set(key, r);
+      }
+    }
+  }
+  const mergedRoutes = Array.from(mergedMap.values());
+  if (local.routes.length > serverRoutes.length) {
+    void pushDeliveryStoreToServer({ routes: mergedRoutes });
+  }
+
+  // Merge rate history by ID
+  const historyMap = new Map<string, DeliveryRateChangeRecord>();
+  for (const h of local.rate_history || []) historyMap.set(h.id, h);
+  for (const h of serverData?.rate_history || []) historyMap.set(h.id, h);
+  const mergedHistory = Array.from(historyMap.values()).sort(
+    (a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+  );
+
+  // Merge product delivery attributes
+  const mergedProductAttrs: Record<string, ProductDeliveryAttributes> = {
+    ...local.product_delivery_attributes,
+    ...(serverData?.product_delivery_attributes || {}),
+  };
+
+  // Merge order shipments
+  const mergedShipments: Record<string, OrderShipment[]> = {
+    ...local.order_shipments,
+    ...(serverData?.order_shipments || {}),
+  };
+
+  writeLocal(STORAGE_KEYS.ROUTES, mergedRoutes);
+  writeLocal(STORAGE_KEYS.RATE_HISTORY, mergedHistory);
+  writeLocal(STORAGE_KEYS.PRODUCT_ATTRS, mergedProductAttrs);
+  writeLocal(STORAGE_KEYS.ORDER_SHIPMENTS, mergedShipments);
+
+  return {
+    routes: mergedRoutes,
+    rate_history: mergedHistory,
+    product_delivery_attributes: mergedProductAttrs,
+    order_shipments: mergedShipments,
+  };
 }
 
-export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreState>): Promise<void> {
+export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreState>): Promise<boolean> {
   const current = getLocalDeliveryStore();
   const payload: DeliveryStoreState = {
     routes: partial?.routes ?? current.routes,
@@ -239,20 +1014,23 @@ export async function pushDeliveryStoreToServer(partial?: Partial<DeliveryStoreS
   };
   if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
     try {
-      await fetch('/__dovi_delivery_db__', {
+      const res = await fetch('/__dovi_delivery_db__', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      return res.ok;
     } catch {
-      // Ignore network error if dev server endpoint is not active
+      return false;
     }
   }
+  return false;
 }
 
 export function getLocalDeliveryStore(): DeliveryStoreState {
+  const localRoutes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   return {
-    routes: readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []),
+    routes: localRoutes && localRoutes.length > 0 ? localRoutes : DEFAULT_SEED_ROUTES,
     rate_history: readLocal<DeliveryRateChangeRecord[]>(STORAGE_KEYS.RATE_HISTORY, []),
     product_delivery_attributes: readLocal<Record<string, ProductDeliveryAttributes>>(STORAGE_KEYS.PRODUCT_ATTRS, {}),
     order_shipments: readLocal<Record<string, OrderShipment[]>>(STORAGE_KEYS.ORDER_SHIPMENTS, {}),
@@ -454,6 +1232,7 @@ export interface CreateOrUpdateRouteInput {
   dispatch_origin?: string;
   destination_state: string;
   destination_city: string;
+  delivery_fee?: number | null;
   small_parcel_rate?: number | null;
   heavy_parcel_rate?: number | null;
   furniture_bulky_rate?: number | null;
@@ -477,8 +1256,9 @@ function normalizeRateValue(val: number | string | null | undefined): number | n
 }
 
 export function listDeliveryRoutes(includeInactive = true): DeliveryRoute[] {
-  const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
-  const filtered = includeInactive ? routes : routes.filter((r) => r.is_active);
+  const localRoutes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, DEFAULT_SEED_ROUTES);
+  const baseRoutes = (localRoutes && localRoutes.length > 0) ? localRoutes : DEFAULT_SEED_ROUTES;
+  const filtered = includeInactive ? baseRoutes : baseRoutes.filter((r) => r.is_active);
   return [...filtered].sort((a, b) => {
     const stateCmp = a.destination_state.localeCompare(b.destination_state);
     if (stateCmp !== 0) return stateCmp;
@@ -486,36 +1266,290 @@ export function listDeliveryRoutes(includeInactive = true): DeliveryRoute[] {
   });
 }
 
+// ----------------------------------------------------------
+// LOCATION NORMALIZATION
+// A single canonical normalizer is used by the admin route editor, the
+// checkout selectors and the route matcher so "Lagos", "Lagos State",
+// " lagos " and "FCT - Abuja" / "Abuja (FCT)" always resolve to the same key.
+// ----------------------------------------------------------
+const STATE_KEY_ALIASES: Record<string, string> = {
+  fct: 'fct',
+  'fct abuja': 'fct',
+  'abuja fct': 'fct',
+  abuja: 'fct',
+  'federal capital territory': 'fct',
+  'cross rivers': 'cross river',
+  akwaibom: 'akwa ibom',
+  nassarawa: 'nasarawa',
+};
+
+export const CITY_KEY_ALIASES: Record<string, string> = {
+  ph: 'port harcourt',
+  phc: 'port harcourt',
+  portharcourt: 'port harcourt',
+  'port harcourt city': 'port harcourt',
+  'port harcourt': 'port harcourt',
+  benin: 'benin city',
+  'benin city': 'benin city',
+  enugu: 'enugu',
+  'enugu urban': 'enugu',
+  'enugu city': 'enugu',
+  awka: 'awka',
+  'awka urban': 'awka',
+  'awka south': 'awka',
+  'awka north': 'awka',
+  onitsha: 'onitsha',
+  'onitsha north': 'onitsha',
+  'onitsha south': 'onitsha',
+  'onitsha urban': 'onitsha',
+  warri: 'warri',
+  'warri south': 'warri',
+  asaba: 'asaba',
+  'asaba urban': 'asaba',
+  aba: 'aba',
+  'aba north': 'aba',
+  'aba south': 'aba',
+  'aba urban': 'aba',
+  umuahia: 'umuahia',
+  'umuahia north': 'umuahia',
+  'umuahia south': 'umuahia',
+  'umuahia urban': 'umuahia',
+  owerri: 'owerri',
+  'owerri municipal': 'owerri',
+  'owerri urban': 'owerri',
+  'owerri west': 'owerri',
+  'owerri north': 'owerri',
+  calabar: 'calabar',
+  'calabar municipal': 'calabar',
+  'calabar south': 'calabar',
+  uyo: 'uyo',
+  'uyo urban': 'uyo',
+  kano: 'kano',
+  'kano municipal': 'kano',
+  'kano city': 'kano',
+  kaduna: 'kaduna',
+  'kaduna north': 'kaduna',
+  'kaduna south': 'kaduna',
+  'kaduna central': 'kaduna',
+  ibadan: 'ibadan',
+  'ibadan north': 'ibadan',
+  'ibadan south': 'ibadan',
+  'ibadan sw': 'ibadan',
+  'ibadan central': 'ibadan',
+  abeokuta: 'abeokuta',
+  'abeokuta north': 'abeokuta',
+  'abeokuta south': 'abeokuta',
+  jos: 'jos',
+  'jos north': 'jos',
+  'jos south': 'jos',
+  garki: 'garki',
+  'garki 1': 'garki',
+  'garki 2': 'garki',
+  'garki ii': 'garki',
+  wuse: 'wuse',
+  'wuse 2': 'wuse',
+  'wuse ii': 'wuse',
+  'wuse zone': 'wuse',
+  maitama: 'maitama',
+  gwarinpa: 'gwarinpa',
+  gwarimpa: 'gwarinpa',
+  ikeja: 'ikeja',
+  'ikeja gra': 'ikeja',
+  lekki: 'lekki',
+  'lekki phase 1': 'lekki',
+  'lekki phase 2': 'lekki',
+  'lekki peninsula': 'lekki',
+  'victoria island': 'victoria island',
+  vi: 'victoria island',
+  surulere: 'surulere',
+  yaba: 'yaba',
+};
+
+export function routeIdentity(r: Pick<DeliveryRoute, 'dispatch_origin' | 'destination_state' | 'destination_city'>): string {
+  return [
+    normalizeLocationName(r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN),
+    canonicalStateKey(r.destination_state),
+    canonicalCityKey(r.destination_city),
+  ].join('|');
+}
+
+const STATE_WIDE_CITY_KEYS = ['all cities', 'all city', 'all towns', 'all', 'any', 'statewide', 'state wide', '*'];
+
+export function normalizeLocationName(value: string | null | undefined): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[().,'’`\-_/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function canonicalStateKey(value: string | null | undefined): string {
+  const stripped = normalizeLocationName(value)
+    .replace(/\bstate\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return STATE_KEY_ALIASES[stripped] || stripped;
+}
+
+export function canonicalCityKey(value: string | null | undefined): string {
+  let norm = normalizeLocationName(value);
+  if (!norm) return '';
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip trailing 'state'
+  norm = norm.replace(/\bstate\b/g, '').replace(/\s+/g, ' ').trim();
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip state suffix if present (e.g. 'warri delta' -> 'warri', 'awka anambra' -> 'awka')
+  for (const st of NIGERIAN_STATES) {
+    const stNorm = normalizeLocationName(st);
+    if (stNorm && norm.endsWith(stNorm)) {
+      norm = norm.slice(0, -stNorm.length).trim();
+      break;
+    }
+  }
+  if (CITY_KEY_ALIASES[norm]) return CITY_KEY_ALIASES[norm];
+
+  // Strip generic city/town qualifiers if not already an alias
+  const stripped = norm.replace(/\b(city|town|lga)\b/g, '').replace(/\s+/g, ' ').trim();
+  if (CITY_KEY_ALIASES[stripped]) return CITY_KEY_ALIASES[stripped];
+  return stripped || norm;
+}
+
+/** Maps any user/admin supplied state string to the canonical entry in NIGERIAN_STATES (or '' if unknown). */
+export function resolveCanonicalStateName(value: string | null | undefined): string {
+  const key = canonicalStateKey(value);
+  if (!key) return '';
+  return NIGERIAN_STATES.find((s) => canonicalStateKey(s) === key) || '';
+}
+
+export function isStateWideCity(route: Pick<DeliveryRoute, 'destination_state' | 'destination_city'>): boolean {
+  const cityKey = canonicalCityKey(route.destination_city);
+  if (!cityKey || STATE_WIDE_CITY_KEYS.includes(cityKey)) return true;
+  const stateKey = canonicalStateKey(route.destination_state);
+  const citySameAsStateExceptions = ['lagos', 'enugu', 'kano', 'kaduna'];
+  if (cityKey === stateKey && !citySameAsStateExceptions.includes(stateKey)) {
+    return true;
+  }
+  return false;
+}
+
+export type RouteMatchType = 'EXACT_CITY' | 'STATE_WIDE' | 'NONE';
+
+/**
+ * Pure route matcher: given an explicit list of routes, finds the active route for
+ * origin + state + city. Never falls back to a different state or a different city
+ * (other than an explicitly state-wide route of the SAME state).
+ */
+export function findRouteInList(
+  routes: DeliveryRoute[],
+  destinationState: string,
+  destinationCity: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): { route: DeliveryRoute | null; match: RouteMatchType } {
+  void dispatchOrigin;
+  const stateKey = canonicalStateKey(destinationState);
+  const cityKey = canonicalCityKey(destinationCity);
+
+  if (!stateKey) return { route: null, match: 'NONE' };
+
+  const candidates = routes.filter(
+    (r) =>
+      r.is_active !== false &&
+      r.destination_state &&
+      canonicalStateKey(r.destination_state) === stateKey
+  );
+
+  if (cityKey) {
+    // 1. Exact normalized match
+    const exact = candidates.find((r) => !isStateWideCity(r) && canonicalCityKey(r.destination_city) === cityKey);
+    if (exact) return { route: exact, match: 'EXACT_CITY' };
+
+    // 2. Substring / Prefix / Alias match:
+    // e.g. customer entered "Ikeja GRA" and candidate is "Ikeja", or candidate is "Benin City" and customer entered "Benin"
+    const fuzzy = candidates.find((r) => {
+      if (isStateWideCity(r)) return false;
+      const candKey = canonicalCityKey(r.destination_city);
+      if (!candKey) return false;
+      return (
+        cityKey.startsWith(candKey) ||
+        cityKey.includes(candKey) ||
+        candKey.startsWith(cityKey) ||
+        candKey.includes(cityKey)
+      );
+    });
+    if (fuzzy) return { route: fuzzy, match: 'EXACT_CITY' };
+  }
+
+  // 3. Statewide catch-all route for this state
+  const stateWide = candidates.find((r) => isStateWideCity(r));
+  if (stateWide) return { route: stateWide, match: 'STATE_WIDE' };
+
+  return { route: null, match: 'NONE' };
+}
+
+/** Lists the distinct, active, configured destination cities for a state (excluding state-wide catch-all rows). */
+export function listConfiguredCitiesForState(
+  routes: DeliveryRoute[],
+  destinationState: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): DeliveryRoute[] {
+  void dispatchOrigin;
+  const stateKey = canonicalStateKey(destinationState);
+  if (!stateKey) return [];
+  const seen = new Set<string>();
+  const result: DeliveryRoute[] = [];
+  let stateWideCatchAll: DeliveryRoute | null = null;
+
+  for (const r of routes) {
+    if (r.is_active === false) continue;
+    // Destination-based delivery
+    if (!r.destination_city) continue;
+    if (canonicalStateKey(r.destination_state) !== stateKey) continue;
+    if (isStateWideCity(r)) {
+      if (!stateWideCatchAll) stateWideCatchAll = r;
+      continue;
+    }
+    const key = canonicalCityKey(r.destination_city);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(r);
+  }
+  const sorted = result.sort((a, b) => a.destination_city.localeCompare(b.destination_city));
+  if (stateWideCatchAll && !seen.has(canonicalCityKey(stateWideCatchAll.destination_city))) {
+    sorted.push(stateWideCatchAll);
+  }
+  return sorted;
+}
+
 export function findActiveRoute(
   destinationState: string,
   destinationCity: string,
   dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
 ): DeliveryRoute | null {
-  const normOrigin = (dispatchOrigin || PRIMARY_DISPATCH_ORIGIN).trim().toLowerCase();
-  const normState = (destinationState || '').trim().toLowerCase();
-  const normCity = (destinationCity || '').trim().toLowerCase();
+  return findRouteInList(listDeliveryRoutes(false), destinationState, destinationCity, dispatchOrigin).route;
+}
 
-  if (!normState) return null;
+/** Pure state-change transition: a new state ALWAYS clears the town (towns belong to exactly one state). */
+export function selectDestinationState(nextState: string): { state: string; city: string } {
+  return { state: nextState, city: '' };
+}
 
-  const activeRoutes = listDeliveryRoutes(false).filter(
-    (r) => (r.dispatch_origin || PRIMARY_DISPATCH_ORIGIN).trim().toLowerCase() === normOrigin
+/** True only if `city` is a configured town of `state` (or a custom town typed by the customer for that state). */
+export function isConfiguredCityForState(
+  routes: DeliveryRoute[],
+  state: string,
+  city: string,
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+): boolean {
+  const key = canonicalCityKey(city);
+  if (!key) return false;
+  return listConfiguredCitiesForState(routes, state, dispatchOrigin).some(
+    (r) => canonicalCityKey(r.destination_city) === key
   );
-
-  // 1. Exact state + city match
-  const exactMatch = activeRoutes.find(
-    (r) =>
-      r.destination_state.trim().toLowerCase() === normState &&
-      r.destination_city.trim().toLowerCase() === normCity
-  );
-  if (exactMatch) return exactMatch;
-
-  // 2. State-wide fallback route (where destination_city is 'All Cities', '*', or matches state name)
-  const stateWideMatch = activeRoutes.find(
-    (r) =>
-      r.destination_state.trim().toLowerCase() === normState &&
-      ['all cities', 'all', '*', normState].includes(r.destination_city.trim().toLowerCase())
-  );
-  return stateWideMatch || null;
 }
 
 export function listRateChangeHistory(routeId?: string): DeliveryRateChangeRecord[] {
@@ -524,10 +1558,10 @@ export function listRateChangeHistory(routeId?: string): DeliveryRateChangeRecor
   return [...filtered].sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
 }
 
-export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: AdminActor): DeliveryRoute {
+export async function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: AdminActor): Promise<DeliveryRoute> {
   assertAuthorizedAdmin(actor);
 
-  const destinationState = (input.destination_state || '').trim();
+  const destinationState = resolveCanonicalStateName(input.destination_state) || (input.destination_state || '').trim();
   const destinationCity = (input.destination_city || '').trim();
   const dispatchOrigin = (input.dispatch_origin || PRIMARY_DISPATCH_ORIGIN).trim();
 
@@ -538,9 +1572,9 @@ export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: Admi
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   const duplicate = routes.find(
     (r) =>
-      r.dispatch_origin.toLowerCase() === dispatchOrigin.toLowerCase() &&
-      r.destination_state.toLowerCase() === destinationState.toLowerCase() &&
-      r.destination_city.toLowerCase() === destinationCity.toLowerCase()
+      normalizeLocationName(r.dispatch_origin) === normalizeLocationName(dispatchOrigin) &&
+      canonicalStateKey(r.destination_state) === canonicalStateKey(destinationState) &&
+      canonicalCityKey(r.destination_city) === canonicalCityKey(destinationCity)
   );
   if (duplicate) {
     throw new Error(
@@ -608,16 +1642,16 @@ export function createDeliveryRoute(input: CreateOrUpdateRouteInput, actor: Admi
   routes.push(newRoute);
   writeLocal(STORAGE_KEYS.ROUTES, routes);
   writeLocal(STORAGE_KEYS.RATE_HISTORY, history);
-  void pushDeliveryStoreToServer({ routes, rate_history: history });
+  await pushDeliveryStoreToServer({ routes, rate_history: history });
 
   return newRoute;
 }
 
-export function updateDeliveryRoute(
+export async function updateDeliveryRoute(
   routeId: string,
   updates: Partial<CreateOrUpdateRouteInput>,
   actor: AdminActor
-): DeliveryRoute {
+): Promise<DeliveryRoute> {
   assertAuthorizedAdmin(actor);
 
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
@@ -744,17 +1778,17 @@ export function updateDeliveryRoute(
   routes[idx] = updated;
   writeLocal(STORAGE_KEYS.ROUTES, routes);
   writeLocal(STORAGE_KEYS.RATE_HISTORY, history);
-  void pushDeliveryStoreToServer({ routes, rate_history: history });
+  await pushDeliveryStoreToServer({ routes, rate_history: history });
 
   return updated;
 }
 
-export function deleteDeliveryRoute(routeId: string, actor: AdminActor): void {
+export async function deleteDeliveryRoute(routeId: string, actor: AdminActor): Promise<void> {
   assertAuthorizedAdmin(actor);
   const routes = readLocal<DeliveryRoute[]>(STORAGE_KEYS.ROUTES, []);
   const filtered = routes.filter((r) => r.id !== routeId);
   writeLocal(STORAGE_KEYS.ROUTES, filtered);
-  void pushDeliveryStoreToServer({ routes: filtered });
+  await pushDeliveryStoreToServer({ routes: filtered });
 }
 
 // ----------------------------------------------------------
@@ -835,15 +1869,24 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_notes: raw.delivery_notes,
     });
 
-    const classification = raw.delivery_classification || storedAttrs?.delivery_classification || null;
-    const hasMissingClassification = !classification;
-    if (hasMissingClassification) {
+    const suggested = suggestParcelClassificationForAdmin({
+      name: raw.product_name,
+      category_name: (raw as any)?.category_name,
+      description: raw.description || undefined,
+    });
+    const classification: ParcelClassification =
+      raw.delivery_classification ||
+      storedAttrs?.delivery_classification ||
+      suggested ||
+      'SMALL_PARCEL';
+
+    if (classification === 'SPECIAL_MANUAL_QUOTE') {
       manualQuoteReasons.push(
-        `Product "${raw.product_name}" does not have an assigned delivery classification. Administrator delivery confirmation is required.`
+        `Product "${raw.product_name}" requires special manual delivery confirmation.`
       );
     }
 
-    const effectiveClassification: ParcelClassification = classification || 'SPECIAL_MANUAL_QUOTE';
+    const effectiveClassification: ParcelClassification = classification;
     const weightKg = raw.weight_kg ?? storedAttrs?.weight_kg ?? null;
     const dimensionsCm = raw.dimensions_cm ?? storedAttrs?.dimensions_cm ?? null;
     const requiresSpecialHandling = Boolean(
@@ -878,7 +1921,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       },
       canConsolidateWithFurniture,
       maxItemsPerShipment,
-      hasMissingClassification,
+      hasMissingClassification: false,
       deliveryNotes,
     };
   });
@@ -930,19 +1973,28 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       groupQuoteReason = `Delivery rate not configured for ${destinationCity || 'destination'}, ${destinationState || 'state'}.`;
     } else if (exceedsHeavyLimit) {
       groupQuoteReason = `Combined parcel weight (${combinedWeight} kg) exceeds standard Heavy Parcel limit (${maxHeavyWeight} kg). Manual cargo quotation required.`;
-    } else if (effectiveClass === 'SMALL_PARCEL') {
-      if (route.small_parcel_rate !== null && route.small_parcel_rate >= 0) {
-        baseFee = Number(route.small_parcel_rate);
-      } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
-      }
     } else {
-      if (route.heavy_parcel_rate !== null && route.heavy_parcel_rate >= 0) {
-        baseFee = Number(route.heavy_parcel_rate);
+      const confSmall = route?.small_parcel_rate !== null && route?.small_parcel_rate !== undefined && Number(route.small_parcel_rate) >= 0 ? Number(route.small_parcel_rate) : null;
+      const confHeavy = route?.heavy_parcel_rate !== null && route?.heavy_parcel_rate !== undefined && Number(route.heavy_parcel_rate) >= 0 ? Number(route.heavy_parcel_rate) : null;
+      const confBulky = route?.furniture_bulky_rate !== null && route?.furniture_bulky_rate !== undefined && Number(route.furniture_bulky_rate) >= 0 ? Number(route.furniture_bulky_rate) : null;
+
+      const resSmall = confSmall ?? (confHeavy !== null ? Math.round(confHeavy * 0.5) : (confBulky !== null ? Math.round(confBulky * 0.25) : null));
+      const resHeavy = confHeavy ?? (confSmall !== null ? Math.round(confSmall * 2.2) : (confBulky !== null ? Math.round(confBulky * 0.5) : null));
+
+      if (effectiveClass === 'SMALL_PARCEL') {
+        if (resSmall !== null) {
+          baseFee = resSmall;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Small Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        if (resHeavy !== null) {
+          baseFee = resHeavy;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Heavy Parcel rate is not configured for ${route.destination_city}, ${route.destination_state}.`;
+        }
       }
     }
 
@@ -968,13 +2020,13 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     let consolidationExplanation = '';
     if (hasSmall && hasHeavy) {
       consolidationExplanation =
-        'Small Parcel and Heavy Parcel items are consolidated into one combined Heavy Parcel shipment at our Onitsha hub so you pay a single delivery fee.';
+        'Small Parcel and Heavy Parcel items are consolidated into one combined Heavy Parcel shipment so you pay a single direct delivery fee.';
     } else if (weightUpgradedToHeavy) {
-      consolidationExplanation = `Multiple small parcels (${combinedWeight} kg total) consolidated into a single Heavy Parcel shipment from our Onitsha hub.`;
+      consolidationExplanation = `Multiple small parcels (${combinedWeight} kg total) consolidated into a single Heavy Parcel shipment for direct delivery.`;
     } else if (totalQty > 1) {
-      consolidationExplanation = `All ${totalQty} items consolidated into one ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} shipment from our Onitsha hub with a single delivery fee.`;
+      consolidationExplanation = `All ${totalQty} items consolidated into one ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} shipment for direct delivery with a single delivery fee.`;
     } else {
-      consolidationExplanation = `Single ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} dispatch from our Onitsha hub.`;
+      consolidationExplanation = `Single ${PARCEL_CLASSIFICATION_LABELS[effectiveClass]} dispatch for direct delivery.`;
     }
 
     const separationReason =
@@ -1000,8 +2052,8 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       manual_quote_reason: groupQuoteReason,
       transport_arrangement:
         effectiveClass === 'HEAVY_PARCEL'
-          ? 'DOVI Consolidated Heavy Van / Express Haulage from Onitsha Hub'
-          : 'DOVI Consolidated Express Parcel Courier from Onitsha Hub',
+          ? 'DOVI Consolidated Heavy Van / Express Haulage for direct delivery'
+          : 'DOVI Consolidated Express Parcel Courier for direct delivery',
       consolidation_explanation: consolidationExplanation,
       separation_reason: separationReason,
       delivery_notes: parcelItems
@@ -1037,24 +2089,33 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       groupQuoteReason = `Furniture / Bulky delivery rate not configured for ${destinationCity || 'destination'}, ${destinationState || 'state'}.`;
     } else if (bulkyMissingDimensions) {
       groupRequiresQuote = true;
-      groupQuoteReason = `Bulky item "${bulkyMissingDimensions.shipmentItem.product_name}" requires special handling and dimension verification at Onitsha Hub for manual quotation.`;
-    } else if (totalFurnitureUnits === 1) {
-      if (route.furniture_bulky_rate !== null && route.furniture_bulky_rate >= 0) {
-        baseFee = Number(route.furniture_bulky_rate);
-      } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Furniture / Bulky rate not configured for ${route.destination_city}, ${route.destination_state}. Manual quotation required.`;
-      }
+      groupQuoteReason = `Bulky item "${bulkyMissingDimensions.shipmentItem.product_name}" requires special handling and dimension verification for direct delivery for manual quotation.`;
     } else {
-      // Multiple furniture items (Test F): NEVER automatically multiply furniture rate per item!
-      if (totalFurnitureUnits <= maxConsolidatedFurniture && route.combined_furniture_rate !== null && route.combined_furniture_rate >= 0) {
-        baseFee = Number(route.combined_furniture_rate);
-      } else if (totalFurnitureUnits > maxConsolidatedFurniture) {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Order includes ${totalFurnitureUnits} Furniture / Bulky items (exceeding standard ${maxConsolidatedFurniture}-item consolidated cargo limit). Manual transport quotation required.`;
+      const confSmall = route?.small_parcel_rate !== null && route?.small_parcel_rate !== undefined && Number(route.small_parcel_rate) >= 0 ? Number(route.small_parcel_rate) : null;
+      const confHeavy = route?.heavy_parcel_rate !== null && route?.heavy_parcel_rate !== undefined && Number(route.heavy_parcel_rate) >= 0 ? Number(route.heavy_parcel_rate) : null;
+      const confBulky = route?.furniture_bulky_rate !== null && route?.furniture_bulky_rate !== undefined && Number(route.furniture_bulky_rate) >= 0 ? Number(route.furniture_bulky_rate) : null;
+      const confComb = route?.combined_furniture_rate !== null && route?.combined_furniture_rate !== undefined && Number(route.combined_furniture_rate) >= 0 ? Number(route.combined_furniture_rate) : null;
+
+      const resBulky = confBulky ?? (confHeavy !== null ? Math.round(confHeavy * 2.2) : (confSmall !== null ? Math.round(confSmall * 4.5) : null));
+      const resComb = confComb ?? (resBulky !== null ? Math.round(resBulky * 1.35) : null);
+
+      if (totalFurnitureUnits === 1) {
+        if (resBulky !== null) {
+          baseFee = resBulky;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Furniture / Bulky rate not configured for ${route.destination_city}, ${route.destination_state}. Manual quotation required.`;
+        }
       } else {
-        groupRequiresQuote = true;
-        groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation from Onitsha Hub rather than charging per item.`;
+        if (totalFurnitureUnits <= maxConsolidatedFurniture && resComb !== null) {
+          baseFee = resComb;
+        } else if (totalFurnitureUnits > maxConsolidatedFurniture) {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Order includes ${totalFurnitureUnits} Furniture / Bulky items (exceeding standard ${maxConsolidatedFurniture}-item consolidated cargo limit). Manual transport quotation required.`;
+        } else {
+          groupRequiresQuote = true;
+          groupQuoteReason = `Multiple Furniture / Bulky items (${totalFurnitureUnits} units) require a combined transport quotation for direct delivery rather than charging per item.`;
+        }
       }
     }
 
@@ -1075,13 +2136,13 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     let consolidationExplanation = '';
     if (canMergeSmallIntoFurniture) {
       consolidationExplanation =
-        'Your Small Parcel items and Furniture / Bulky item are consolidated into a single dedicated transport shipment from Onitsha Hub.';
+        'Your Small Parcel items and Furniture / Bulky item are consolidated into a single dedicated transport shipment for direct delivery.';
     } else if (totalFurnitureUnits > 1) {
       consolidationExplanation = groupRequiresQuote
         ? `Multiple furniture items (${totalFurnitureUnits} units) grouped for a single combined cargo quotation (we never multiply the single-item furniture fee per item).`
-        : `Multiple furniture items (${totalFurnitureUnits} units) consolidated into one combined Furniture / Bulky cargo shipment from Onitsha Hub.`;
+        : `Multiple furniture items (${totalFurnitureUnits} units) consolidated into one combined Furniture / Bulky cargo shipment for direct delivery.`;
     } else {
-      consolidationExplanation = 'Dedicated Furniture / Bulky cargo transport from our Onitsha hub.';
+      consolidationExplanation = 'Dedicated Furniture / Bulky cargo transport for direct delivery.';
     }
 
     const separationReason =
@@ -1105,7 +2166,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_fee: totalGroupFee,
       requires_manual_quote: groupRequiresQuote,
       manual_quote_reason: groupQuoteReason,
-      transport_arrangement: 'DOVI Dedicated Bulky & Furniture Cargo Transport from Onitsha Hub',
+      transport_arrangement: 'DOVI Dedicated Bulky & Furniture Cargo Transport for direct delivery',
       consolidation_explanation: consolidationExplanation,
       separation_reason: separationReason,
       delivery_notes: mergedFurnitureList
@@ -1125,7 +2186,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
     const hasUnclassified = manualBucket.some((m) => m.hasMissingClassification);
     const groupQuoteReason = hasUnclassified
       ? 'One or more products require delivery classification confirmation by an administrator.'
-      : 'Special Delivery / Manual Quote items require custom transport pricing from our Onitsha dispatch team.';
+      : 'Special Delivery / Manual Quote items require custom transport pricing from our logistics team.';
 
     if (!manualQuoteReasons.includes(groupQuoteReason)) {
       manualQuoteReasons.push(groupQuoteReason);
@@ -1147,9 +2208,9 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
       delivery_fee: null,
       requires_manual_quote: true,
       manual_quote_reason: groupQuoteReason,
-      transport_arrangement: 'Custom Arranged Specialized Transport from Onitsha Hub',
+      transport_arrangement: 'Custom Arranged Specialized Transport for direct delivery',
       consolidation_explanation:
-        'Items requiring custom handling or manual delivery confirmation are grouped for assessment by our Onitsha logistics team.',
+        'Items requiring custom handling or manual delivery confirmation are grouped for assessment by our logistics team.',
       separation_reason:
         shipmentGroups.length > 0
           ? 'Separated because these items require custom transport evaluation and manual rate confirmation.'
@@ -1185,11 +2246,11 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
   if (requiresManualQuote) {
     overallExplanation =
       manualQuoteReasons[0] ||
-      'Delivery confirmation required: Our Onitsha logistics team will confirm the exact delivery fee for your destination and items before payment.';
+      'Delivery confirmation required: Our logistics team will confirm the exact delivery fee for your destination and items before payment.';
   } else if (shipmentGroups.length === 1) {
     overallExplanation = shipmentGroups[0].consolidation_explanation;
   } else if (shipmentGroups.length > 1) {
-    overallExplanation = `Your order requires ${shipmentGroups.length} separate shipments from our Onitsha hub because ${
+    overallExplanation = `Your order requires ${shipmentGroups.length} separate shipments for direct delivery because ${
       shipmentGroups[1]?.separation_reason ||
       'items require different transport arrangements to ensure safe delivery.'
     }`;
@@ -1222,7 +2283,7 @@ export function calculateOrderDelivery(params: CalculateOrderDeliveryParams): De
 }
 
 // ----------------------------------------------------------
-// SHIPMENT CREATION, ONITSHA HUB FULFILLMENT & MANUAL QUOTES
+// SHIPMENT CREATION, DIRECT DELIVERY FULFILLMENT & MANUAL QUOTES
 // ----------------------------------------------------------
 export function buildOrderShipmentsFromCalculation(
   orderId: string,
@@ -1344,7 +2405,7 @@ export function updateShipmentItemHubStatus(
 
   if (updates.quality_checked !== undefined) {
     if (updates.quality_checked && !item.hub_received) {
-      throw new Error(`Cannot mark "${item.product_name}" as quality checked before it is received at the Onitsha hub.`);
+      throw new Error(`Cannot mark "${item.product_name}" as quality checked before it is received prior to dispatch.`);
     }
     item.quality_checked = Boolean(updates.quality_checked);
     item.quality_checked_at = item.quality_checked ? now : null;
@@ -1357,7 +2418,7 @@ export function updateShipmentItemHubStatus(
   if (updates.packaged !== undefined) {
     if (updates.packaged && (!item.hub_received || !item.quality_checked)) {
       throw new Error(
-        `Cannot package "${item.product_name}" until it has been received and passed quality inspection at the Onitsha hub.`
+        `Cannot package "${item.product_name}" until it has been received and passed quality inspection prior to dispatch.`
       );
     }
     item.packaged = Boolean(updates.packaged);
@@ -1401,7 +2462,11 @@ export function updateShipmentStatus(
     delivery_notes?: string;
     tracking_reference?: string;
   }
-): { updatedShipment: OrderShipment; allShipments: OrderShipment[]; overallOrderStatus: string } {
+): {
+  updatedShipment: OrderShipment;
+  allShipments: OrderShipment[];
+  overallOrderStatus: ShipmentFulfillmentStatus;
+} {
   assertAuthorizedAdmin(actor);
 
   const shipments = getOrderShipments(orderIdOrRef);
@@ -1413,67 +2478,7 @@ export function updateShipmentStatus(
   const shipment = { ...shipments[sIdx], items: shipments[sIdx].items.map((i) => ({ ...i })) };
   const now = new Date().toISOString();
 
-  const postHubStatuses: ShipmentFulfillmentStatus[] = [
-    'READY_FOR_DISPATCH',
-    'DISPATCHED',
-    'OUT_FOR_DELIVERY',
-    'DELIVERED',
-  ];
-
-  if (postHubStatuses.includes(newStatus)) {
-    const unreceived = shipment.items.filter((i) => !i.hub_received);
-    const uninspected = shipment.items.filter((i) => !i.quality_checked);
-    const unpackaged = shipment.items.filter((i) => !i.packaged);
-
-    if (unreceived.length > 0 || uninspected.length > 0 || unpackaged.length > 0) {
-      const missingNames = Array.from(
-        new Set([...unreceived, ...uninspected, ...unpackaged].map((i) => i.product_name))
-      ).join(', ');
-      throw new Error(
-        `Onitsha Hub Guard: Cannot mark shipment as "${SHIPMENT_STATUS_LABELS[newStatus]}" while items (${missingNames}) have not completed hub receipt, quality inspection, and packaging. Please confirm hub steps or approve split delivery first.`
-      );
-    }
-  }
-
-  if (newStatus === 'PACKAGED') {
-    const unready = shipment.items.filter((i) => !i.hub_received || !i.quality_checked);
-    if (unready.length > 0) {
-      throw new Error(
-        `Cannot mark shipment as Packaged until all items (${unready.map((i) => i.product_name).join(', ')}) have arrived at the Onitsha hub and passed quality inspection.`
-      );
-    }
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      packaged: true,
-      packaged_at: i.packaged_at || now,
-    }));
-    shipment.hub_packaged_confirmed = true;
-  }
-
-  if (newStatus === 'PRODUCTS_RECEIVED') {
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      hub_received: true,
-      hub_received_at: i.hub_received_at || now,
-    }));
-    shipment.hub_received_confirmed = true;
-  }
-
-  if (newStatus === 'QUALITY_CHECK' || newStatus === 'READY_FOR_PACKAGING') {
-    if (!shipment.items.every((i) => i.hub_received)) {
-      throw new Error(
-        'Cannot complete Quality Check until all products in this shipment have been received at the Onitsha hub.'
-      );
-    }
-    shipment.items = shipment.items.map((i) => ({
-      ...i,
-      quality_checked: true,
-      quality_checked_at: i.quality_checked_at || now,
-    }));
-    shipment.hub_inspected_confirmed = true;
-  }
-
-  shipment.status = newStatus;
+  shipment.status = normalizeFulfillmentStatus(newStatus);
   if (options?.transport_arrangement !== undefined) {
     shipment.transport_arrangement = options.transport_arrangement;
   }
@@ -1483,10 +2488,10 @@ export function updateShipmentStatus(
   if (options?.tracking_reference !== undefined) {
     shipment.tracking_reference = options.tracking_reference;
   }
-  if (newStatus === 'DISPATCHED' && !shipment.dispatched_at) {
+  if (shipment.status === 'DISPATCHED' && !shipment.dispatched_at) {
     shipment.dispatched_at = now;
   }
-  if (newStatus === 'DELIVERED') {
+  if (shipment.status === 'DELIVERED') {
     shipment.dispatched_at = shipment.dispatched_at || now;
     shipment.delivered_at = now;
   }
@@ -1542,7 +2547,7 @@ export function approvePartialSplitDelivery(
       : readyItems.every((i) => i.quality_checked)
       ? 'READY_FOR_PACKAGING'
       : 'PRODUCTS_RECEIVED',
-    separation_reason: 'Approved split dispatch for items already received at Onitsha Hub.',
+    separation_reason: 'Approved split dispatch for items already received for direct delivery.',
     updated_at: now,
   };
 
@@ -1560,7 +2565,7 @@ export function approvePartialSplitDelivery(
     hub_inspected_confirmed: false,
     hub_packaged_confirmed: false,
     status: 'AWAITING_PRODUCTS_AT_HUB',
-    separation_reason: 'Split shipment awaiting delayed supplier product arrival at Onitsha Hub.',
+    separation_reason: 'Split shipment awaiting delayed supplier product arrival for direct delivery.',
     tracking_reference: `${target.order_reference}-TRK-${delayedShipmentIndex}`,
     created_at: now,
     updated_at: now,
@@ -1645,32 +2650,48 @@ export function customerRespondToManualQuote(
 
 export function deriveOverallOrderStatus(
   shipments: OrderShipment[]
-): 'PENDING_PAYMENT' | 'PROCESSING' | 'SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' {
+): ShipmentFulfillmentStatus {
   if (!shipments || shipments.length === 0) return 'PROCESSING';
 
-  const allDelivered = shipments.every((s) => s.status === 'DELIVERED');
-  if (allDelivered) {
+  const normalized = shipments.map((s) => normalizeFulfillmentStatus(s.status));
+
+  // Single shipment orders: overall order fulfillment strictly reflects shipment status
+  if (normalized.length === 1) {
+    return normalized[0];
+  }
+
+  // All shipments cancelled
+  if (normalized.every((s) => s === 'CANCELLED')) {
+    return 'CANCELLED';
+  }
+
+  const active = normalized.filter((s) => s !== 'CANCELLED');
+  if (active.length === 0) return 'CANCELLED';
+
+  // 1. If every active shipment is DELIVERED, overall order is DELIVERED
+  if (active.every((s) => s === 'DELIVERED')) {
     return 'DELIVERED';
   }
 
-  const anyOutForDeliveryOrDelivered = shipments.some(
-    (s) => s.status === 'OUT_FOR_DELIVERY' || s.status === 'DELIVERED'
-  );
-  if (anyOutForDeliveryOrDelivered) {
-    return 'IN_TRANSIT';
+  // 2. If any active shipment is still being prepared, order CANNOT show Delivered or Out for Delivery
+  const anyPreparing = active.some((s) => s === 'ORDER_PLACED' || s === 'PROCESSING');
+  if (anyPreparing) {
+    return 'PROCESSING';
   }
 
-  const anyDispatched = shipments.some((s) => s.status === 'DISPATCHED');
+  // 3. If all active shipments are in final stage and at least one is Out for Delivery
+  const allFinal = active.every((s) => s === 'OUT_FOR_DELIVERY' || s === 'DELIVERED');
+  if (allFinal && active.some((s) => s === 'OUT_FOR_DELIVERY')) {
+    return 'OUT_FOR_DELIVERY';
+  }
+
+  // 4. If any shipment is Dispatched
+  const anyDispatched = active.some((s) => s === 'DISPATCHED' || s === 'OUT_FOR_DELIVERY' || s === 'DELIVERED');
   if (anyDispatched) {
-    return 'SHIPPED';
+    return 'DISPATCHED';
   }
 
-  const anyAwaitingQuote = shipments.some((s) => s.status === 'AWAITING_DELIVERY_CONFIRMATION');
-  if (anyAwaitingQuote) {
-    return 'PENDING_PAYMENT';
-  }
-
-  return 'PROCESSING';
+  return 'READY_FOR_DISPATCH';
 }
 
 export function deriveOverallHubFulfillmentStatus(shipments: OrderShipment[]): ShipmentFulfillmentStatus {
@@ -1724,9 +2745,10 @@ export function resolveProductDeliveryAttributes(
  */
 export function calculateConsolidatedDelivery(
   itemsOrParams: any[] | CalculateOrderDeliveryParams,
-  destinationState = 'Lagos',
-  destinationCity = 'Lagos',
-  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN
+  destinationState = '',
+  destinationCity = '',
+  dispatchOrigin = PRIMARY_DISPATCH_ORIGIN,
+  routeOverride?: DeliveryRoute | null
 ): DeliveryCalculationResult {
   if (!Array.isArray(itemsOrParams) && itemsOrParams && Array.isArray(itemsOrParams.items)) {
     return calculateOrderDelivery(itemsOrParams);
@@ -1782,6 +2804,7 @@ export function calculateConsolidatedDelivery(
     destinationState,
     destinationCity,
     dispatchOrigin,
+    ...(routeOverride !== undefined ? { routeOverride } : {}),
   });
 }
 
@@ -1826,4 +2849,8 @@ export function reverifySessionDeliveryPricing(params: {
     newDeliveryFee: newFee,
     updatedCalculation,
   };
+}
+
+export function setLocalRoutes(routes: DeliveryRoute[]): void {
+  writeLocal(STORAGE_KEYS.ROUTES, routes);
 }

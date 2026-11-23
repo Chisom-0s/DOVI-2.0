@@ -625,7 +625,7 @@ index_html_content = f"""<!doctype html>
         <div class="static-hero-badges">
           <span class="static-badge">🛡️ 100% Escrow Protection</span>
           <span class="static-badge">💰 Save2Own Zero-Interest Installments</span>
-          <span class="static-badge">🚚 Fast Campus Delivery & Onitsha Hub</span>
+          <span class="static-badge">🚚 Fast Direct Destination Delivery</span>
           <span class="static-badge">✅ Verified Vendors & Students</span>
         </div>
       </section>
@@ -666,8 +666,8 @@ index_html_content = f"""<!doctype html>
             </div>
             <div class="value-prop-card">
               <span style="font-size: 2rem;">🚚</span>
-              <h3>Onitsha Hub & Campus Logistics</h3>
-              <p>All items pass through our centralized Onitsha Logistics Hub for physical quality checks and multi-vendor parcel consolidation, reducing shipping fees and preventing fake goods.</p>
+              <h3>Direct Destination Logistics</h3>
+              <p>All items pass through our centralized Fulfillment & Logistics Network for physical quality checks and multi-vendor parcel consolidation, reducing shipping fees and preventing fake goods.</p>
             </div>
           </div>
         </section>

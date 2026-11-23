@@ -133,7 +133,6 @@ export default function Header() {
         <div className="site-header__brand">
           <nav style={navLinksStyles} className="hide-mobile">
             <Link to="/products" className="header-nav-link">Marketplace</Link>
-            <Link to="/categories/auto" className="header-nav-link">Auto</Link>
             <Link to="/save2own" className="header-nav-link">Save2Own</Link>
           </nav>
         </div>
@@ -294,7 +293,6 @@ export default function Header() {
                 {/* Primary Category Track */}
                 <div className="dovi-category-group">
                   <Link to="/products" className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
-                  <Link to="/auto" className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
                   <Link to="/save2own" className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
                   {activeCategories.map(cat => (
                     <Link
@@ -310,7 +308,6 @@ export default function Header() {
                 {/* Secondary Cloned Group for Seamless Gapless Infinite Sliding */}
                 <div className="dovi-category-group" aria-hidden="true">
                   <Link to="/products" tabIndex={-1} className={`header-category-link page-link hide-desktop ${location.pathname === '/products' && !currentCategory ? 'active-category' : ''}`}>🛍️ Marketplace</Link>
-                  <Link to="/auto" tabIndex={-1} className="header-category-link page-link hide-desktop">🚗 Dovi Auto</Link>
                   <Link to="/save2own" tabIndex={-1} className="header-category-link page-link hide-desktop">🎯 Save2Own</Link>
                   {activeCategories.map(cat => (
                     <Link

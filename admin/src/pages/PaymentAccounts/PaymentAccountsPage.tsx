@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
-import type { PaymentAccount, PaymentAccountType, APIError } from '@/types';
+import type { PaymentAccount, PaymentAccountType, MinimumOrderSettings, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 
@@ -25,6 +25,15 @@ export default function PaymentAccountsPage() {
   const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
+
+  // Minimum Order Value Settings State
+  const [minSettings, setMinSettings] = useState<MinimumOrderSettings>({
+    enabled: true,
+    minimum_amount: 10000,
+  });
+  const [minAmountInput, setMinAmountInput] = useState<number | string>(10000);
+  const [isEnforcingMin, setIsEnforcingMin] = useState(true);
+  const [isSavingMinSettings, setIsSavingMinSettings] = useState(false);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -55,9 +64,50 @@ export default function PaymentAccountsPage() {
     }
   };
 
+  const fetchMinSettings = async () => {
+    try {
+      const settings = await adminApi.getMinimumOrderSettings();
+      setMinSettings(settings);
+      setMinAmountInput(settings.minimum_amount);
+      setIsEnforcingMin(settings.enabled);
+    } catch (err) {
+      console.error('Failed to load minimum order settings', err);
+    }
+  };
+
   useEffect(() => {
     fetchAccounts();
+    fetchMinSettings();
   }, []);
+
+  const handleSaveMinSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = Number(minAmountInput);
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      toast.error('Please enter a valid positive minimum order amount.');
+      return;
+    }
+
+    setIsSavingMinSettings(true);
+    try {
+      const updated = await adminApi.updateMinimumOrderSettings({
+        enabled: isEnforcingMin,
+        minimum_amount: parsedAmount,
+      });
+      setMinSettings(updated);
+      setMinAmountInput(updated.minimum_amount);
+      setIsEnforcingMin(updated.enabled);
+      toast.success(
+        updated.enabled
+          ? `Minimum checkout value set to ₦${updated.minimum_amount.toLocaleString()}`
+          : 'Minimum checkout value requirement disabled.'
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update minimum order settings.');
+    } finally {
+      setIsSavingMinSettings(false);
+    }
+  };
 
   const openCreateModal = (type: PaymentAccountType) => {
     setEditingAccount(null);
@@ -213,6 +263,129 @@ export default function PaymentAccountsPage() {
       {/* Security Architecture Notice */}
       <div style={complianceNoticeStyles}>
         🔒 <strong>Separation Policy:</strong> Save2Own contributions use a dedicated savings bank account. Normal marketplace purchases use the separate marketplace account. Modifications to one account type never impact the other.
+      </div>
+
+      {/* ========================================================
+          MINIMUM ORDER VALUE SETTINGS
+          ======================================================== */}
+      <div style={minOrderCardStyles}>
+        <div style={cardHeaderRowStyles}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>🛡️</span>
+            <div>
+              <h3 style={{ ...cardTitleStyles, margin: 0 }}>Minimum Order Value Settings</h3>
+              <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#6b7280' }}>
+                Enforce a minimum product subtotal required for customer checkout. Protects your store against unprofitable low-value parcel deliveries.
+              </p>
+            </div>
+          </div>
+          <span style={minOrderActiveBadgeStyles(minSettings.enabled)}>
+            {minSettings.enabled
+              ? `● ACTIVE: ₦${Number(minSettings.minimum_amount).toLocaleString()} MINIMUM`
+              : '○ DISABLED: NO MINIMUM REQUIRED'}
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveMinSettings} style={{ marginTop: '16px' }}>
+          <div style={minOrderFormRowStyles}>
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <label style={labelStyles}>
+                <strong>Enforce Minimum Checkout Requirement</strong>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={isEnforcingMin}
+                  onChange={(e) => setIsEnforcingMin(e.target.checked)}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ff7a00' }}
+                />
+                <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>
+                  {isEnforcingMin ? 'Enforce minimum product subtotal before checkout' : 'Disabled (Allow any order value)'}
+                </span>
+              </label>
+              <span style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginTop: '4px' }}>
+                When active, customers whose cart subtotal is less than this value will be blocked from proceeding to checkout and shown an interactive progress bar.
+              </span>
+            </div>
+
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <label style={labelStyles}>
+                <strong>Minimum Order Subtotal (₦)</strong>
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                <span style={{ fontWeight: 700, fontSize: '14px', color: '#374151' }}>₦</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="500"
+                  value={minAmountInput}
+                  onChange={(e) => setMinAmountInput(e.target.value)}
+                  disabled={!isEnforcingMin}
+                  placeholder="10000"
+                  style={{
+                    ...inputStyles,
+                    maxWidth: '180px',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    backgroundColor: isEnforcingMin ? '#ffffff' : '#f3f4f6',
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>
+                  ₦{Number(minAmountInput || 0).toLocaleString()} NGN
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280', alignSelf: 'center' }}>Presets:</span>
+                {[5000, 10000, 15000, 20000, 30000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => {
+                      setMinAmountInput(amt);
+                      setIsEnforcingMin(true);
+                    }}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      borderRadius: '4px',
+                      border: '1px solid #d1d5db',
+                      background: Number(minAmountInput) === amt ? '#ff7a00' : '#ffffff',
+                      color: Number(minAmountInput) === amt ? '#ffffff' : '#374151',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ₦{amt.toLocaleString()}{amt === 10000 ? ' (Default)' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+              <button
+                type="submit"
+                disabled={isSavingMinSettings}
+                style={{
+                  ...primaryActionBtnStyles,
+                  padding: '10px 20px',
+                  backgroundColor: '#ff7a00',
+                  color: '#ffffff',
+                  opacity: isSavingMinSettings ? 0.7 : 1,
+                  cursor: isSavingMinSettings ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isSavingMinSettings ? 'Saving...' : '💾 Save Minimum Order Settings'}
+              </button>
+            </div>
+          </div>
+
+          {minSettings.updated_at && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: '#9ca3af', display: 'flex', gap: '16px' }}>
+              <span>Last updated: {new Date(minSettings.updated_at).toLocaleString()}</span>
+              {minSettings.updated_by && <span>Updated by: {minSettings.updated_by}</span>}
+            </div>
+          )}
+        </form>
       </div>
 
       <div style={sectionsGridStyles}>
@@ -997,3 +1170,30 @@ const modalSubmitBtnStyles: React.CSSProperties = {
   color: '#ffffff',
   cursor: 'pointer',
 };
+
+const minOrderCardStyles: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  borderRadius: '12px',
+  border: '1px solid #e5e7eb',
+  padding: '20px',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  marginBottom: '24px',
+};
+
+const minOrderFormRowStyles: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '20px',
+  alignItems: 'flex-start',
+};
+
+const minOrderActiveBadgeStyles = (enabled: boolean): React.CSSProperties => ({
+  fontSize: '11px',
+  fontWeight: 800,
+  letterSpacing: '0.5px',
+  padding: '4px 10px',
+  borderRadius: '9999px',
+  backgroundColor: enabled ? '#d1fae5' : '#f3f4f6',
+  color: enabled ? '#065f46' : '#6b7280',
+  border: enabled ? '1px solid #a7f3d0' : '1px solid #e5e7eb',
+});

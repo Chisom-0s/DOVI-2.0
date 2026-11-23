@@ -151,7 +151,58 @@ export default function Save2OwnCreateGoalPage() {
     }).format(num);
   };
 
-  const handleSelfieChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const convertToJpegFile = (file: File | Blob): Promise<File> => {
+    return new Promise((resolve) => {
+      if (file instanceof File && (file.type === 'image/jpeg' || file.name.endsWith('.jpg')) && file.size < 2 * 1024 * 1024) {
+        return resolve(file);
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width || 640;
+          let height = img.height || 480;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  const jpegFile = new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                  resolve(jpegFile);
+                } else {
+                  resolve(file instanceof File ? file : new File([file], 'selfie.jpg', { type: 'image/jpeg' }));
+                }
+              },
+              'image/jpeg',
+              0.90
+            );
+          } else {
+            resolve(file instanceof File ? file : new File([file], 'selfie.jpg', { type: 'image/jpeg' }));
+          }
+        };
+        img.onerror = () => resolve(file instanceof File ? file : new File([file], 'selfie.jpg', { type: 'image/jpeg' }));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve(file instanceof File ? file : new File([file], 'selfie.jpg', { type: 'image/jpeg' }));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSelfieChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -162,12 +213,14 @@ export default function Save2OwnCreateGoalPage() {
         toast.error('Selfie image must be less than 10MB.');
         return;
       }
-      setSelfieFile(file);
+      const jpegFile = await convertToJpegFile(file);
+      setSelfieFile(jpegFile);
       const reader = new FileReader();
       reader.onload = () => {
         setSelfiePreview(reader.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(jpegFile);
+      toast.success('Selfie image selected.');
     }
   };
 
@@ -369,7 +422,6 @@ export default function Save2OwnCreateGoalPage() {
     try {
       const formData = new FormData();
       formData.append('product_id', product.id);
-      formData.append('variant', variantId);
       formData.append('variant_id', variantId);
       formData.append('quantity', String(quantity));
       formData.append('contribution_plan', plan);
@@ -417,12 +469,13 @@ export default function Save2OwnCreateGoalPage() {
     } catch (err: any) {
       setError(err);
 
-      // If backend threw 500 or constraint error, verify if user already has an active goal
+      // If an active goal already exists, direct the customer directly to it
       try {
         const elig = await save2ownApi.checkEligibility();
         if (!elig.can_create_goal && elig.active_goal) {
           setEligibility(elig);
-          toast.error('You already have an active Save2Own goal. Only one active goal is permitted at a time.');
+          toast.error(`You already have an active Save2Own goal (${elig.active_goal.reference_code || 'Ongoing'}).`);
+          navigate(`/save2own/goals/${elig.active_goal.id}`);
           return;
         }
       } catch {}
@@ -430,32 +483,24 @@ export default function Save2OwnCreateGoalPage() {
       const apiErr = err as APIError;
       const errMsg = apiErr?.message || '';
 
-      if (
+      if (apiErr?.details && typeof apiErr.details === 'object' && 'active_goal' in apiErr.details) {
+        toast.error('You already have an active Save2Own goal. Only one active goal is permitted at a time.');
+      } else if (apiErr?.details && Array.isArray(apiErr.details) && apiErr.details.length > 0) {
+        // Specific validation field messages
+        const firstErr = apiErr.details[0];
+        const key = Object.keys(firstErr)[0];
+        const val = firstErr[key];
+        const msg = Array.isArray(val) ? val[0] : String(val);
+        toast.error(`${key}: ${msg}`);
+      } else if (
         errMsg.toLowerCase().includes('unexpected') ||
         errMsg.toLowerCase().includes('server error') ||
-        apiErr?.code === 'SERVER_ERROR'
-      ) {
-        try {
-          const check = await save2ownApi.checkEligibility();
-          if (!check.can_create_goal && check.active_goal) {
-            setEligibility(check);
-            toast.error('You already have an active Save2Own goal. Only one active goal is permitted.');
-            navigate(`/save2own/goals/${check.active_goal.id}`);
-            return;
-          }
-        } catch {}
-      }
-
-      if (apiErr?.details && typeof apiErr.details === 'object' && 'active_goal' in apiErr.details) {
-        toast.error('You already have an active Save2Own goal.');
-      } else if (
-        apiErr?.message?.toLowerCase().includes('server') ||
         apiErr?.code === 'SERVER_ERROR' ||
         apiErr?.code === 'INTERNAL_SERVER_ERROR'
       ) {
-        toast.error('Could not create goal. You may already have an active Save2Own goal in progress.');
+        toast.error('Unable to complete goal registration right now. Your selfie and details are preserved. Please tap try again.');
       } else {
-        toast.error(apiErr?.message || 'Failed to register Save2Own goal.');
+        toast.error(apiErr?.message || 'Unable to register Save2Own goal. Please verify all details and try again.');
       }
     } finally {
       setIsSubmitting(false);

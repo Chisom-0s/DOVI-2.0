@@ -7,6 +7,7 @@ import {
   enrichProductWithCategory,
   doesProductMatchCategoryFilter,
   syncCategoriesFromServer,
+  mapCategoryToDatabaseUuid,
 } from '@/services/categoryService';
 import type { PaginatedResponse, Product, ProductSummary, Review, ProductVariant } from '@/types';
 
@@ -82,9 +83,13 @@ export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     try {
       await syncCategoriesFromServer();
-      const queryParams: Record<string, any> = {};
-      if (filters?.page) queryParams.page = filters.page;
-      queryParams.page_size = filters?.page_size || 100;
+      const requestedPage = filters?.page || 1;
+      const requestedPageSize = filters?.page_size || 24;
+      const queryParams: Record<string, any> = {
+        page: requestedPage,
+        page_size: requestedPageSize,
+      };
+
       if (filters?.min_price !== undefined) queryParams.min_price = filters.min_price;
       if (filters?.max_price !== undefined) queryParams.max_price = filters.max_price;
       if (filters?.in_stock !== undefined) queryParams.in_stock = filters.in_stock;
@@ -93,6 +98,15 @@ export const productsApi = {
         queryParams.search = filters.q;
       } else if (filters?.search) {
         queryParams.search = filters.search;
+      }
+
+      if (filters?.category) {
+        const catUuid = mapCategoryToDatabaseUuid(filters.category);
+        if (catUuid) {
+          queryParams.category = catUuid;
+        } else {
+          queryParams.category = filters.category;
+        }
       }
 
       if (filters?.sort) {
@@ -123,6 +137,7 @@ export const productsApi = {
         })
         .map((p) => normalizeBackendProductToSummary(p));
 
+      // Category filter fallback for products with embedded DOVI_CATEGORY metadata
       if (filters?.category || filters?.subcategory) {
         realProducts = realProducts.filter((p) =>
           doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
@@ -148,25 +163,25 @@ export const productsApi = {
         !filters?.min_rating &&
         !filters?.campaign &&
         !filters?.q &&
-        (filters?.page || 1) === 1;
+        requestedPage === 1;
       if (isDefaultView && realProducts.length > 0) {
         try {
-          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
-          localStorage.setItem('dovi_real_products_cache', JSON.stringify(realProducts));
+          const existingCached = JSON.parse(localStorage.getItem('dovi_real_products_cache') || '[]');
+          const map = new Map<string, any>(Array.isArray(existingCached) ? existingCached.map((p: any) => [p.id, p]) : []);
+          realProducts.forEach((p) => map.set(p.id, p));
+          const merged = Array.from(map.values());
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
+          localStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
         } catch {}
       }
 
-      const totalCount =
-        filters?.category || filters?.subcategory
-          ? realProducts.length
-          : typeof data?.count === 'number'
-          ? data.count
-          : realProducts.length;
+      const totalCount = typeof data?.count === 'number' ? data.count : realProducts.length;
+      const hasNext = Boolean(data?.next) || (requestedPage * requestedPageSize < totalCount);
 
       return {
         count: totalCount,
-        next: filters?.category || filters?.subcategory ? null : data?.next || null,
-        previous: filters?.category || filters?.subcategory ? null : data?.previous || null,
+        next: hasNext ? (data?.next ? String(data.next) : `?page=${requestedPage + 1}`) : null,
+        previous: data?.previous ? String(data.previous) : (requestedPage > 1 ? `?page=${requestedPage - 1}` : null),
         results: realProducts,
       };
     } catch (err: any) {
@@ -182,7 +197,7 @@ export const productsApi = {
           if (fromLocal) list = JSON.parse(fromLocal);
         } catch {}
       }
-      if (!list || list.length === 0) {
+      if (!list || list.length < SEED_REAL_PRODUCTS.length) {
         list = SEED_REAL_PRODUCTS;
       }
 
@@ -216,11 +231,15 @@ export const productsApi = {
         if (filters?.sort === 'rating') {
           cleaned = [...cleaned].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
         }
+        const p = filters?.page || 1;
+        const pSize = filters?.page_size || 24;
+        const paginatedSlice = cleaned.slice((p - 1) * pSize, p * pSize);
+        const hasNext = p * pSize < cleaned.length;
         return {
           count: cleaned.length,
-          next: null,
-          previous: null,
-          results: cleaned,
+          next: hasNext ? String(p + 1) : null,
+          previous: p > 1 ? String(p - 1) : null,
+          results: paginatedSlice,
         };
       }
 
@@ -323,7 +342,7 @@ export const productsApi = {
         name: 'Dovi Official Partner',
         logo_url: null,
         rating: 5,
-        review_count: 12,
+        review_count: 0,
         location: 'Lagos, Nigeria',
       },
       vendor_name: 'Dovi Official Partner',
@@ -337,8 +356,8 @@ export const productsApi = {
           sku: `SKU-${(id || 'DEFAULT').substring(0, 8).toUpperCase()}`,
         },
       ],
-      average_rating: 4.8,
-      review_count: 12,
+      average_rating: 0,
+      review_count: 0,
       status: 'PUBLISHED',
       created_at: new Date().toISOString(),
     } as any) as Product;

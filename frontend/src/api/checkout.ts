@@ -1,9 +1,15 @@
+import { resolveItemDisplay } from '@/utils/orderImageHelper';
+import { resolveProductSellingPrice } from '@/services/homepagePlacementService';
 // Checkout API — /api/v1/checkout/*
-import apiClient, { normalizeApiError } from './client';
+import apiClient, { normalizeApiError, tokenStore } from './client';
+import { deliveryApi } from './delivery';
+import { paymentsApi } from './payments';
+import { pushPaymentsAndOrdersToServer } from '@/services/orderPaymentSync';
 import {
   syncDeliveryStoreFromServer,
   calculateOrderDelivery,
   buildOrderShipmentsFromCalculation,
+  findRouteInList,
   type EvaluableOrderItem,
 } from '@/services/deliveryPricingService';
 import type {
@@ -12,6 +18,7 @@ import type {
   CheckoutSession,
   DeliveryCalculationResult,
   Order,
+  User,
   VendorDeliverySelection,
 } from '@/types';
 
@@ -65,9 +72,43 @@ export function saveLocalOrder(order: Order): void {
     map[order.reference] = order;
     map[order.id] = order;
     localStorage.setItem(LOCAL_ORDERS_STORAGE_KEY, JSON.stringify(map));
+    localStorage.setItem('dovi_orders', JSON.stringify(Object.values(map)));
+    void pushPaymentsAndOrdersToServer(undefined, map);
   } catch {
     // Ignore storage errors
   }
+}
+
+export function sanitizeCartSnapshot(snapshot?: Cart | null): Cart | undefined {
+  if (!snapshot || !Array.isArray(snapshot.items) || snapshot.items.length === 0) {
+    return snapshot || undefined;
+  }
+  const sanitizedItems = snapshot.items.map((it: any) => {
+    const pricing = resolveProductSellingPrice({
+      id: it.product_id || (typeof it.product === 'object' ? it.product?.id : undefined),
+      name: it.product_name || it.name || (typeof it.product === 'object' ? it.product?.name : undefined),
+      base_price: it.price ?? it.unit_price ?? (typeof it.product === 'object' ? it.product?.price : 0),
+      price: it.price ?? it.unit_price ?? (typeof it.product === 'object' ? it.product?.price : 0),
+      description: typeof it.product === 'object' ? it.product?.description : undefined,
+    });
+    const unitPriceNum = pricing.sellingPrice > 0 ? pricing.sellingPrice : Number(it.unit_price || it.price || 0);
+    const qty = Number(it.quantity) || 1;
+    const lineTotal = (unitPriceNum * qty).toFixed(2);
+    return {
+      ...it,
+      unit_price: String(unitPriceNum),
+      price: String(unitPriceNum),
+      line_total: lineTotal,
+    };
+  });
+  const subtotal = sanitizedItems.reduce((acc, it) => acc + Number(it.line_total), 0).toFixed(2);
+  return {
+    ...snapshot,
+    items: sanitizedItems,
+    item_count: sanitizedItems.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0),
+    subtotal,
+    total: subtotal,
+  };
 }
 
 export const checkoutApi = {
@@ -87,8 +128,43 @@ export const checkoutApi = {
   }): Promise<CheckoutSession> => {
     await syncDeliveryStoreFromServer();
 
+    // Strict validation: Validate mandatory delivery information before creating session
+    const recipName = (payload.recipient_name || payload.delivery_address?.full_name || '').trim();
+    if (!recipName || recipName.toLowerCase() === 'customer') {
+      throw new Error('Please enter your full name.');
+    }
+
+    const recipPhone = (payload.recipient_phone || payload.delivery_address?.phone || '').trim();
+    const phoneDigits = recipPhone.replace(/[^0-9]/g, '');
+    if (!recipPhone || phoneDigits.length < 10) {
+      throw new Error('Please enter an active phone number (at least 10 digits).');
+    }
+
+    const destState = (payload.destination_state || payload.delivery_address?.state || '').trim();
+    if (!destState) {
+      throw new Error('Please select your state.');
+    }
+
+    const destCity = (payload.destination_city || payload.delivery_address?.city || '').trim();
+    if (!destCity) {
+      throw new Error('Please select your town.');
+    }
+
+    const destAddr = (payload.destination_address || payload.delivery_address?.address_line_1 || '').trim();
+    if (!destAddr || destAddr.length < 5) {
+      throw new Error('Please enter your complete delivery address.');
+    }
+
     const calc = payload.delivery_calculation;
-    const subtotalNum = calc ? calc.product_subtotal : Number(payload.cart_snapshot?.subtotal || 0);
+    const effectiveCartSnapshot = sanitizeCartSnapshot(payload.cart_snapshot);
+    const subtotalNum = calc ? calc.product_subtotal : Number(effectiveCartSnapshot?.subtotal || 0);
+
+    // Enforce server-configured minimum checkout subtotal
+    const minSettings = await paymentsApi.getMinimumOrderSettings();
+    if (minSettings.enabled && subtotalNum > 0 && subtotalNum < minSettings.minimum_amount) {
+      const remaining = minSettings.minimum_amount - subtotalNum;
+      throw new Error(`Minimum product subtotal of ₦${minSettings.minimum_amount.toLocaleString()} required to checkout. Please add ₦${remaining.toLocaleString()} more to proceed.`);
+    }
 
     try {
       const { data } = await apiClient.post('/api/v1/checkout/', {
@@ -102,7 +178,7 @@ export const checkoutApi = {
       if (calc) {
         saveStoredSessionOverlay({
           id: sessionId,
-          cart_snapshot: payload.cart_snapshot || data.cart_snapshot,
+          cart_snapshot: effectiveCartSnapshot || data.cart_snapshot,
           delivery_address: payload.delivery_address || data.delivery_address,
           delivery_calculation: calc,
           route_updated_at_snapshot: calc.route_updated_at || null,
@@ -116,6 +192,7 @@ export const checkoutApi = {
 
       return {
         ...data,
+        cart_snapshot: effectiveCartSnapshot || data.cart_snapshot,
         delivery_address: payload.delivery_address || data.delivery_address,
         subtotal: String(subtotalNum),
         delivery_fee: calc && calc.total_delivery_fee !== null ? String(calc.total_delivery_fee) : data.delivery_fee,
@@ -129,12 +206,12 @@ export const checkoutApi = {
     } catch (err) {
       // If backend checkout session fails when creating a manual-quote session or local session,
       // provide a resilient session when cart_snapshot and delivery_calculation are supplied
-      if (payload.cart_snapshot && calc) {
+      if (effectiveCartSnapshot && calc) {
         const fallbackId = `chk_${Date.now()}`;
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
         saveStoredSessionOverlay({
           id: fallbackId,
-          cart_snapshot: payload.cart_snapshot,
+          cart_snapshot: effectiveCartSnapshot,
           delivery_address: payload.delivery_address || null,
           delivery_calculation: calc,
           route_updated_at_snapshot: calc.route_updated_at || null,
@@ -147,11 +224,11 @@ export const checkoutApi = {
 
         return {
           id: fallbackId,
-          cart_snapshot: payload.cart_snapshot,
+          cart_snapshot: effectiveCartSnapshot,
           delivery_address: payload.delivery_address || null,
           delivery_method: {
-            id: 'onitsha-hub-consolidated',
-            name: 'DOVI Onitsha Hub Consolidated Delivery',
+            id: 'dovi-direct-delivery',
+            name: 'DOVI Direct Delivery',
             description: calc.overall_explanation,
             estimated_days: '2-4 business days',
             price: calc.total_delivery_fee !== null ? String(calc.total_delivery_fee) : '0',
@@ -226,8 +303,8 @@ export const checkoutApi = {
           cart_snapshot: overlay.cart_snapshot,
           delivery_address: overlay.delivery_address || null,
           delivery_method: {
-            id: 'onitsha-hub-consolidated',
-            name: 'DOVI Onitsha Hub Consolidated Delivery',
+            id: 'dovi-direct-delivery',
+            name: 'DOVI Direct Delivery',
             description: overlay.delivery_calculation.overall_explanation,
             estimated_days: '2-4 business days',
             price:
@@ -306,11 +383,21 @@ export const checkoutApi = {
       }))
     );
 
+    // Use the exact same route list as the checkout selectors (backend + shared admin store).
+    const routesForVerify = await deliveryApi.getActiveRoutes();
+    const verifyRoute = findRouteInList(
+      routesForVerify,
+      existingCalc.destination_state,
+      existingCalc.destination_city,
+      existingCalc.dispatch_origin
+    ).route;
+
     const freshCalc = calculateOrderDelivery({
       items: evaluableItems,
       destinationState: existingCalc.destination_state,
       destinationCity: existingCalc.destination_city,
       dispatchOrigin: existingCalc.dispatch_origin,
+      routeOverride: verifyRoute,
     });
 
     const prevFee = existingCalc.total_delivery_fee;
@@ -368,6 +455,12 @@ export const checkoutApi = {
   ): Promise<{ order_reference: string }> => {
     await syncDeliveryStoreFromServer();
     const overlay = getStoredSessionMap()[id];
+    const currentUser = tokenStore.getUser<User>();
+    const userId = currentUser?.id || undefined;
+    const userEmail = currentUser?.email || (overlay?.delivery_address as any)?.email || undefined;
+    const userName = currentUser
+      ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
+      : overlay?.delivery_address?.full_name || undefined;
 
     try {
       const { data } = await apiClient.post(`/api/v1/checkout/${id}/confirm/`, payload);
@@ -377,7 +470,91 @@ export const checkoutApi = {
         const addrStr = overlay.delivery_address
           ? `${overlay.delivery_address.address_line_1}, ${overlay.delivery_address.city}, ${overlay.delivery_address.state}`
           : `${overlay.delivery_calculation.destination_city}, ${overlay.delivery_calculation.destination_state}`;
-        buildOrderShipmentsFromCalculation(orderRef, orderRef, overlay.delivery_calculation, addrStr);
+        const shipments = buildOrderShipmentsFromCalculation(orderRef, orderRef, overlay.delivery_calculation, addrStr);
+
+        const now = new Date().toISOString();
+        const fullOrder: Order = {
+          id: orderRef,
+          reference: orderRef,
+          reference_code: orderRef,
+          customer_id: userId,
+          buyer_id: userId,
+          buyer_email: userEmail,
+          buyer_name: userName,
+          status: 'PENDING_PAYMENT',
+          items: (overlay.cart_snapshot?.items || []).map((ci, idx) => {
+            const pricing = resolveProductSellingPrice({
+              id: ci.product_id || (typeof ci.product === 'object' ? ci.product?.id : undefined),
+              name: ci.product_name || ci.name || (typeof ci.product === 'object' ? ci.product?.name : undefined),
+              base_price: ci.price ?? ci.unit_price ?? (typeof ci.product === 'object' ? ci.product?.price : 0),
+              price: ci.price ?? ci.unit_price ?? (typeof ci.product === 'object' ? ci.product?.price : 0),
+              description: typeof ci.product === 'object' ? ci.product?.description : undefined,
+            });
+            const effectiveUnitPrice = pricing.sellingPrice > 0 ? pricing.sellingPrice : Number(ci.unit_price || ci.price || 0);
+            const qty = Number(ci.quantity) || 1;
+            const lineTot = (effectiveUnitPrice * qty).toFixed(2);
+            return {
+              id: ci.id || `oi_${idx}`,
+              product: ci.product || {
+                id: String(ci.product_id || `prod_${idx}`),
+                name: ci.product_name || ci.name || 'Product',
+                price: String(effectiveUnitPrice),
+                primary_image_url: ci.image_url || null,
+                average_rating: 0,
+                review_count: 0,
+                stock_quantity: 10,
+                status: 'ACTIVE',
+              },
+              variant: typeof ci.variant === 'object' ? ci.variant : null,
+              quantity: qty,
+              unit_price: String(effectiveUnitPrice),
+              line_total: lineTot,
+            };
+          }),
+          delivery_address: overlay.delivery_address || null,
+          delivery_method: 'DOVI Direct Delivery',
+          subtotal: overlay.subtotal,
+          delivery_fee:
+            overlay.delivery_calculation.total_delivery_fee !== null
+              ? String(overlay.delivery_calculation.total_delivery_fee)
+              : '0',
+          total:
+            overlay.delivery_calculation.total_payable !== null
+              ? String(overlay.delivery_calculation.total_payable)
+              : overlay.subtotal,
+          payment_status: 'PENDING_PAYMENT',
+          payment_method: payload.payment_provider,
+          tracking: [
+            {
+              status: 'PENDING_PAYMENT',
+              location: 'Direct Delivery',
+              description: overlay.delivery_calculation.requires_manual_quote
+                ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
+                : 'Order created and consolidated for direct dispatch.',
+              timestamp: now,
+            },
+          ],
+          can_cancel: true,
+          can_request_refund: false,
+          can_confirm_receipt: false,
+          can_review: false,
+          created_at: now,
+          updated_at: now,
+          shipments,
+          shipment_count: shipments.length,
+          delivery_calculation: overlay.delivery_calculation,
+          requires_delivery_confirmation: overlay.delivery_calculation.requires_manual_quote,
+          delivery_confirmation_status: overlay.delivery_calculation.requires_manual_quote
+            ? 'PENDING_ADMIN_QUOTE'
+            : 'NOT_REQUIRED',
+          hub_fulfillment_status: overlay.delivery_calculation.requires_manual_quote
+            ? 'AWAITING_DELIVERY_CONFIRMATION'
+            : 'ORDER_PLACED',
+          dispatch_origin: 'Onitsha',
+        };
+
+        saveLocalOrder(fullOrder);
+        void apiClient.post('/api/v1/orders/', fullOrder).catch(() => {});
       }
 
       return data;
@@ -400,28 +577,43 @@ export const checkoutApi = {
         const localOrder: Order = {
           id: orderRef,
           reference: orderRef,
+          reference_code: orderRef,
+          customer_id: userId,
+          buyer_id: userId,
+          buyer_email: userEmail,
+          buyer_name: userName,
           status: 'PENDING_PAYMENT',
-          items: (overlay.cart_snapshot.items || []).map((ci, idx) => ({
-            id: ci.id || `oi_${idx}`,
-            product: ci.product || {
-              id: String(ci.product_id || `prod_${idx}`),
-              name: ci.product_name || ci.name || 'Product',
-              price: String(ci.unit_price || ci.price || '0'),
-              primary_image_url: ci.image_url || null,
-              average_rating: 5,
-              review_count: 1,
-              stock_quantity: 10,
-              status: 'ACTIVE',
-            },
-            variant: typeof ci.variant === 'object' ? ci.variant : null,
-            quantity: ci.quantity,
-            unit_price: String(ci.unit_price || ci.price || '0'),
-            line_total: String(
-              Number(ci.unit_price || ci.price || 0) * Number(ci.quantity || 1)
-            ),
-          })),
+          items: (overlay.cart_snapshot.items || []).map((ci, idx) => {
+            const pricing = resolveProductSellingPrice({
+              id: ci.product_id || (typeof ci.product === 'object' ? ci.product?.id : undefined),
+              name: ci.product_name || ci.name || (typeof ci.product === 'object' ? ci.product?.name : undefined),
+              base_price: ci.price ?? ci.unit_price ?? (typeof ci.product === 'object' ? ci.product?.price : 0),
+              price: ci.price ?? ci.unit_price ?? (typeof ci.product === 'object' ? ci.product?.price : 0),
+              description: typeof ci.product === 'object' ? ci.product?.description : undefined,
+            });
+            const effectiveUnitPrice = pricing.sellingPrice > 0 ? pricing.sellingPrice : Number(ci.unit_price || ci.price || 0);
+            const qty = Number(ci.quantity) || 1;
+            const lineTot = (effectiveUnitPrice * qty).toFixed(2);
+            return {
+              id: ci.id || `oi_${idx}`,
+              product: ci.product || {
+                id: String(ci.product_id || `prod_${idx}`),
+                name: ci.product_name || ci.name || 'Product',
+                price: String(effectiveUnitPrice),
+                primary_image_url: ci.image_url || null,
+                average_rating: 0,
+                review_count: 0,
+                stock_quantity: 10,
+                status: 'ACTIVE',
+              },
+              variant: typeof ci.variant === 'object' ? ci.variant : null,
+              quantity: qty,
+              unit_price: String(effectiveUnitPrice),
+              line_total: lineTot,
+            };
+          }),
           delivery_address: overlay.delivery_address || null,
-          delivery_method: 'DOVI Onitsha Hub Consolidated Delivery',
+          delivery_method: 'DOVI Direct Delivery',
           subtotal: overlay.subtotal,
           delivery_fee:
             overlay.delivery_calculation.total_delivery_fee !== null
@@ -431,15 +623,15 @@ export const checkoutApi = {
             overlay.delivery_calculation.total_payable !== null
               ? String(overlay.delivery_calculation.total_payable)
               : overlay.subtotal,
-          payment_status: 'PENDING',
+          payment_status: 'PENDING_PAYMENT',
           payment_method: payload.payment_provider,
           tracking: [
             {
               status: 'PENDING_PAYMENT',
-              location: 'Onitsha Hub',
+              location: 'Direct Delivery',
               description: overlay.delivery_calculation.requires_manual_quote
                 ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
-                : 'Order created and consolidated for Onitsha Hub dispatch.',
+                : 'Order created and consolidated for direct dispatch.',
               timestamp: now,
             },
           ],
@@ -463,6 +655,7 @@ export const checkoutApi = {
         };
 
         saveLocalOrder(localOrder);
+        void apiClient.post('/api/v1/orders/', localOrder).catch(() => {});
         return { order_reference: orderRef };
       }
       throw normalizeApiError(err);
@@ -513,20 +706,34 @@ export const checkoutApi = {
       resolvedAddress.phone
     );
 
+    const currentUser = tokenStore.getUser<User>();
+    const userId = currentUser?.id || undefined;
+    const userEmail = currentUser?.email || (resolvedAddress as any)?.email || undefined;
+    const userName = currentUser
+      ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
+      : (resolvedAddress.full_name || 'Customer');
+
     const now = new Date().toISOString();
     const order: Order = {
       id: orderRef,
       reference: orderRef,
+      reference_code: orderRef,
+      customer_id: userId,
+      buyer_id: userId,
+      buyer_email: userEmail,
+      buyer_name: userName,
       status: 'PENDING_PAYMENT',
-      items: rawItems.map((ci: any, idx: number) => ({
+      items: rawItems.map((ci: any, idx: number) => {
+        const itemDisplay = resolveItemDisplay(ci);
+        return {
         id: ci.id || `oi_${idx}`,
         product: ci.product || {
           id: String(ci.product_id || `prod_${idx}`),
-          name: ci.product_name || ci.name || 'Product',
+          name: ci.product_name || ci.name || itemDisplay.name || 'Product',
           price: String(ci.unit_price || ci.price || '0'),
-          primary_image_url: ci.image_url || null,
-          average_rating: 5,
-          review_count: 1,
+          primary_image_url: ci.image_url || itemDisplay.imageUrl || null,
+          average_rating: 0,
+              review_count: 0,
           stock_quantity: 10,
           status: 'ACTIVE',
         },
@@ -534,9 +741,10 @@ export const checkoutApi = {
         quantity: ci.quantity,
         unit_price: String(ci.unit_price || ci.price || '0'),
         line_total: String(Number(ci.unit_price || ci.price || 0) * Number(ci.quantity || 1)),
-      })),
+      };
+      }),
       delivery_address: resolvedAddress,
-      delivery_method: 'DOVI Onitsha Hub — Manual Delivery Quote Required',
+      delivery_method: 'DOVI Direct Delivery — Custom Quotation',
       subtotal: String(calc.product_subtotal),
       delivery_fee: '0',
       total: String(calc.product_subtotal),
@@ -545,7 +753,7 @@ export const checkoutApi = {
       tracking: [
         {
           status: 'PENDING_PAYMENT',
-          location: 'Onitsha Hub',
+          location: 'Direct Delivery',
           description:
             'Delivery Confirmation Required: Order submitted for transport fee confirmation by DOVI Onitsha logistics team.',
           timestamp: now,
@@ -568,6 +776,7 @@ export const checkoutApi = {
     };
 
     saveLocalOrder(order);
+    void apiClient.post('/api/v1/orders/', order).catch(() => {});
     return { order_reference: orderRef, reference: orderRef, order };
   },
 

@@ -20,26 +20,26 @@ export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     account_type: 'save2own',
     bank_name: 'Kuda Microfinance Bank',
     account_name: 'Dovi Save2Own Savings Trust',
-    account_number: '2039485712',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'Transfer the exact savings amount to this dedicated Save2Own account. In your bank transfer narration/description, enter your Save2Own Reference Code. Once the transfer is completed, click "I\'ve Made the Transfer" and submit your details for verification.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
   {
     id: 'acc-mkt-default',
     account_type: 'marketplace',
     bank_name: 'Zenith Bank',
     account_name: 'Dovi Direct Commerce Limited',
-    account_number: '1012345678',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
 ];
 
@@ -370,43 +370,148 @@ export function normalizeGoalSummary(raw: any): Save2OwnGoalSummary {
   };
 }
 
+
+// ============================================================
+// Shared Save2Own Database Synchronization
+// ============================================================
+async function getSharedSave2OwnDb(): Promise<{
+  save2ownGoals: any[];
+  save2ownParticipants: any[];
+  save2ownContributions: any[];
+  save2ownRefunds: any[];
+}> {
+  try {
+    const res = await fetch('/__dovi_delivery_db__');
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        save2ownGoals: Array.isArray(data.save2ownGoals) ? data.save2ownGoals : [],
+        save2ownParticipants: Array.isArray(data.save2ownParticipants) ? data.save2ownParticipants : [],
+        save2ownContributions: Array.isArray(data.save2ownContributions) ? data.save2ownContributions : [],
+        save2ownRefunds: Array.isArray(data.save2ownRefunds) ? data.save2ownRefunds : [],
+      };
+    }
+  } catch {}
+  return {
+    save2ownGoals: JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]'),
+    save2ownParticipants: JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]'),
+    save2ownContributions: JSON.parse(localStorage.getItem('dovi_global_s2o_contribs') || '[]'),
+    save2ownRefunds: [],
+  };
+}
+
+async function syncSharedSave2OwnDb(partial: {
+  save2ownGoals?: any[];
+  save2ownParticipants?: any[];
+  save2ownContributions?: any[];
+  save2ownRefunds?: any[];
+}) {
+  try {
+    await fetch('/__dovi_delivery_db__', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+  } catch {}
+}
+
 export const save2ownApi = {
   listGoals: async (): Promise<PaginatedResponse<Save2OwnGoalSummary>> => {
+    let serverGoals: any[] = [];
     try {
       const { data } = await apiClient.get('/api/v1/save2own/goals/');
       if (data && Array.isArray(data.results)) {
-        return {
-          ...data,
-          results: data.results.map(normalizeGoalSummary),
-        };
+        serverGoals = data.results;
       } else if (Array.isArray(data)) {
-        return {
-          count: data.length,
-          next: null,
-          previous: null,
-          results: data.map(normalizeGoalSummary),
-        };
+        serverGoals = data;
       }
-      return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      console.warn('[save2own] Server listGoals unreachable or returned error, checking local/shared store:', err);
     }
+
+    // Merge with shared database and local resilient storage
+    let sharedGoals: any[] = [];
+    try {
+      const db = await getSharedSave2OwnDb();
+      sharedGoals = db.save2ownGoals || [];
+    } catch {}
+
+    let storedGoals: any[] = [];
+    try {
+      storedGoals = JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]');
+    } catch {}
+
+    const goalsMap = new Map<string, any>();
+    [...serverGoals, ...sharedGoals, ...storedGoals].forEach((g) => {
+      if (g && (g.id || g.reference_code)) {
+        const key = String(g.id || g.reference_code);
+        if (!goalsMap.has(key)) {
+          goalsMap.set(key, g);
+        } else {
+          goalsMap.set(key, { ...goalsMap.get(key), ...g });
+        }
+      }
+    });
+
+    const merged = Array.from(goalsMap.values()).map(normalizeGoalSummary);
+
+    return {
+      count: merged.length,
+      next: null,
+      previous: null,
+      results: merged,
+    };
   },
 
   checkEligibility: async (): Promise<Save2OwnEligibilityResponse> => {
+    // Business rule: Only genuinely ongoing goals (ACTIVE, PAUSED, PAYMENT_REVIEW, PRICE_CHANGED)
+    // should block new goal creation.
+    // Inactive states (DRAFT, COMPLETED, CANCELLED, PRODUCT_UNAVAILABLE, SUSPENDED, REFUND_PENDING)
+    // must NOT block goal creation.
+    const BLOCKING_STATUSES = ['ACTIVE', 'PAUSED', 'PAYMENT_REVIEW', 'PRICE_CHANGED'];
+
     try {
       const { data } = await apiClient.get('/api/v1/save2own/goals/eligibility/');
+
+      const activeGoalRaw = data.active_goal || (data.id && data.status ? data : null);
+      if (activeGoalRaw) {
+        const goalStatus = (activeGoalRaw.status || '').toUpperCase();
+        if (BLOCKING_STATUSES.includes(goalStatus)) {
+          const normGoal = normalizeGoal(activeGoalRaw);
+          return {
+            eligible: false,
+            can_create_goal: false,
+            message: data.message || `You already have an active Save2Own goal in progress (${normGoal.reference_code || 'Ongoing'}). Only one active goal is permitted at a time.`,
+            active_goal: normGoal,
+          };
+        }
+      }
+
+      if (data.can_create_goal === false && data.active_goal) {
+        const goalStatus = (data.active_goal.status || '').toUpperCase();
+        if (BLOCKING_STATUSES.includes(goalStatus)) {
+          return {
+            eligible: false,
+            can_create_goal: false,
+            message: data.message || 'You already have an active Save2Own goal in progress.',
+            active_goal: normalizeGoal(data.active_goal),
+          };
+        }
+      }
+
       return {
-        ...data,
-        active_goal: data.active_goal ? normalizeGoal(data.active_goal) : null,
+        eligible: true,
+        can_create_goal: true,
+        message: 'Eligible to create a Save2Own goal.',
+        active_goal: null,
       };
     } catch {
-      // Fallback: Check existing goals via listGoals API since backend does not expose /eligibility/
+      // Fallback: Check existing goals from listGoals and shared database
       try {
         const res = await save2ownApi.listGoals();
         const goals = res?.results || [];
         const active = goals.find(
-          (g) => !['COMPLETED', 'CANCELLED'].includes((g.status || '').toUpperCase())
+          (g) => BLOCKING_STATUSES.includes((g.status || '').toUpperCase())
         );
         if (active) {
           let fullGoal: Save2OwnGoal | null = null;
@@ -418,7 +523,7 @@ export const save2ownApi = {
           return {
             eligible: false,
             can_create_goal: false,
-            message: 'You already have an active Save2Own goal in progress.',
+            message: `You already have an active Save2Own goal in progress (${fullGoal.reference_code || 'Ongoing'}).`,
             active_goal: fullGoal,
           };
         }
@@ -472,14 +577,14 @@ export const save2ownApi = {
         plan = (payload.get('contribution_plan') as string) || 'WEEKLY';
         targetDate = (payload.get('target_date') as string) || '';
         quantity = parseInt((payload.get('quantity') as string) || '1', 10) || 1;
-        variantId = (payload.get('variant') as string) || (payload.get('variant_id') as string) || '';
+        variantId = (payload.get('variant_id') as string) || (payload.get('variant') as string) || '';
 
-        // Ensure both variant and variant_id are present for backend compatibility
-        if (!reqFormData.get('variant') && variantId) {
-          reqFormData.append('variant', variantId);
-        }
-        if (!reqFormData.get('variant_id') && variantId) {
-          reqFormData.append('variant_id', variantId);
+        // CRITICAL FIX: Django model serializer defines variant_id as write-only field.
+        // Passing 'variant' triggers a 500 TypeError in Django.
+        // Ensure 'variant' is completely stripped and ONLY 'variant_id' is sent.
+        reqFormData.delete('variant');
+        if (variantId) {
+          reqFormData.set('variant_id', variantId);
         }
         if (!reqFormData.get('terms_acknowledged')) {
           reqFormData.append('terms_acknowledged', 'true');
@@ -510,7 +615,7 @@ export const save2ownApi = {
         targetDate = payload.target_date || '';
         quantity = payload.quantity || 1;
 
-        reqFormData.append('variant', variantId);
+        // CRITICAL FIX: ONLY append 'variant_id', NEVER 'variant'
         reqFormData.append('variant_id', variantId);
         if (payload.product_id) reqFormData.append('product_id', payload.product_id);
         reqFormData.append('quantity', String(quantity));
@@ -581,12 +686,18 @@ export const save2ownApi = {
           const nextGoals = [normalized, ...existingGoals.filter((g: any) => g.id !== normalized.id)];
           localStorage.setItem('dovi_save2own_goals', JSON.stringify(nextGoals));
 
+          const existingParts = JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]');
+          const nextParts = normalized.participant
+            ? [normalized.participant, ...existingParts.filter((p: any) => p.id !== normalized.participant?.id)]
+            : existingParts;
           if (normalized.participant) {
             localStorage.setItem(`s2o_participant_${normalized.id}`, JSON.stringify(normalized.participant));
-            const existingParts = JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]');
-            const nextParts = [normalized.participant, ...existingParts.filter((p: any) => p.id !== normalized.participant?.id)];
             localStorage.setItem('dovi_save2own_participants', JSON.stringify(nextParts));
           }
+          syncSharedSave2OwnDb({
+            save2ownGoals: nextGoals,
+            save2ownParticipants: nextParts,
+          });
         } catch {}
       }
 

@@ -29,13 +29,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // ============================================================
 // AuthProvider
 // Session strategy:
-//   - Access token: in memory via tokenStore (not localStorage)
-//   - Refresh token: httpOnly cookie (set by Django, not readable from JS)
+//   - Access token: in memory via tokenStore (and cached in localStorage)
+//   - Refresh token: localStorage + httpOnly cookie
 //   - On mount: attempt token refresh to restore session after page reload
+//   - Proactive refresh every 10 minutes to prevent unexpected logout
 // ============================================================
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // starts true — restoring session
+  const [user, setUser] = useState<User | null>(() => tokenStore.getUser<User>());
+  const [isLoading, setIsLoading] = useState<boolean>(() => !tokenStore.getUser());
   const isRestoringSession = useRef(false);
 
   // ----------------------------------------------------------
@@ -55,17 +56,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const restoreSession = async () => {
-      try {
-        // Attempt refresh — Django will use the httpOnly refresh cookie
-        const tokens = await authApi.refreshToken();
-        tokenStore.set(tokens.access);
-        // Fetch user profile with the new access token
-        const me = await authApi.getMe();
-        setUser(me);
-      } catch {
-        // No valid session — user must log in
+      const existingToken = tokenStore.get();
+      const existingRefresh = tokenStore.getRefresh();
+
+      // If neither access nor refresh token exists, user is unauthenticated
+      if (!existingToken && !existingRefresh) {
         tokenStore.clear();
         setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Attempt to refresh access token using stored refresh token
+        const tokens = await authApi.refreshToken(existingRefresh || undefined);
+        tokenStore.set(tokens.access);
+        if (tokens.refresh) {
+          tokenStore.setRefresh(tokens.refresh);
+        }
+        // Fetch fresh user profile
+        const me = await authApi.getMe();
+        tokenStore.setUser(me);
+        setUser(me);
+      } catch (err: any) {
+        const isDefinitiveAuthFailure =
+          err?.status === 401 ||
+          (err?.status === 400 && String(err?.message || '').toLowerCase().includes('token'));
+
+        if (isDefinitiveAuthFailure) {
+          console.warn('[AuthContext] Session expired. Signing out.');
+          tokenStore.clear();
+          setUser(null);
+        } else {
+          console.warn('[AuthContext] Temporary network issue restoring session. Preserving existing local session.');
+          const cachedUser = tokenStore.getUser<User>();
+          if (cachedUser) {
+            setUser(cachedUser);
+          }
+        }
       } finally {
         setIsLoading(false);
       }
@@ -88,11 +116,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ----------------------------------------------------------
+  // Proactive token refresh (every 10 minutes) while user is logged in
+  // ----------------------------------------------------------
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      const refresh = tokenStore.getRefresh();
+      if (!refresh) return;
+
+      try {
+        const tokens = await authApi.refreshToken(refresh);
+        tokenStore.set(tokens.access);
+        if (tokens.refresh) {
+          tokenStore.setRefresh(tokens.refresh);
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Proactive token refresh failed.', err);
+      }
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // ----------------------------------------------------------
   // login()
   // ----------------------------------------------------------
   const login = useCallback(async (credentials: LoginRequest): Promise<User> => {
     const result = await authApi.login(credentials);
     tokenStore.set(result.tokens.access);
+    if (result.tokens.refresh) {
+      tokenStore.setRefresh(result.tokens.refresh);
+    }
+    tokenStore.setUser(result.user);
     setUser(result.user);
     try {
       await notificationsApi.create(
@@ -102,7 +158,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     } catch (e) {}
     return result.user;
-    // Note: Django sets the refresh token as an httpOnly cookie
   }, []);
 
   // ----------------------------------------------------------
@@ -111,6 +166,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = useCallback(async (idToken: string, role?: 'BUYER' | 'VENDOR'): Promise<User> => {
     const result = await authApi.googleAuth({ id_token: idToken, role });
     tokenStore.set(result.tokens.access);
+    if (result.tokens.refresh) {
+      tokenStore.setRefresh(result.tokens.refresh);
+    }
+    tokenStore.setUser(result.user);
     setUser(result.user);
     try {
       await notificationsApi.create(

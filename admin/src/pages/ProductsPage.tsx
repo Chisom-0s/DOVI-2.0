@@ -1,6 +1,17 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
+import { sanitizeProductDescription } from '@/utils/productDescription';
+import {
+  getProductHomepagePlacement,
+  saveProductHomepagePlacement,
+  listMerchandisingSections,
+  assignProductToSection,
+  removeProductFromSection,
+  type ProductHomepagePlacement,
+  type MerchandisingSection,
+} from '@/services/homepagePlacementService';
 import {
   getProductImageUrl,
   getProductFallbackImage,
@@ -97,9 +108,15 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<ProductSummary[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState<ProductSummary[]>(() => {
+    const cached = adminCache.get<any>('products:list:1::::');
+    return cached?.data?.results || [];
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const cached = adminCache.get<any>('categories:list');
+    return cached?.data || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('products:list:1::::'));
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -110,6 +127,8 @@ export default function ProductsPage() {
   // Archive Confirm Modal / State
   const [productToArchive, setProductToArchive] = useState<ProductSummary | null>(null);
   const [isArchivePending, setIsArchivePending] = useState(false);
+  const [quickSectionsProduct, setQuickSectionsProduct] = useState<ProductSummary | null>(null);
+  const [quickSectionsLoading, setQuickSectionsLoading] = useState(false);
 
   // Product Create/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -137,6 +156,52 @@ export default function ProductsPage() {
     max_items_per_shipment: null,
     delivery_notes: '',
   });
+
+  // Homepage Placement & Promotion Form State
+  const [homepageForm, setHomepageForm] = useState<{
+    is_best_seller: boolean;
+    is_trending: boolean;
+    is_new_arrival: boolean;
+    is_hot_sale: boolean;
+    is_flash_deal: boolean;
+    is_discount: boolean;
+    is_featured: boolean;
+    custom_section_ids: string[];
+    flash_price: string;
+    original_price: string;
+    start_time: string;
+    end_time: string;
+    flash_active: boolean;
+    discount_price: string;
+    discount_original_price: string;
+    discount_start_time: string;
+    discount_end_time: string;
+    discount_active: boolean;
+  }>({
+    is_best_seller: false,
+    is_trending: false,
+    is_new_arrival: false,
+    is_hot_sale: false,
+    is_flash_deal: false,
+    is_discount: false,
+    is_featured: false,
+    custom_section_ids: [],
+    flash_price: '',
+    original_price: '',
+    start_time: '',
+    end_time: '',
+    flash_active: true,
+    discount_price: '',
+    discount_original_price: '',
+    discount_start_time: '',
+    discount_end_time: '',
+    discount_active: true,
+  });
+
+  const [availableCustomSections, setAvailableCustomSections] = useState<MerchandisingSection[]>([]);
+  useEffect(() => {
+    setAvailableCustomSections(listMerchandisingSections().filter((s) => s.is_custom));
+  }, []);
 
   // Stock Units & Color Variants
   const [baseUnits, setBaseUnits] = useState<string>('10');
@@ -169,7 +234,9 @@ export default function ProductsPage() {
   }, [colors, baseUnits]);
 
   const fetchProducts = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `products:list:${page}:::${searchTerm || ''}:`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && products.length === 0) setIsLoading(true);
     setError(null);
     try {
       await Promise.all([
@@ -329,6 +396,33 @@ export default function ProductsPage() {
         description: cleanDesc,
         status: fullProd.status || 'PUBLISHED',
       });
+
+      const existingPlacement = getProductHomepagePlacement({ id: fullProd.id, description: fullProd.description });
+      setHomepageForm({
+        is_best_seller: Boolean(existingPlacement ? existingPlacement.is_best_seller : fullProd.is_best_seller),
+        is_trending: Boolean(existingPlacement ? existingPlacement.is_trending : fullProd.is_trending),
+        is_new_arrival: Boolean(existingPlacement ? existingPlacement.is_new_arrival : fullProd.is_new_arrival),
+        is_hot_sale: Boolean(existingPlacement ? existingPlacement.is_hot_sale : fullProd.is_hot_sale),
+        is_flash_deal: Boolean(existingPlacement ? existingPlacement.is_flash_deal : fullProd.is_flash_deal),
+        is_discount: Boolean(existingPlacement ? existingPlacement.is_discount : (fullProd as any).is_discount),
+        is_featured: Boolean(existingPlacement ? existingPlacement.is_featured : (fullProd as any).is_featured),
+        custom_section_ids: existingPlacement?.custom_section_ids || [],
+        flash_price: existingPlacement?.flash_sale?.flash_price != null ? String(existingPlacement.flash_sale.flash_price) : '',
+        original_price: existingPlacement?.flash_sale?.original_price != null
+          ? String(existingPlacement.flash_sale.original_price)
+          : (fullProd.base_price ? String(fullProd.base_price) : ''),
+        start_time: existingPlacement?.flash_sale?.start_time ? existingPlacement.flash_sale.start_time.slice(0, 16) : '',
+        end_time: existingPlacement?.flash_sale?.end_time ? existingPlacement.flash_sale.end_time.slice(0, 16) : '',
+        flash_active: existingPlacement?.flash_sale?.is_active !== false,
+        discount_price: existingPlacement?.discount_config?.discount_price != null ? String(existingPlacement.discount_config.discount_price) : '',
+        discount_original_price: existingPlacement?.discount_config?.original_price != null
+          ? String(existingPlacement.discount_config.original_price)
+          : (fullProd.base_price ? String(fullProd.base_price) : ''),
+        discount_start_time: existingPlacement?.discount_config?.start_time ? existingPlacement.discount_config.start_time.slice(0, 16) : '',
+        discount_end_time: existingPlacement?.discount_config?.end_time ? existingPlacement.discount_config.end_time.slice(0, 16) : '',
+        discount_active: existingPlacement?.discount_config?.is_active !== false,
+      });
+      setAvailableCustomSections(listMerchandisingSections().filter((s) => s.is_custom));
 
       if (parsedSpecs.length > 0) {
         setSpecifications(parsedSpecs);
@@ -570,6 +664,50 @@ export default function ProductsPage() {
       }
     );
 
+    // Validate Deals & Discounts configuration if enabled (Deals & Discounts is the ONLY section with discounts)
+    if (homepageForm.is_discount) {
+      const discPriceNum = parsePriceNumber(homepageForm.discount_price);
+      const origPriceNum = parsePriceNumber(homepageForm.discount_original_price || form.base_price);
+      if (discPriceNum <= 0) {
+        toast.error('Please enter a valid discounted price greater than ₦0.');
+        return;
+      }
+      if (discPriceNum >= origPriceNum) {
+        toast.error(`Discounted selling price (₦${discPriceNum.toLocaleString()}) must be strictly lower than the original price (₦${origPriceNum.toLocaleString()}).`);
+        return;
+      }
+      if (homepageForm.discount_start_time && homepageForm.discount_end_time) {
+        if (new Date(homepageForm.discount_start_time) >= new Date(homepageForm.discount_end_time)) {
+          toast.error('Discount end time must be after the start time.');
+          return;
+        }
+      }
+    }
+
+    // Homepage Placement metadata embedding (Best Sellers, Deals & Discounts, Trending, New Arrivals, Hot Sales, Featured)
+    const placementPayload: Omit<ProductHomepagePlacement, 'product_id' | 'updated_at'> = {
+      is_best_seller: homepageForm.is_best_seller,
+      is_trending: homepageForm.is_trending,
+      is_new_arrival: homepageForm.is_new_arrival,
+      is_hot_sale: homepageForm.is_hot_sale,
+      is_flash_deal: false,
+      is_discount: homepageForm.is_discount,
+      is_featured: homepageForm.is_featured,
+      custom_section_ids: homepageForm.custom_section_ids || [],
+      flash_sale: null,
+      discount_config: homepageForm.is_discount
+        ? {
+            discount_price: parsePriceNumber(homepageForm.discount_price),
+            original_price: parsePriceNumber(homepageForm.discount_original_price || form.base_price),
+            start_time: homepageForm.discount_start_time ? new Date(homepageForm.discount_start_time).toISOString() : null,
+            end_time: homepageForm.discount_end_time ? new Date(homepageForm.discount_end_time).toISOString() : null,
+            is_active: homepageForm.discount_active,
+          }
+        : null,
+    };
+    // Keep description strictly clean of internal metadata comments
+    formattedDescription = sanitizeProductDescription(formattedDescription);
+
     // Delivery Classification & Attributes metadata embedding (kept separate from product category)
     formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
 
@@ -633,6 +771,7 @@ export default function ProductsPage() {
           subcategoryIdOrSlug: catValidation.subcategory?.id || null,
         });
         saveProductDeliveryAttributes(editingProduct.id, deliveryForm);
+        await saveProductHomepagePlacement(editingProduct.id, placementPayload);
 
         // Upload any newly selected images
         if (selectedImages.length > 0) {
@@ -790,7 +929,7 @@ export default function ProductsPage() {
         <div>
           <h2 style={titleStyles}>Product Directory</h2>
           <p style={subtitleStyles}>
-            Manage platform retail catalog, categories &amp; subcategories, stock levels, pricing, and Onitsha Hub parcel classifications.
+            Manage platform retail catalog, categories &amp; subcategories, stock levels, pricing, and delivery parcel classifications.
           </p>
         </div>
         <button
@@ -834,6 +973,7 @@ export default function ProductsPage() {
                   <th style={tableHeaderCellStyles}>Product Details</th>
                   <th style={tableHeaderCellStyles}>Category &amp; Subcategory</th>
                   <th style={tableHeaderCellStyles}>Parcel Classification</th>
+                      <th style={tableHeaderCellStyles}>Homepage Sections</th>
                   <th style={tableHeaderCellStyles}>Base Price</th>
                   <th style={tableHeaderCellStyles}>Stock Qty</th>
                   <th style={tableHeaderCellStyles}>Status</th>
@@ -931,6 +1071,72 @@ export default function ProductsPage() {
                           </span>
                         )}
                       </td>
+                      <td style={tableCellStyles}>
+                        {(() => {
+                          const plc = getProductHomepagePlacement({ id: p.id, description: p.description });
+                          const assignedSections: { label: string; bg: string; color: string }[] = [];
+                          if (plc?.is_best_seller) assignedSections.push({ label: '🌟 Best Sellers', bg: '#fef9c3', color: '#854d0e' });
+                          if (plc?.is_trending) assignedSections.push({ label: '🔥 Trending', bg: '#f3e8ff', color: '#6b21a8' });
+                          if (plc?.is_new_arrival) assignedSections.push({ label: '✨ New Arrival', bg: '#ecfdf5', color: '#065f46' });
+                          if (plc?.is_discount) assignedSections.push({ label: '🏷️ Deals & Discounts', bg: '#e0e7ff', color: '#3730a3' });
+                          if (plc?.is_hot_sale) assignedSections.push({ label: '🎯 Hot Sale', bg: '#dbeafe', color: '#1e3a8a' });
+                          if (plc?.is_featured) assignedSections.push({ label: '⭐ Featured', bg: '#ccfbf1', color: '#115e59' });
+                          if (plc?.custom_section_ids && plc.custom_section_ids.length > 0) {
+                            plc.custom_section_ids.forEach((csId) => {
+                              assignedSections.push({ label: `📌 ${csId.replace(/^sec-custom-/, 'Custom ')}`, bg: '#f1f5f9', color: '#334155' });
+                            });
+                          }
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
+                                {assignedSections.length > 0 ? (
+                                  assignedSections.map((sec, idx) => (
+                                    <span
+                                      key={idx}
+                                      style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: 700,
+                                        backgroundColor: sec.bg,
+                                        color: sec.color,
+                                        padding: '2px 7px',
+                                        borderRadius: '999px',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {sec.label}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>None</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setQuickSectionsProduct(p)}
+                                style={{
+                                  alignSelf: 'flex-start',
+                                  fontSize: '11px',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  backgroundColor: '#ffffff',
+                                  color: '#0f172a',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <span>⚡</span>
+                                <span>Sections</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
                       <td style={{ ...tableCellStyles, fontWeight: 700 }}>
                         {formatPrice(p.price || (p as any).base_price)}
                       </td>
@@ -999,7 +1205,7 @@ export default function ProductsPage() {
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
                   {editingProduct
-                    ? `Update listing parameters, category/subcategory, and Onitsha Hub parcel classification for "${editingProduct.name}".`
+                    ? `Update listing parameters, category/subcategory, and delivery parcel classification for "${editingProduct.name}".`
                     : 'List a new item directly in the Dovi Official Store catalog.'}
                 </p>
               </div>
@@ -1141,7 +1347,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* SECTION 2: DELIVERY CLASSIFICATION & ONITSHA HUB PACKAGING ATTRIBUTES */}
+              {/* SECTION 2: DELIVERY CLASSIFICATION & DELIVERY ATTRIBUTES */}
               <div
                 style={{
                   ...formSectionStyles,
@@ -1152,10 +1358,10 @@ export default function ProductsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <h4 style={{ ...sectionHeaderStyles, color: '#9a3412' }}>
-                      2. Delivery Classification & Onitsha Hub Consolidation Attributes
+                      2. Delivery Classification & Delivery Consolidation Attributes
                     </h4>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#c2410c' }}>
-                      Used by DOVI's Order Consolidation Engine to calculate combined delivery fees from Onitsha Hub.
+                      Used by DOVI's Order Consolidation Engine to calculate combined delivery fees to customer destination.
                     </p>
                   </div>
                 </div>
@@ -1228,7 +1434,7 @@ export default function ProductsPage() {
                         }))
                       }
                     />
-                    <span>Requires Special Handling (fragile / protective crating at Onitsha Hub)</span>
+                    <span>Requires Special Handling (fragile / protective crating)</span>
                   </label>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: '#374151' }}>
@@ -1250,7 +1456,7 @@ export default function ProductsPage() {
                   <label style={labelStyles}>Delivery & Packaging Notes</label>
                   <input
                     type="text"
-                    placeholder="Optional handling or consolidation instructions for Onitsha Hub dispatch..."
+                    placeholder="Optional handling or consolidation instructions for direct dispatch..."
                     value={deliveryForm.delivery_notes || ''}
                     onChange={(e) =>
                       setDeliveryForm((prev) => ({
@@ -1261,6 +1467,341 @@ export default function ProductsPage() {
                     style={textInputStyles}
                   />
                 </div>
+              </div>
+
+              {/* HOMEPAGE DISPLAY SECTIONS (ADMIN-CONTROLLED) */}
+              <div
+                style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <h4 style={{ ...sectionHeaderStyles, color: '#0f172a' }}>
+                    Homepage Display Sections
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#475569' }}>
+                    Select which sections of the DOVI homepage this product should appear in. The admin controls all placements.
+                  </p>
+                </div>
+
+                {/* Core 5 Section Toggles */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                  {/* Best Sellers */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_best_seller ? '#fef9c3' : '#ffffff',
+                      border: homepageForm.is_best_seller ? '2px solid #ca8a04' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_best_seller}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_best_seller: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#ca8a04' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#854d0e' }}>🌟 Best Sellers</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Best Sellers section</div>
+                    </div>
+                  </label>
+
+                  {/* Deals & Discounts */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_discount ? '#e0e7ff' : '#ffffff',
+                      border: homepageForm.is_discount ? '2px solid #4f46e5' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_discount}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_discount: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#4f46e5' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#3730a3' }}>🏷️ Deals & Discounts</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Configure discounted price & promotion</div>
+                    </div>
+                  </label>
+
+                  {/* Trending Now */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_trending ? '#f3e8ff' : '#ffffff',
+                      border: homepageForm.is_trending ? '2px solid #9333ea' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_trending}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_trending: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#9333ea' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#6b21a8' }}>🔥 Trending Now</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Trending Now carousel</div>
+                    </div>
+                  </label>
+
+                  {/* New Arrivals */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_new_arrival ? '#ecfdf5' : '#ffffff',
+                      border: homepageForm.is_new_arrival ? '2px solid #059669' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_new_arrival}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_new_arrival: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#059669' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#065f46' }}>✨ New Arrivals</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in New Arrivals section</div>
+                    </div>
+                  </label>
+
+                  {/* Hot Sales */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_hot_sale ? '#dbeafe' : '#ffffff',
+                      border: homepageForm.is_hot_sale ? '2px solid #2563eb' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_hot_sale}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_hot_sale: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a8a' }}>🎯 Hot Sales</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Hot Sales section</div>
+                    </div>
+                  </label>
+
+                  {/* Featured Products */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: homepageForm.is_featured ? '#ccfbf1' : '#ffffff',
+                      border: homepageForm.is_featured ? '2px solid #0d9488' : '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={homepageForm.is_featured}
+                      onChange={(e) => setHomepageForm((p) => ({ ...p, is_featured: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#0d9488' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#115e59' }}>⭐ Featured Products</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Show in Featured section</div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Custom Sections (if created by Admin) */}
+                {availableCustomSections.length > 0 && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                      Custom Homepage Sections:
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                      {availableCustomSections.map((cs) => {
+                        const isChecked = homepageForm.custom_section_ids.includes(cs.id) || homepageForm.custom_section_ids.includes(cs.key);
+                        return (
+                          <label
+                            key={cs.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 12px',
+                              backgroundColor: isChecked ? '#f1f5f9' : '#ffffff',
+                              border: isChecked ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setHomepageForm((p) => {
+                                  const cur = new Set(p.custom_section_ids);
+                                  if (checked) cur.add(cs.id);
+                                  else {
+                                    cur.delete(cs.id);
+                                    cur.delete(cs.key);
+                                  }
+                                  return { ...p, custom_section_ids: Array.from(cur) };
+                                });
+                              }}
+                              style={{ width: '16px', height: '16px' }}
+                            />
+                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{cs.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deals & Discounts Configuration Drawer */}
+                {homepageForm.is_discount && (
+                  <div
+                    style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      backgroundColor: '#eef2ff',
+                      borderRadius: '8px',
+                      border: '1px solid #c7d2fe',
+                    }}
+                  >
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#312e81' }}>
+                        🏷️ Deals & Discounts Promotion Configuration (ONLY section responsible for discounts across DOVI)
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#4338ca' }}>
+                        Set the discounted price and optional start/end datetimes. Discount price must be strictly lower than the original price.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Discounted Price (₦)*
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={homepageForm.discount_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_price: e.target.value }))}
+                          placeholder="e.g. 25000"
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                          required={homepageForm.is_discount}
+                        />
+                      </div>
+                      {(() => {
+                        const orig = parsePriceNumber(homepageForm.discount_original_price || form.base_price);
+                        const disc = parsePriceNumber(homepageForm.discount_price);
+                        if (orig > 0 && disc > 0 && orig > disc) {
+                          const pct = Math.round(((orig - disc) / orig) * 100);
+                          return (
+                            <div style={{ marginTop: '8px', padding: '6px 12px', backgroundColor: '#ecfdf5', border: '1px solid #10b981', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#047857' }}>Auto-Calculated Discount:</span>
+                              <span style={{ fontSize: '14px', fontWeight: 800, color: '#059669' }}>{pct}% OFF</span>
+                              <span style={{ fontSize: '11px', color: '#065f46' }}>(Save ₦{(orig - disc).toLocaleString()})</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Original / Regular Price (₦)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={homepageForm.discount_original_price || form.base_price}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_original_price: e.target.value }))}
+                          placeholder={form.base_price || 'Base price'}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          Start Time (Optional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.discount_start_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_start_time: e.target.value }))}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#1e1b4b', marginBottom: '4px' }}>
+                          End Time (Optional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={homepageForm.discount_end_time}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_end_time: e.target.value }))}
+                          style={{ ...textInputStyles, backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={homepageForm.discount_active}
+                          onChange={(e) => setHomepageForm((p) => ({ ...p, discount_active: e.target.checked }))}
+                          style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+                        />
+                        <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#312e81' }}>
+                          Discount Active (Immediately available on website)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SECTION 3: SPECIFICATIONS (COLLAPSIBLE) */}
@@ -1648,6 +2189,104 @@ export default function ProductsPage() {
       )}
 
       {/* Delete Confirmation Dialog */}
+      {/* Quick Sections Management Modal */}
+      {quickSectionsProduct && (
+        <div style={modalBackdropStyles}>
+          <div style={{ ...modalContentStyles, maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ ...modalTitleStyles, margin: 0 }}>
+                  Homepage Sections
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  {quickSectionsProduct.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickSectionsProduct(null)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: '#475569', margin: '0 0 16px 0' }}>
+              Toggle which homepage sections this product appears in. Changes are saved immediately.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {listMerchandisingSections().filter((s) => s.key !== 'SPECIAL_PROMO').map((sec) => {
+                const isAssigned = sec.product_ids.includes(quickSectionsProduct.id);
+                return (
+                  <label
+                    key={sec.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      backgroundColor: isAssigned ? '#fff7ed' : '#f8fafc',
+                      border: isAssigned ? '1.5px solid #ff7a00' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: quickSectionsLoading ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        disabled={quickSectionsLoading}
+                        onChange={async () => {
+                          setQuickSectionsLoading(true);
+                          try {
+                            if (isAssigned) {
+                              await removeProductFromSection(sec.id, quickSectionsProduct.id);
+                              toast.success(`Removed from ${sec.name}`);
+                            } else {
+                              await assignProductToSection(sec.id, quickSectionsProduct.id);
+                              toast.success(`Assigned to ${sec.name}`);
+                            }
+                          } catch {
+                            toast.error('Failed to update section.');
+                          } finally {
+                            setQuickSectionsLoading(false);
+                          }
+                        }}
+                        style={{ width: '18px', height: '18px', accentColor: '#ff7a00' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
+                          {sec.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {sec.title} • {sec.product_ids.length} products
+                        </div>
+                      </div>
+                    </div>
+                    {isAssigned && (
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#c2410c', backgroundColor: '#ffedd5', padding: '2px 8px', borderRadius: '999px' }}>
+                        Active on Homepage
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+
+            <div style={{ ...modalActionsStyles, marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setQuickSectionsProduct(null)}
+                style={modalCancelBtnStyles}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {productToArchive && (
         <div style={modalBackdropStyles}>
           <div style={modalContentStyles}>

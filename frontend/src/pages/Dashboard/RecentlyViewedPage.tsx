@@ -67,12 +67,7 @@ export default function RecentlyViewedPage() {
                 <Link to={`/products/${product.id}`} style={nameStyles}>
                   {product.name}
                 </Link>
-                <div style={ratingRowStyles}>
-                  <span style={{ color: 'var(--color-warning)' }}>
-                    ★ {product.average_rating.toFixed(1)}
-                  </span>
-                  <span style={reviewCountStyles}>({product.review_count})</span>
-                </div>
+                
                 <div style={priceRowStyles}>
                   <strong style={priceStyles}>{formatPrice(product)}</strong>
                   {product.stock_quantity <= 0 ? (
@@ -164,17 +159,6 @@ const nameStyles: React.CSSProperties = {
   display: '-webkit-box',
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
-};
-
-const ratingRowStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
-  fontSize: 'var(--text-xs)',
-};
-
-const reviewCountStyles: React.CSSProperties = {
-  color: 'var(--color-text-muted)',
 };
 
 const priceRowStyles: React.CSSProperties = {

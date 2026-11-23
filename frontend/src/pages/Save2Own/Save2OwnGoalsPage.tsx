@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { save2ownApi } from '@/api/save2own';
@@ -14,22 +14,23 @@ export default function Save2OwnGoalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<APIError | null>(null);
 
-  useEffect(() => {
-    const fetchGoals = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await save2ownApi.listGoals();
-        setGoals(response.results || []);
-      } catch (err: any) {
-        setError(err);
-        toast.error('Failed to load Save2Own goals.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchGoals();
+  const fetchGoals = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await save2ownApi.listGoals();
+      setGoals(response.results || []);
+    } catch (err: any) {
+      setError(err);
+      toast.error('Failed to load Save2Own goals.');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchGoals();
+  }, [fetchGoals]);
 
   const formatCurrency = (val: string) => {
     return new Intl.NumberFormat('en-NG', {
@@ -122,7 +123,7 @@ export default function Save2OwnGoalsPage() {
         <div style={headerStyles}>
           <h2 style={titleStyles}>Save2Own Goals</h2>
         </div>
-        <ApiErrorMessage error={error} />
+        <ApiErrorMessage error={error} onRetry={fetchGoals} />
       </div>
     );
   }

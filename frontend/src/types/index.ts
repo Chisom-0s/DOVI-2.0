@@ -84,6 +84,7 @@ export interface Address {
   label: string;
   full_name: string;
   phone: string;
+  email?: string | null;
   address_line_1: string;
   address_line_2: string | null;
   city: string;
@@ -235,6 +236,10 @@ export interface ProductSummary {
   brand?: string;
   condition?: string;
   is_flash_deal?: boolean;
+  flash_sale?: any;
+  is_discount?: boolean;
+  discount_config?: any;
+  is_featured?: boolean;
   is_trending?: boolean;
   is_best_seller?: boolean;
   is_hot_sale?: boolean;
@@ -339,10 +344,22 @@ export interface DeliveryGroup {
 // ----------------------------------------------------------
 export type OrderStatus =
   | 'PENDING_PAYMENT'
+  | 'ORDER_PLACED'
+  | 'AWAITING_DELIVERY_CONFIRMATION'
+  | 'DELIVERY_FEE_CONFIRMED'
   | 'PAID'
   | 'PROCESSING'
+  | 'SOURCING_PRODUCTS'
+  | 'AWAITING_PRODUCTS_AT_HUB'
+  | 'PRODUCTS_RECEIVED'
+  | 'QUALITY_CHECK'
+  | 'READY_FOR_PACKAGING'
+  | 'PACKAGED'
+  | 'READY_FOR_DISPATCH'
   | 'SHIPPED'
+  | 'DISPATCHED'
   | 'IN_TRANSIT'
+  | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'RECEIVED'
   | 'COMPLETED'
@@ -371,7 +388,14 @@ export interface OrderTracking {
 export interface Order {
   id: string;
   reference: string;
+  reference_code?: string;
+  order_reference?: string;
+  customer_id?: string;
+  buyer_id?: string;
+  buyer_email?: string;
+  buyer_name?: string;
   status: OrderStatus;
+  fulfillment_status?: string;
   items: OrderItem[];
   delivery_address?: Address | null;
   delivery_method?: string | null;
@@ -393,9 +417,20 @@ export interface Order {
 export interface OrderSummary {
   id: string;
   reference: string;
+  reference_code?: string;
   order_reference?: string;
-  status: OrderStatus;
+  customer_id?: string;
+  buyer_id?: string;
+  buyer_email?: string;
+  buyer_name?: string;
+  status: OrderStatus | string;
+  payment_status?: string;
+  fulfillment_status?: string;
+  payment_evidence?: Payment | null;
   item_count: number;
+  items?: OrderItem[];
+  product_names?: string[];
+  product_images?: string[];
   total: string;
   created_at: string;
 }
@@ -403,8 +438,16 @@ export interface OrderSummary {
 // ----------------------------------------------------------
 // PAYMENTS
 // ----------------------------------------------------------
-export type PaymentStatus = 'PENDING' | 'SUCCESSFUL' | 'FAILED' | 'REFUNDED';
-export type PaymentProvider = 'FLUTTERWAVE' | 'OPAY';
+export type PaymentStatus =
+  | 'PENDING'
+  | 'PENDING_VERIFICATION'
+  | 'VERIFIED'
+  | 'SUCCESS'
+  | 'SUCCESSFUL'
+  | 'FAILED'
+  | 'REJECTED'
+  | 'REFUNDED';
+export type PaymentProvider = 'BANK_TRANSFER' | 'MANUAL_TRANSFER' | 'FLUTTERWAVE' | 'OPAY';
 
 export interface PaymentMethod {
   id: PaymentProvider;
@@ -422,10 +465,19 @@ export interface Payment {
   status: PaymentStatus;
   amount: string;
   currency: string;
-  payment_link: string | null;
-  provider_reference: string | null;
+  payment_link?: string | null;
+  provider_reference?: string | null;
+  sender_bank?: string;
+  sender_account_name?: string;
+  payment_proof_url?: string;
+  transaction_reference?: string;
+  notes?: string;
+  verified_by?: string | null;
+  rejection_reason?: string | null;
+  customer_email?: string;
+  customer_name?: string;
   created_at: string;
-  verified_at: string | null;
+  verified_at?: string | null;
 }
 
 export interface PaymentInitResponse {
@@ -434,6 +486,36 @@ export interface PaymentInitResponse {
   provider: PaymentProvider;
   amount: string;
   currency: string;
+}
+
+export type PaymentSessionStatus = 'ACTIVE' | 'EXPIRED' | 'EVIDENCE_SUBMITTED' | 'CLOSED';
+
+export interface PaymentSession {
+  id: string;
+  order_reference: string;
+  order_id?: string;
+  checkout_session_id?: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  amount: string;
+  currency: string;
+  bank_account?: PaymentAccount;
+  created_at: string;
+  expires_at: string;
+  remaining_seconds?: number;
+  server_time?: string;
+  status: PaymentSessionStatus;
+  evidence_submitted_at?: string | null;
+  payment_evidence_id?: string | null;
+  payment_verification_status?: string;
+}
+
+export interface MinimumOrderSettings {
+  enabled: boolean;
+  minimum_amount: number;
+  updated_at?: string;
+  updated_by?: string;
 }
 
 // ----------------------------------------------------------
@@ -688,124 +770,6 @@ export interface Save2OwnGoalSummary {
 }
 
 // ----------------------------------------------------------
-// DOVI AUTO
-// ----------------------------------------------------------
-export type FuelType = 'PETROL' | 'DIESEL' | 'ELECTRIC' | 'HYBRID' | 'OTHER';
-export type Transmission = 'AUTOMATIC' | 'MANUAL' | 'CVT';
-export type VehicleCondition = 'NEW' | 'USED';
-export type PartType = 'OEM' | 'AFTERMARKET';
-
-export interface AutoImage {
-  id: string;
-  url: string;
-  alt_text: string | null;
-  is_primary: boolean;
-}
-
-export interface AutoListingSummary {
-  id: string;
-  make: string;
-  model: string;
-  year: number;
-  price: string;
-  mileage: number | null;
-  transmission: Transmission;
-  fuel_type: FuelType;
-  condition: VehicleCondition;
-  location: string;
-  primary_image_url: string | null;
-  seller: VendorSummary;
-  is_favorited: boolean;
-}
-
-export interface AutoListing extends AutoListingSummary {
-  description: string;
-  color: string | null;
-  engine_size: string | null;
-  body_type: string | null;
-  vin: string | null;
-  images: AutoImage[];
-  features: string[];
-  average_rating: number;
-  review_count: number;
-  similar_listings: AutoListingSummary[];
-  created_at: string;
-}
-
-export interface AutoPartCompatibility {
-  make: string;
-  model: string;
-  year_from: number;
-  year_to: number;
-}
-
-export interface AutoPartSummary {
-  id: string;
-  name: string;
-  part_number: string;
-  part_type: PartType;
-  condition: VehicleCondition;
-  price: string;
-  stock_quantity: number;
-  primary_image_url: string | null;
-  vendor: VendorSummary;
-  compatible_vehicles: AutoPartCompatibility[];
-}
-
-export interface AutoPart extends AutoPartSummary {
-  description: string;
-  images: AutoImage[];
-  created_at: string;
-}
-
-export interface AutoAccessorySummary {
-  id: string;
-  name: string;
-  sub_category: string;
-  price: string;
-  stock_quantity: number;
-  primary_image_url: string | null;
-  vendor: VendorSummary;
-}
-
-export interface AutoRentalSummary {
-  id: string;
-  make: string;
-  model: string;
-  year: number;
-  daily_rate: string;
-  weekly_rate: string | null;
-  pickup_location: string;
-  return_location: string;
-  primary_image_url: string | null;
-  vendor: VendorSummary;
-}
-
-export interface AutoRental extends AutoRentalSummary {
-  description: string;
-  images: AutoImage[];
-  security_deposit: string;
-  available_from: string;
-  available_to: string | null;
-  minimum_days: number;
-  maximum_days: number | null;
-}
-
-export interface RentalBooking {
-  id: string;
-  rental: AutoRentalSummary;
-  pickup_date: string;
-  return_date: string;
-  total_days: number;
-  total_amount: string;
-  security_deposit: string;
-  payment_status: PaymentStatus;
-  booking_status: 'PENDING' | 'CONFIRMED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-  can_cancel: boolean;
-  created_at: string;
-}
-
-// ----------------------------------------------------------
 // HOMEPAGE
 // ----------------------------------------------------------
 export interface HomepageBanner {
@@ -902,7 +866,7 @@ export interface CheckoutSession {
 
 
 // ----------------------------------------------------------
-// DOVI DELIVERY PRICING, CONSOLIDATION & ONITSHA HUB FULFILLMENT
+// DOVI DELIVERY PRICING, CONSOLIDATION & DIRECT DELIVERY FULFILLMENT
 // ----------------------------------------------------------
 export type ParcelClassification =
   | 'SMALL_PARCEL'
@@ -925,10 +889,12 @@ export interface DeliveryRoute {
   dispatch_origin: string;
   destination_state: string;
   destination_city: string;
+  delivery_fee?: number | null;
   small_parcel_rate: number | null;
   heavy_parcel_rate: number | null;
   furniture_bulky_rate: number | null;
   combined_furniture_rate: number | null;
+  combined_small_heavy_rate?: number | null;
   special_handling_surcharge: number | null;
   allows_furniture_small_consolidation: boolean;
   max_furniture_items_consolidated: number;
@@ -961,6 +927,12 @@ export interface DeliveryRateChangeRecord {
 
 export type ShipmentFulfillmentStatus =
   | 'ORDER_PLACED'
+  | 'PROCESSING'
+  | 'READY_FOR_DISPATCH'
+  | 'DISPATCHED'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED'
   | 'AWAITING_DELIVERY_CONFIRMATION'
   | 'DELIVERY_FEE_CONFIRMED'
   | 'SOURCING_PRODUCTS'
@@ -969,10 +941,8 @@ export type ShipmentFulfillmentStatus =
   | 'QUALITY_CHECK'
   | 'READY_FOR_PACKAGING'
   | 'PACKAGED'
-  | 'READY_FOR_DISPATCH'
-  | 'DISPATCHED'
-  | 'OUT_FOR_DELIVERY'
-  | 'DELIVERED';
+  | 'SHIPPED'
+  | 'IN_TRANSIT';
 
 export type DeliveryConfirmationStatus =
   | 'NOT_REQUIRED'
@@ -1112,6 +1082,7 @@ export interface Order {
 }
 
 export interface CheckoutSession {
+  order_reference?: string;
   shipments?: OrderShipment[];
   shipment_count?: number;
   delivery_calculation?: DeliveryCalculationResult;
@@ -1223,4 +1194,121 @@ export interface ProductSummary {
   subcategory_slug?: string | null;
   needs_category_review?: boolean;
   legacy_category_name?: string | null;
+}
+
+
+// ==========================================
+// DOVI LAUNCH GIVEAWAY PROMOTIONAL TYPES
+// ==========================================
+export type GiveawayStatus = 'SCHEDULED' | 'ACTIVE' | 'OUT_OF_STOCK' | 'EXPIRED' | 'DISABLED';
+
+export type GiveawayClaimStatus = 'RESERVED' | 'CONFIRMED' | 'RELEASED';
+
+export interface GiveawayGiftItem {
+  id: string;
+  product_id?: string;
+  name: string;
+  description?: string;
+  price: string;
+  unit_price: string;
+  quantity?: number;
+  line_total?: string;
+  is_promotional_gift: boolean;
+  sku: string;
+  image_url: string;
+}
+
+export interface GiveawayClaim {
+  id: string;
+  customer_id?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  order_reference: string;
+  order_id?: string;
+  status: GiveawayClaimStatus;
+  reserved_at: string;
+  confirmed_at?: string | null;
+  released_at?: string | null;
+  release_reason?: string | null;
+  is_test?: boolean;
+}
+
+export interface LaunchGiveawayPromotion {
+  id: string;
+  name: string;
+  headline: string;
+  subheadline: string;
+  status: GiveawayStatus;
+  qualifying_subtotal: number;
+  gift_item: GiveawayGiftItem;
+  initial_stock: number;
+  total_stock: number;
+  max_allowed_stock: number;
+  available_stock: number;
+  reserved_stock: number;
+  confirmed_stock: number;
+  released_reservations_count: number;
+  start_date: string;
+  end_date: string;
+  max_per_customer: number;
+  claims: GiveawayClaim[];
+  updated_at: string;
+}
+
+
+// -------------------------------------------------------------
+// Reusable Promotional Campaigns & Banners
+// -------------------------------------------------------------
+export interface PromotionalTheme {
+  primary_bg: string;
+  secondary_bg: string;
+  bg_style: 'gradient' | 'solid';
+  text_color: string;
+  button_bg: string;
+  button_text_color: string;
+  badge_bg: string;
+  badge_text_color: string;
+  image_position: 'right' | 'left';
+  layout_variant: 'standard' | 'compact' | 'minimal';
+}
+
+export interface PromotionalPlacements {
+  homepage_banner: boolean;
+  recurring_popup: boolean;
+}
+
+export interface PromotionalCampaign {
+  id: string;
+  name: string;
+  headline: string;
+  description: string;
+  badge_text: string;
+  cta_text: string;
+  cta_url: string;
+  secondary_text?: string;
+  image_url: string;
+  theme: PromotionalTheme;
+  placements: PromotionalPlacements;
+  popup_frequency_seconds: number;
+  popup_frequency_label?: string;
+  status: 'ACTIVE' | 'PAUSED' | 'SCHEDULED' | 'EXPIRED' | 'DRAFT' | 'ARCHIVED';
+  start_date: string;
+  end_date: string;
+  priority: number;
+  is_giveaway?: boolean;
+  giveaway_config?: any;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export interface CampaignAuditLog {
+  id: string;
+  campaign_id: string;
+  campaign_name: string;
+  action: string;
+  admin_user: string;
+  details?: Record<string, any>;
+  timestamp: string;
 }

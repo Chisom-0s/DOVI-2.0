@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import type { Save2OwnGoal, Save2OwnContribution, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
@@ -12,8 +13,11 @@ export default function Save2OwnGoalsPage() {
   const [activeTab, setActiveTab] = useState<'goals' | 'contributions'>('goals');
 
   // Goals State
-  const [goals, setGoals] = useState<Save2OwnGoal[]>([]);
-  const [isLoadingGoals, setIsLoadingGoals] = useState(true);
+  const [goals, setGoals] = useState<Save2OwnGoal[]>(() => {
+    const cached = adminCache.get<any>('save2own:goals:1::');
+    return cached?.data?.results || [];
+  });
+  const [isLoadingGoals, setIsLoadingGoals] = useState(() => !adminCache.get('save2own:goals:1::'));
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [goalPage, setGoalPage] = useState(1);
@@ -39,7 +43,9 @@ export default function Save2OwnGoalsPage() {
   const [error, setError] = useState<APIError | null>(null);
 
   const fetchGoals = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoadingGoals(true);
+    const cacheKey = `save2own:goals:${goalPage}:${statusFilter || ''}:${searchTerm || ''}`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && goals.length === 0) setIsLoadingGoals(true);
     setError(null);
     try {
       const res = await adminApi.listSave2OwnGoals({
@@ -493,6 +499,7 @@ export default function Save2OwnGoalsPage() {
                               <strong>{c.bank_name_snapshot || 'Save2Own Bank'}</strong>
                               <div style={{ fontSize: '11px', color: '#6b7280' }}>
                                 {c.account_number_snapshot || '2039485712'}
+                                {c.account_number_snapshot || '5601660874'}
                               </div>
                             </div>
                           </td>
@@ -748,6 +755,7 @@ export default function Save2OwnGoalsPage() {
                   <div>Bank Name: <strong>{selectedContribForAction.bank_name_snapshot || 'Save2Own Account'}</strong></div>
                   <div>Account Name: <strong>{selectedContribForAction.account_name_snapshot || 'Dovi Save2Own Savings Trust'}</strong></div>
                   <div>Account Number: <strong>{selectedContribForAction.account_number_snapshot || '2039485712'}</strong></div>
+                  <div>Account Number: <strong>{selectedContribForAction.account_number_snapshot || '5601660874'}</strong></div>
                 </div>
               </div>
 

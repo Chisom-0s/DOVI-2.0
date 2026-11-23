@@ -1,5 +1,7 @@
-import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useParams } from 'react-router-dom';
 import SmartPromptManager from '@/components/common/SmartPromptManager';
+import { PromotionProvider } from '@/contexts/PromotionContext';
+import PromotionalPopup from '@/components/common/PromotionalPopup';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
@@ -16,6 +18,12 @@ import HomePage from '@/pages/Home/HomePage';
 import ProductListingPage from '@/pages/Products/ProductListingPage';
 import CategoryPage from '@/pages/Products/CategoryPage';
 import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
+
+
+function DynamicOrderRedirect() {
+  const { ref } = useParams<{ ref: string }>();
+  return <Navigate to={ref ? `/dashboard/orders/${ref}` : '/dashboard/orders'} replace />;
+}
 
 // Knowledge & Information Pages
 import AboutPage from '@/pages/Info/AboutPage';
@@ -56,7 +64,6 @@ import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
 import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
 import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
 
-import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 
 // ============================================================
 // Router
@@ -68,10 +75,11 @@ import MyRentalsPage from '@/pages/Auto/MyRentalsPage';
 const router = createBrowserRouter([
   {
     element: (
-      <>
+      <PromotionProvider>
         <Outlet />
         <SmartPromptManager />
-      </>
+        <PromotionalPopup />
+      </PromotionProvider>
     ),
     errorElement: <RouteErrorBoundary />,
     children: [
@@ -121,6 +129,13 @@ const router = createBrowserRouter([
         ),
       },
 
+      
+      // Order redirect aliases & backward compatibility
+      { path: 'orders', element: <Navigate to="/dashboard/orders" replace /> },
+      { path: 'order/:ref', element: <DynamicOrderRedirect /> },
+      { path: 'profile/orders', element: <Navigate to="/dashboard/orders" replace /> },
+      { path: 'profile/orders/:ref', element: <DynamicOrderRedirect /> },
+
       // ---- Order & Payment results (Phase 4 — LIVE) ----
       {
         path: 'orders/:ref',
@@ -167,7 +182,6 @@ const router = createBrowserRouter([
           { path: 'refunds', element: <RefundRequestPage /> },
           { path: 'refunds/:id', element: <RefundDetailPage /> },
           { path: 'notifications', element: <NotificationsPage /> },
-          { path: 'rentals', element: <MyRentalsPage /> },
           { path: 'addresses', element: <AddressesPage /> },
           { path: 'payment-methods', element: <PaymentMethodsPage /> },
           { path: 'settings', element: <AccountSettingsPage /> },
@@ -207,9 +221,10 @@ const router = createBrowserRouter([
         ),
       },
 
-      // ---- Dovi Auto (Category Domain) ----
-      { path: 'auto', element: <Navigate to="/categories/auto" replace /> },
-      { path: 'auto/*', element: <Navigate to="/categories/auto" replace /> },
+      // ---- Dovi Auto Redirects to Marketplace ----
+      { path: 'auto', element: <Navigate to="/products" replace /> },
+      { path: 'auto/*', element: <Navigate to="/products" replace /> },
+      { path: 'categories/auto', element: <Navigate to="/products" replace /> },
     ],
   },
 

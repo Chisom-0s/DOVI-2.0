@@ -1,7 +1,10 @@
+import { getCustomerPaymentStatusInfo, getCustomerFulfillmentStatusInfo } from '@/utils/orderStatus';
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/api/orders';
+import { paymentsApi } from '@/api/payments';
+import type { PaymentAccount } from '@/types';
 import { deliveryApi } from '@/api/delivery';
 import {
   SHIPMENT_STATUS_LABELS,
@@ -19,14 +22,40 @@ import { Skeleton } from '@/components/common/Skeleton';
 
 const TIMELINE_KEY_STEPS: ShipmentFulfillmentStatus[] = [
   'ORDER_PLACED',
-  'SOURCING_PRODUCTS',
-  'AWAITING_PRODUCTS_AT_HUB',
-  'PRODUCTS_RECEIVED',
-  'QUALITY_CHECK',
-  'PACKAGED',
+  'PROCESSING',
+  'READY_FOR_DISPATCH',
   'DISPATCHED',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
+];
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  ORDER_PLACED: 'Your order has been placed and received by our team.',
+  PROCESSING: 'Your order is being sourced and prepared.',
+  READY_FOR_DISPATCH: 'Your order is packed and ready for dispatch.',
+  DISPATCHED: 'Your order has been dispatched and is on its way.',
+  OUT_FOR_DELIVERY: 'Your order is out for final delivery to your address.',
+  DELIVERED: 'Your order has been delivered.',
+  CANCELLED: 'This order has been cancelled.',
+};
+
+
+const NIGERIAN_BANKS = [
+  'Zenith Bank',
+  'Access Bank',
+  'First Bank of Nigeria',
+  'Guaranty Trust Bank (GTBank)',
+  'Kuda Microfinance Bank',
+  'Moniepoint MFB',
+  'OPay Digital Services',
+  'PalmPay',
+  'Stanbic IBTC Bank',
+  'Sterling Bank',
+  'United Bank for Africa (UBA)',
+  'Wema Bank',
+  'Fidelity Bank',
+  'Union Bank',
+  'Other Bank',
 ];
 
 export default function OrderDetailPage() {
@@ -36,6 +65,100 @@ export default function OrderDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [showResubmitModal, setShowResubmitModal] = useState(false);
+  const [resubmitBank, setResubmitBank] = useState('Zenith Bank');
+  const [customBank, setCustomBank] = useState('');
+  const [resubmitAccountName, setResubmitAccountName] = useState('');
+  const [resubmitRef, setResubmitRef] = useState('');
+  const [resubmitNotes, setResubmitNotes] = useState('');
+  const [resubmitReceiptFile, setResubmitReceiptFile] = useState<File | null>(null);
+  const [resubmitReceiptPreview, setResubmitReceiptPreview] = useState<string | null>(null);
+  const [isSubmittingEvidence, setIsSubmittingEvidence] = useState(false);
+  const [zoomedReceiptUrl, setZoomedReceiptUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    paymentsApi.getActiveAccount('marketplace').then(setBankAccount).catch(() => {});
+  }, []);
+
+  const handleCopyAccount = () => {
+    if (!bankAccount?.account_number) return;
+    navigator.clipboard.writeText(bankAccount.account_number);
+    setIsCopied(true);
+    toast.success('Account number copied to clipboard!');
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds 10MB limit.');
+      return;
+    }
+    setResubmitReceiptFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setResubmitReceiptPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitPaymentEvidence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+    const finalBank = resubmitBank === 'Other Bank' ? customBank.trim() : resubmitBank;
+    if (!finalBank) {
+      toast.error('Please specify your bank name.');
+      return;
+    }
+    if (!resubmitAccountName.trim()) {
+      toast.error('Please enter the sender account name.');
+      return;
+    }
+    if (!resubmitReceiptPreview && !resubmitRef.trim()) {
+      toast.error('Please upload a transfer receipt or enter transaction reference.');
+      return;
+    }
+
+    setIsSubmittingEvidence(true);
+    try {
+      let proofUrl = resubmitReceiptPreview || undefined;
+      if (resubmitReceiptFile) {
+        try {
+          const uploadRes = await paymentsApi.uploadReceipt(resubmitReceiptFile, order.reference);
+          if (uploadRes && uploadRes.receipt_url) {
+            proofUrl = uploadRes.receipt_url;
+          }
+        } catch (uploadErr) {
+          console.warn('Receipt upload fallback:', uploadErr);
+        }
+      }
+
+      await paymentsApi.submitPaymentEvidence({
+        order_reference: order.reference,
+        sender_bank: finalBank,
+        sender_account_name: resubmitAccountName.trim(),
+        transaction_reference: resubmitRef.trim(),
+        amount: String(order.total),
+        payment_proof_url: proofUrl,
+        notes: resubmitNotes.trim() || undefined,
+      });
+
+      toast.success('Bank transfer evidence submitted successfully! Our team is verifying your payment.');
+      setShowResubmitModal(false);
+      setResubmitReceiptPreview(null);
+      setResubmitNotes('');
+      await fetchOrder();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit payment evidence.');
+    } finally {
+      setIsSubmittingEvidence(false);
+    }
+  };
+
 
   const fetchOrder = useCallback(async () => {
     if (!ref) return;
@@ -108,7 +231,7 @@ export default function OrderDetailPage() {
       setOrder(updated);
       if (accept) {
         toast.success(
-          'Delivery quotation accepted! Your order is now confirmed for payment and Onitsha Hub fulfillment.'
+          'Delivery quotation accepted! Your order is now confirmed for payment and direct delivery.'
         );
       } else {
         toast('Delivery quotation declined.', { icon: 'ℹ️' });
@@ -135,7 +258,8 @@ export default function OrderDetailPage() {
     return (
       <div className="container" style={pageStyles}>
         <Skeleton width="200px" height="28px" borderRadius="var(--radius-md)" />
-        <div className="checkout-layout-grid">
+        
+      <div className="checkout-layout-grid">
           <Skeleton width="100%" height="400px" borderRadius="var(--radius-lg)" />
           <Skeleton width="100%" height="280px" borderRadius="var(--radius-lg)" />
         </div>
@@ -156,7 +280,7 @@ export default function OrderDetailPage() {
   }
 
   const shipments: OrderShipment[] = order.shipments || [];
-  const hasOnitshaShipments = shipments.length > 0;
+  const hasDirectShipments = shipments.length > 0;
   const hasDeliveryGroups = order.delivery_groups && order.delivery_groups.length > 0;
   const quotedShipments = shipments.filter(
     (s) => s.manual_quote_status === 'QUOTED_AWAITING_CUSTOMER'
@@ -172,27 +296,51 @@ export default function OrderDetailPage() {
           <Link to="/dashboard/orders" style={backLinkStyles}>← My Orders</Link>
           <h1 style={titleStyles}>Order #{order.reference}</h1>
           <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-            Dispatch Origin: <strong>Onitsha Hub</strong> · Shipments:{' '}
+            Delivery: <strong>Direct Destination Delivery</strong> · Shipments:{' '}
             <strong>
               {shipments.length || 1}{' '}
               {shipments.length <= 1 ? 'Consolidated Shipment' : 'Separate Shipments'}
             </strong>
           </div>
         </div>
-        <span
-          style={{
-            backgroundColor: statusColor(order.status).bg,
-            color: statusColor(order.status).text,
-            fontSize: '11px',
-            fontWeight: 'var(--font-bold)',
-            padding: '6px 14px',
-            borderRadius: 'var(--radius-full)',
-            textTransform: 'uppercase',
-          }}
-        >
-          {SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] ||
-            order.status.replace(/_/g, ' ')}
-        </span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {(() => {
+            const fulfillInfo = getCustomerFulfillmentStatusInfo(order.fulfillment_status, order.status);
+            const payInfo = getCustomerPaymentStatusInfo(order.payment_status);
+            return (
+              <>
+                <span
+                  style={{
+                    backgroundColor: fulfillInfo.bg,
+                    color: fulfillInfo.text,
+                    border: `1px solid ${fulfillInfo.border}`,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Order Status: {fulfillInfo.label}
+                </span>
+                <span
+                  style={{
+                    backgroundColor: payInfo.bg,
+                    color: payInfo.text,
+                    border: `1px solid ${payInfo.border}`,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '6px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Payment Status: {payInfo.label}
+                </span>
+              </>
+            );
+          })()}
+        </div>
       </div>
 
       {/* MANUAL DELIVERY QUOTATION BANNERS (Section 8) */}
@@ -207,10 +355,10 @@ export default function OrderDetailPage() {
           }}
         >
           <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>
-            ⏳ Awaiting Delivery Fee Confirmation from DOVI Onitsha Hub
+            ⏳ Awaiting Delivery Fee Confirmation from DOVI
           </strong>
           <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5 }}>
-            Your order includes a route or bulky item requiring a custom transport quotation from our Onitsha Hub logistics desk. As soon as the administrator confirms your exact delivery fee, you will be notified here to review and approve it before payment and dispatch proceed.
+            Your order includes a route or bulky item requiring a custom transport quotation from our logistics desk. As soon as the administrator confirms your exact delivery fee, you will be notified here to review and approve it before payment and dispatch proceed.
           </p>
         </div>
       )}
@@ -247,7 +395,7 @@ export default function OrderDetailPage() {
               Review & Confirm Your Delivery Quotation for {qs.shipment_reference}
             </h3>
             <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#1e40af', lineHeight: 1.5 }}>
-              Our Onitsha Hub logistics team has confirmed the transport arrangement ({qs.transport_arrangement}) to {qs.destination_city}, {qs.destination_state}.
+              Our logistics team has confirmed the transport arrangement ({qs.transport_arrangement}) to {qs.destination_city}, {qs.destination_state}.
             </p>
           </div>
 
@@ -317,21 +465,336 @@ export default function OrderDetailPage() {
         </div>
       ))}
 
+{/* BANK TRANSFER PAYMENT VERIFICATION STATUS & RESUBMISSION */}
+      {(() => {
+        const payment = (order as any).payment_evidence;
+        const pStatus = ((order as any).payment_status || 'PENDING_PAYMENT').toUpperCase();
+        const isPaid = pStatus === 'PAID' || pStatus === 'VERIFIED';
+        const isPendingVerification = pStatus === 'PENDING_VERIFICATION';
+        const isRejected = pStatus === 'REJECTED';
+
+        if (isPendingVerification) {
+          return (
+            <div
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '2px solid #3b82f6',
+                borderRadius: 'var(--radius-lg)',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: '#dbeafe',
+                      color: '#1e40af',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    ⏳ PAYMENT UNDER VERIFICATION
+                  </span>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#1e3a8a' }}>
+                    Bank Transfer Proof Received — Admin Verification in Progress
+                  </h3>
+                  <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#1e40af', lineHeight: 1.5 }}>
+                    We have received your payment evidence. Our finance desk is cross-checking the transfer with our bank account. Verification is usually completed within 15–30 minutes during normal operating hours. Your order will move into processing immediately upon confirmation.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '12px',
+                  backgroundColor: '#ffffff',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid #bfdbfe',
+                  fontSize: '12px',
+                }}
+              >
+                <div>
+                  <span style={{ color: '#64748b', display: 'block' }}>Order Total</span>
+                  <strong style={{ fontSize: '14px', color: '#1e293b' }}>{formatCurrency(order.total)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block' }}>Sender Bank</span>
+                  <strong style={{ color: '#1e293b' }}>{payment?.sender_bank || 'Bank Transfer'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block' }}>Sender Account Name</span>
+                  <strong style={{ color: '#1e293b' }}>{payment?.sender_account_name || 'Customer'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block' }}>Transaction Reference</span>
+                  <span style={{ fontFamily: 'monospace', color: '#1e293b' }}>{payment?.transaction_reference || 'N/A'}</span>
+                </div>
+              </div>
+
+              {payment?.payment_proof_url && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                  <img
+                    src={payment.payment_proof_url}
+                    alt="Receipt thumbnail"
+                    style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                    onClick={() => setZoomedReceiptUrl(payment.payment_proof_url)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setZoomedReceiptUrl(payment.payment_proof_url)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#2563eb',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      padding: 0,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    🔍 View Uploaded Receipt
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (isPaid) {
+          return (
+            <div
+              style={{
+                backgroundColor: '#ecfdf5',
+                border: '2px solid #10b981',
+                borderRadius: 'var(--radius-lg)',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    backgroundColor: '#d1fae5',
+                    color: '#065f46',
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                  }}
+                >
+                  ✓ PAYMENT CONFIRMED &amp; VERIFIED
+                </span>
+                <span style={{ fontSize: '12px', color: '#047857', fontWeight: 600 }}>
+                  Order Fulfillment: <strong>{SHIPMENT_STATUS_LABELS[order.status as ShipmentFulfillmentStatus] || order.status}</strong>
+                </span>
+              </div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#065f46' }}>
+                Bank Transfer Payment Verified
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
+                Your bank transfer payment of <strong>{formatCurrency(order.total)}</strong> has been verified and confirmed by DOVI. Your order is safely recorded, and product preparation and direct destination delivery are actively in progress.
+              </p>
+            </div>
+          );
+        }
+
+        if (isRejected) {
+          return (
+            <div
+              style={{
+                backgroundColor: '#fef2f2',
+                border: '2px solid #ef4444',
+                borderRadius: 'var(--radius-lg)',
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    backgroundColor: '#fee2e2',
+                    color: '#991b1b',
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    marginBottom: '6px',
+                  }}
+                >
+                  ✕ PAYMENT VERIFICATION UNSUCCESSFUL
+                </span>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#991b1b' }}>
+                  Bank Transfer Could Not Be Verified
+                </h3>
+                <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#b91c1c', lineHeight: 1.5 }}>
+                  The administrator reviewed your transfer proof but was unable to verify the transaction in DOVI accounts.
+                </p>
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '10px 14px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #fecaca',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '13px',
+                    color: '#7f1d1d',
+                  }}
+                >
+                  <strong>Reason:</strong> {payment?.rejection_reason || 'Payment was not found in DOVI bank account'}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowResubmitModal(true)}
+                  style={{
+                    ...primaryBtnStyles,
+                    backgroundColor: '#dc2626',
+                    padding: '10px 22px',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ↻ Resubmit Payment Proof
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // PENDING_PAYMENT
+        return (
+          <div
+            style={{
+              backgroundColor: '#fffbeb',
+              border: '2px solid #f59e0b',
+              borderRadius: 'var(--radius-lg)',
+              padding: '18px 20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+            }}
+          >
+            <div>
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  backgroundColor: '#fef3c7',
+                  color: '#92400e',
+                  padding: '3px 10px',
+                  borderRadius: '999px',
+                  marginBottom: '6px',
+                }}
+              >
+                💳 AWAITING BANK TRANSFER PAYMENT
+              </span>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#92400e' }}>
+                Complete Your Order via Direct Bank Transfer
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#b45309', lineHeight: 1.5 }}>
+                Please transfer exactly <strong>{formatCurrency(order.total)}</strong> to the official DOVI account below and submit your payment proof to begin fulfillment.
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #fde68a',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 16px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                fontSize: '13px',
+              }}
+            >
+              <div>
+                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>BANK NAME</span>
+                <strong style={{ color: '#1e293b' }}>{bankAccount?.bank_name || 'Zenith Bank'}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>ACCOUNT NAME</span>
+                <strong style={{ color: '#1e293b' }}>{bankAccount?.account_name || 'Dovi Direct Commerce Limited'}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>ACCOUNT NUMBER</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ fontSize: '16px', fontFamily: 'monospace', color: '#047857' }}>
+                    {bankAccount?.account_number || '5601660874'}
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={handleCopyAccount}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      backgroundColor: isCopied ? '#10b981' : '#f1f5f9',
+                      color: isCopied ? '#ffffff' : '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowResubmitModal(true)}
+                style={{
+                  ...primaryBtnStyles,
+                  backgroundColor: '#d97706',
+                  padding: '10px 22px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                📤 Upload & Submit Transfer Receipt
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="checkout-layout-grid">
         {/* Main Column */}
         <div style={mainColStyles}>
-          {/* ONITSHA HUB CONSOLIDATED SHIPMENTS VIEW (Section 9) */}
-          {hasOnitshaShipments ? (
+          {/* DIRECT DELIVERY CONSOLIDATED SHIPMENTS VIEW (Section 9) */}
+          {hasDirectShipments ? (
             <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
               <div>
                 <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', margin: 0 }}>
                   {shipments.length === 1
-                    ? 'Consolidated Shipment Progress (Onitsha Hub)'
-                    : `Shipments Breakdown (${shipments.length} Shipments from Onitsha Hub)`}
+                    ? 'Consolidated Delivery Progress'
+                    : `Shipments Breakdown (${shipments.length} Shipments for direct delivery)`}
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>
                   {shipments.length === 1
-                    ? 'All products in your order are consolidated into a single shipment from our Onitsha Hub.'
+                    ? 'All products in your order are consolidated into a single shipment to your destination.'
                     : 'Your order requires separate transport arrangements. Track the status of each shipment below — your order is marked Delivered only when all shipments have arrived.'}
                 </p>
               </div>
@@ -362,7 +825,7 @@ export default function OrderDetailPage() {
                           </span>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                          Origin: <strong>{shipment.dispatch_origin} Hub</strong> &rarr;{' '}
+                          Route: <strong>Direct Delivery</strong> &rarr;{' '}
                           <strong>
                             {shipment.destination_city}, {shipment.destination_state}
                           </strong>{' '}
@@ -393,7 +856,7 @@ export default function OrderDetailPage() {
                       </div>
                     </div>
 
-                    {/* Visual Onitsha Hub Fulfillment Progress Timeline */}
+                    {/* Visual Delivery Fulfillment Progress Timeline */}
                     <div
                       style={{
                         padding: '14px 16px',
@@ -403,61 +866,97 @@ export default function OrderDetailPage() {
                     >
                       <div
                         style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: '#475569',
-                          textTransform: 'uppercase',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
                           marginBottom: '10px',
+                          flexWrap: 'wrap',
+                          gap: '6px',
                         }}
                       >
-                        Onitsha Hub Fulfillment Progress
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            color: '#475569',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Delivery Fulfillment Progress
+                        </div>
+                        {STATUS_DESCRIPTIONS[shipment.status] && (
+                          <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600 }}>
+                            {STATUS_DESCRIPTIONS[shipment.status]}
+                          </div>
+                        )}
                       </div>
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))',
-                          gap: '8px',
-                        }}
-                      >
-                        {TIMELINE_KEY_STEPS.map((stepStatus, stepIdx) => {
-                          const stepRank = SHIPMENT_STATUS_ORDER.indexOf(stepStatus);
-                          const isCompleted = currentRank >= stepRank;
-                          const isCurrent = shipment.status === stepStatus;
-                          return (
-                            <div
-                              key={stepStatus}
-                              style={{
-                                padding: '6px 8px',
-                                borderRadius: '6px',
-                                border: `1px solid ${
-                                  isCurrent
-                                    ? 'var(--color-primary)'
+
+                      {shipment.status === 'CANCELLED' || order.status === 'CANCELLED' ? (
+                        <div
+                          style={{
+                            padding: '14px 16px',
+                            backgroundColor: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            color: '#991b1b',
+                          }}
+                        >
+                          <strong style={{ display: 'block', fontSize: '13px', marginBottom: '2px' }}>
+                            ✕ Order Cancelled
+                          </strong>
+                          <span style={{ fontSize: '12px', color: '#b91c1c' }}>
+                            This order has been cancelled and is no longer active for fulfillment.
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                            gap: '8px',
+                          }}
+                        >
+                          {TIMELINE_KEY_STEPS.map((stepStatus, stepIdx) => {
+                            const stepRank = SHIPMENT_STATUS_ORDER.indexOf(stepStatus);
+                            const isCompleted = currentRank >= stepRank;
+                            const isCurrent = shipment.status === stepStatus;
+                            return (
+                              <div
+                                key={stepStatus}
+                                style={{
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${
+                                    isCurrent
+                                      ? 'var(--color-primary)'
+                                      : isCompleted
+                                      ? '#bbf7d0'
+                                      : '#e2e8f0'
+                                  }`,
+                                  backgroundColor: isCurrent
+                                    ? '#fff7ed'
                                     : isCompleted
-                                    ? '#bbf7d0'
-                                    : '#e2e8f0'
-                                }`,
-                                backgroundColor: isCurrent
-                                  ? '#fff7ed'
-                                  : isCompleted
-                                  ? '#f0fdf4'
-                                  : '#ffffff',
-                                fontSize: '10px',
-                                fontWeight: isCurrent || isCompleted ? 700 : 500,
-                                color: isCurrent
-                                  ? '#9a3412'
-                                  : isCompleted
-                                  ? '#166534'
-                                  : '#94a3b8',
-                              }}
-                            >
-                              <div>
-                                {isCompleted ? '✓ ' : `${stepIdx + 1}. `}
-                                {SHIPMENT_STATUS_LABELS[stepStatus]}
+                                    ? '#f0fdf4'
+                                    : '#ffffff',
+                                  fontSize: '11px',
+                                  fontWeight: isCurrent || isCompleted ? 700 : 500,
+                                  color: isCurrent
+                                    ? '#9a3412'
+                                    : isCompleted
+                                    ? '#166534'
+                                    : '#94a3b8',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                <div style={{ fontSize: '10px', marginBottom: '2px' }}>
+                                  {isCompleted ? '✓ Step ' + (stepIdx + 1) : 'Step ' + (stepIdx + 1)}
+                                </div>
+                                <div>{SHIPMENT_STATUS_LABELS[stepStatus]}</div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {/* Shipment Items */}
@@ -502,40 +1001,15 @@ export default function OrderDetailPage() {
                               <span
                                 style={{
                                   fontSize: '10px',
-                                  padding: '1px 6px',
+                                  padding: '2px 8px',
                                   borderRadius: '4px',
-                                  backgroundColor: item.hub_received ? '#dcfce7' : '#f1f5f9',
-                                  color: item.hub_received ? '#166534' : '#64748b',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#475569',
+                                  fontWeight: 600,
                                 }}
                               >
-                                {item.hub_received ? '✓ At Onitsha Hub' : '• Sourcing / En Route to Hub'}
+                                {PARCEL_CLASSIFICATION_LABELS[item.delivery_classification]}
                               </span>
-                              {item.quality_checked && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#dcfce7',
-                                    color: '#166534',
-                                  }}
-                                >
-                                  ✓ Quality Inspected
-                                </span>
-                              )}
-                              {item.packaged && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#dcfce7',
-                                    color: '#166534',
-                                  }}
-                                >
-                                  ✓ Packaged
-                                </span>
-                              )}
                             </div>
                           </div>
                           <span style={itemPriceStyles}>
@@ -589,7 +1063,7 @@ export default function OrderDetailPage() {
                   <div style={groupHeaderStyles}>
                     <div>
                       <strong style={{ fontSize: 'var(--text-sm)', color: 'var(--color-primary)' }}>
-                        GROUP #{idx + 1}: {group.vendor?.name || 'DOVI Onitsha Hub'}
+                        GROUP #{idx + 1}: {group.vendor?.name || 'DOVI Fulfillment'}
                       </strong>
                     </div>
 
@@ -747,7 +1221,7 @@ export default function OrderDetailPage() {
 
             <div style={summaryRowStyles}>
               <span>Payment Status</span>
-              <span style={summaryValStyles}>{order.payment_status}</span>
+              <span style={summaryValStyles}>{getCustomerPaymentStatusInfo(order.payment_status).label}</span>
             </div>
 
             <div style={summaryRowStyles}>
@@ -814,6 +1288,304 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Resubmit / Upload Payment Proof Modal */}
+      {showResubmitModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setShowResubmitModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 'var(--radius-lg)',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '24px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--color-text)' }}>
+                Submit Bank Transfer Evidence
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowResubmitModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+              Enter the bank transfer details and attach your transaction receipt so our accounts team can verify and approve your order.
+            </p>
+
+            <form onSubmit={handleSubmitPaymentEvidence} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Your Bank (Sender Bank)
+                </label>
+                <select
+                  value={resubmitBank}
+                  onChange={(e) => setResubmitBank(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    fontSize: '13px',
+                    backgroundColor: '#fff',
+                  }}
+                >
+                  {NIGERIAN_BANKS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {resubmitBank === 'Other Bank' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Specify Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customBank}
+                    onChange={(e) => setCustomBank(e.target.value)}
+                    placeholder="Enter bank name"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Sender Account Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={resubmitAccountName}
+                  onChange={(e) => setResubmitAccountName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    fontSize: '13px',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Transaction Reference / Narration
+                </label>
+                <input
+                  type="text"
+                  value={resubmitRef}
+                  onChange={(e) => setResubmitRef(e.target.value)}
+                  placeholder="e.g. ORD-XXXXX or Bank Session ID"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    fontSize: '13px',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Upload Transfer Receipt / Screenshot
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px dashed var(--color-border)',
+                    fontSize: '12px',
+                  }}
+                />
+                {resubmitReceiptPreview && (
+                  <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                    <img
+                      src={resubmitReceiptPreview}
+                      alt="Receipt preview"
+                      style={{ maxHeight: '160px', maxWidth: '100%', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={resubmitNotes}
+                  onChange={(e) => setResubmitNotes(e.target.value)}
+                  placeholder="Any helpful note for our accounts desk..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    fontSize: '13px',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowResubmitModal(false)}
+                  disabled={isSubmittingEvidence}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    background: '#ffffff',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEvidence}
+                  style={{
+                    padding: '9px 22px',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    background: 'var(--color-primary)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  {isSubmittingEvidence ? 'Submitting...' : 'Submit Payment Proof'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Zoom Receipt Modal */}
+      {zoomedReceiptUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+          }}
+          onClick={() => setZoomedReceiptUrl(null)}
+        >
+          <div
+            style={{
+              position: 'relative',
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedReceiptUrl}
+              alt="Payment receipt full view"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+              }}
+            />
+            <div style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
+              <a
+                href={zoomedReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textDecoration: 'none',
+                }}
+              >
+                Open Original in New Tab
+              </a>
+              <button
+                type="button"
+                onClick={() => setZoomedReceiptUrl(null)}
+                style={{
+                  padding: '8px 20px',
+                  backgroundColor: '#ffffff',
+                  color: '#111827',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -1074,3 +1846,5 @@ const dangerBtnStyles: React.CSSProperties = {
   fontSize: 'var(--text-xs)',
   cursor: 'pointer',
 };
+
+// removed unused paymentBadgeStyle

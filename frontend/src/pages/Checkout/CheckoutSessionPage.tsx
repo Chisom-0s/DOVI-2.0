@@ -1,28 +1,61 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { checkoutApi } from '@/api/checkout';
 import { paymentsApi } from '@/api/payments';
-import { PARCEL_CLASSIFICATION_LABELS } from '@/services/deliveryPricingService';
-import { normalizeUrl, getProductFallbackImage } from '@/utils/image';
-import type { CheckoutSession, PaymentMethod } from '@/types';
+import { getProductImageUrl, CLEAN_PRODUCT_PLACEHOLDER } from '@/utils/image';
+import { useCart } from '@/contexts/CartContext';
+import type { CheckoutSession, PaymentAccount, PaymentSession } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 
-// ----------------------------------------------------------
-// CheckoutSessionPage — Step 2: Review + Payment
-// Displays Consolidated Shipment Breakdown + Re-verifies delivery pricing before payment.
-// ----------------------------------------------------------
+const NIGERIAN_BANKS = [
+  'Access Bank',
+  'First Bank of Nigeria',
+  'Guaranty Trust Bank (GTBank)',
+  'Kuda Microfinance Bank',
+  'Moniepoint MFB',
+  'OPay Digital Services',
+  'PalmPay',
+  'Stanbic IBTC Bank',
+  'Sterling Bank',
+  'United Bank for Africa (UBA)',
+  'Wema Bank',
+  'Zenith Bank',
+  'Fidelity Bank',
+  'Union Bank',
+  'Other Bank',
+];
+
 export default function CheckoutSessionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { removePurchasedItems } = useCart();
 
   const [session, setSession] = useState<CheckoutSession | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
+  const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
+  const [isExpired, setIsExpired] = useState(false);
+  const [isRenewingSession, setIsRenewingSession] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isConfirming, setIsConfirming] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
-  // Rate-change review alert state (Section 7 / Edge Case 7)
+  // Evidence submission fields
+  const [senderBank, setSenderBank] = useState('Zenith Bank');
+  const [customBank, setCustomBank] = useState('');
+  const [senderAccountName, setSenderAccountName] = useState('');
+  const [transactionRef, setTransactionRef] = useState('');
+  const [notes, setNotes] = useState('');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [isAgreed, setIsAgreed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
+  const [submittedOrderRef, setSubmittedOrderRef] = useState<string>('');
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Rate-change review alert state
   const [rateChangeAlert, setRateChangeAlert] = useState<{
     previousFee: string;
     newFee: string;
@@ -34,13 +67,29 @@ export default function CheckoutSessionPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [sess, methods] = await Promise.all([
+      const [sess, account] = await Promise.all([
         checkoutApi.getSession(id),
-        paymentsApi.getMethods(),
+        paymentsApi.getActiveAccount('marketplace'),
       ]);
 
       // Check if delivery rates changed since session was created
       const reverify = await checkoutApi.reverifySessionDeliveryPricing(sess);
+      const effectiveSess = reverify.changed ? reverify.updatedSession : sess;
+
+      // Access Control: Validate that required delivery information exists before allowing payment page access
+      const recipName = (effectiveSess.delivery_address?.full_name || (effectiveSess as any).recipient_name || '').trim();
+      const recipPhone = (effectiveSess.delivery_address?.phone || (effectiveSess as any).recipient_phone || '').trim();
+      const cleanPhone = recipPhone.replace(/[^0-9]/g, '');
+      const dState = (effectiveSess.delivery_address?.state || (effectiveSess as any).destination_state || effectiveSess.delivery_calculation?.destination_state || '').trim();
+      const dCity = (effectiveSess.delivery_address?.city || (effectiveSess as any).destination_city || effectiveSess.delivery_calculation?.destination_city || '').trim();
+      const dAddr = (effectiveSess.delivery_address?.address_line_1 || (effectiveSess as any).destination_address || '').trim();
+
+      if (!recipName || recipName.toLowerCase() === 'customer' || !recipPhone || cleanPhone.length < 10 || !dState || !dCity || dAddr.length < 5) {
+        toast.error('Please complete all mandatory delivery information before accessing the payment page.');
+        navigate('/checkout', { replace: true });
+        return;
+      }
+
       if (reverify.changed) {
         setSession(reverify.updatedSession);
         setRateChangeAlert({
@@ -53,12 +102,26 @@ export default function CheckoutSessionPage() {
         setSession(sess);
       }
 
-      setPaymentMethods(methods.filter((m) => m.is_active));
-      if (sess.payment_method) {
-        setSelectedProvider(sess.payment_method);
-      } else if (methods.length > 0) {
-        const active = methods.find((m) => m.is_active);
-        if (active) setSelectedProvider(active.id);
+      setBankAccount(account);
+
+      // Initialize or retrieve server 60-minute payment session
+      const orderRef = effectiveSess.order_reference || effectiveSess.id;
+      try {
+        const psess = await paymentsApi.createOrGetPaymentSession({
+          order_reference: orderRef,
+          checkout_session_id: effectiveSess.id,
+          amount: effectiveSess.total,
+          subtotal: parseFloat(effectiveSess.subtotal || '0'),
+        });
+        setPaymentSession(psess);
+
+        const expTime = new Date(psess.expires_at).getTime();
+        const nowTime = Date.now();
+        const rem = Math.max(0, Math.floor((expTime - nowTime) / 1000));
+        setRemainingSeconds(rem);
+        setIsExpired(rem <= 0 || psess.status === 'EXPIRED');
+      } catch (err: any) {
+        console.warn('Payment session initialization warning:', err);
       }
     } catch {
       toast.error('Failed to load checkout session.');
@@ -72,9 +135,86 @@ export default function CheckoutSessionPage() {
     fetchSession();
   }, [fetchSession]);
 
-  const handleConfirm = async () => {
-    if (!id || !session || !selectedProvider) {
-      toast.error('Please select a payment method.');
+  // Live countdown timer running every second using server expiration timestamp
+  useEffect(() => {
+    if (!paymentSession || paymentSession.status === 'EVIDENCE_SUBMITTED' || isSubmittedSuccess) return;
+
+    const timer = setInterval(() => {
+      const expTime = new Date(paymentSession.expires_at).getTime();
+      const nowTime = Date.now();
+      const rem = Math.max(0, Math.floor((expTime - nowTime) / 1000));
+      setRemainingSeconds(rem);
+
+      if (rem <= 0) {
+        setIsExpired(true);
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [paymentSession, isSubmittedSuccess]);
+
+  const handleRenewPaymentSession = async () => {
+    if (!session) return;
+    setIsRenewingSession(true);
+    try {
+      const orderRef = session.order_reference || session.id;
+      const renewed = await paymentsApi.renewPaymentSession(paymentSession?.id || orderRef);
+      setPaymentSession(renewed);
+      const expTime = new Date(renewed.expires_at).getTime();
+      const rem = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
+      setRemainingSeconds(rem);
+      setIsExpired(false);
+      toast.success('Fresh 60-minute payment session started!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to renew payment session.');
+    } finally {
+      setIsRenewingSession(false);
+    }
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleCopyAccountNumber = () => {
+    if (!bankAccount?.account_number) return;
+    navigator.clipboard.writeText(bankAccount.account_number);
+    setIsCopied(true);
+    toast.success('Account number copied to clipboard!');
+    setTimeout(() => setIsCopied(false), 3000);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (PNG, JPG, or WEBP).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Receipt image size must not exceed 10MB.');
+      return;
+    }
+
+    setReceiptFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setReceiptPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitEvidence = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!session) return;
+
+    if (isExpired) {
+      toast.error('This payment session has expired. Please initiate a new payment session to complete your payment.');
       return;
     }
 
@@ -83,9 +223,30 @@ export default function CheckoutSessionPage() {
       return;
     }
 
-    setIsConfirming(true);
+    const effectiveBank = senderBank === 'Other Bank' ? customBank.trim() : senderBank;
+    if (!effectiveBank) {
+      toast.error('Please specify your bank name.');
+      return;
+    }
+
+    if (!senderAccountName.trim()) {
+      toast.error('Please enter the sender account name used for the transfer.');
+      return;
+    }
+
+    if (!receiptPreview && !receiptFile) {
+      toast.error('Payment receipt upload is required. Please upload your transfer receipt before submitting.');
+      return;
+    }
+
+    if (!isAgreed) {
+      toast.error('Please confirm that you have made the transfer.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // Final pre-payment check to ensure delivery rates did not change right before payment
+      // Re-verify delivery pricing one last time
       const latestCheck = await checkoutApi.reverifySessionDeliveryPricing(session);
       if (latestCheck.changed) {
         setSession(latestCheck.updatedSession);
@@ -95,36 +256,90 @@ export default function CheckoutSessionPage() {
           newTotal: latestCheck.updatedSession.total,
           acknowledged: false,
         });
-        toast.error(
-          'Delivery rates were updated by the administrator. Please review the updated total before paying.'
-        );
-        setIsConfirming(false);
+        toast.error('Delivery rates were updated. Please review the updated total before submitting.');
+        setIsSubmitting(false);
         return;
       }
 
-      const result = await checkoutApi.confirmSession(id, { payment_provider: selectedProvider });
+      // Confirm session if not already confirmed
+      let orderRef = session.order_reference;
+      if (!orderRef) {
+        const confirmResult = await checkoutApi.confirmSession(session.id, {
+          payment_provider: 'BANK_TRANSFER',
+        });
+        orderRef = confirmResult.order_reference;
+      }
 
-      // After confirmation, initialize payment with the provider
-      const paymentInit = await paymentsApi.initialize({
-        order_reference: result.order_reference,
-        provider: selectedProvider,
-        redirect_url: `${window.location.origin}/payment/success?ref=${result.order_reference}`,
+      // Upload receipt file if available to get persistent server file URL
+      let uploadedProofUrl = receiptPreview;
+      if (receiptFile) {
+        try {
+          const uploadRes = await paymentsApi.uploadReceipt(receiptFile, orderRef);
+          if (uploadRes && uploadRes.receipt_url) {
+            uploadedProofUrl = uploadRes.receipt_url;
+          }
+        } catch (uploadErr) {
+          console.warn('Receipt upload fallback:', uploadErr);
+        }
+      }
+
+      if (!uploadedProofUrl || !uploadedProofUrl.trim()) {
+        toast.error('Payment receipt upload is required. Please upload your transfer receipt before submitting.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Submit payment evidence (linking to payment_session_id)
+      await paymentsApi.submitPaymentEvidence({
+        order_reference: orderRef,
+        sender_bank: effectiveBank,
+        sender_account_name: senderAccountName.trim(),
+        transaction_reference: transactionRef.trim() || orderRef,
+        amount: session.total,
+        currency: 'NGN',
+        payment_proof_url: uploadedProofUrl,
+        payment_session_id: paymentSession?.id,
+        notes: notes.trim(),
       });
 
-      // Redirect to payment provider
-      if (paymentInit.payment_link) {
-        window.location.href = paymentInit.payment_link;
-      } else {
-        navigate(`/payment/success?ref=${result.order_reference}`);
+      if (paymentSession) {
+        setPaymentSession({
+          ...paymentSession,
+          status: 'EVIDENCE_SUBMITTED',
+          evidence_submitted_at: new Date().toISOString(),
+        });
       }
-    } catch {
-      toast.error('Order confirmation failed. Please try again.');
+
+      // Remove purchased items only from shopping cart
+      try {
+        const purchasedItems = (session?.cart_snapshot?.items || (session as any)?.items || []);
+        const purchasedIds = purchasedItems.map((i: any) => i.id || i.product_id || (typeof i.product === 'object' ? i.product?.id : i.product)).filter(Boolean);
+        if (purchasedIds.length > 0) {
+          removePurchasedItems(purchasedIds);
+        }
+      } catch {}
+
+      setSubmittedOrderRef(orderRef);
+      setIsSubmittedSuccess(true);
+      toast.success('Payment evidence submitted for verification!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit payment evidence. Please try again.');
     } finally {
-      setIsConfirming(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Loading state
+  const formatCurrency = (val: string | number | null | undefined) => {
+    if (val === null || val === undefined || val === '') return 'Manual Quote';
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return 'Manual Quote';
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(num);
+  };
+
   if (isLoading) {
     return (
       <div className="container" style={pageStyles}>
@@ -140,27 +355,198 @@ export default function CheckoutSessionPage() {
     );
   }
 
-  if (!session) return null;
+  if (isSubmittedSuccess) {
+    return (
+      <div className="container" style={{ ...pageStyles, maxWidth: '720px', margin: '40px auto' }}>
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #10b981',
+            borderRadius: '16px',
+            padding: '36px 24px',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              backgroundColor: '#ecfdf5',
+              color: '#059669',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+              margin: '0 auto 20px auto',
+            }}
+          >
+            ✓
+          </div>
 
-  const formatCurrency = (val: string | number | null | undefined) => {
-    if (val === null || val === undefined || val === '') return 'Manual Quote';
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isNaN(num)) return 'Manual Quote';
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(num);
-  };
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#064e3b', marginBottom: '8px' }}>
+            Payment Evidence Received
+          </h2>
+          <p style={{ color: '#047857', fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>
+            Status: <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 10px', borderRadius: '999px', fontSize: '13px' }}>PENDING VERIFICATION</span>
+          </p>
+
+          <p style={{ color: '#4b5563', fontSize: '14px', lineHeight: 1.6, maxWidth: '520px', margin: '0 auto 24px auto' }}>
+            Thank you! Your payment receipt and transfer details for order{' '}
+            <strong>{submittedOrderRef}</strong> have been recorded.
+            Our finance team will verify the payment against our bank records. Your order status will automatically update once verified.
+          </p>
+
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link
+              to={submittedOrderRef ? `/dashboard/orders/${submittedOrderRef}` : '/dashboard/orders'}
+              style={{
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
+                textDecoration: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              View My Order →
+            </Link>
+            <Link
+              to="/dashboard/orders"
+              style={{
+                backgroundColor: '#ffffff',
+                color: 'var(--color-primary)',
+                border: '1px solid var(--color-primary)',
+                textDecoration: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '14px',
+              }}
+            >
+              All Orders
+            </Link>
+            <Link
+              to="/"
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                textDecoration: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '14px',
+              }}
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return null;
 
   const deliveryCalc = session.delivery_calculation;
   const shipmentCount = session.shipment_count ?? deliveryCalc?.shipment_count ?? 1;
 
   return (
     <div className="container" style={pageStyles}>
-      <h1 style={pageTitleStyles}>Review Order, Consolidated Delivery & Pay</h1>
+      <h1 style={pageTitleStyles}>Review Order & Complete Bank Transfer</h1>
 
-      {/* Pre-payment Delivery Rate Change Alert Banner (Section 7 / Edge Case 7) */}
+      {/* Strict 60-Minute Live Payment Session Countdown Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: isExpired ? '#fef2f2' : remainingSeconds < 300 ? '#fff7ed' : '#f0fdf4',
+          border: `1.5px solid ${isExpired ? '#fca5a5' : remainingSeconds < 300 ? '#fdba74' : '#86efac'}`,
+          borderRadius: '14px',
+          padding: '16px 20px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '240px' }}>
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              backgroundColor: isExpired ? '#fee2e2' : remainingSeconds < 300 ? '#ffedd5' : '#dcfce7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isExpired ? '#dc2626' : remainingSeconds < 300 ? '#ea580c' : '#16a34a',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: isExpired ? '#991b1b' : remainingSeconds < 300 ? '#9a3412' : '#14532d' }}>
+              {isExpired ? 'Payment Session Expired' : 'Complete your payment within:'}
+            </div>
+            <div style={{ fontSize: '12px', color: isExpired ? '#b91c1c' : 'var(--color-text-muted)', marginTop: '2px' }}>
+              {isExpired
+                ? 'Your 60-minute payment window has elapsed. Click the button to start a fresh session for this order.'
+                : 'Session is authoritative from the server and remains accurate across refreshes.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              letterSpacing: '1.5px',
+              color: isExpired ? '#dc2626' : remainingSeconds < 300 ? '#ea580c' : '#16a34a',
+              backgroundColor: '#ffffff',
+              padding: '8px 18px',
+              borderRadius: '10px',
+              border: `1px solid ${isExpired ? '#fca5a5' : remainingSeconds < 300 ? '#fed7aa' : '#86efac'}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            {formatCountdown(remainingSeconds)}
+          </div>
+          {isExpired && (
+            <button
+              onClick={handleRenewPaymentSession}
+              disabled={isRenewingSession}
+              style={{
+                padding: '10px 18px',
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: isRenewingSession ? 'not-allowed' : 'pointer',
+                opacity: isRenewingSession ? 0.7 : 1,
+                boxShadow: '0 2px 6px rgba(255,122,0,0.3)',
+              }}
+            >
+              {isRenewingSession ? 'Renewing...' : 'Initiate New Payment Session'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Pre-payment Delivery Rate Change Alert Banner */}
       {rateChangeAlert && !rateChangeAlert.acknowledged && (
         <div
           style={{
@@ -220,7 +606,7 @@ export default function CheckoutSessionPage() {
           <section style={sectionStyles}>
             <h2 style={sectionTitleStyles}>
               <span style={stepNumberStyles}>3</span>
-              Order & Onitsha Hub Shipment Review
+              Order &amp; Delivery Review
             </h2>
 
             {/* Delivery Info */}
@@ -236,9 +622,9 @@ export default function CheckoutSessionPage() {
 
             {session.delivery_method && (
               <div style={infoCardStyles}>
-                <span style={labelStyles}>Dispatch & Shipping:</span>
+                <span style={labelStyles}>Direct Delivery:</span>
                 <span style={valueStyles}>
-                  Origin: Onitsha Hub · {session.delivery_method.name} ({session.delivery_method.estimated_days})
+                  {session.delivery_method.name} ({session.delivery_method.estimated_days})
                 </span>
               </div>
             )}
@@ -248,78 +634,37 @@ export default function CheckoutSessionPage() {
               <div
                 style={{
                   padding: '10px 12px',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: shipmentCount === 1 ? '#f0fdf4' : '#eff6ff',
-                  border: `1px solid ${shipmentCount === 1 ? '#bbf7d0' : '#bfdbfe'}`,
                   fontSize: '12px',
-                  color: shipmentCount === 1 ? '#166534' : '#1e40af',
+                  color: '#475569',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
                 }}
               >
-                <strong>
-                  {shipmentCount === 1
-                    ? '✓ Consolidated Single Shipment:'
-                    : `${shipmentCount} Separate Shipments:`}
-                </strong>{' '}
-                {deliveryCalc.consolidation_summary}
+                <div style={{ fontWeight: 700, color: '#1e293b' }}>
+                  📦 {deliveryCalc.consolidation_summary || 'Consolidated Shipment'}
+                </div>
+                <div>
+                  Origin: <strong>{deliveryCalc.dispatch_origin || 'Warri, Delta'}</strong> → Destination: <strong>{session.delivery_address?.city}, {session.delivery_address?.state}</strong>
+                </div>
               </div>
             )}
 
-            {/* Shipment Groups Breakdown */}
-            {deliveryCalc && deliveryCalc.shipment_groups.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
-                {deliveryCalc.shipment_groups.map((grp) => (
-                  <div
-                    key={grp.group_index}
-                    style={{
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '12px',
-                      backgroundColor: '#fafafa',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '6px',
-                        marginBottom: '8px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <strong style={{ fontSize: '13px' }}>Shipment #{grp.group_index}</strong>
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: '999px',
-                            backgroundColor: '#ffedd5',
-                            color: '#9a3412',
-                          }}
-                        >
-                          {PARCEL_CLASSIFICATION_LABELS[grp.shipment_classification]}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary)' }}>
-                        Delivery Fee: {formatCurrency(grp.delivery_fee)}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
-                      Transport: {grp.transport_arrangement} · {grp.separation_reason}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Items snapshot */}
+            {/* Items List */}
             <div style={itemsContainerStyles}>
-              {session.cart_snapshot.items.map((item: any) => {
+              {(session.cart_snapshot?.items || (session as any).items || []).map((item: any) => {
                 const prodName = item.product_name || item.product?.name || 'Product';
-                const fallbackImg = getProductFallbackImage(item.product || { name: prodName });
-                const prodImg = normalizeUrl(item.image_url || item.product?.primary_image_url) || fallbackImg;
+                const prodImg = getProductImageUrl(
+                  item.product || {
+                    id: item.product_id || item.id,
+                    name: prodName,
+                    primary_image_url: item.image_url,
+                  },
+                  CLEAN_PRODUCT_PLACEHOLDER
+                );
                 const varName = item.variant_name || (typeof item.variant === 'object' ? item.variant?.name : item.variant);
                 const itemTotal = item.line_total ?? String((parseFloat(String(item.unit_price || item.price || 0)) * (Number(item.quantity) || 1)));
 
@@ -329,13 +674,13 @@ export default function CheckoutSessionPage() {
                       src={prodImg}
                       alt={prodName}
                       style={itemImgStyles}
-                      onError={e => { (e.target as HTMLImageElement).src = fallbackImg; }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = CLEAN_PRODUCT_PLACEHOLDER;
+                      }}
                     />
                     <div style={{ flex: 1 }}>
                       <p style={itemNameStyles}>{prodName}</p>
-                      {varName && (
-                        <p style={itemSubStyles}>{varName}</p>
-                      )}
+                      {varName && <p style={itemSubStyles}>{varName}</p>}
                       <p style={itemSubStyles}>Qty: {item.quantity}</p>
                     </div>
                     <span style={itemPriceStyles}>{formatCurrency(itemTotal)}</span>
@@ -345,50 +690,329 @@ export default function CheckoutSessionPage() {
             </div>
           </section>
 
-          {/* Payment Method Selection */}
+          {/* Payment Method — Manual Bank Transfer */}
           <section style={sectionStyles}>
             <h2 style={sectionTitleStyles}>
               <span style={stepNumberStyles}>4</span>
-              Payment Method
+              Payment Method: Manual Bank Transfer
             </h2>
 
-            {paymentMethods.length === 0 ? (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-                No payment methods available.
-              </p>
-            ) : (
-              paymentMethods.map((pm) => (
-                <label
-                  key={pm.id}
+            {/* Account Details Box */}
+            <div
+              style={{
+                backgroundColor: '#f8fafc',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '12px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <span
                   style={{
-                    ...pmCardStyles,
-                    borderColor: selectedProvider === pm.id ? 'var(--color-primary)' : 'var(--color-border)',
-                    backgroundColor: selectedProvider === pm.id ? 'rgba(255, 122, 0, 0.04)' : '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    color: '#64748b',
                   }}
                 >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    checked={selectedProvider === pm.id}
-                    onChange={() => setSelectedProvider(pm.id)}
-                    style={{ accentColor: 'var(--color-primary)' }}
-                  />
-                  {pm.logo_url && (
-                    <img
-                      src={pm.logo_url}
-                      alt={pm.name}
-                      style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+                  Official DOVI Product Purchase Account
+                </span>
+                <span
+                  style={{
+                    backgroundColor: '#e0f2fe',
+                    color: '#0369a1',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                  }}
+                >
+                  Verified Business Account
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Bank Name</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
+                    {bankAccount?.bank_name || 'Zenith Bank'}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Name</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
+                    {bankAccount?.account_name || 'Dovi Direct Commerce Limited'}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Number</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      style={{
+                        fontSize: '20px',
+                        fontWeight: 800,
+                        letterSpacing: '0.05em',
+                        color: 'var(--color-primary)',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      {bankAccount?.account_number || '5601660874'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyAccountNumber}
+                      style={{
+                        backgroundColor: isCopied ? '#10b981' : '#f1f5f9',
+                        color: isCopied ? '#ffffff' : '#334155',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isCopied ? '✓ Copied!' : '📋 Copy'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Total Payable</div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
+                    {formatCurrency(session.total)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div
+                style={{
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  fontSize: '13px',
+                  color: '#1e40af',
+                  lineHeight: 1.5,
+                }}
+              >
+                💡 <strong>Transfer Instructions:</strong> {bankAccount?.instructions || 'Transfer the exact order total to this account. In the transfer narration/remarks, enter your Order Reference Code. After completing the transfer, upload your payment receipt below.'}
+              </div>
+            </div>
+
+            {/* Transfer Evidence Form */}
+            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: '#1e293b' }}>
+                Step 2: Submit Transfer Evidence
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Sender Bank <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select
+                    value={senderBank}
+                    onChange={(e) => setSenderBank(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    {NIGERIAN_BANKS.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                  {senderBank === 'Other Bank' && (
+                    <input
+                      type="text"
+                      placeholder="Specify your bank name"
+                      value={customBank}
+                      onChange={(e) => setCustomBank(e.target.value)}
+                      style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '14px',
+                      }}
                     />
                   )}
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ fontSize: 'var(--text-sm)' }}>{pm.name}</strong>
-                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                      {pm.description}
-                    </p>
-                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Sender Account Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Name as it appears on your bank account"
+                    value={senderAccountName}
+                    onChange={(e) => setSenderAccountName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Transaction Reference / Narration (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Session Ref or Bank Transaction ID"
+                    value={transactionRef}
+                    onChange={(e) => setTransactionRef(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Payment Notes / Remarks (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Any additional remarks about this transfer"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Receipt File Upload */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                  Upload Payment Receipt / Screenshot <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-              ))
-            )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+
+                {receiptPreview ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <img
+                      src={receiptPreview}
+                      alt="Payment Receipt Preview"
+                      style={{
+                        width: '120px',
+                        height: '120px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #10b981',
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', color: '#059669', fontWeight: 700 }}>
+                        ✓ Receipt uploaded successfully
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          backgroundColor: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          width: 'fit-content',
+                        }}
+                      >
+                        Change Receipt
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      width: '100%',
+                      padding: '24px',
+                      border: '2px dashed #94a3b8',
+                      borderRadius: '10px',
+                      backgroundColor: '#f8fafc',
+                      color: '#475569',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span style={{ fontSize: '28px' }}>🧾</span>
+                    <span>Click to upload your transfer receipt (PNG, JPG, or WEBP)</span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Max file size 10MB</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Confirmation Checkbox */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8fafc',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAgreed}
+                  onChange={(e) => setIsAgreed(e.target.checked)}
+                  style={{ marginTop: '3px', accentColor: 'var(--color-primary)' }}
+                />
+                <span style={{ fontSize: '13px', color: '#334155', lineHeight: 1.4 }}>
+                  I confirm that I have transferred the exact total of{' '}
+                  <strong>{formatCurrency(session.total)}</strong> to the official DOVI account
+                  above and that the uploaded receipt is genuine.
+                </span>
+              </label>
+            </div>
           </section>
         </div>
 
@@ -411,7 +1035,10 @@ export default function CheckoutSessionPage() {
           {deliveryCalc && deliveryCalc.shipment_count > 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
               {deliveryCalc.shipment_groups.map((g) => (
-                <div key={g.group_index} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-muted)' }}>
+                <div
+                  key={g.group_index}
+                  style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-muted)' }}
+                >
                   <span>Shipment #{g.group_index} Fee:</span>
                   <span>{formatCurrency(g.delivery_fee)}</span>
                 </div>
@@ -433,27 +1060,48 @@ export default function CheckoutSessionPage() {
             </span>
           </div>
 
-          {/* Session Expiry */}
           <p style={expiryStyles}>
             Session expires: {new Date(session.expires_at).toLocaleTimeString()}
           </p>
 
           <button
-            onClick={handleConfirm}
-            disabled={isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)}
+            onClick={handleSubmitEvidence}
+            disabled={
+              isSubmitting ||
+              isExpired ||
+              !isAgreed ||
+              !receiptPreview ||
+              !senderAccountName.trim() ||
+              Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
+            }
             style={{
               ...confirmBtnStyles,
               opacity:
-                isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
-                  ? 0.6
+                isSubmitting ||
+                isExpired ||
+                !isAgreed ||
+                !receiptPreview ||
+                !senderAccountName.trim() ||
+                Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
+                  ? 0.5
                   : 1,
               cursor:
-                isConfirming || !selectedProvider || Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
+                isSubmitting ||
+                isExpired ||
+                !isAgreed ||
+                !receiptPreview ||
+                !senderAccountName.trim() ||
+                Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
                   ? 'not-allowed'
                   : 'pointer',
+              backgroundColor: isExpired ? '#dc2626' : 'var(--color-primary)',
             }}
           >
-            {isConfirming ? 'Processing...' : `Pay ${formatCurrency(session.total)}`}
+            {isSubmitting
+              ? 'Submitting Evidence...'
+              : isExpired
+              ? 'Payment Session Expired — Please Renew Above'
+              : 'Submit Payment Evidence'}
           </button>
 
           <Link to="/checkout" style={backLinkStyles}>
@@ -582,17 +1230,6 @@ const itemPriceStyles: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
   fontWeight: 'var(--font-bold)',
   color: 'var(--color-text)',
-};
-
-const pmCardStyles: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 'var(--space-3)',
-  padding: 'var(--space-3) var(--space-4)',
-  border: '2px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  cursor: 'pointer',
-  transition: 'all var(--transition-fast)',
 };
 
 const summaryCardStyles: React.CSSProperties = {

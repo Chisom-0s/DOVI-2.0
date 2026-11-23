@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
+import { adminCache } from '@/services/adminCache';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import type { User, APIError, UserRole, AccountStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
@@ -61,8 +62,11 @@ const LoadingSpinnerIcon = ({ size = 15, color = 'currentColor' }: { size?: numb
 export default function UsersPage() {
   const navigate = useNavigate();
   const { user: currentAdmin } = useAdminAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>(() => {
+    const cached = adminCache.get<any>('users:list:1::');
+    return cached?.data?.results || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => !adminCache.get('users:list:1::'));
   const [error, setError] = useState<APIError | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'BUYER' | 'VENDOR' | 'ADMIN' | 'PENDING_VENDOR'>('ALL');
@@ -117,7 +121,9 @@ export default function UsersPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const fetchUsers = async (showSkeleton = true) => {
-    if (showSkeleton) setIsLoading(true);
+    const cacheKey = `users:list:${page}:${activeTab === 'ALL' ? '' : activeTab}:${searchTerm || ''}`;
+    const hasCache = Boolean(adminCache.get(cacheKey));
+    if (showSkeleton && !hasCache && users.length === 0) setIsLoading(true);
     setError(null);
     try {
       const res = await adminApi.listUsers({
