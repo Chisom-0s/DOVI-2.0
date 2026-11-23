@@ -251,13 +251,18 @@ console.log('\n--- 7. REDESIGNED GIFT PACKAGE POP-UP & 3D EARPOD VISUAL ---');
 const popupFile = fs.readFileSync('frontend/src/components/common/PromotionalPopup.tsx', 'utf8');
 
 assert(
-  popupFile.includes('dovi_earpods_3d.jpg'),
-  'Pop-up uses high-resolution 3D wireless EarPods render illustration'
+  popupFile.includes('dovi_earpods_3d.png'),
+  'Pop-up uses high-resolution transparent 3D wireless EarPods render illustration'
 );
 
 assert(
-  popupFile.includes('SHOP & CLAIM GIFT') && popupFile.includes('Continue Browsing'),
-  'Pop-up features prominent "SHOP & CLAIM GIFT" CTA and secondary "Continue Browsing" action'
+  popupFile.includes('CLAIM YOUR FREE EARPOD') && popupFile.includes('Continue Browsing'),
+  'Pop-up features prominent "CLAIM YOUR FREE EARPOD" CTA and secondary "Continue Browsing" action'
+);
+
+assert(
+  popupFile.includes('DOVI LAUNCH GIVEAWAY 🎁'),
+  'Pop-up features decorative header: "DOVI LAUNCH GIVEAWAY 🎁"'
 );
 
 assert(
@@ -273,8 +278,8 @@ assert(
 );
 
 assert(
-  popupFile.includes('availableStock') && popupFile.includes('gifts available'),
-  'Pop-up displays actual available gift stock from backend campaign configuration'
+  !popupFile.includes('gifts available') && !popupFile.includes('gifts remaining') && !popupFile.includes('availableStock'),
+  'Mandatory requirement verified: numerical promotional stock counter is completely removed from customer pop-up'
 );
 
 // -------------------------------------------------------------
