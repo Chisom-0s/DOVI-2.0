@@ -1,6 +1,6 @@
 {
-  "system_reset_version": "2026-11-22-audit-ready-v2",
-  "reset_at": "2026-11-22T13:00:00Z",
+  "system_reset_version": "2026-11-23-customer-cleanup-v1",
+  "reset_at": "2026-11-23T13:58:07.535Z",
   "routes": [
     {
       "id": "route_f3b4eb8cde34",
@@ -5471,16 +5471,107 @@
       "updated_at": "2026-11-22T15:50:00Z"
     },
     {
-      "id": "acc-mkt-default",
+      "id": "84470acd-69f6-48a9-8f20-26cca4cebac3",
       "account_type": "marketplace",
-      "bank_name": "Zenith Bank",
-      "account_name": "Dovi Direct Commerce Limited",
-      "account_number": "5601660874",
+      "bank_name": "PalmPay",
+      "account_name": "Ezeofor Chioma",
+      "account_number": "7067402413",
       "currency": "NGN",
       "is_active": true,
-      "instructions": "Transfer the exact order total to this dedicated DOVI Product Purchase account. In your bank transfer narration or remarks, enter your Order Reference Code. Once transferred, upload your payment receipt below to submit for verification.",
+      "instructions": "For direct marketplace checkout bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) as narration.",
       "created_at": "2026-01-01T00:00:00Z",
-      "updated_at": "2026-11-22T15:50:00Z"
+      "updated_at": "2026-11-23T12:00:00Z"
+    }
+  ],
+  "promotionalCampaigns": [
+    {
+      "id": "promo-launch-giveaway",
+      "name": "DOVI Launch Giveaway",
+      "headline": "SHOP ₦30,000 OR MORE AND GET A FREE EARPOD!",
+      "description": "Unlock a complimentary DOVI Wireless EarPod with charging case when your qualifying marketplace product subtotal reaches ₦30,000.",
+      "badge_text": "DOVI LAUNCH GIVEAWAY 🎁",
+      "cta_text": "CLAIM YOUR FREE EARPOD",
+      "cta_url": "/products",
+      "secondary_text": "Limited-time offer. Ends 20 December 2026.",
+      "image_url": "/images/promotions/dovi_earpods_3d.png",
+      "theme": {
+        "primary_bg": "#ff7a00",
+        "secondary_bg": "#059669",
+        "bg_style": "gradient",
+        "text_color": "#ffffff",
+        "button_bg": "#ffffff",
+        "button_text_color": "#ea580c",
+        "badge_bg": "rgba(255, 255, 255, 0.22)",
+        "badge_text_color": "#ffffff",
+        "image_position": "right",
+        "layout_variant": "standard"
+      },
+      "placements": {
+        "homepage_banner": false,
+        "recurring_popup": true
+      },
+      "popup_frequency_seconds": 20,
+      "popup_frequency_label": "Every 20 seconds",
+      "status": "ACTIVE",
+      "start_date": "2026-11-22T00:00:00Z",
+      "end_date": "2026-12-20T23:59:59Z",
+      "priority": 1,
+      "is_giveaway": true,
+      "giveaway_config": {
+        "qualifying_subtotal": 30000,
+        "initial_stock": 20,
+        "total_stock": 20,
+        "max_allowed_stock": 50,
+        "available_stock": 20,
+        "reserved_stock": 0,
+        "confirmed_stock": 0,
+        "max_per_customer": 1,
+        "gift_item": {
+          "id": "promo-gift-earpod-2026",
+          "product_id": "promo-gift-earpod-2026",
+          "name": "DOVI Free EarPod (Launch Edition)",
+          "description": "Complimentary DOVI Wireless EarPod with high-definition audio and charging case.",
+          "price": "0.00",
+          "unit_price": "0.00",
+          "quantity": 1,
+          "line_total": "0.00",
+          "is_promotional_gift": true,
+          "sku": "DOV-GIFT-EARPOD-2026",
+          "image_url": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80"
+        },
+        "claims": [],
+        "first_display_delay_seconds": 60,
+        "repeat_frequency_hours": 24,
+        "display_limit_per_customer": 3,
+        "close_suppression_hours": 24,
+        "stop_permanently_on_claim": true
+      },
+      "created_at": "2026-11-22T20:00:00Z",
+      "updated_at": "2026-11-22T20:00:00Z",
+      "created_by": "Administrator",
+      "first_display_delay_seconds": 60,
+      "repeat_frequency_hours": 24,
+      "display_limit_per_customer": 3,
+      "close_suppression_hours": 24,
+      "stop_permanently_on_claim": true,
+      "impressions": 0,
+      "unique_reach": 0,
+      "claim_clicks": 0
+    }
+  ],
+  "campaignAuditLogs": [
+    {
+      "id": "log-seed-001",
+      "campaign_id": "promo-launch-giveaway",
+      "campaign_name": "DOVI Launch Giveaway",
+      "action": "INITIALIZED",
+      "admin_user": "System",
+      "details": {
+        "headline": "SHOP ₦30,000 OR MORE AND GET A FREE EARPOD!",
+        "stock": 20,
+        "end_date": "2026-12-20"
+      },
+      "timestamp": "2026-11-22T20:00:00Z"
     }
   ]
 }

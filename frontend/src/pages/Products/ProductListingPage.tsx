@@ -63,7 +63,6 @@ export default function ProductListingPage() {
     return [];
   });
 
-  const [totalCount, setTotalCount] = useState<number>(() => products.length);
   const [page, setPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(() => products.length === 0);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
@@ -151,7 +150,6 @@ export default function ProductListingPage() {
       });
 
       setProducts(response.results);
-      setTotalCount(response.count);
       setPage(1);
       setHasMore(response.results.length < response.count && Boolean(response.next));
 
@@ -163,7 +161,6 @@ export default function ProductListingPage() {
     } catch (err: any) {
       console.error('Failed to load products list:', err);
       setProducts([]);
-      setTotalCount(0);
       setHasMore(false);
       const isNetwork = !navigator.onLine || err?.code === 'NETWORK_ERROR' || err?.message?.toLowerCase().includes('internet signal');
       setFetchError(
@@ -658,14 +655,11 @@ export default function ProductListingPage() {
         <div style={resultsHeaderStyles}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <span style={resultsCountStyles}>
-                <strong>{totalCount}</strong> {totalCount === 1 ? 'product' : 'products'} found
-                {searchParam ? (
-                  <>
-                    {' '}for &ldquo;<strong>{searchParam}</strong>&rdquo;
-                  </>
-                ) : null}
-              </span>
+              {searchParam && (
+                <span style={resultsCountStyles}>
+                  Results for &ldquo;<strong>{searchParam}</strong>&rdquo;
+                </span>
+              )}
 
               {/* Desktop Filters Trigger Button */}
               <button

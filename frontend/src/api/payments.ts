@@ -45,19 +45,21 @@ export function getLocalPaymentSession(key: string): PaymentSession | null {
   return map[key] || null;
 }
 
-export const DEFAULT_MARKETPLACE_ACCOUNT: PaymentAccount = {
-  id: 'acc-mkt-default',
+export const ACTIVE_MARKETPLACE_ACCOUNT: PaymentAccount = {
+  id: '84470acd-69f6-48a9-8f20-26cca4cebac3',
   account_type: 'marketplace',
-  bank_name: 'Zenith Bank',
-  account_name: 'Dovi Direct Commerce Limited',
-  account_number: '5601660874',
+  bank_name: 'PalmPay',
+  account_name: 'Ezeofor Chioma',
+  account_number: '7067402413',
   currency: 'NGN',
   is_active: true,
   instructions:
-    'Transfer the exact order total to this dedicated DOVI Product Purchase account. In your bank transfer narration or remarks, enter your Order Reference Code. Once transferred, upload your payment receipt below to submit for verification.',
+    'For direct marketplace checkout bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) as narration.',
   created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-11-22T15:50:00Z',
+  updated_at: '2026-11-23T12:00:00Z',
 };
+
+export const DEFAULT_MARKETPLACE_ACCOUNT: PaymentAccount = ACTIVE_MARKETPLACE_ACCOUNT;
 
 export function getStoredPaymentAccounts(): PaymentAccount[] {
   try {
@@ -278,18 +280,37 @@ export const paymentsApi = {
   },
 
   getActiveAccount: async (type: PaymentAccountType = 'marketplace'): Promise<PaymentAccount> => {
+    // 1. Authoritative backend endpoint
     try {
-      const { data } = await apiClient.get<PaymentAccount>(`/api/v1/payment-accounts/active/?type=${type}`);
-      if (data && data.account_number && data.account_type === type) return data;
+      const { data } = await apiClient.get<PaymentAccount>('/api/v1/payments/accounts/active/', {
+        params: { account_type: type },
+      });
+      if (data && data.account_number && (data.account_type === type || !data.account_type)) {
+        return { ...data, account_type: type };
+      }
     } catch {}
 
+    // 2. Secondary API endpoint route check
+    try {
+      const { data } = await apiClient.get<PaymentAccount>('/api/v1/payment-accounts/active/', {
+        params: { account_type: type },
+      });
+      if (data && data.account_number && (data.account_type === type || !data.account_type)) {
+        return { ...data, account_type: type };
+      }
+    } catch {}
+
+    // 3. Stored payment accounts configured in admin
     const all = getStoredPaymentAccounts();
     const active = all.find((a) => a.account_type === type && a.is_active !== false);
-    if (active) return active;
-    const fallback = all.find((a) => a.account_type === type);
-    if (fallback) return fallback;
+    if (active && active.account_number) return active;
 
-    return DEFAULT_MARKETPLACE_ACCOUNT;
+    // 4. Default active account for the platform
+    if (type === 'marketplace' && ACTIVE_MARKETPLACE_ACCOUNT?.account_number) {
+      return ACTIVE_MARKETPLACE_ACCOUNT;
+    }
+
+    throw new Error(`Official ${type} payment account details could not be retrieved from the server.`);
   },
 
   submitPaymentEvidence: async (payload: {

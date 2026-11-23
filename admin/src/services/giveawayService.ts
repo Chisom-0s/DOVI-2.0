@@ -34,6 +34,14 @@ export const DEFAULT_LAUNCH_GIVEAWAY_PROMOTION: LaunchGiveawayPromotion = {
   start_date: '2026-11-22T00:00:00Z',
   end_date: '2026-12-20T23:59:59Z',
   max_per_customer: 1,
+  first_display_delay_seconds: 60,
+  repeat_frequency_hours: 24,
+  display_limit_per_customer: 3,
+  close_suppression_hours: 24,
+  stop_permanently_on_claim: true,
+  impressions: 0,
+  unique_reach: 0,
+  claim_clicks: 0,
   claims: [],
   updated_at: '2026-11-22T20:00:00Z',
 };
@@ -42,6 +50,7 @@ const STORAGE_KEY = 'dovi_launch_giveaway_db';
 
 export function computeGiveawayStatus(promo: LaunchGiveawayPromotion): GiveawayStatus {
   if (promo.status === 'DISABLED') return 'DISABLED';
+  if (promo.status === 'PAUSED') return 'PAUSED';
   const now = new Date();
   const start = new Date(promo.start_date);
   const end = new Date(promo.end_date);
@@ -287,6 +296,14 @@ export async function updateAdminGiveawayConfig(params: {
   start_date?: string;
   end_date?: string;
   headline?: string;
+  first_display_delay_seconds?: number;
+  repeat_frequency_hours?: number;
+  display_limit_per_customer?: number;
+  close_suppression_hours?: number;
+  stop_permanently_on_claim?: boolean;
+  impressions?: number;
+  unique_reach?: number;
+  claim_clicks?: number;
 }): Promise<{ success: boolean; promo?: LaunchGiveawayPromotion; error?: string }> {
   const promo = await fetchAuthoritativeGiveawayPromotion();
 
@@ -313,6 +330,14 @@ export async function updateAdminGiveawayConfig(params: {
   if (params.start_date !== undefined) promo.start_date = params.start_date;
   if (params.end_date !== undefined) promo.end_date = params.end_date;
   if (params.headline !== undefined) promo.headline = params.headline;
+  if (params.first_display_delay_seconds !== undefined) promo.first_display_delay_seconds = params.first_display_delay_seconds;
+  if (params.repeat_frequency_hours !== undefined) promo.repeat_frequency_hours = params.repeat_frequency_hours;
+  if (params.display_limit_per_customer !== undefined) promo.display_limit_per_customer = params.display_limit_per_customer;
+  if (params.close_suppression_hours !== undefined) promo.close_suppression_hours = params.close_suppression_hours;
+  if (params.stop_permanently_on_claim !== undefined) promo.stop_permanently_on_claim = params.stop_permanently_on_claim;
+  if (params.impressions !== undefined) promo.impressions = params.impressions;
+  if (params.unique_reach !== undefined) promo.unique_reach = params.unique_reach;
+  if (params.claim_clicks !== undefined) promo.claim_clicks = params.claim_clicks;
 
   promo.status = computeGiveawayStatus(promo);
   await pushAuthoritativeGiveawayPromotion(promo);

@@ -82,17 +82,17 @@ export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     updated_at: '2026-11-22T15:50:00Z',
   },
   {
-    id: 'acc-mkt-default',
+    id: '84470acd-69f6-48a9-8f20-26cca4cebac3',
     account_type: 'marketplace',
-    bank_name: 'Zenith Bank',
-    account_name: 'Dovi Direct Commerce Limited',
-    account_number: '5601660874',
+    bank_name: 'PalmPay',
+    account_name: 'Ezeofor Chioma',
+    account_number: '7067402413',
     currency: 'NGN',
     is_active: true,
     instructions:
-      'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
+      'For direct marketplace checkout bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) as narration.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-11-22T15:50:00Z',
+    updated_at: '2026-11-23T12:00:00Z',
   },
 ];
 
@@ -236,84 +236,32 @@ async function fetchAllPages(
   return { items, truncated: true };
 }
 
-function isTestUserOrEmail(email?: string, name?: string): boolean {
-  if (!email && !name) return false;
-  const em = (email || '').toLowerCase().trim();
-  const nm = (name || '').toLowerCase().trim();
-  if (em === 'admin@dovi.com') return false;
-  return (
-    em.includes('test') ||
-    em.includes('demo') ||
-    em.includes('example.com') ||
-    em.includes('invalid-mail') ||
-    em.includes('campus.edu') ||
-    em === 'user@dovi.com' ||
-    em === 'buyer@dovi.com' ||
-    em === 'customer@dovi.com' ||
-    em === 'participant@dovi.com' ||
-    em.startsWith('test_') ||
-    em.startsWith('user_') ||
-    nm.includes('test') ||
-    nm.includes('demo')
-  );
-}
-
-function isTestOrder(order: any): boolean {
-  if (!order) return false;
-  const email = (order.buyer_email || order.customer_email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
-  const name = (order.buyer_name || order.customer_name || order.buyer || `${order.first_name || ''} ${order.last_name || ''}`).toLowerCase().trim();
-  const ref = String(order.reference || order.reference_code || order.id || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email, name)) return true;
-  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('ord_test') || ref.startsWith('ord-test')) return true;
+function isTestUserOrEmail(_email?: string, _name?: string): boolean {
+  // Artificial filtering removed to maintain full data integrity and display true database records
   return false;
 }
 
-function isTestPayment(payment: any): boolean {
-  if (!payment) return false;
-  const email = (payment.customer_email || payment.buyer_email || payment.email || payment.user_email || '').toLowerCase().trim();
-  const name = (payment.customer_name || payment.buyer_name || payment.account_name || '').toLowerCase().trim();
-  const ref = String(payment.reference || payment.transaction_reference || payment.order_reference || payment.id || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email, name)) return true;
-  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('pay_test') || ref.startsWith('pay-test') || ref.startsWith('s2o-pay-test')) return true;
+function isTestOrder(_order: any): boolean {
   return false;
 }
 
-function isTestGoal(goal: any): boolean {
-  if (!goal) return false;
-  const email = (goal.participant?.email || goal.user_email || goal.email || '').toLowerCase().trim();
-  const name = (goal.participant?.full_name || goal.user_name || '').toLowerCase().trim();
-  const id = String(goal.id || goal.reference || goal.reference_code || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email, name)) return true;
-  if (id.includes('test') || id.includes('demo')) return true;
+function isTestPayment(_payment: any): boolean {
   return false;
 }
 
-function isTestContribution(contrib: any): boolean {
-  if (!contrib) return false;
-  const email = (contrib.user_email || contrib.participant_email || contrib.email || '').toLowerCase().trim();
-  const name = (contrib.user_name || contrib.participant_name || '').toLowerCase().trim();
-  const ref = String(contrib.transfer_reference || contrib.reference || contrib.payment_reference || contrib.id || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email, name)) return true;
-  if (ref.includes('test') || ref.includes('demo')) return true;
+function isTestGoal(_goal: any): boolean {
   return false;
 }
 
-function isTestRefund(refund: any): boolean {
-  if (!refund) return false;
-  const email = (refund.customer_email || refund.user_email || refund.email || '').toLowerCase().trim();
-  const name = (refund.customer_name || refund.user_name || '').toLowerCase().trim();
-  const id = String(refund.id || refund.refund_id || refund.reference || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email, name)) return true;
-  if (id.includes('test') || id.includes('demo')) return true;
+function isTestContribution(_contrib: any): boolean {
   return false;
 }
 
-function isTestPaymentSession(session: any): boolean {
-  if (!session) return false;
-  const email = (session.customer_email || session.email || '').toLowerCase().trim();
-  const ref = String(session.order_reference || session.reference || session.id || '').toLowerCase().trim();
-  if (isTestUserOrEmail(email)) return true;
-  if (ref.includes('test') || ref.includes('demo')) return true;
+function isTestRefund(_refund: any): boolean {
+  return false;
+}
+
+function isTestPaymentSession(_session: any): boolean {
   return false;
 }
 
@@ -1426,7 +1374,7 @@ export const adminApi = {
   deleteUser: async (id: string): Promise<void> => {
     try {
       await apiClient.delete(`/api/v1/admin/users/${id}/`);
-    } catch {
+    } finally {
       try {
         const stored = localStorage.getItem('dovi_admin_users_db');
         if (stored) {
@@ -1434,6 +1382,7 @@ export const adminApi = {
           localStorage.setItem('dovi_admin_users_db', JSON.stringify(list.filter((u) => u.id !== id)));
         }
       } catch {}
+      adminCache.clear();
     }
   },
 

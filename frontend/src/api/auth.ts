@@ -33,7 +33,8 @@ export const authApi = {
 
   logout: async (): Promise<void> => {
     try {
-      await apiClient.post('/api/v1/auth/logout/');
+      const refresh = tokenStore.getRefresh();
+      await apiClient.post('/api/v1/auth/logout/', refresh ? { refresh } : {});
     } catch (err) {
       throw normalizeApiError(err);
     }

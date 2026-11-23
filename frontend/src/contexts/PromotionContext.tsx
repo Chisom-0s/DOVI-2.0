@@ -73,58 +73,97 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
     return eligibleActiveCampaigns.find((c) => c.placements?.recurring_popup) || null;
   }, [eligibleActiveCampaigns]);
 
-  // Check if current route is a critical path (checkout, payment, auth) where pop-ups must be suppressed
+  // Check if current route is a critical path (checkout, payment, cart, auth) where pop-ups must be suppressed
   const isCriticalPath = useMemo(() => {
     const p = location.pathname.toLowerCase();
     return (
       p.startsWith('/checkout') ||
+      p.startsWith('/cart') ||
+      p.startsWith('/payment') ||
+      p.includes('payment') ||
       p.startsWith('/login') ||
       p.startsWith('/register') ||
       p.startsWith('/reset-password')
     );
   }, [location.pathname]);
 
-  // Recurring Pop-up Timer Engine
+  // Recurring Pop-up Timer Engine with Admin Frequency Controls
   useEffect(() => {
     if (!activePopupCampaign || isCriticalPath) {
       setIsPopupOpen(false);
       return;
     }
 
-    const freqSeconds = activePopupCampaign.popup_frequency_seconds;
     const campaignId = activePopupCampaign.id;
+    const config = (activePopupCampaign as any).giveaway_config || (activePopupCampaign as any);
 
-    // Once per session check
-    if (freqSeconds === 0) {
+    // Safeguard 1: Permanent stop if customer already claimed the giveaway
+    const stopOnClaim = config.stop_permanently_on_claim !== false;
+    if (stopOnClaim) {
       try {
-        const dismissed = JSON.parse(sessionStorage.getItem(DISMISSED_SESSION_KEY) || '[]');
-        if (dismissed.includes(campaignId)) {
-          return;
-        }
+        const hasClaimed = localStorage.getItem('dovi_giveaway_claimed') === 'true';
+        if (hasClaimed) return;
       } catch {}
     }
 
-    // Check last shown timestamp
+    // Safeguard 2: Display limit per customer
+    const displayLimit = Number(config.display_limit_per_customer ?? 0);
+    if (displayLimit > 0) {
+      try {
+        const count = Number(localStorage.getItem(`dovi_promo_display_count_${campaignId}`) || '0');
+        if (count >= displayLimit) return;
+      } catch {}
+    }
+
+    // Safeguard 3: Close suppression window
+    try {
+      const suppressUntil = Number(localStorage.getItem(`dovi_promo_suppress_until_${campaignId}`) || '0');
+      if (Date.now() < suppressUntil) return;
+    } catch {}
+
+    const firstDelaySec = Math.max(5, Number(config.first_display_delay_seconds ?? 60));
+    const repeatFrequencyHours = Math.max(1, Number(config.repeat_frequency_hours ?? 24));
+    const repeatIntervalMs = repeatFrequencyHours * 3600 * 1000;
+
     const checkAndTriggerPopup = () => {
       if (isCriticalPath || isPopupOpen) return;
 
       const now = Date.now();
       const lastShown = Number(sessionStorage.getItem(LAST_SHOWN_KEY) || '0');
-      const intervalMs = (freqSeconds || 20) * 1000;
 
-      if (now - lastShown >= intervalMs) {
+      if (now - lastShown >= repeatIntervalMs) {
         setIsPopupOpen(true);
         sessionStorage.setItem(LAST_SHOWN_KEY, String(now));
+
+        // Increment display count
+        try {
+          const currentCount = Number(localStorage.getItem(`dovi_promo_display_count_${campaignId}`) || '0');
+          localStorage.setItem(`dovi_promo_display_count_${campaignId}`, String(currentCount + 1));
+
+          // Increment overall impressions
+          const impressions = Number(localStorage.getItem('dovi_promo_impressions') || '0');
+          localStorage.setItem('dovi_promo_impressions', String(impressions + 1));
+
+          // Unique reach tracker
+          let visitorId = localStorage.getItem('dovi_visitor_id');
+          if (!visitorId) {
+            visitorId = 'v_' + Math.random().toString(36).substring(2, 9);
+            localStorage.setItem('dovi_visitor_id', visitorId);
+          }
+          const reachedVisitors = JSON.parse(localStorage.getItem('dovi_promo_reached_visitors') || '[]');
+          if (!reachedVisitors.includes(visitorId)) {
+            reachedVisitors.push(visitorId);
+            localStorage.setItem('dovi_promo_reached_visitors', JSON.stringify(reachedVisitors));
+          }
+        } catch {}
       }
     };
 
-    // Initial delay trigger
-    const initialDelay = Math.min((freqSeconds || 20) * 1000, 6000);
-    const initialTimer = setTimeout(checkAndTriggerPopup, initialDelay);
+    // First display delay: Never display immediately upon page load (default: 60s)
+    const initialTimer = setTimeout(checkAndTriggerPopup, firstDelaySec * 1000);
 
-    // Recurring interval
-    const intervalMs = Math.max((freqSeconds || 20) * 1000, 5000);
-    const intervalTimer = setInterval(checkAndTriggerPopup, intervalMs);
+    // Recurring interval if user stays on the page
+    const intervalTimer = setInterval(checkAndTriggerPopup, repeatIntervalMs);
 
     return () => {
       clearTimeout(initialTimer);
@@ -134,10 +173,16 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
 
   const dismissPopup = useCallback(() => {
     setIsPopupOpen(false);
-    sessionStorage.setItem(LAST_SHOWN_KEY, String(Date.now()));
+    const now = Date.now();
+    sessionStorage.setItem(LAST_SHOWN_KEY, String(now));
 
     if (activePopupCampaign) {
+      const config = (activePopupCampaign as any).giveaway_config || (activePopupCampaign as any);
+      const closeSuppressionHours = Math.max(1, Number(config.close_suppression_hours ?? config.repeat_frequency_hours ?? 24));
+      const suppressUntil = now + closeSuppressionHours * 3600 * 1000;
+
       try {
+        localStorage.setItem(`dovi_promo_suppress_until_${activePopupCampaign.id}`, String(suppressUntil));
         const dismissed: string[] = JSON.parse(sessionStorage.getItem(DISMISSED_SESSION_KEY) || '[]');
         if (!dismissed.includes(activePopupCampaign.id)) {
           dismissed.push(activePopupCampaign.id);

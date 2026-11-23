@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePromotion } from '@/contexts/PromotionContext';
 
@@ -30,6 +31,17 @@ export default function PromotionalPopup() {
   const { activePopupCampaign, isPopupOpen, dismissPopup } = usePromotion();
   const navigate = useNavigate();
 
+  // Support seamless dismissal via Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        dismissPopup();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dismissPopup]);
+
   if (!isPopupOpen || !activePopupCampaign) {
     return null;
   }
@@ -48,6 +60,10 @@ export default function PromotionalPopup() {
     : (image_url || '/images/promotions/dovi_earpods_3d.png');
 
   const handleCtaClick = () => {
+    try {
+      const clicks = Number(localStorage.getItem('dovi_promo_claim_clicks') || '0');
+      localStorage.setItem('dovi_promo_claim_clicks', String(clicks + 1));
+    } catch {}
     dismissPopup();
     navigate(cta_url || '/products');
   };

@@ -43,3 +43,6 @@ architecture.md
 # Database files
 *.sqlite3
 db.sqlite3
+
+# Backups
+backend/backups/

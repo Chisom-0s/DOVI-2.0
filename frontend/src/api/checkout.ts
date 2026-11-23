@@ -172,6 +172,8 @@ export const checkoutApi = {
         delivery_method_id: payload.delivery_method_id,
         delivery_method: payload.delivery_method,
         vendor_delivery_selections: payload.vendor_delivery_selections,
+        cart_snapshot: effectiveCartSnapshot,
+        items: effectiveCartSnapshot?.items,
       });
 
       const sessionId = String(data.id);
@@ -274,8 +276,12 @@ export const checkoutApi = {
     try {
       const { data } = await apiClient.get(`/api/v1/checkout/${id}/`);
       if (overlay) {
+        const effectiveSnapshot = overlay.cart_snapshot || data.cart_snapshot;
+        const effectiveItems = effectiveSnapshot?.items || (overlay as any).items || data.items || [];
         return {
           ...data,
+          cart_snapshot: effectiveSnapshot,
+          items: effectiveItems,
           delivery_address: overlay.delivery_address || data.delivery_address,
           subtotal: overlay.subtotal,
           delivery_fee:
@@ -529,7 +535,7 @@ export const checkoutApi = {
               status: 'PENDING_PAYMENT',
               location: 'Direct Delivery',
               description: overlay.delivery_calculation.requires_manual_quote
-                ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
+                ? 'Order received — awaiting delivery fee confirmation from DOVI logistics team.'
                 : 'Order created and consolidated for direct dispatch.',
               timestamp: now,
             },
@@ -550,7 +556,7 @@ export const checkoutApi = {
           hub_fulfillment_status: overlay.delivery_calculation.requires_manual_quote
             ? 'AWAITING_DELIVERY_CONFIRMATION'
             : 'ORDER_PLACED',
-          dispatch_origin: 'Onitsha',
+          dispatch_origin: 'DOVI Direct Dispatch',
         };
 
         saveLocalOrder(fullOrder);
@@ -630,7 +636,7 @@ export const checkoutApi = {
               status: 'PENDING_PAYMENT',
               location: 'Direct Delivery',
               description: overlay.delivery_calculation.requires_manual_quote
-                ? 'Order received — awaiting delivery fee confirmation from Onitsha logistics team.'
+                ? 'Order received — awaiting delivery fee confirmation from DOVI logistics team.'
                 : 'Order created and consolidated for direct dispatch.',
               timestamp: now,
             },
@@ -651,7 +657,7 @@ export const checkoutApi = {
           hub_fulfillment_status: overlay.delivery_calculation.requires_manual_quote
             ? 'AWAITING_DELIVERY_CONFIRMATION'
             : 'ORDER_PLACED',
-          dispatch_origin: 'Onitsha',
+          dispatch_origin: 'DOVI Direct Dispatch',
         };
 
         saveLocalOrder(localOrder);
@@ -755,7 +761,7 @@ export const checkoutApi = {
           status: 'PENDING_PAYMENT',
           location: 'Direct Delivery',
           description:
-            'Delivery Confirmation Required: Order submitted for transport fee confirmation by DOVI Onitsha logistics team.',
+            'Delivery Confirmation Required: Order submitted for transport fee confirmation by DOVI logistics team.',
           timestamp: now,
         },
       ],
@@ -772,7 +778,7 @@ export const checkoutApi = {
       requires_manual_quote: true,
       delivery_confirmation_status: 'PENDING_ADMIN_QUOTE',
       hub_fulfillment_status: 'AWAITING_DELIVERY_CONFIRMATION',
-      dispatch_origin: 'Onitsha',
+      dispatch_origin: 'DOVI Direct Dispatch',
     };
 
     saveLocalOrder(order);

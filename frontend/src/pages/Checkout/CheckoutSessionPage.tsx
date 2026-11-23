@@ -33,6 +33,7 @@ export default function CheckoutSessionPage() {
 
   const [session, setSession] = useState<CheckoutSession | null>(null);
   const [bankAccount, setBankAccount] = useState<PaymentAccount | null>(null);
+  const [bankAccountError, setBankAccountError] = useState<string | null>(null);
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(3600);
   const [isExpired, setIsExpired] = useState(false);
@@ -67,10 +68,18 @@ export default function CheckoutSessionPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [sess, account] = await Promise.all([
-        checkoutApi.getSession(id),
-        paymentsApi.getActiveAccount('marketplace'),
-      ]);
+      const sess = await checkoutApi.getSession(id);
+
+      // Retrieve official active bank account from backend
+      try {
+        const account = await paymentsApi.getActiveAccount('marketplace');
+        setBankAccount(account);
+        setBankAccountError(null);
+      } catch (accErr: any) {
+        console.error('Failed to retrieve active payment account:', accErr);
+        setBankAccount(null);
+        setBankAccountError(accErr?.message || 'Official payment account details could not be retrieved from the server.');
+      }
 
       // Check if delivery rates changed since session was created
       const reverify = await checkoutApi.reverifySessionDeliveryPricing(sess);
@@ -101,8 +110,6 @@ export default function CheckoutSessionPage() {
       } else {
         setSession(sess);
       }
-
-      setBankAccount(account);
 
       // Initialize or retrieve server 60-minute payment session
       const orderRef = effectiveSess.order_reference || effectiveSess.id;
@@ -215,6 +222,11 @@ export default function CheckoutSessionPage() {
 
     if (isExpired) {
       toast.error('This payment session has expired. Please initiate a new payment session to complete your payment.');
+      return;
+    }
+
+    if (!bankAccount?.account_number || bankAccountError) {
+      toast.error('Payment transfer details are unavailable. Please contact DOVI Support.');
       return;
     }
 
@@ -645,10 +657,10 @@ export default function CheckoutSessionPage() {
                 }}
               >
                 <div style={{ fontWeight: 700, color: '#1e293b' }}>
-                  📦 {deliveryCalc.consolidation_summary || 'Consolidated Shipment'}
+                  📦 Direct-to-Customer Delivery ({deliveryCalc.consolidation_summary || 'Consolidated Shipment'})
                 </div>
                 <div>
-                  Origin: <strong>{deliveryCalc.dispatch_origin || 'Warri, Delta'}</strong> → Destination: <strong>{session.delivery_address?.city}, {session.delivery_address?.state}</strong>
+                  Destination: <strong>{session.delivery_address?.address_line_1 ? `${session.delivery_address.address_line_1}, ` : ''}{session.delivery_address?.city}, {session.delivery_address?.state}</strong>
                 </div>
               </div>
             )}
@@ -735,77 +747,103 @@ export default function CheckoutSessionPage() {
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Bank Name</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
-                    {bankAccount?.bank_name || 'Zenith Bank'}
+              {bankAccountError || (!bankAccount && !isLoading) ? (
+                <div
+                  style={{
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    padding: '14px',
+                    color: '#991b1b',
+                    fontSize: '13px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: '4px' }}>⚠️ Payment Account Temporarily Unavailable</div>
+                  <div>
+                    {bankAccountError || 'Unable to retrieve the active DOVI Product Purchase bank account from the server. Payment receipt submissions are temporarily blocked.'}
+                  </div>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#b91c1c' }}>
+                    Please contact DOVI Support via WhatsApp or live chat to receive official payment transfer details.
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Bank Name</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
+                        {bankAccount?.bank_name || 'Loading bank...'}
+                      </div>
+                    </div>
 
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Name</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
-                    {bankAccount?.account_name || 'Dovi Direct Commerce Limited'}
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Name</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>
+                        {bankAccount?.account_name || 'Loading account...'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Number</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: '20px',
+                            fontWeight: 800,
+                            letterSpacing: '0.05em',
+                            color: 'var(--color-primary)',
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {bankAccount?.account_number || '----------'}
+                        </span>
+                        {bankAccount?.account_number && (
+                          <button
+                            type="button"
+                            onClick={handleCopyAccountNumber}
+                            style={{
+                              backgroundColor: isCopied ? '#10b981' : '#f1f5f9',
+                              color: isCopied ? '#ffffff' : '#334155',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              padding: '4px 10px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {isCopied ? '✓ Copied!' : '📋 Copy'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Total Payable</div>
+                      <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
+                        {formatCurrency(session.total)}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Account Number</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      style={{
-                        fontSize: '20px',
-                        fontWeight: 800,
-                        letterSpacing: '0.05em',
-                        color: 'var(--color-primary)',
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {bankAccount?.account_number || '5601660874'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyAccountNumber}
-                      style={{
-                        backgroundColor: isCopied ? '#10b981' : '#f1f5f9',
-                        color: isCopied ? '#ffffff' : '#334155',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {isCopied ? '✓ Copied!' : '📋 Copy'}
-                    </button>
+                  {/* Instructions */}
+                  <div
+                    style={{
+                      backgroundColor: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      fontSize: '13px',
+                      color: '#1e40af',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    💡 <strong>Transfer Instructions:</strong> {bankAccount?.instructions || 'Transfer the exact order total to this dedicated account. In the transfer narration/remarks, enter your Order Reference Code. After completing the transfer, upload your payment receipt below.'}
                   </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>Total Payable</div>
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
-                    {formatCurrency(session.total)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div
-                style={{
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '8px',
-                  padding: '12px 14px',
-                  fontSize: '13px',
-                  color: '#1e40af',
-                  lineHeight: 1.5,
-                }}
-              >
-                💡 <strong>Transfer Instructions:</strong> {bankAccount?.instructions || 'Transfer the exact order total to this account. In the transfer narration/remarks, enter your Order Reference Code. After completing the transfer, upload your payment receipt below.'}
-              </div>
+                </>
+              )}
             </div>
 
             {/* Transfer Evidence Form */}
@@ -1072,6 +1110,8 @@ export default function CheckoutSessionPage() {
               !isAgreed ||
               !receiptPreview ||
               !senderAccountName.trim() ||
+              !bankAccount?.account_number ||
+              Boolean(bankAccountError) ||
               Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
             }
             style={{
@@ -1082,6 +1122,8 @@ export default function CheckoutSessionPage() {
                 !isAgreed ||
                 !receiptPreview ||
                 !senderAccountName.trim() ||
+                !bankAccount?.account_number ||
+                Boolean(bankAccountError) ||
                 Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
                   ? 0.5
                   : 1,
@@ -1091,6 +1133,8 @@ export default function CheckoutSessionPage() {
                 !isAgreed ||
                 !receiptPreview ||
                 !senderAccountName.trim() ||
+                !bankAccount?.account_number ||
+                Boolean(bankAccountError) ||
                 Boolean(rateChangeAlert && !rateChangeAlert.acknowledged)
                   ? 'not-allowed'
                   : 'pointer',
@@ -1101,6 +1145,8 @@ export default function CheckoutSessionPage() {
               ? 'Submitting Evidence...'
               : isExpired
               ? 'Payment Session Expired — Please Renew Above'
+              : !bankAccount?.account_number || bankAccountError
+              ? 'Bank Details Unavailable — Contact Support'
               : 'Submit Payment Evidence'}
           </button>
 

@@ -1200,7 +1200,7 @@ export interface ProductSummary {
 // ==========================================
 // DOVI LAUNCH GIVEAWAY PROMOTIONAL TYPES
 // ==========================================
-export type GiveawayStatus = 'SCHEDULED' | 'ACTIVE' | 'OUT_OF_STOCK' | 'EXPIRED' | 'DISABLED';
+export type GiveawayStatus = 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'OUT_OF_STOCK' | 'EXPIRED' | 'DISABLED';
 
 export type GiveawayClaimStatus = 'RESERVED' | 'CONFIRMED' | 'RELEASED';
 
@@ -1253,6 +1253,14 @@ export interface LaunchGiveawayPromotion {
   end_date: string;
   max_per_customer: number;
   claims: GiveawayClaim[];
+  first_display_delay_seconds?: number;
+  repeat_frequency_hours?: number;
+  display_limit_per_customer?: number;
+  close_suppression_hours?: number;
+  stop_permanently_on_claim?: boolean;
+  impressions?: number;
+  unique_reach?: number;
+  claim_clicks?: number;
   updated_at: string;
 }
 
