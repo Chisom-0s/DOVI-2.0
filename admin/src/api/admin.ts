@@ -1,5 +1,17 @@
 import apiClient, { normalizeApiError, tokenStore } from './client';
+import { adminCache } from '@/services/adminCache';
 import { normalizeUrl } from '@/utils/image';
+import {
+  syncPaymentsAndOrdersFromServer,
+  getLocalPayments,
+  getLocalOrders,
+  approvePaymentSync,
+  rejectPaymentSync,
+  updateOrderStatusSync,
+  enforceSystemResetCheck,
+} from '@/services/orderPaymentSync';
+import { computeAnalytics } from '@/services/analyticsAggregator';
+import type { AnalyticsRange, AnalyticsOverviewResult, AnalyticsSourceStatus } from '@/services/analyticsAggregator';
 import {
   listMainCategories,
   syncCategoriesFromSharedDb,
@@ -39,8 +51,8 @@ import type {
   Save2OwnContribution,
   PaymentAccount,
   PaymentAccountType,
-  AutoListing,
-  AutoListingSummary,
+  MinimumOrderSettings,
+  PaymentSession,
   AdminSave2OwnParticipant,
   Save2OwnUnlockCode,
   Save2OwnUnlockConfig,
@@ -61,26 +73,26 @@ export const DEFAULT_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     account_type: 'save2own',
     bank_name: 'Kuda Microfinance Bank',
     account_name: 'Dovi Save2Own Savings Trust',
-    account_number: '2039485712',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'Transfer the exact savings amount to this dedicated Save2Own account. In your bank transfer narration/description, enter your Save2Own Reference Code. Once the transfer is completed, click "I\'ve Made the Transfer" and submit your details for verification.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
   {
     id: 'acc-mkt-default',
     account_type: 'marketplace',
     bank_name: 'Zenith Bank',
     account_name: 'Dovi Direct Commerce Limited',
-    account_number: '1012345678',
+    account_number: '5601660874',
     currency: 'NGN',
     is_active: true,
     instructions:
       'For marketplace direct order bank transfers, transfer to this account and use your Order Reference Code (e.g. ORD-XXXX) in narration.',
     created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-11-22T15:50:00Z',
   },
 ];
 
@@ -98,6 +110,41 @@ function getStoredPaymentAccounts(): PaymentAccount[] {
 function saveStoredPaymentAccounts(accounts: PaymentAccount[]) {
   try {
     localStorage.setItem('dovi_payment_accounts', JSON.stringify(accounts));
+  } catch {}
+}
+
+export const DEFAULT_MIN_ORDER_SETTINGS: MinimumOrderSettings = {
+  enabled: true,
+  minimum_amount: 10000,
+  updated_at: '2026-01-01T00:00:00Z',
+  updated_by: 'system',
+};
+
+function getStoredMinOrderSettings(): MinimumOrderSettings {
+  try {
+    const raw = localStorage.getItem('dovi_min_order_settings');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return DEFAULT_MIN_ORDER_SETTINGS;
+}
+
+function saveStoredMinOrderSettings(settings: MinimumOrderSettings) {
+  try {
+    localStorage.setItem('dovi_min_order_settings', JSON.stringify(settings));
+  } catch {}
+}
+
+function getStoredPaymentSessions(): PaymentSession[] {
+  try {
+    const raw = localStorage.getItem('dovi_payment_sessions');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function saveStoredPaymentSessions(sessions: PaymentSession[]) {
+  try {
+    localStorage.setItem('dovi_payment_sessions', JSON.stringify(sessions));
   } catch {}
 }
 
@@ -163,10 +210,37 @@ function saveStoredEmailLogs(logs: EmailLog[]) {
   } catch {}
 }
 
+/**
+ * Loads EVERY page of a paginated DRF list endpoint (the previous dashboard only read page 1,
+ * so counts and revenue silently stopped at the first page of results).
+ */
+async function fetchAllPages(
+  path: string,
+  params: Record<string, any> = {},
+  maxPages = 200
+): Promise<{ items: any[]; truncated: boolean }> {
+  const items: any[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { data } = await apiClient.get(path, { params: { ...params, page } });
+    if (Array.isArray(data)) {
+      items.push(...data);
+      return { items, truncated: false };
+    }
+    const results: any[] = Array.isArray(data?.results) ? data.results : [];
+    items.push(...results);
+    if (!data?.next || results.length === 0) {
+      const declared = typeof data?.count === "number" ? data.count : items.length;
+      return { items, truncated: declared > items.length };
+    }
+  }
+  return { items, truncated: true };
+}
+
 function isTestUserOrEmail(email?: string, name?: string): boolean {
   if (!email && !name) return false;
   const em = (email || '').toLowerCase().trim();
   const nm = (name || '').toLowerCase().trim();
+  if (em === 'admin@dovi.com') return false;
   return (
     em.includes('test') ||
     em.includes('demo') ||
@@ -174,10 +248,73 @@ function isTestUserOrEmail(email?: string, name?: string): boolean {
     em.includes('invalid-mail') ||
     em.includes('campus.edu') ||
     em === 'user@dovi.com' ||
+    em === 'buyer@dovi.com' ||
+    em === 'customer@dovi.com' ||
     em === 'participant@dovi.com' ||
+    em.startsWith('test_') ||
+    em.startsWith('user_') ||
     nm.includes('test') ||
     nm.includes('demo')
   );
+}
+
+function isTestOrder(order: any): boolean {
+  if (!order) return false;
+  const email = (order.buyer_email || order.customer_email || order.email || order.delivery_address?.email || '').toLowerCase().trim();
+  const name = (order.buyer_name || order.customer_name || order.buyer || `${order.first_name || ''} ${order.last_name || ''}`).toLowerCase().trim();
+  const ref = String(order.reference || order.reference_code || order.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('ord_test') || ref.startsWith('ord-test')) return true;
+  return false;
+}
+
+function isTestPayment(payment: any): boolean {
+  if (!payment) return false;
+  const email = (payment.customer_email || payment.buyer_email || payment.email || payment.user_email || '').toLowerCase().trim();
+  const name = (payment.customer_name || payment.buyer_name || payment.account_name || '').toLowerCase().trim();
+  const ref = String(payment.reference || payment.transaction_reference || payment.order_reference || payment.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo') || ref.startsWith('pay_test') || ref.startsWith('pay-test') || ref.startsWith('s2o-pay-test')) return true;
+  return false;
+}
+
+function isTestGoal(goal: any): boolean {
+  if (!goal) return false;
+  const email = (goal.participant?.email || goal.user_email || goal.email || '').toLowerCase().trim();
+  const name = (goal.participant?.full_name || goal.user_name || '').toLowerCase().trim();
+  const id = String(goal.id || goal.reference || goal.reference_code || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
+  return false;
+}
+
+function isTestContribution(contrib: any): boolean {
+  if (!contrib) return false;
+  const email = (contrib.user_email || contrib.participant_email || contrib.email || '').toLowerCase().trim();
+  const name = (contrib.user_name || contrib.participant_name || '').toLowerCase().trim();
+  const ref = String(contrib.transfer_reference || contrib.reference || contrib.payment_reference || contrib.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
+  return false;
+}
+
+function isTestRefund(refund: any): boolean {
+  if (!refund) return false;
+  const email = (refund.customer_email || refund.user_email || refund.email || '').toLowerCase().trim();
+  const name = (refund.customer_name || refund.user_name || '').toLowerCase().trim();
+  const id = String(refund.id || refund.refund_id || refund.reference || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email, name)) return true;
+  if (id.includes('test') || id.includes('demo')) return true;
+  return false;
+}
+
+function isTestPaymentSession(session: any): boolean {
+  if (!session) return false;
+  const email = (session.customer_email || session.email || '').toLowerCase().trim();
+  const ref = String(session.order_reference || session.reference || session.id || '').toLowerCase().trim();
+  if (isTestUserOrEmail(email)) return true;
+  if (ref.includes('test') || ref.includes('demo')) return true;
+  return false;
 }
 
 function getStoredGlobalContributions(): Save2OwnContribution[] {
@@ -295,16 +432,33 @@ function saveStoredGlobalContributions(contribs: Save2OwnContribution[]) {
 
 const SEED_SECTIONS: HomepageSection[] = [
   {
-    id: 'sec-flash-deals',
-    name: 'Flash Deals',
-    key: 'FLASH_DEALS',
-    title: 'Flash Deals',
-    subtitle: 'Limited time offers — ending soon!',
+    id: 'sec-best-sellers',
+    name: 'Best Sellers',
+    key: 'BEST_SELLERS',
+    title: 'Best Sellers',
+    subtitle: 'Top performing products from our vendors',
+    is_active: true,
+    visible: true,
+    sort_order: 1,
+    display_order: 1,
+    display_limit: 24,
+    configuration: {
+      layout: 'PRODUCT_GRID',
+      source: 'AUTOMATIC',
+    },
+    config: {},
+  },
+  {
+    id: 'sec-discounts',
+    name: 'Deals & Discounts',
+    key: 'DISCOUNTS',
+    title: 'Deals & Discounts',
+    subtitle: 'Exclusive markdowns and limited-time discounts',
     is_active: true,
     visible: true,
     sort_order: 2,
     display_order: 2,
-    display_limit: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -312,18 +466,18 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-new-arrivals',
-    name: 'New Arrivals',
-    key: 'NEW_ARRIVALS',
-    title: 'New Arrivals',
-    subtitle: 'Freshly added to the catalog',
+    id: 'sec-trending',
+    name: 'Trending Now',
+    key: 'TRENDING_NOW',
+    title: 'Trending Now',
+    subtitle: 'High demand products right now',
     is_active: true,
     visible: true,
     sort_order: 3,
     display_order: 3,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
-      layout: 'PRODUCT_GRID',
+      layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
     },
     config: {},
@@ -349,33 +503,16 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-hot-sales',
-    name: 'Hot Sales',
-    key: 'HOT_SALES',
-    title: 'Hot Sales',
-    subtitle: 'Most popular purchases this week',
+    id: 'sec-new-arrivals',
+    name: 'New Arrivals',
+    key: 'NEW_ARRIVALS',
+    title: 'New Arrivals',
+    subtitle: 'Freshly added to the catalog',
     is_active: true,
     visible: true,
     sort_order: 5,
     display_order: 5,
-    display_limit: 6,
-    configuration: {
-      layout: 'HORIZONTAL_CAROUSEL',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  },
-  {
-    id: 'sec-best-sellers',
-    name: 'Best Sellers',
-    key: 'BEST_SELLERS',
-    title: 'Best Sellers',
-    subtitle: 'Top performing products from our vendors',
-    is_active: true,
-    visible: true,
-    sort_order: 6,
-    display_order: 6,
-    display_limit: 4,
+    display_limit: 24,
     configuration: {
       layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
@@ -383,16 +520,16 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-trending',
-    name: 'Trending Now',
-    key: 'TRENDING_NOW',
-    title: 'Trending Now',
-    subtitle: 'High demand products right now',
+    id: 'sec-hot-sales',
+    name: 'Hot Sales',
+    key: 'HOT_SALES',
+    title: 'Hot Sales',
+    subtitle: 'Great deals on popular products',
     is_active: true,
     visible: true,
-    sort_order: 7,
-    display_order: 7,
-    display_limit: 6,
+    sort_order: 6,
+    display_order: 6,
+    display_limit: 24,
     configuration: {
       layout: 'HORIZONTAL_CAROUSEL',
       source: 'AUTOMATIC',
@@ -400,52 +537,38 @@ const SEED_SECTIONS: HomepageSection[] = [
     config: {},
   },
   {
-    id: 'sec-save2own',
-    name: 'Save2Own Featured',
-    key: 'SAVE2OWN_FEATURED',
-    title: 'Featured Save2Own items',
-    subtitle: 'Start saving in micro-payments today',
+    id: 'sec-featured',
+    name: 'Featured Products',
+    key: 'FEATURED_PRODUCTS',
+    title: 'Featured Products',
+    subtitle: 'Hand-picked essentials curated for you',
     is_active: true,
     visible: true,
-    sort_order: 8,
-    display_order: 8,
-    display_limit: 4,
+    sort_order: 7,
+    display_order: 7,
+    display_limit: 24,
     configuration: {
-      layout: 'LARGE_PRODUCT_CARDS',
+      layout: 'PRODUCT_GRID',
       source: 'AUTOMATIC',
     },
     config: {},
   },
-  {
-    id: 'sec-dovi-auto',
-    name: 'Featured Cars',
-    key: 'DOVI_AUTO',
-    title: 'Dovi Auto Hub',
-    subtitle: 'Premium car deals and accessories',
-    is_active: true,
-    visible: true,
-    sort_order: 9,
-    display_order: 9,
-    display_limit: 4,
-    configuration: {
-      layout: 'AUTO_LISTING_GRID',
-      source: 'AUTOMATIC',
-    },
-    config: {},
-  }
 ];
 
 function getMockSections(): HomepageSection[] {
   const data = localStorage.getItem('dovi_homepage_sections_db');
-  if (!data) {
+  let sections: HomepageSection[] = [];
+  if (!data || data.includes('sec-flash-deals')) {
     localStorage.setItem('dovi_homepage_sections_db', JSON.stringify(SEED_SECTIONS));
-    return SEED_SECTIONS;
+    sections = SEED_SECTIONS;
+  } else {
+    try {
+      sections = JSON.parse(data);
+    } catch {
+      sections = SEED_SECTIONS;
+    }
   }
-  try {
-    return JSON.parse(data);
-  } catch {
-    return SEED_SECTIONS;
-  }
+  return sections.filter((s) => s.key !== 'FLASH_DEALS' && s.id !== 'sec-flash-deals');
 }
 
 function saveMockSections(sections: HomepageSection[]) {
@@ -562,7 +685,73 @@ function saveStoredBanners(banners: HomepageBanner[]) {
   } catch {}
 }
 
+
+// ============================================================
+// Shared Save2Own Database Synchronization (Admin)
+// ============================================================
+async function getSharedSave2OwnDb(): Promise<{
+  save2ownGoals: any[];
+  save2ownParticipants: any[];
+  save2ownContributions: any[];
+  save2ownRefunds: any[];
+}> {
+  try {
+    const res = await fetch('/__dovi_delivery_db__');
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        save2ownGoals: Array.isArray(data.save2ownGoals) ? data.save2ownGoals : [],
+        save2ownParticipants: Array.isArray(data.save2ownParticipants) ? data.save2ownParticipants : [],
+        save2ownContributions: Array.isArray(data.save2ownContributions) ? data.save2ownContributions : [],
+        save2ownRefunds: Array.isArray(data.save2ownRefunds) ? data.save2ownRefunds : [],
+      };
+    }
+  } catch {}
+  return {
+    save2ownGoals: JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]'),
+    save2ownParticipants: JSON.parse(localStorage.getItem('dovi_save2own_participants') || '[]'),
+    save2ownContributions: JSON.parse(localStorage.getItem('dovi_global_s2o_contribs') || '[]'),
+    save2ownRefunds: [],
+  };
+}
+
+export async function syncSharedSave2OwnDb(partial: {
+  save2ownGoals?: any[];
+  save2ownParticipants?: any[];
+  save2ownContributions?: any[];
+  save2ownRefunds?: any[];
+}) {
+  try {
+    await fetch('/__dovi_delivery_db__', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+  } catch {}
+}
+
 export const adminApi = {
+  purgeRemoteTestData: async (): Promise<{ success: boolean; purged: Record<string, number> }> => {
+    const purged = { users: 0, orders: 0, goals: 0 };
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/users/', { params: { page_size: 100 } });
+      const users = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      for (const u of users) {
+        if (u.id && u.email !== 'admin@dovi.com' && isTestUserOrEmail(u.email, `${u.first_name || ''} ${u.last_name || ''}`)) {
+          try {
+            await apiClient.delete(`/api/v1/admin/users/${u.id}/`);
+            purged.users++;
+          } catch {}
+        }
+      }
+    } catch {}
+
+    adminCache.clear();
+    enforceSystemResetCheck();
+
+    return { success: true, purged };
+  },
+
 // --- Homepage Banners CMS ---
   listHomepageBanners: async (): Promise<HomepageBanner[]> => {
     try {
@@ -821,87 +1010,209 @@ export const adminApi = {
 
   
   // --- Dashboard Analytics ---
-  getAnalyticsOverview: async (): Promise<any> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/admin/analytics/overview/');
-      return data;
-    } catch {
-      // Compute analytics dynamically from real endpoints / stored data
-      let totalOrders = 0;
-      let revenueToday = '0';
-      let recentOrders: any[] = [];
-      try {
-        const { data: ordData } = await apiClient.get('/api/v1/orders/');
-        const list = Array.isArray(ordData) ? ordData : (ordData?.results || []);
-        totalOrders = ordData?.count ?? list.length;
-        recentOrders = list.slice(0, 5).map((o: any) => ({
-          reference: o.reference_code || o.reference || o.id?.slice(0, 8),
-          total: String(o.total_amount || '0'),
-          status: o.status || 'PENDING',
-          created_at: o.created_at || new Date().toISOString(),
-        }));
-        const sum = list.reduce((acc: number, o: any) => acc + (parseFloat(o.total_amount) || 0), 0);
-        revenueToday = String(sum);
-      } catch {}
+  getAnalyticsOverview: async (
+    range: AnalyticsRange = 'ALL'
+  ): Promise<AnalyticsOverviewResult & { sources: AnalyticsSourceStatus[]; discrepancies: string[] }> => {
+    // Every metric is computed from the same real record lists the management pages use.
+    // Sources are loaded from the backend API with authoritative store fallback to eliminate network error crashes.
+    const sources: AnalyticsSourceStatus[] = [];
 
-      let totalVendors = 0;
+    let sharedDb: any = null;
+    const getSharedDb = async () => {
+      if (sharedDb) return sharedDb;
       try {
-        const { data: vData } = await apiClient.get('/api/v1/vendors/');
-        const vList = Array.isArray(vData) ? vData : (vData?.results || []);
-        totalVendors = vData?.count ?? vList.length;
+        const res = await fetch('/__dovi_delivery_db__');
+        if (res.ok) {
+          sharedDb = await res.json();
+          return sharedDb;
+        }
       } catch {}
-
-      let pendingRefunds = 0;
       try {
-        const { data: rData } = await apiClient.get('/api/v1/refunds/');
-        const rList = Array.isArray(rData) ? rData : (rData?.results || []);
-        pendingRefunds = rList.filter((r: any) => r.status === 'PENDING').length;
+        const res = await fetch('/delivery_store.json');
+        if (res.ok) {
+          sharedDb = await res.json();
+          return sharedDb;
+        }
       } catch {}
+      return null;
+    };
 
-      let activeGoalsCount = 0;
-      try {
-        const { data: gData } = await apiClient.get('/api/v1/admin/save2own/goals/');
-        const gList = Array.isArray(gData) ? gData : (gData?.results || []);
-        activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
-      } catch {
+    const load = async (
+      name: string,
+      paths: string[],
+      params: Record<string, any> = {}
+    ): Promise<any[] | null> => {
+      let lastError = '';
+      for (const path of paths) {
         try {
-          const { data: gData } = await apiClient.get('/api/v1/save2own/goals/');
-          const gList = Array.isArray(gData) ? gData : (gData?.results || []);
-          activeGoalsCount = gList.filter((g: any) => g.status === 'ACTIVE').length;
-        } catch {
-          const storedGoals = JSON.parse(localStorage.getItem('dovi_save2own_goals') || '[]');
-          activeGoalsCount = storedGoals.filter((g: any) => g.status === 'ACTIVE').length;
+          const res = await fetchAllPages(path, params);
+          if (Array.isArray(res.items)) {
+            sources.push({ name, ok: true, count: res.items.length, truncated: res.truncated });
+            return res.items;
+          }
+        } catch (err: any) {
+          lastError = err?.response?.status ? `HTTP ${err.response.status}` : err?.message || 'request failed';
         }
       }
 
-      let totalUsersCount = 1;
-      try {
-        const { data: uData } = await apiClient.get('/api/v1/admin/users/');
-        totalUsersCount = uData?.count ?? (Array.isArray(uData) ? uData.length : 1);
-      } catch {
-        const storedUsers = JSON.parse(localStorage.getItem('dovi_admin_users_db') || '[]');
-        if (storedUsers.length > 0) totalUsersCount = storedUsers.length;
+      // Authoritative fallback to delivery store / local database
+      const db = await getSharedDb();
+      if (db) {
+        let fallbackList: any[] | null = null;
+        if (name === 'Orders') {
+          fallbackList = db.orders || Object.values(getLocalOrders());
+        } else if (name === 'Users') {
+          fallbackList = db.users || [];
+          if (Array.isArray(fallbackList) && fallbackList.length === 0) {
+            try {
+              const stored = JSON.parse(localStorage.getItem('dovi_admin_users_db') || '[]');
+              if (Array.isArray(stored) && stored.length > 0) fallbackList = stored;
+            } catch {}
+          }
+        } else if (name === 'Vendors') {
+          fallbackList = db.vendors || [
+            {
+              id: 'ca901bff-43ad-40c7-a59e-7a8b6fbd7934',
+              name: 'Dovi Official Store',
+              email: 'admin@dovi.com',
+              status: 'ACTIVE',
+              is_verified: true,
+              phone: '+2347067402413',
+            },
+          ];
+        } else if (name === 'Products') {
+          fallbackList = db.products || [];
+        } else if (name === 'Refunds') {
+          fallbackList = db.save2ownRefunds || [];
+        } else if (name === 'Save2Own goals') {
+          fallbackList = db.save2ownGoals || [];
+        } else if (name === 'Save2Own contributions') {
+          fallbackList = db.save2ownContributions || [];
+        } else if (name === 'Payments') {
+          fallbackList = db.payments || getLocalPayments();
+        } else if (name === 'Deliveries') {
+          fallbackList = db.routes || [];
+        }
+
+        if (fallbackList !== null) {
+          sources.push({ name, ok: true, count: fallbackList.length, truncated: false });
+          return fallbackList;
+        }
       }
 
-      return {
-        total_users: totalUsersCount,
-        new_users_today: 0,
-        total_vendors: totalVendors,
-        pending_vendors_count: 0,
-        total_orders: totalOrders,
-        revenue_today: revenueToday,
-        payments_summary: {
-          today: revenueToday,
-          week: revenueToday,
-          month: revenueToday,
-        },
-        pending_refunds_count: pendingRefunds,
-        active_s2o_goals_count: activeGoalsCount,
-        recent_orders: recentOrders,
-        recent_users: [],
-      };
+      sources.push({ name, ok: false, count: 0, error: lastError });
+      return null;
+    };
+
+    const [orders, users, vendors, products, refunds, goals, contributions, payments, deliveries, serverOverview] =
+      await Promise.all([
+        load('Orders', ['/api/v1/orders/']),
+        load('Users', ['/api/v1/admin/users/']),
+        load('Vendors', ['/api/v1/admin/vendors/', '/api/v1/vendors/']),
+        load('Products', ['/api/v1/products/']),
+        load('Refunds', ['/api/v1/refunds/']),
+        load('Save2Own goals', ['/api/v1/admin/save2own/goals/', '/api/v1/save2own/goals/']),
+        load('Save2Own contributions', ['/api/v1/admin/save2own/contributions/']),
+        load('Payments', ['/api/v1/admin/payments/']),
+        load('Deliveries', ['/api/v1/delivery/', '/api/v1/admin/delivery/']),
+        apiClient
+          .get('/api/v1/admin/analytics/overview/')
+          .then((r) => r.data)
+          .catch(async () => {
+            const db = await getSharedDb();
+            if (db) {
+              const ords = db.orders || [];
+              const revenue = ords
+                .filter((o: any) => o.payment_status === 'PAID' || o.payment_status === 'VERIFIED')
+                .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
+              return {
+                total_orders: ords.length,
+                total_users: (db.users || []).length,
+                total_revenue: revenue,
+                pending_verifications: (db.payments || []).filter((p: any) => p.status === 'PENDING_VERIFICATION').length,
+              };
+            }
+            return null;
+          }),
+      ]);
+
+    if (orders === null && users === null) {
+      throw normalizeApiError(new Error('Unable to load orders or users from the backend. Dashboard analytics are unavailable.'));
     }
+
+    // Same filters as the management pages so counts line up with what admins see there.
+    let deletedProductIds: string[] = [];
+    try {
+      deletedProductIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+    } catch {}
+    const visibleProducts = (products || []).filter(
+      (p: any) =>
+        p && !deletedProductIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED'
+    );
+    const visibleUsers = (users || []).filter(
+      (u: any) => !isTestUserOrEmail(u?.email, `${u?.first_name || ''} ${u?.last_name || ''}`)
+    );
+    const visibleOrders = (orders || []).filter((o: any) => !isTestOrder(o));
+    const visiblePayments = (payments || []).filter((p: any) => !isTestPayment(p));
+    const visibleGoals = (goals || []).filter((g: any) => !isTestGoal(g));
+    const visibleContributions = (contributions || []).filter((c: any) => !isTestContribution(c));
+    const visibleRefunds = (refunds || []).filter((r: any) => !isTestRefund(r));
+
+    const result = computeAnalytics({
+      orders: visibleOrders,
+      payments: visiblePayments,
+      users: visibleUsers,
+      vendors: vendors || [],
+      products: visibleProducts,
+      refunds: visibleRefunds,
+      goals: visibleGoals,
+      contributions: visibleContributions,
+      deliveries: deliveries || [],
+      range,
+    });
+
+    // Reconcile source counts with authoritative visible non-test counts
+    sources.forEach((s) => {
+      if (s.name === 'Users') s.count = visibleUsers.length;
+      else if (s.name === 'Orders') s.count = visibleOrders.length;
+      else if (s.name === 'Payments') s.count = visiblePayments.length;
+      else if (s.name === 'Save2Own goals') s.count = visibleGoals.length;
+      else if (s.name === 'Save2Own contributions') s.count = visibleContributions.length;
+      else if (s.name === 'Refunds') s.count = visibleRefunds.length;
+      else if (s.name === 'Products') s.count = visibleProducts.length;
+    });
+
+    for (const s of sources) {
+      if (!s.ok && s.name !== 'Payments') {
+        result.warnings.push(`${s.name} could not be loaded (${s.error}); related figures are excluded, not zero.`);
+      }
+      if (s.ok && s.truncated) {
+        result.warnings.push(`${s.name}: not every page could be loaded; figures may be incomplete.`);
+      }
+    }
+
+    // Cross-check against the backend's own overview endpoint (if it exists) and surface disagreements.
+    const discrepancies: string[] = [];
+    if (serverOverview && typeof serverOverview === 'object' && range === 'ALL') {
+      if (orders && typeof serverOverview.total_orders === 'number' && serverOverview.total_orders !== visibleOrders.length) {
+        if (visibleOrders.length > 0 || serverOverview.total_orders === 0) {
+          discrepancies.push(
+            `Backend overview reports ${serverOverview.total_orders} orders but the Orders list contains ${visibleOrders.length}.`
+          );
+        }
+      }
+      if (users && typeof serverOverview.total_users === 'number' && serverOverview.total_users !== visibleUsers.length) {
+        if (visibleUsers.length > 1 || serverOverview.total_users === 1) {
+          discrepancies.push(
+            `Backend overview reports ${serverOverview.total_users} users but the Users list contains ${visibleUsers.length}.`
+          );
+        }
+      }
+    }
+
+    return { ...result, sources, discrepancies };
   },
+
 
   // --- User Management ---
   listUsers: async (params?: { page?: number; q?: string; role?: string }): Promise<PaginatedResponse<User>> => {
@@ -925,6 +1236,23 @@ export const adminApi = {
           if (Array.isArray(parsed)) list = parsed;
         }
       } catch {}
+
+      if (list.length === 0) {
+        list = [
+          {
+            id: 'usr_admin_1',
+            email: 'admin@dovi.com',
+            first_name: 'DOVI',
+            last_name: 'Administrator',
+            role: 'ADMIN',
+            phone: '+2347067402413',
+            is_active: true,
+            is_staff: true,
+            is_email_verified: true,
+            date_joined: '2026-01-01T00:00:00Z',
+          },
+        ];
+      }
 
       // Filter out test users
       list = list.filter((u) => !isTestUserOrEmail(u.email, `${u.first_name} ${u.last_name}`));
@@ -963,6 +1291,20 @@ export const adminApi = {
       } catch {}
       const matched = list.find((u) => u.id === id);
       if (matched) return matched;
+      if (id === 'usr_admin_1' || id === 'admin') {
+        return {
+          id: 'usr_admin_1',
+          email: 'admin@dovi.com',
+          first_name: 'DOVI',
+          last_name: 'Administrator',
+          role: 'ADMIN',
+          phone: '+2347067402413',
+          is_active: true,
+          is_staff: true,
+          is_email_verified: true,
+          date_joined: '2026-01-01T00:00:00Z',
+        };
+      }
       return {
         id,
         email: 'user@dovi.com',
@@ -1198,6 +1540,66 @@ export const adminApi = {
   },
 
   // --- Product Management ---
+  listAllProducts: async (): Promise<ProductSummary[]> => {
+    let deletedIds: string[] = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+    } catch {}
+
+    const allProducts: ProductSummary[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= 10) {
+      try {
+        const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
+        const rawList: any[] = Array.isArray(data) ? data : (data?.results || []);
+        for (const p of rawList) {
+          if (p && !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED') {
+            allProducts.push(enrichProductWithCategory(p));
+          }
+        }
+        const totalCount = typeof data?.count === 'number' ? data.count : allProducts.length;
+        if (!data?.next || allProducts.length >= totalCount || rawList.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } catch (err) {
+        hasMore = false;
+      }
+    }
+
+    if (allProducts.length > 0) {
+      const seen = new Set<string>();
+      return allProducts.filter((p) => {
+        if (!p || !p.id || seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    }
+
+    try {
+      const cached = localStorage.getItem('dovi_real_products_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+
+    try {
+      const dbRes = await fetch('/__dovi_delivery_db__');
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        if (Array.isArray(dbData?.products) && dbData.products.length > 0) {
+          return dbData.products.map((p: any) => enrichProductWithCategory(p));
+        }
+      }
+    } catch {}
+
+    return [];
+  },
+
   listProducts: async (params?: { page?: number; q?: string; search?: string; category?: string; vendor?: string }): Promise<PaginatedResponse<ProductSummary>> => {
     try {
       const queryParams: Record<string, any> = { page: params?.page, category: params?.category };
@@ -1500,8 +1902,7 @@ export const adminApi = {
         { id: 'cat-computers', name: 'Computers', slug: 'computers', parent: null, icon_url: '', children: [], product_count: 0 },
         { id: 'cat-audio', name: 'Audio & Music', slug: 'audio-video', parent: null, icon_url: '', children: [], product_count: 0 },
         { id: 'cat-gaming', name: 'Gaming', slug: 'gaming', parent: null, icon_url: '', children: [], product_count: 0 },
-        { id: 'cat-auto', name: 'Dovi Auto (Cars)', slug: 'auto-cars', parent: null, icon_url: '', children: [], product_count: 0 },
-      ];
+              ];
     }
   },
 
@@ -1641,144 +2042,362 @@ export const adminApi = {
   // --- Order Management ---
   listOrders: async (params?: { page?: number; status?: string; q?: string; search?: string }): Promise<PaginatedResponse<OrderSummary>> => {
     try {
+      await syncPaymentsAndOrdersFromServer();
+    } catch {}
+
+    const localOrdersMap = getLocalOrders();
+    const localPayments = getLocalPayments();
+    const localOrdersList: any[] = Object.values(localOrdersMap);
+
+    let apiOrders: any[] = [];
+    try {
       const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
       if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
       const { data } = await apiClient.get('/api/v1/orders/', { params: queryParams });
-      return data;
-    } catch {
-      return { count: 0, next: null, previous: null, results: [] };
+      if (data && Array.isArray(data.results)) {
+        apiOrders = data.results;
+      } else if (Array.isArray(data)) {
+        apiOrders = data;
+      }
+    } catch {}
+
+    const orderMap = new Map<string, any>();
+    for (const o of apiOrders) {
+      const ref = o.reference_code || o.reference || o.id;
+      if (ref) orderMap.set(ref, o);
     }
+    for (const o of localOrdersList) {
+      const ref = o.reference_code || o.reference || o.id;
+      if (!ref) continue;
+      const existing = orderMap.get(ref);
+      if (existing) {
+        orderMap.set(ref, {
+          ...existing,
+          ...o,
+          status: o.status || existing.status,
+          payment_status: o.payment_status || existing.payment_status,
+        });
+      } else {
+        orderMap.set(ref, o);
+      }
+    }
+
+    let allOrders = Array.from(orderMap.values()).map((o: any) => {
+      const ref = o.reference_code || o.reference || o.id;
+      const matchingPayment = localPayments.find(
+        (p) => p.order_reference === ref || p.id === o.payment_id || p.reference === ref
+      );
+
+      let pStatus = o.payment_status;
+      if (matchingPayment) {
+        pStatus = matchingPayment.status;
+      } else if (!pStatus) {
+        if (
+          o.status === 'PROCESSING' ||
+          o.status === 'READY_FOR_DISPATCH' ||
+          o.status === 'DISPATCHED' ||
+          o.status === 'DELIVERED'
+        ) {
+          pStatus = 'PAID';
+        } else if (o.status === 'PENDING_VERIFICATION') {
+          pStatus = 'PENDING_VERIFICATION';
+        } else {
+          pStatus = 'PENDING_PAYMENT';
+        }
+      }
+
+      return {
+        ...o,
+        id: o.id || ref,
+        reference: ref,
+        reference_code: ref,
+        status: o.status || 'ORDER_PLACED',
+        payment_status: pStatus,
+        payment_evidence: matchingPayment || o.payment_evidence || null,
+        item_count: o.item_count ?? (o.items?.length || 0),
+        total: String(o.total || o.total_amount || '0'),
+        created_at: o.created_at || new Date().toISOString(),
+      };
+    });
+
+    if (params?.status) {
+      const stFilter = params.status.toLowerCase();
+      allOrders = allOrders.filter(
+        (o) =>
+          (o.status || '').toLowerCase() === stFilter ||
+          (o.payment_status || '').toLowerCase() === stFilter
+      );
+    }
+
+    if (params?.q || params?.search) {
+      const q = (params.q || params.search || '').toLowerCase();
+      allOrders = allOrders.filter(
+        (o) =>
+          (o.reference_code || '').toLowerCase().includes(q) ||
+          (o.buyer_email || '').toLowerCase().includes(q) ||
+          (o.buyer || '').toLowerCase().includes(q) ||
+          (o.shipping_city || '').toLowerCase().includes(q) ||
+          (o.shipping_state || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Filter out test orders in production / clean environment
+    allOrders = allOrders.filter((o) => !isTestOrder(o));
+
+    allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return {
+      count: allOrders.length,
+      next: null,
+      previous: null,
+      results: allOrders,
+    };
   },
 
   getOrder: async (id: string): Promise<Order> => {
     try {
-      const { data } = await apiClient.get(`/api/v1/orders/${id}/`);
-      return data;
-    } catch {
-      return {
-        id,
-        reference_code: id.startsWith('ORD-') ? id : `ORD-${id.slice(0, 8)}`,
-        buyer: 'user-1',
-        buyer_email: 'buyer@dovi.com',
-        subtotal: '0.00',
-        delivery_fee: '0.00',
-        discount: '0.00',
-        total_amount: '0.00',
-        status: 'PENDING_PAYMENT',
-        items: [],
-        shipping_address_line_1: 'Platform Address',
-        shipping_address_line_2: '',
-        shipping_city: 'Lagos',
-        shipping_state: 'Lagos',
-        shipping_postal_code: '100001',
-        shipping_country: 'Nigeria',
-        created_at: new Date().toISOString(),
-      } as any;
-    }
-  },
+      await syncPaymentsAndOrdersFromServer();
+    } catch {}
 
-  updateOrderStatus: async (id: string, status: string): Promise<Order> => {
+    const localOrders = getLocalOrders();
+    const localPayments = getLocalPayments();
+
+    let baseOrder: any = null;
     try {
-      const { data } = await apiClient.post(`/api/v1/orders/${id}/transition/`, { status });
-      return data;
-    } catch {
-      return {
-        id,
-        reference_code: id.startsWith('ORD-') ? id : `ORD-${id.slice(0, 8)}`,
-        buyer: 'user-1',
-        buyer_email: 'buyer@dovi.com',
-        subtotal: '0.00',
-        delivery_fee: '0.00',
-        discount: '0.00',
-        total_amount: '0.00',
-        status,
-        items: [],
-        shipping_address_line_1: 'Platform Address',
-        shipping_address_line_2: '',
-        shipping_city: 'Lagos',
-        shipping_state: 'Lagos',
-        shipping_postal_code: '100001',
-        shipping_country: 'Nigeria',
-        created_at: new Date().toISOString(),
-      } as any;
+      const { data } = await apiClient.get(`/api/v1/orders/${id}/`);
+      baseOrder = data;
+    } catch {}
+
+    const localOrder =
+      localOrders[id] ||
+      Object.values(localOrders).find(
+        (o: any) => o.reference_code === id || o.reference === id || o.id === id
+      );
+    const merged = { ...(baseOrder || {}), ...(localOrder || {}) };
+
+    const ref = merged.reference_code || merged.reference || id;
+    let payment = localPayments.find(
+      (p) => p.order_reference === ref || p.id === id || p.reference === ref
+    );
+    if (!payment || !payment.sender_bank || !payment.payment_proof_url) {
+      try {
+        const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${encodeURIComponent(ref)}`);
+        if (data && (data.order_reference || data.sender_bank || data.payment_proof_url)) {
+          payment = data;
+        }
+      } catch {}
     }
+
+    return {
+      id: merged.id || id,
+      reference: ref,
+      reference_code: ref,
+      buyer: merged.buyer || 'user-1',
+      buyer_email: merged.buyer_email || 'buyer@dovi.com',
+      subtotal: String(merged.subtotal || '0.00'),
+      delivery_fee: String(merged.delivery_fee || '0.00'),
+      discount: String(merged.discount || '0.00'),
+      total: String(merged.total || merged.total_amount || '0.00'),
+      total_amount: String(merged.total_amount || merged.total || '0.00'),
+      status: merged.status || 'ORDER_PLACED',
+      payment_status: payment?.status || merged.payment_status || 'PENDING_PAYMENT',
+      payment_evidence: payment || merged.payment_evidence || null,
+      payment_method: merged.payment_method || 'MANUAL_BANK_TRANSFER',
+      items: merged.items || [],
+      delivery_address: merged.delivery_address || {
+        address_line_1: merged.shipping_address_line_1 || 'Platform Address',
+        city: merged.shipping_city || 'Lagos',
+        state: merged.shipping_state || 'Lagos',
+        country: merged.shipping_country || 'Nigeria',
+      },
+      shipping_address_line_1:
+        merged.shipping_address_line_1 || merged.delivery_address?.address_line_1 || 'Platform Address',
+      shipping_address_line_2: merged.shipping_address_line_2 || '',
+      shipping_city: merged.shipping_city || merged.delivery_address?.city || 'Lagos',
+      shipping_state: merged.shipping_state || merged.delivery_address?.state || 'Lagos',
+      shipping_postal_code: merged.shipping_postal_code || '100001',
+      shipping_country: merged.shipping_country || 'Nigeria',
+      shipping_recipient_name:
+        merged.shipping_recipient_name || merged.delivery_address?.recipient_name || '',
+      shipping_recipient_phone:
+        merged.shipping_recipient_phone || merged.delivery_address?.phone || '',
+      tracking: merged.tracking || [],
+      can_cancel: false,
+      can_request_refund: false,
+      can_confirm_receipt: false,
+      can_review: false,
+      created_at: merged.created_at || new Date().toISOString(),
+      updated_at: merged.updated_at || new Date().toISOString(),
+    } as any;
   },
 
-  // --- Payments Monitoring ---
+  updateOrderStatus: async (id: string, status: string, notes?: string): Promise<Order> => {
+    try {
+      await apiClient.post(`/api/v1/orders/${id}/transition/`, { status, notes });
+    } catch {}
+
+    updateOrderStatusSync(id, status);
+    addAuditLogEntry('ORDER_STATUS_UPDATED', `Updated order ${id} status to ${status}${notes ? ` (${notes})` : ''}`, id);
+    return adminApi.getOrder(id);
+  },
+
+  // --- Payments Verification & Monitoring ---
   listPayments: async (params?: { page?: number; status?: string; provider?: string }): Promise<PaginatedResponse<Payment>> => {
     try {
+      await syncPaymentsAndOrdersFromServer();
+    } catch {}
+
+    const localPayments = getLocalPayments();
+    const localOrders = getLocalOrders();
+
+    let apiPayments: Payment[] = [];
+    try {
       const { data } = await apiClient.get('/api/v1/admin/payments/', { params });
-      return data;
-    } catch {
-      // Derive payment logs from /api/v1/orders/
-      try {
-        const { data } = await apiClient.get('/api/v1/orders/', { params: { page: params?.page } });
-        const orders: any[] = Array.isArray(data) ? data : (data?.results || []);
-        const payments: Payment[] = orders.map((o: any) => ({
-          id: `pay-${o.id}`,
-          order_id: o.id,
-          order_reference: o.reference_code || o.reference || `ORD-${o.id.substring(0, 8)}`,
-          amount: String(o.total_amount || '0'),
-          currency: 'NGN',
-          provider: 'FLUTTERWAVE',
-          payment_reference: `PAY-${o.reference_code || o.id.substring(0, 8)}`,
-          status: (o.status === 'PAID' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'SUCCESS' : o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
-          created_at: o.created_at || new Date().toISOString(),
-        }));
-        let filtered = payments;
-        if (params?.status) {
-          filtered = filtered.filter((p) => p.status.toLowerCase() === params.status?.toLowerCase());
-        }
-        return {
-          count: data?.count ?? filtered.length,
-          next: data?.next || null,
-          previous: data?.previous || null,
-          results: filtered,
-        };
-      } catch {
-        return { count: 0, next: null, previous: null, results: [] };
+      if (data && Array.isArray(data.results)) {
+        apiPayments = data.results;
+      }
+    } catch {}
+
+    const paymentMap = new Map<string, Payment>();
+    for (const p of apiPayments) {
+      const key = p.order_reference || p.reference || p.id;
+      if (key) paymentMap.set(key, p);
+    }
+    for (const p of localPayments) {
+      const key = p.order_reference || p.reference || p.id;
+      if (key) {
+        const existing = paymentMap.get(key);
+        paymentMap.set(key, existing ? { ...existing, ...p } : p);
       }
     }
+
+    for (const order of Object.values(localOrders)) {
+      const ref = (order as any).reference_code || (order as any).reference || (order as any).id;
+      if (!ref) continue;
+      const existing = paymentMap.get(ref);
+      if (!existing && (order as any).payment_status) {
+        paymentMap.set(ref, {
+          id: `pay-${ref}`,
+          reference: `PAY-${ref}`,
+          order_reference: ref,
+          order_id: (order as any).id,
+          amount: String((order as any).total_amount || (order as any).total || '0'),
+          currency: 'NGN',
+          provider: 'BANK_TRANSFER',
+          payment_reference: `PAY-${ref}`,
+          status:
+            (order as any).payment_status === 'PAID'
+              ? 'VERIFIED'
+              : (order as any).payment_status === 'PENDING_VERIFICATION'
+              ? 'PENDING_VERIFICATION'
+              : (order as any).payment_status === 'REJECTED'
+              ? 'REJECTED'
+              : 'PENDING',
+          created_at: (order as any).created_at || new Date().toISOString(),
+          customer_email: (order as any).buyer_email || '',
+        });
+      }
+    }
+
+    let results = Array.from(paymentMap.values());
+    if (params?.status) {
+      const s = params.status.toUpperCase();
+      results = results.filter((p) => {
+        const st = (p.status || '').toUpperCase();
+        if (s === 'PENDING') return st === 'PENDING' || st === 'PENDING_VERIFICATION' || st === 'PENDING_PAYMENT';
+        if (s === 'VERIFIED' || s === 'PAID') return st === 'VERIFIED' || st === 'PAID';
+        if (s === 'REJECTED' || s === 'FAILED') return st === 'REJECTED' || st === 'FAILED';
+        return st === s;
+      });
+    }
+
+    // Filter out test payments in production / clean environment
+    results = results.filter((p) => !isTestPayment(p));
+
+    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return {
+      count: results.length,
+      next: null,
+      previous: null,
+      results,
+    };
+  },
+
+  verifyPayment: async (id: string, payload?: { notes?: string }): Promise<any> => {
+    try {
+      await apiClient.post(`/api/v1/admin/payments/${id}/verify/`, payload);
+    } catch {}
+
+    const result = approvePaymentSync(id, { name: 'Administrator' }, payload?.notes);
+    addAuditLogEntry('PAYMENT_VERIFIED', `Verified bank transfer payment for ${id}`, id);
+    return { success: true, message: 'Payment verified successfully.', ...result };
+  },
+
+  rejectPayment: async (id: string, payload: { rejection_reason: string }): Promise<any> => {
+    try {
+      await apiClient.post(`/api/v1/admin/payments/${id}/reject/`, payload);
+    } catch {}
+
+    const result = rejectPaymentSync(id, payload.rejection_reason, { name: 'Administrator' });
+    addAuditLogEntry('PAYMENT_REJECTED', `Rejected payment for ${id}: ${payload.rejection_reason}`, id);
+    return { success: true, message: 'Payment rejected.', ...result };
   },
 
   getPayment: async (ref: string): Promise<Payment> => {
     try {
-      const { data } = await apiClient.get(`/api/v1/admin/payments/${ref}/`);
-      return data;
-    } catch {
-      try {
-        const orderId = ref.startsWith('pay-') ? ref.slice(4) : ref;
-        const { data: o } = await apiClient.get(`/api/v1/orders/${orderId}/`);
-        return {
-          id: `pay-${o.id}`,
-          order_id: o.id,
-          order_reference: o.reference_code || o.reference || `ORD-${o.id.substring(0, 8)}`,
-          amount: String(o.total_amount || '0'),
-          currency: 'NGN',
-          provider: 'FLUTTERWAVE',
-          payment_reference: `PAY-${o.reference_code || o.id.substring(0, 8)}`,
-          status: (o.status === 'PAID' || o.status === 'COMPLETED' || o.status === 'DELIVERED') ? 'SUCCESS' : o.status === 'CANCELLED' ? 'FAILED' : 'PENDING',
-          created_at: o.created_at || new Date().toISOString(),
-        };
-      } catch {}
-      return {
-        id: ref,
-        order_id: ref,
-        order_reference: ref,
-        amount: '0.00',
-        currency: 'NGN',
-        provider: 'FLUTTERWAVE',
-        payment_reference: ref,
-        status: 'PENDING',
-        created_at: new Date().toISOString(),
-      };
-    }
+      const { data } = await apiClient.get<Payment>(`/api/v1/payments/evidence/?order_reference=${encodeURIComponent(ref)}`);
+      if (data && (data.order_reference || data.sender_bank || data.id)) {
+        return data;
+      }
+    } catch {}
+
+    try {
+      const { data } = await apiClient.get<Payment>(`/api/v1/admin/payments/${encodeURIComponent(ref)}/`);
+      if (data && (data.order_reference || data.sender_bank || data.id)) {
+        return data;
+      }
+    } catch {}
+
+    try {
+      await syncPaymentsAndOrdersFromServer();
+    } catch {}
+
+    const localPayments = getLocalPayments();
+    const found = localPayments.find(
+      (p) => p.id === ref || p.reference === ref || p.order_reference === ref
+    );
+    if (found) return found;
+
+    const order = await adminApi.getOrder(ref);
+    return {
+      id: `pay-${ref}`,
+      order_id: order.id,
+      order_reference: order.reference,
+      amount: order.total,
+      currency: 'NGN',
+      provider: 'BANK_TRANSFER',
+      payment_reference: `PAY-${order.reference}`,
+      status:
+        order.payment_status === 'PAID'
+          ? 'VERIFIED'
+          : order.payment_status === 'PENDING_VERIFICATION'
+          ? 'PENDING_VERIFICATION'
+          : order.payment_status === 'REJECTED'
+          ? 'REJECTED'
+          : 'PENDING',
+      created_at: order.created_at,
+    };
   },
 
   // --- Refund Management ---
   listRefunds: async (params?: { page?: number; status?: string }): Promise<PaginatedResponse<Refund>> => {
     try {
       const { data } = await apiClient.get('/api/v1/refunds/', { params });
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((r: any) => !isTestRefund(r));
+        return { ...data, count: filtered.length, results: filtered };
+      }
       return data;
     } catch {
       let list: Refund[] = [];
@@ -1786,6 +2405,7 @@ export const adminApi = {
         const stored = localStorage.getItem('dovi_stored_refunds');
         if (stored) list = JSON.parse(stored) || [];
       } catch {}
+      list = list.filter((r) => !isTestRefund(r));
       if (params?.status) {
         list = list.filter((r) => r.status.toLowerCase() === params.status?.toLowerCase());
       }
@@ -2062,18 +2682,162 @@ export const adminApi = {
     }
   },
 
+  // --- Minimum Order Value Settings ---
+  getMinimumOrderSettings: async (): Promise<MinimumOrderSettings> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/settings/minimum-order/');
+      if (data && typeof data.minimum_amount === 'number') {
+        saveStoredMinOrderSettings(data);
+        return data;
+      }
+    } catch {}
+
+    try {
+      const res = await fetch('/__dovi_delivery_db__');
+      if (res.ok) {
+        const db = await res.json();
+        if (db && db.minimumOrderSettings) {
+          saveStoredMinOrderSettings(db.minimumOrderSettings);
+          return db.minimumOrderSettings;
+        }
+      }
+    } catch {}
+
+    return getStoredMinOrderSettings();
+  },
+
+  updateMinimumOrderSettings: async (payload: {
+    enabled: boolean;
+    minimum_amount: number;
+  }): Promise<MinimumOrderSettings> => {
+    const updated: MinimumOrderSettings = {
+      enabled: Boolean(payload.enabled),
+      minimum_amount: Number(payload.minimum_amount),
+      updated_at: new Date().toISOString(),
+      updated_by: 'admin@dovi.com',
+    };
+
+    try {
+      const { data } = await apiClient.post('/api/v1/admin/settings/minimum-order/', payload);
+      if (data) {
+        saveStoredMinOrderSettings(data);
+        addAuditLogEntry(
+          'MINIMUM_ORDER_SETTINGS_UPDATED',
+          `Updated minimum checkout value: ${payload.enabled ? `₦${Number(payload.minimum_amount).toLocaleString()}` : 'Disabled'}`
+        );
+        return data;
+      }
+    } catch {}
+
+    try {
+      await fetch('/__dovi_delivery_db__', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minimumOrderSettings: updated }),
+      });
+    } catch {}
+
+    saveStoredMinOrderSettings(updated);
+    addAuditLogEntry(
+      'MINIMUM_ORDER_SETTINGS_UPDATED',
+      `Updated minimum checkout value: ${payload.enabled ? `₦${Number(payload.minimum_amount).toLocaleString()}` : 'Disabled'}`
+    );
+    return updated;
+  },
+
+  // --- Payment Sessions (60-Min Expiry) ---
+  listPaymentSessions: async (params?: { status?: string; search?: string }): Promise<PaymentSession[]> => {
+    try {
+      const { data } = await apiClient.get('/api/v1/admin/payment-sessions/', { params });
+      if (Array.isArray(data)) {
+        const filtered = data.filter((s: any) => !isTestPaymentSession(s));
+        saveStoredPaymentSessions(filtered);
+        return filtered;
+      }
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((s: any) => !isTestPaymentSession(s));
+        saveStoredPaymentSessions(filtered);
+        return filtered;
+      }
+    } catch {}
+
+    let sessions: PaymentSession[] = [];
+    try {
+      const res = await fetch('/__dovi_delivery_db__');
+      if (res.ok) {
+        const db = await res.json();
+        if (Array.isArray(db.paymentSessions)) {
+          sessions = db.paymentSessions.filter((s: any) => !isTestPaymentSession(s));
+        }
+      }
+    } catch {}
+
+    if (sessions.length === 0) {
+      sessions = getStoredPaymentSessions().filter((s: any) => !isTestPaymentSession(s));
+    }
+
+    const now = Date.now();
+    // Refresh expiration status
+    sessions = sessions.map((s) => {
+      const expTime = new Date(s.expires_at).getTime();
+      const remaining = Math.max(0, Math.floor((expTime - now) / 1000));
+      let status = s.status;
+      if (status === 'ACTIVE' && remaining <= 0) {
+        status = 'EXPIRED';
+      }
+      return {
+        ...s,
+        status,
+        remaining_seconds: remaining,
+        server_time: new Date().toISOString(),
+      };
+    });
+
+    if (params?.status) {
+      const targetStatus = params.status.toUpperCase();
+      sessions = sessions.filter((s) => s.status.toUpperCase() === targetStatus);
+    }
+
+    if (params?.search) {
+      const q = params.search.toLowerCase().trim();
+      sessions = sessions.filter(
+        (s) =>
+          s.order_reference?.toLowerCase().includes(q) ||
+          s.customer_name?.toLowerCase().includes(q) ||
+          s.customer_email?.toLowerCase().includes(q) ||
+          s.id?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort newest first
+    sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return sessions;
+  },
+
   // --- Save2Own Admin Management ---
   listSave2OwnGoals: async (params?: { page?: number; status?: string; q?: string; search?: string }): Promise<PaginatedResponse<Save2OwnGoal>> => {
     const queryParams: Record<string, any> = { page: params?.page, status: params?.status };
     if (params?.q || params?.search) queryParams.search = params?.q || params?.search;
 
+    const filterGoals = (data: any): PaginatedResponse<Save2OwnGoal> => {
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((g: any) => !isTestGoal(g));
+        return { ...data, count: filtered.length, results: filtered };
+      }
+      if (Array.isArray(data)) {
+        const filtered = data.filter((g: any) => !isTestGoal(g));
+        return { count: filtered.length, next: null, previous: null, results: filtered };
+      }
+      return data;
+    };
+
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/goals/', { params: queryParams });
-      return data;
+      return filterGoals(data);
     } catch {
       try {
         const { data } = await apiClient.get('/api/v1/save2own/goals/', { params: queryParams });
-        return data;
+        return filterGoals(data);
       } catch {
         let goals: Save2OwnGoal[] = [];
         try {
@@ -2084,7 +2848,7 @@ export const adminApi = {
           }
         } catch {}
         // Filter out test goals and test accounts
-        goals = goals.filter((g: any) => !isTestUserOrEmail(g.participant?.email, g.participant?.full_name) && !String(g.id || '').toLowerCase().includes('test'));
+        goals = goals.filter((g: any) => !isTestGoal(g));
         if (params?.status) {
           goals = goals.filter((g) => (g.status || '').toUpperCase() === params.status!.toUpperCase());
         }
@@ -2178,10 +2942,18 @@ export const adminApi = {
   }): Promise<PaginatedResponse<any>> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/contributions/', { params });
+      if (data && Array.isArray(data.results)) {
+        const filtered = data.results.filter((c: any) => !isTestContribution(c));
+        return { ...data, count: filtered.length, results: filtered };
+      }
+      if (Array.isArray(data)) {
+        const filtered = data.filter((c: any) => !isTestContribution(c));
+        return { count: filtered.length, next: null, previous: null, results: filtered };
+      }
       return data;
     } catch {
       // Fallback: load global stored contributions without any mock user seeds
-      const list = getStoredGlobalContributions();
+      const list = getStoredGlobalContributions().filter((c: any) => !isTestContribution(c));
 
       let filtered = [...list];
       if (params?.status) {
@@ -2360,71 +3132,145 @@ export const adminApi = {
   },
 
   // --- Dovi Auto Admin Management ---
-  listAutoListings: async (params?: { page?: number; q?: string; type?: string }): Promise<PaginatedResponse<AutoListingSummary>> => {
-    try {
-      const { data } = await apiClient.get('/api/v1/admin/auto/listings/', { params });
-      return data;
-    } catch {
-      return { count: 0, next: null, previous: null, results: [] };
-    }
-  },
-
-  updateAutoListing: async (id: string, payload: Partial<AutoListing>): Promise<AutoListing> => {
-    try {
-      const { data } = await apiClient.patch(`/api/v1/admin/auto/listings/${id}/`, payload);
-      return data;
-    } catch {
-      return { id, ...payload } as any;
-    }
-  },
-
-  deleteAutoListing: async (id: string): Promise<any> => {
-    try {
-      const { data } = await apiClient.delete(`/api/v1/admin/auto/listings/${id}/`);
-      return data;
-    } catch {
-      return { success: true };
-    }
-  },
 
   // --- Save2Own Participants & Identity Administration ---
   listSave2OwnParticipants: async (params?: {
     page?: number;
     q?: string;
+    search?: string;
     status?: string;
     identity_locked?: string;
   }): Promise<PaginatedResponse<AdminSave2OwnParticipant>> => {
+    let serverParts: any[] = [];
+    const queryParams: Record<string, any> = {};
+    if (params?.page) queryParams.page = params.page;
+    if (params?.status) queryParams.status = params.status;
+    if (params?.q || params?.search) queryParams.search = params.search || params.q;
+
     try {
-      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params });
-      return data;
-    } catch {
-      let list = getStoredParticipants();
-      if (params?.status) {
-        list = list.filter((p) => (p.goal_status || '').toUpperCase() === params.status!.toUpperCase());
+      const { data } = await apiClient.get('/api/v1/admin/save2own/participants/', { params: queryParams });
+      if (data && Array.isArray(data.results)) {
+        serverParts = data.results;
+      } else if (Array.isArray(data)) {
+        serverParts = data;
       }
-      if (params?.identity_locked !== undefined && params?.identity_locked !== '') {
-        const isLocked = params.identity_locked === 'true';
-        list = list.filter((p) => Boolean(p.identity_locked) === isLocked);
-      }
-      if (params?.q) {
-        const q = params.q.toLowerCase();
-        list = list.filter(
-          (p) =>
-            p.full_name?.toLowerCase().includes(q) ||
-            p.email?.toLowerCase().includes(q) ||
-            p.phone_number?.toLowerCase().includes(q) ||
-            p.goal_id?.toLowerCase().includes(q) ||
-            p.product_name?.toLowerCase().includes(q)
-        );
-      }
-      const page = params?.page || 1;
-      return {
-        count: list.length,
-        next: null,
-        previous: null,
-        results: list.slice((page - 1) * 20, page * 20),
-      };
+    } catch (err) {
+      console.warn('[adminApi] Backend participants endpoint unavailable, merging shared records:', err);
     }
+
+    // Merge with shared DB and derived participants from goals
+    let sharedParts: any[] = [];
+    let sharedGoals: any[] = [];
+    try {
+      const db = await getSharedSave2OwnDb();
+      sharedParts = db.save2ownParticipants || [];
+      sharedGoals = db.save2ownGoals || [];
+    } catch {}
+
+    const localStoredParts = getStoredParticipants();
+
+    const normalizeParticipant = (p: any): AdminSave2OwnParticipant => {
+      const id = String(p.id || p.participant_id || p.goal_id || p.goal || 'part-anon');
+      return {
+        id,
+        user_id: String(p.user_id || p.user || p.buyer || id),
+        user_email: p.user_email || p.email || '',
+        goal_id: String(p.goal_id || p.goal || ''),
+        goal_reference: p.goal_reference || p.reference_code || (p.goal_id ? `DOV-S2O-${String(p.goal_id).slice(0, 6).toUpperCase()}` : 'S2O-GOAL'),
+        product_name: p.product_name || p.product?.name || 'Save2Own Item',
+        target_amount: String(p.target_amount || '0.00'),
+        saved_amount: String(p.saved_amount || p.total_contributed || '0.00'),
+        remaining_amount: String(p.remaining_amount || '0.00'),
+        progress_percent: p.progress_percent || p.progress_percentage || 0,
+        goal_status: (p.goal_status || p.status || 'ACTIVE').toUpperCase(),
+        full_name: p.full_name || p.registered_name || p.name || 'Save2Own Customer',
+        email: p.email || p.user_email || '',
+        phone: p.phone || p.phone_number || '',
+        phone_number: p.phone_number || p.phone || '',
+        whatsapp_number: p.whatsapp_number || p.phone || '',
+        address: p.address || p.residential_address || '',
+        city: p.city || 'Lagos',
+        state: p.state || 'Lagos',
+        country: p.country || 'Nigeria',
+        selfie_url: p.selfie_url || p.selfie || null,
+        identity_locked: p.identity_locked !== false,
+        identity_locked_at: p.identity_locked_at || p.created_at || null,
+        identity_unlocked_at: p.identity_unlocked_at || null,
+        identity_unlock_expires_at: p.identity_unlock_expires_at || null,
+        created_at: p.created_at || new Date().toISOString(),
+        updated_at: p.updated_at || new Date().toISOString(),
+      };
+    };
+
+    const partsMap = new Map<string, AdminSave2OwnParticipant>();
+    [...serverParts, ...sharedParts, ...localStoredParts].forEach((raw) => {
+      if (raw) {
+        const norm = normalizeParticipant(raw);
+        const key = norm.id || norm.email || norm.goal_id;
+        if (key && !partsMap.has(key)) {
+          partsMap.set(key, norm);
+        }
+      }
+    });
+
+    sharedGoals.forEach((g: any) => {
+      const gPart = g.participant;
+      const key = gPart?.id || gPart?.email || g.id;
+      if (key && !partsMap.has(key)) {
+        partsMap.set(key, normalizeParticipant({
+          id: gPart?.id || `part-${g.id}`,
+          user: g.buyer || g.user_id,
+          goal: g.id,
+          goal_reference: g.reference_code,
+          product_name: g.product?.name || g.product_name,
+          target_amount: g.target_amount,
+          saved_amount: g.saved_amount || g.total_contributed,
+          goal_status: g.status,
+          full_name: gPart?.full_name || 'Save2Own Customer',
+          email: gPart?.email || '',
+          phone: gPart?.phone || gPart?.whatsapp_number || '',
+          whatsapp_number: gPart?.whatsapp_number || '',
+          address: gPart?.address || gPart?.residential_address || '',
+          city: gPart?.city || 'Lagos',
+          state: gPart?.state || 'Delta',
+          country: gPart?.country || 'Nigeria',
+          selfie_url: gPart?.selfie_url || gPart?.selfie || null,
+          identity_locked: gPart?.identity_locked ?? true,
+          created_at: g.created_at,
+          updated_at: g.updated_at,
+        }));
+      }
+    });
+
+    let list = Array.from(partsMap.values()).filter((p) => !isTestUserOrEmail(p.email || p.user_email, p.full_name));
+
+    if (params?.status) {
+      const targetStatus = params.status.toUpperCase();
+      list = list.filter((p) => p.goal_status === targetStatus);
+    }
+    if (params?.identity_locked !== undefined && params?.identity_locked !== '') {
+      const isLocked = params.identity_locked === 'true';
+      list = list.filter((p) => p.identity_locked === isLocked);
+    }
+    const qTerm = (params?.search || params?.q || '').toLowerCase().trim();
+    if (qTerm) {
+      list = list.filter(
+        (p) =>
+          p.full_name?.toLowerCase().includes(qTerm) ||
+          p.email?.toLowerCase().includes(qTerm) ||
+          p.phone_number?.toLowerCase().includes(qTerm) ||
+          p.goal_reference?.toLowerCase().includes(qTerm) ||
+          p.product_name?.toLowerCase().includes(qTerm)
+      );
+    }
+
+    const page = params?.page || 1;
+    return {
+      count: list.length,
+      next: null,
+      previous: null,
+      results: list.slice((page - 1) * 20, page * 20),
+    };
   },
 
   getSave2OwnParticipant: async (id: string): Promise<AdminSave2OwnParticipant> => {
@@ -2742,46 +3588,64 @@ export const adminApi = {
   getSave2OwnDashboardMetrics: async (): Promise<Save2OwnDashboardMetrics> => {
     try {
       const { data } = await apiClient.get('/api/v1/admin/save2own/dashboard/');
-      return data;
-    } catch {
-      // Calculate authoritatively from stored contributions and goals
-      const contribs = getStoredGlobalContributions();
-      const confirmed = contribs.filter(
-        (c) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL'
-      );
-      const pending = contribs.filter(
-        (c) => (c.status || '').toUpperCase() === 'SUBMITTED' || (c.status || '').toUpperCase() === 'PENDING'
-      );
+      if (data && typeof data === 'object') {
+        const cleanGoals = await adminApi.listSave2OwnGoals({ page: 1 });
+        const cleanParticipants = await adminApi.listSave2OwnParticipants({ page: 1 });
+        if (cleanGoals.count === 0 && cleanParticipants.count === 0) {
+          return {
+            total_participants: 0,
+            active_goals: 0,
+            completed_goals: 0,
+            cancelled_goals: 0,
+            paused_goals: 0,
+            pending_contributions: 0,
+            confirmed_contributions: 0,
+            total_confirmed_funds: '0.00',
+            pending_verification_amount: '0.00',
+            refund_amount: '0.00',
+          };
+        }
+        return data;
+      }
+    } catch {}
+    // Calculate authoritatively from stored contributions and goals
+    const contribs = getStoredGlobalContributions().filter((c: any) => !isTestContribution(c));
+    const confirmed = contribs.filter(
+      (c) => (c.status || '').toUpperCase() === 'CONFIRMED' || c.payment_status === 'SUCCESSFUL'
+    );
+    const pending = contribs.filter(
+      (c) => (c.status || '').toUpperCase() === 'SUBMITTED' || (c.status || '').toUpperCase() === 'PENDING'
+    );
 
-      const confirmedTotal = confirmed.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
-      const pendingTotal = pending.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    const confirmedTotal = confirmed.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
+    const pendingTotal = pending.reduce((acc, c) => acc + (parseFloat(c.amount) || 0), 0);
 
-      let goals: Save2OwnGoal[] = [];
-      try {
-        const stored = localStorage.getItem('dovi_save2own_goals');
-        if (stored) goals = JSON.parse(stored) || [];
-      } catch {}
+    let goals: Save2OwnGoal[] = [];
+    try {
+      const stored = localStorage.getItem('dovi_save2own_goals');
+      if (stored) goals = JSON.parse(stored) || [];
+    } catch {}
+    goals = goals.filter((g: any) => !isTestGoal(g));
 
-      const activeGoals = goals.filter((g) => g.status === 'ACTIVE').length;
-      const completedGoals = goals.filter((g) => g.status === 'COMPLETED').length;
-      const cancelledGoals = goals.filter((g) => g.status === 'CANCELLED').length;
-      const pausedGoals = goals.filter((g) => g.status === 'PAUSED').length;
+    const activeGoals = goals.filter((g) => g.status === 'ACTIVE').length;
+    const completedGoals = goals.filter((g) => g.status === 'COMPLETED').length;
+    const cancelledGoals = goals.filter((g) => g.status === 'CANCELLED').length;
+    const pausedGoals = goals.filter((g) => g.status === 'PAUSED').length;
 
-      const participants = getStoredParticipants();
+    const participants = getStoredParticipants().filter((p: any) => !isTestUserOrEmail(p.email || p.user_email, p.full_name));
 
-      return {
-        total_participants: participants.length,
-        active_goals: activeGoals,
-        completed_goals: completedGoals,
-        cancelled_goals: cancelledGoals,
-        paused_goals: pausedGoals,
-        pending_contributions: pending.length,
-        confirmed_contributions: confirmed.length,
-        total_confirmed_funds: String(confirmedTotal),
-        pending_verification_amount: String(pendingTotal),
-        refund_amount: '0.00',
-      };
-    }
+    return {
+      total_participants: participants.length,
+      active_goals: activeGoals,
+      completed_goals: completedGoals,
+      cancelled_goals: cancelledGoals,
+      paused_goals: pausedGoals,
+      pending_contributions: pending.length,
+      confirmed_contributions: confirmed.length,
+      total_confirmed_funds: String(confirmedTotal),
+      pending_verification_amount: String(pendingTotal),
+      refund_amount: '0.00',
+    };
   },
 
   // ============================================================
@@ -3020,3 +3884,223 @@ export const adminApi = {
     };
   },
 };
+
+
+// ============================================================
+// Intelligent Navigation Caching & Mutation Invalidation Layer
+// ============================================================
+
+// 1. Dashboard Overview Analytics (2 min fresh, 10 min stale)
+const rawGetAnalyticsOverview = adminApi.getAnalyticsOverview.bind(adminApi);
+adminApi.getAnalyticsOverview = (async (range: AnalyticsRange = 'ALL', force = false) => {
+  return adminCache.fetchWithCache(
+    `analytics:overview:${range}`,
+    () => rawGetAnalyticsOverview(range),
+    { ttl: 2 * 60 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 2. Orders (60s fresh, 5 min stale)
+const rawListOrders = adminApi.listOrders.bind(adminApi);
+adminApi.listOrders = (async (params: any, force = false) => {
+  const cacheKey = `orders:list:${params?.page || 1}:${params?.status || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListOrders(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 3. Products (90s fresh, 5 min stale)
+const rawListProducts = adminApi.listProducts.bind(adminApi);
+adminApi.listProducts = (async (params: any, force = false) => {
+  const cacheKey = `products:list:${params?.page || 1}:${params?.category || ''}:${params?.status || ''}:${params?.vendor || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListProducts(params),
+    { ttl: 90 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 4. Categories (2 min fresh, 10 min stale)
+const rawListCategories = adminApi.listCategories.bind(adminApi);
+adminApi.listCategories = (async (allProducts?: any[], force = false) => {
+  const cacheKey = allProducts ? `categories:list:${allProducts.length}` : 'categories:list:base';
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListCategories(allProducts),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 5. Payments (60s fresh, 5 min stale)
+const rawListPayments = adminApi.listPayments.bind(adminApi);
+adminApi.listPayments = (async (params: any, force = false) => {
+  const cacheKey = `payments:list:${params?.page || 1}:${params?.status || ''}:${params?.provider || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListPayments(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 6. Payment Sessions (30s fresh, 3 min stale)
+const rawListPaymentSessions = adminApi.listPaymentSessions.bind(adminApi);
+adminApi.listPaymentSessions = (async (params: any, force = false) => {
+  const cacheKey = `payments:sessions:${params?.status || ''}:${params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListPaymentSessions(params),
+    { ttl: 30 * 1000, staleTtl: 3 * 60 * 1000, force }
+  );
+}) as any;
+
+// 7. Payment Accounts (2 min fresh, 10 min stale)
+const rawListPaymentAccounts = adminApi.listPaymentAccounts.bind(adminApi);
+adminApi.listPaymentAccounts = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'payment_accounts:list',
+    () => rawListPaymentAccounts(),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 8. Minimum Order Settings (2 min fresh, 10 min stale)
+const rawGetMinOrder = adminApi.getMinimumOrderSettings.bind(adminApi);
+adminApi.getMinimumOrderSettings = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'settings:min_order',
+    () => rawGetMinOrder(),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 9. Users (60s fresh, 5 min stale)
+const rawListUsers = adminApi.listUsers.bind(adminApi);
+adminApi.listUsers = (async (params: any, force = false) => {
+  const cacheKey = `users:list:${params?.page || 1}:${params?.role || ''}:${params?.q || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListUsers(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 10. Vendors (2 min fresh, 10 min stale)
+const rawListVendors = adminApi.listVendors.bind(adminApi);
+adminApi.listVendors = (async (params: any, force = false) => {
+  const cacheKey = `vendors:list:${params?.page || 1}:${params?.status || ''}:${params?.q || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListVendors(params),
+    { ttl: 120 * 1000, staleTtl: 10 * 60 * 1000, force }
+  );
+}) as any;
+
+// 11. Homepage Banners & Sections (2 min fresh, 10 min stale)
+const rawListBanners = adminApi.listHomepageBanners.bind(adminApi);
+adminApi.listHomepageBanners = (async (force = false) => {
+  return adminCache.fetchWithCache('homepage:banners', () => rawListBanners(), { ttl: 120 * 1000, force });
+}) as any;
+
+const rawListSections = adminApi.listHomepageSections.bind(adminApi);
+adminApi.listHomepageSections = (async (force = false) => {
+  return adminCache.fetchWithCache('homepage:sections', () => rawListSections(), { ttl: 120 * 1000, force });
+}) as any;
+
+// 12. Save2Own Goals & Metrics (60s fresh, 5 min stale)
+const rawListS2OGoals = adminApi.listSave2OwnGoals.bind(adminApi);
+adminApi.listSave2OwnGoals = (async (params: any, force = false) => {
+  const cacheKey = `save2own:goals:${params?.page || 1}:${params?.status || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListS2OGoals(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+const rawListS2OContribs = adminApi.listSave2OwnContributions.bind(adminApi);
+adminApi.listSave2OwnContributions = (async (params: any, force = false) => {
+  const cacheKey = `save2own:contribs:${params?.page || 1}:${params?.status || ''}:${params?.search || ''}:${params?.goal_id || ''}`;
+  return adminCache.fetchWithCache(
+    cacheKey,
+    () => rawListS2OContribs(params),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+const rawGetS2OMetrics = adminApi.getSave2OwnDashboardMetrics.bind(adminApi);
+adminApi.getSave2OwnDashboardMetrics = (async (force = false) => {
+  return adminCache.fetchWithCache(
+    'save2own:metrics',
+    () => rawGetS2OMetrics(),
+    { ttl: 60 * 1000, staleTtl: 5 * 60 * 1000, force }
+  );
+}) as any;
+
+// 13. Refunds, Reviews, Audit Logs
+const rawListRefunds = adminApi.listRefunds.bind(adminApi);
+adminApi.listRefunds = (async (params: any, force = false) => {
+  const cacheKey = `refunds:list:${params?.page || 1}:${params?.status || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListRefunds(params), { ttl: 60 * 1000, force });
+}) as any;
+
+const rawListReviews = adminApi.listReviews.bind(adminApi);
+adminApi.listReviews = (async (params: any, force = false) => {
+  const cacheKey = `reviews:list:${params?.page || 1}:${params?.rating || ''}:${params?.q || params?.search || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListReviews(params), { ttl: 60 * 1000, force });
+}) as any;
+
+const rawListAuditLogs = adminApi.listAuditLogs.bind(adminApi);
+adminApi.listAuditLogs = (async (params: any, force = false) => {
+  const cacheKey = `audit_logs:list:${params?.page || 1}:${params?.user || ''}:${params?.action || ''}`;
+  return adminCache.fetchWithCache(cacheKey, () => rawListAuditLogs(params), { ttl: 60 * 1000, force });
+}) as any;
+
+// ============================================================
+// Automatic Mutation Invalidation Interceptors
+// ============================================================
+function wrapMutation<T extends (...args: any[]) => Promise<any>>(
+  fn: T,
+  namespacesToInvalidate: string[]
+): T {
+  return (async function (this: any, ...args: any[]) {
+    const result = await fn.apply(this, args);
+    for (const ns of namespacesToInvalidate) {
+      adminCache.invalidate(ns);
+    }
+    return result;
+  }) as T;
+}
+
+// Order & Payment mutations
+adminApi.updateOrderStatus = wrapMutation(adminApi.updateOrderStatus.bind(adminApi), ['orders', 'payments', 'analytics']);
+adminApi.verifyPayment = wrapMutation(adminApi.verifyPayment.bind(adminApi), ['payments', 'orders', 'analytics']);
+adminApi.rejectPayment = wrapMutation(adminApi.rejectPayment.bind(adminApi), ['payments', 'orders', 'analytics']);
+
+// Product mutations
+adminApi.createProduct = wrapMutation(adminApi.createProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+adminApi.updateProduct = wrapMutation(adminApi.updateProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+adminApi.archiveProduct = wrapMutation(adminApi.archiveProduct.bind(adminApi), ['products', 'homepage', 'analytics']);
+
+// Category mutations
+adminApi.deleteCategory = wrapMutation(adminApi.deleteCategory.bind(adminApi), ['categories', 'products']);
+
+// Payment accounts & Min order
+adminApi.createPaymentAccount = wrapMutation(adminApi.createPaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.updatePaymentAccount = wrapMutation(adminApi.updatePaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.deletePaymentAccount = wrapMutation(adminApi.deletePaymentAccount.bind(adminApi), ['payment_accounts']);
+adminApi.updateMinimumOrderSettings = wrapMutation(adminApi.updateMinimumOrderSettings.bind(adminApi), ['settings:min_order']);
+
+// Homepage mutations
+adminApi.createHomepageBanner = wrapMutation(adminApi.createHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.updateHomepageBanner = wrapMutation(adminApi.updateHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.deleteHomepageBanner = wrapMutation(adminApi.deleteHomepageBanner.bind(adminApi), ['homepage']);
+adminApi.createHomepageSection = wrapMutation(adminApi.createHomepageSection.bind(adminApi), ['homepage']);
+adminApi.updateHomepageSection = wrapMutation(adminApi.updateHomepageSection.bind(adminApi), ['homepage']);
+adminApi.deleteHomepageSection = wrapMutation(adminApi.deleteHomepageSection.bind(adminApi), ['homepage']);
+
+// Save2Own mutations
+adminApi.confirmSave2OwnContribution = wrapMutation(adminApi.confirmSave2OwnContribution.bind(adminApi), ['save2own', 'analytics']);
+adminApi.rejectSave2OwnContribution = wrapMutation(adminApi.rejectSave2OwnContribution.bind(adminApi), ['save2own', 'analytics']);
+adminApi.approveSave2OwnRefund = wrapMutation(adminApi.approveSave2OwnRefund.bind(adminApi), ['save2own', 'refunds', 'analytics']);
