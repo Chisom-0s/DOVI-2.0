@@ -8,6 +8,9 @@ from pathlib import Path
 from rest_framework import permissions, status, views
 from rest_framework.response import Response
 
+from .ratelimit import check_rate_limit, rate_limit_response
+from .audit_logging import record_audit_event, get_audit_logs
+
 STORE_PATH = Path(__file__).resolve().parent.parent / 'delivery_store.json'
 
 
@@ -141,6 +144,10 @@ class ReceiptUploadAPIView(views.APIView):
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
     def post(self, request):
+        allowed, retry_after = check_rate_limit(request, action='receipt_upload', max_requests=15, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Receipt Upload')
+
         uploaded_file = (
             request.FILES.get('receipt') or
             request.FILES.get('file') or
@@ -173,6 +180,15 @@ class ReceiptUploadAPIView(views.APIView):
             return Response({'error': 'Failed to save receipt file to storage.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         filename = os.path.basename(receipt_url)
+        record_audit_event(
+            event_type='RECEIPT_UPLOADED',
+            actor_email=getattr(request.user, 'email', None) or 'anonymous',
+            actor_role='CUSTOMER' if getattr(request.user, 'is_authenticated', False) else 'ANONYMOUS',
+            entity_type='RECEIPT',
+            entity_id=filename,
+            metadata={'order_reference': order_ref, 'file_size': uploaded_file.size},
+            request=request,
+        )
         return Response({
             'success': True,
             'receipt_url': receipt_url,
@@ -202,6 +218,10 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        allowed, retry_after = check_rate_limit(request, action='payment_evidence', max_requests=10, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Payment Evidence Submission')
+
         data = request.data or {}
         order_ref = str(data.get('order_reference') or data.get('order_id') or '').strip()
         if not order_ref:
@@ -260,6 +280,62 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
             str(o.get('reference_code', '')).lower().strip() == norm_ref or
             str(o.get('id', '')).lower().strip() == norm_ref
         )), None)
+
+        # Enforce customer ownership authorization:
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            is_admin = getattr(user, 'role', '') == 'ADMIN' or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+            if not is_admin and matched_order:
+                u_id = str(getattr(user, 'id', '') or '')
+                u_email = str(getattr(user, 'email', '') or '').lower().strip()
+                o_cid = str(matched_order.get('customer_id') or matched_order.get('buyer_id') or '')
+                o_email = str(matched_order.get('buyer_email') or (matched_order.get('delivery_address') or {}).get('email') or '').lower().strip()
+                if (u_id and o_cid and u_id != o_cid) and (u_email and o_email and u_email != o_email):
+                    return Response({
+                        'error': 'FORBIDDEN',
+                        'message': 'You do not have permission to submit payment evidence for an order belonging to another customer.'
+                    }, status=status.HTTP_403_FORBIDDEN)
+
+        # Prevent payment submission on already verified or cancelled orders
+        if matched_order:
+            if matched_order.get('payment_status') in ('PAID', 'VERIFIED'):
+                return Response({
+                    'error': 'PAYMENT_ALREADY_VERIFIED',
+                    'message': 'Payment for this order has already been verified and confirmed. No additional evidence required.'
+                }, status=status.HTTP_409_CONFLICT)
+            if matched_order.get('status') == 'CANCELLED':
+                return Response({
+                    'error': 'ORDER_CANCELLED',
+                    'message': 'Cannot submit payment for a cancelled order.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check existing submission for this order
+        existing_idx = next((i for i, p in enumerate(payments) if (
+            str(p.get('order_reference', '')).lower().strip() == norm_ref or
+            str(p.get('order_id', '')).lower().strip() == norm_ref
+        )), None)
+
+        existing_record = payments[existing_idx] if existing_idx is not None else None
+        if existing_record and existing_record.get('status') in ('VERIFIED', 'PAID'):
+            return Response({
+                'error': 'PAYMENT_ALREADY_VERIFIED',
+                'message': 'Payment for this order has already been verified and confirmed.'
+            }, status=status.HTTP_409_CONFLICT)
+
+        # Prevent duplicate transaction reference fraud across different orders
+        norm_tx_ref = transaction_reference.strip().lower()
+        if norm_tx_ref and norm_tx_ref != norm_ref:
+            dup_payment = next((p for p in payments if (
+                str(p.get('transaction_reference', '')).strip().lower() == norm_tx_ref and
+                str(p.get('order_reference', '')).lower().strip() != norm_ref and
+                str(p.get('order_id', '')).lower().strip() != norm_ref and
+                p.get('status') in ('VERIFIED', 'PENDING_VERIFICATION')
+            )), None)
+            if dup_payment:
+                return Response({
+                    'error': 'DUPLICATE_TRANSACTION_REFERENCE',
+                    'message': 'This bank transaction reference has already been submitted or verified for another order. Each payment transaction reference must be unique.'
+                }, status=status.HTTP_409_CONFLICT)
 
         customer_name = (
             str(data.get('customer_name') or '').strip() or
@@ -390,6 +466,24 @@ class SubmitPaymentEvidenceAPIView(views.APIView):
 
         store['orders'] = orders
         save_delivery_store(store)
+
+        record_audit_event(
+            event_type='PAYMENT_EVIDENCE_SUBMITTED',
+            actor_email=customer_email,
+            actor_role='CUSTOMER',
+            entity_type='PAYMENT',
+            entity_id=payment_record['reference'],
+            amount=amount,
+            previous_status=existing_record.get('status') if existing_record else None,
+            new_status='PENDING_VERIFICATION',
+            metadata={
+                'order_reference': order_ref,
+                'sender_bank': sender_bank,
+                'sender_account_name': sender_account_name,
+                'transaction_reference': transaction_reference,
+            },
+            request=request,
+        )
 
         return Response(payment_record, status=status.HTTP_201_CREATED)
 
@@ -529,6 +623,10 @@ class AdminPaymentVerifyAPIView(views.APIView):
     permission_classes = [IsAdminRolePermission]
 
     def post(self, request, payment_id):
+        allowed, retry_after = check_rate_limit(request, action='payment_verify', max_requests=30, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Payment Verification')
+
         store = get_delivery_store()
         payments = store.get('payments', [])
         norm_id = str(payment_id).lower().strip()
@@ -541,6 +639,20 @@ class AdminPaymentVerifyAPIView(views.APIView):
 
         now_iso = datetime.now(timezone.utc).isoformat()
         admin_email = getattr(request.user, 'email', None) or request.data.get('verified_by') or 'Administrator'
+        prev_status = target.get('status') if target else None
+
+        # Check associated order to prevent approving cancelled orders
+        order_ref = target.get('order_reference') if target else payment_id
+        norm_order_ref = str(order_ref).lower().strip()
+        orders = store.get('orders', [])
+        matched_order = next((o for o in orders if (
+            str(o.get('reference', '')).lower().strip() == norm_order_ref or
+            str(o.get('reference_code', '')).lower().strip() == norm_order_ref or
+            str(o.get('id', '')).lower().strip() == norm_order_ref
+        )), None)
+
+        if matched_order and matched_order.get('status') == 'CANCELLED':
+            return Response({'error': 'Cannot verify payment for a cancelled order.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not target:
             # Create verified payment entry if matching order exists
@@ -550,7 +662,7 @@ class AdminPaymentVerifyAPIView(views.APIView):
                 'order_reference': payment_id,
                 'provider': 'BANK_TRANSFER',
                 'status': 'VERIFIED',
-                'amount': str(request.data.get('amount') or '0'),
+                'amount': str(request.data.get('amount') or (matched_order.get('total') if matched_order else '0')),
                 'currency': 'NGN',
                 'created_at': now_iso,
                 'verified_at': now_iso,
@@ -570,9 +682,6 @@ class AdminPaymentVerifyAPIView(views.APIView):
             target['verified_by'] = admin_email
             target['notes'] = request.data.get('notes', target.get('notes', ''))
 
-        order_ref = target.get('order_reference') or payment_id
-        norm_order_ref = str(order_ref).lower().strip()
-        orders = store.get('orders', [])
         for ord_obj in orders:
             if (
                 str(ord_obj.get('reference', '')).lower().strip() == norm_order_ref or
@@ -619,6 +728,19 @@ class AdminPaymentVerifyAPIView(views.APIView):
         store['paymentSessions'] = sessions
         save_delivery_store(store)
 
+        record_audit_event(
+            event_type='PAYMENT_VERIFIED',
+            actor_email=admin_email,
+            actor_role='ADMIN',
+            entity_type='PAYMENT',
+            entity_id=target.get('reference') or payment_id,
+            amount=str(target.get('amount') or '0'),
+            previous_status=prev_status,
+            new_status='VERIFIED',
+            metadata={'order_reference': order_ref, 'notes': target.get('notes')},
+            request=request,
+        )
+
         return Response({
             'success': True,
             'message': f"Payment for order {order_ref} verified successfully. Order moved to Processing.",
@@ -636,6 +758,10 @@ class AdminPaymentRejectAPIView(views.APIView):
     permission_classes = [IsAdminRolePermission]
 
     def post(self, request, payment_id):
+        allowed, retry_after = check_rate_limit(request, action='payment_reject', max_requests=30, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Payment Rejection')
+
         reason = request.data.get('rejection_reason', '').strip()
         if not reason:
             return Response({'error': 'rejection_reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -655,6 +781,7 @@ class AdminPaymentRejectAPIView(views.APIView):
 
         now_iso = datetime.now(timezone.utc).isoformat()
         admin_email = getattr(request.user, 'email', None) or 'Administrator'
+        prev_status = target.get('status')
 
         target['status'] = 'REJECTED'
         target['rejection_reason'] = reason
@@ -708,6 +835,19 @@ class AdminPaymentRejectAPIView(views.APIView):
         store['orders'] = orders
         store['paymentSessions'] = sessions
         save_delivery_store(store)
+
+        record_audit_event(
+            event_type='PAYMENT_REJECTED',
+            actor_email=admin_email,
+            actor_role='ADMIN',
+            entity_type='PAYMENT',
+            entity_id=target.get('reference') or payment_id,
+            amount=str(target.get('amount') or '0'),
+            previous_status=prev_status,
+            new_status='REJECTED',
+            metadata={'order_reference': order_ref, 'rejection_reason': reason},
+            request=request,
+        )
 
         return Response({
             'success': True,
@@ -802,6 +942,19 @@ class OrderTransitionAPIView(views.APIView):
         store['orders'] = orders
         save_delivery_store(store)
 
+        admin_email = getattr(request.user, 'email', None) or 'Administrator'
+        record_audit_event(
+            event_type='ORDER_STATUS_CHANGED',
+            actor_email=admin_email,
+            actor_role='ADMIN',
+            entity_type='ORDER',
+            entity_id=matched.get('reference') or order_id,
+            previous_status=current_status if 'current_status' in locals() else None,
+            new_status=new_status,
+            metadata={'fulfillment_notes': notes},
+            request=request,
+        )
+
         return Response(matched, status=status.HTTP_200_OK)
 
 
@@ -873,6 +1026,10 @@ class PaymentSessionListCreateAPIView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        allowed, retry_after = check_rate_limit(request, action='payment_session', max_requests=30, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Payment Session')
+
         data = request.data or {}
         order_ref = data.get('order_reference') or data.get('order_id') or ''
         if not order_ref:
@@ -1316,6 +1473,10 @@ class OrderListCreateAPIView(views.APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request):
+        allowed, retry_after = check_rate_limit(request, action='order_create', max_requests=20, window_seconds=600)
+        if not allowed:
+            return rate_limit_response(retry_after, action_name='Order Creation')
+
         data = request.data or {}
         order_ref = data.get('reference') or data.get('reference_code') or data.get('order_reference') or data.get('id')
         if not order_ref:
@@ -1574,6 +1735,23 @@ class OrderListCreateAPIView(views.APIView):
             orders = []
 
         existing_idx = next((i for i, o in enumerate(orders) if o.get('reference') == order_ref or o.get('id') == order_ref), None)
+        if existing_idx is not None:
+            existing_ord = orders[existing_idx]
+            if existing_ord.get('payment_status') in ('PAID', 'VERIFIED'):
+                return Response({
+                    'error': 'ORDER_ALREADY_PAID',
+                    'message': 'Cannot modify an order that has already been verified or paid.'
+                }, status=status.HTTP_409_CONFLICT)
+            if user and getattr(user, 'is_authenticated', False):
+                is_admin = getattr(user, 'role', '') == 'ADMIN' or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+                if not is_admin:
+                    curr_cid = str(existing_ord.get('customer_id') or existing_ord.get('buyer_id') or '')
+                    if curr_cid and curr_cid != user_id:
+                        return Response({
+                            'error': 'FORBIDDEN',
+                            'message': 'You cannot overwrite an order belonging to another customer.'
+                        }, status=status.HTTP_403_FORBIDDEN)
+
         order_record = {
             **data,
             'id': data.get('id') or order_ref,
@@ -1599,13 +1777,13 @@ class OrderListCreateAPIView(views.APIView):
             },
             'items': verified_items,
             'subtotal': str(verified_subtotal),
-            'delivery_fee': str(verified_delivery_fee),
+            'delivery_fee': str(max(0.0, verified_delivery_fee)),
             'total': str(verified_total),
             'total_amount': str(verified_total),
-            'status': data.get('status') or 'ORDER_PLACED',
-            'fulfillment_status': data.get('fulfillment_status') or 'ORDER_PLACED',
-            'payment_status': data.get('payment_status') or 'PENDING_PAYMENT',
-            'created_at': data.get('created_at') or now_iso,
+            'status': 'ORDER_PLACED',
+            'fulfillment_status': 'ORDER_PLACED',
+            'payment_status': 'PENDING_PAYMENT',
+            'created_at': (orders[existing_idx].get('created_at') if existing_idx is not None else None) or data.get('created_at') or now_iso,
             'updated_at': now_iso,
         }
 
@@ -1616,6 +1794,24 @@ class OrderListCreateAPIView(views.APIView):
 
         store['orders'] = orders
         save_delivery_store(store)
+
+        record_audit_event(
+            event_type='ORDER_CREATED',
+            actor_email=user_email or 'anonymous',
+            actor_role='CUSTOMER' if (user and getattr(user, 'is_authenticated', False)) else 'GUEST',
+            entity_type='ORDER',
+            entity_id=order_ref,
+            amount=str(verified_total),
+            previous_status=None,
+            new_status='ORDER_PLACED',
+            metadata={
+                'items_count': len(verified_items),
+                'subtotal': verified_subtotal,
+                'delivery_fee': verified_delivery_fee,
+                'has_promotional_gift': has_promotional_gift,
+            },
+            request=request,
+        )
 
         return Response({
             'success': True,
@@ -1696,6 +1892,27 @@ class OrderDetailAPIView(views.APIView):
             matched['payment_evidence'] = p
 
         return Response(matched, status=status.HTTP_200_OK)
+
+
+class AdminAuditLogsAPIView(views.APIView):
+    """
+    Administrative API view to inspect financial and order audit logs.
+    Restricted to authorized administrators.
+    """
+    permission_classes = [IsAdminRolePermission]
+
+    def get(self, request):
+        try:
+            limit = min(500, max(1, int(request.query_params.get('limit', 100))))
+        except ValueError:
+            limit = 100
+        event_type = request.query_params.get('event_type')
+        entity_id = request.query_params.get('entity_id')
+        logs = get_audit_logs(limit=limit, event_type=event_type, entity_id=entity_id)
+        return Response({
+            'count': len(logs),
+            'results': logs,
+        }, status=status.HTTP_200_OK)
 
 
 # ==============================================================================

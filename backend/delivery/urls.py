@@ -22,6 +22,7 @@ from .payment_views import (
     OrderTransitionAPIView,
     OrderListCreateAPIView,
     OrderDetailAPIView,
+    AdminAuditLogsAPIView,
     MinimumOrderSettingsAPIView,
     PaymentSessionListCreateAPIView,
     PaymentSessionDetailAPIView,
@@ -79,4 +80,5 @@ urlpatterns = [
     path('orders/', OrderListCreateAPIView.as_view(), name='orders-list-create'),
     path('orders/<str:order_id>/', OrderDetailAPIView.as_view(), name='order-detail'),
     path('orders/<str:order_id>/transition/', OrderTransitionAPIView.as_view(), name='order-transition'),
+    path('admin/audit-logs/', AdminAuditLogsAPIView.as_view(), name='admin-audit-logs'),
 ]

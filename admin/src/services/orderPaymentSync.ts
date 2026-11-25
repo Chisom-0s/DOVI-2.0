@@ -182,27 +182,10 @@ export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Pay
   };
 }
 
-export async function pushPaymentsAndOrdersToServer(payments?: Payment[], orders?: Record<string, any>): Promise<boolean> {
-  const currentPayments = payments || getLocalPayments();
-  const currentOrdersMap = orders || getLocalOrders();
-  const ordersList = Object.values(currentOrdersMap);
-
-  if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
-    try {
-      const res = await fetch('/__dovi_delivery_db__', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          payments: currentPayments,
-          orders: ordersList,
-        }),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-  return false;
+export async function pushPaymentsAndOrdersToServer(_payments?: Payment[], _orders?: Record<string, any>): Promise<boolean> {
+  // Direct datastore sync via /__dovi_delivery_db__ is permanently decommissioned.
+  // All administrative approvals and state changes are handled through authoritative backend endpoints.
+  return true;
 }
 
 export function approvePaymentSync(

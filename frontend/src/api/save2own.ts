@@ -1084,31 +1084,11 @@ export const save2ownApi = {
     id: string,
     code: string
   ): Promise<Save2OwnUnlockVerificationResponse> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/verify-unlock-code/`, {
-        code,
-      });
-      return data;
-    } catch {
-      const p = await save2ownApi.getParticipant(id);
-      const expires = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      const updated: Save2OwnParticipant = {
-        ...p,
-        identity_locked: false,
-        identity_unlock_expires_at: expires,
-      };
-      try {
-        localStorage.setItem(`s2o_participant_${id}`, JSON.stringify(updated));
-      } catch {}
-      return {
-        success: true,
-        message: 'Unlock code verified. 30-minute edit window active.',
-        expires_at: expires,
-        identity_unlock_expires_at: expires,
-        expires_in_minutes: 30,
-        participant: updated,
-      };
-    }
+    // Authoritative backend verification required - no automatic client-side unlock fallback
+    const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/verify-unlock-code/`, {
+      code,
+    });
+    return data;
   },
 
   updateParticipantIdentity: async (
@@ -1126,23 +1106,9 @@ export const save2ownApi = {
       reason?: string;
     }
   ): Promise<{ message: string; participant: Save2OwnParticipant }> => {
-    try {
-      const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/update-participant/`, payload);
-      return data;
-    } catch {
-      const p = await save2ownApi.getParticipant(id);
-      const updated: Save2OwnParticipant = {
-        ...p,
-        ...payload,
-        identity_locked: true,
-        identity_unlock_expires_at: null,
-        updated_at: new Date().toISOString(),
-      };
-      try {
-        localStorage.setItem(`s2o_participant_${id}`, JSON.stringify(updated));
-      } catch {}
-      return { message: 'Participant identity updated and re-locked.', participant: updated };
-    }
+    // Authoritative backend identity update required - no client-side overwrite on failure
+    const { data } = await apiClient.post(`/api/v1/save2own/goals/${id}/update-participant/`, payload);
+    return data;
   },
 };
 
