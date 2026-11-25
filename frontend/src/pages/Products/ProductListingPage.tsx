@@ -133,14 +133,12 @@ export default function ProductListingPage() {
     setSearchParams(nextParams);
   };
 
-  // Fetch initial batch of products on filter change
+  // Fetch complete collection of products on filter change (Continuous Catalogue)
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const response = await productsApi.list({
-        page: 1,
-        page_size: 24,
+      const response = await productsApi.getAllPublished({
         category: categoryParam || undefined,
         subcategory: subcategoryParam || undefined,
         sort: sortParam as 'price_asc' | 'price_desc' | 'newest' | 'rating',
@@ -154,19 +152,7 @@ export default function ProductListingPage() {
 
       setProducts(response.results);
       setPage(1);
-      setHasMore(response.results.length < response.count && Boolean(response.next));
-
-      if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && !campaignParam && response.results.length > 0) {
-        try {
-          const existingRaw = localStorage.getItem('dovi_real_products_cache') || sessionStorage.getItem('dovi_real_products_cache');
-          const existingList: ProductSummary[] = existingRaw ? JSON.parse(existingRaw) : [];
-          const map = new Map<string, ProductSummary>(Array.isArray(existingList) ? existingList.map((p: any) => [p.id, p]) : []);
-          response.results.forEach((p) => map.set(p.id, p));
-          const merged = Array.from(map.values());
-          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
-          localStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
-        } catch {}
-      }
+      setHasMore(false); // All products loaded on one continuous page!
     } catch (err: any) {
       console.error('Failed to load products list:', err);
       setProducts([]);

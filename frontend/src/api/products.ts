@@ -293,6 +293,156 @@ export const productsApi = {
     }
   },
 
+  getAllPublished: async (filters?: ProductFilters): Promise<{ count: number; results: ProductSummary[] }> => {
+    // 1. Gather all published products
+    let list: ProductSummary[] = [];
+    try {
+      const fromSession = sessionStorage.getItem('dovi_real_products_cache');
+      if (fromSession) list = JSON.parse(fromSession);
+    } catch {}
+    if (!list || list.length === 0) {
+      try {
+        const fromLocal = localStorage.getItem('dovi_real_products_cache');
+        if (fromLocal) list = JSON.parse(fromLocal);
+      } catch {}
+    }
+
+    // Always merge with SEED_REAL_PRODUCTS baseline so catalogue is never empty or truncated
+    const mergedMap = new Map<string, ProductSummary>();
+    (SEED_REAL_PRODUCTS || []).forEach((p) => mergedMap.set(p.id, p));
+    (list || []).forEach((p) => mergedMap.set(p.id, p));
+
+    // Fast bounded background hydration from server if cache is empty or stale
+    const now = Date.now();
+    const lastSyncTime = Number(sessionStorage.getItem('dovi_real_products_cache_time') || '0');
+    if (mergedMap.size === 0 || now - lastSyncTime > PRODUCT_QUERY_CACHE_TTL_MS) {
+      try {
+        const { data: page1 } = await apiClient.get('/api/v1/products/', { params: { page: 1, page_size: 24 } });
+        const rawResults: any[] = page1 ? (Array.isArray(page1) ? page1 : page1?.results || []) : [];
+        rawResults.forEach((p) => {
+          if (p && p.id) {
+            mergedMap.set(p.id, normalizeBackendProductToSummary(p));
+          }
+        });
+        sessionStorage.setItem('dovi_real_products_cache_time', String(now));
+
+        // If more pages exist, fetch remaining pages in the background
+        const totalServerCount = typeof page1?.count === 'number' ? page1.count : rawResults.length;
+        if (page1?.next && totalServerCount > 24) {
+          setTimeout(async () => {
+            try {
+              const { data: page2 } = await apiClient.get('/api/v1/products/', { params: { page: 2, page_size: 24 } });
+              const p2List: any[] = Array.isArray(page2) ? page2 : page2?.results || [];
+              p2List.forEach((p) => {
+                if (p && p.id) {
+                  mergedMap.set(p.id, normalizeBackendProductToSummary(p));
+                }
+              });
+              const allItems = Array.from(mergedMap.values());
+              sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
+              localStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dovi-products-updated'));
+              }
+            } catch {}
+          }, 500);
+        }
+      } catch {}
+    }
+
+    const allItems = Array.from(mergedMap.values());
+    sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
+    localStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
+
+    // Exclude deleted, archived, inactive items
+    let deletedIds: string[] = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem('dovi_deleted_product_ids') || '[]');
+    } catch {}
+
+    let cleaned = allItems
+      .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
+      .map((p) => enrichProductWithCategory(enrichProductWithDelivery(p)));
+
+    // Apply category & subcategory filters across the entire catalogue
+    if (filters?.category || filters?.subcategory) {
+      cleaned = cleaned.filter((p) =>
+        doesProductMatchCategoryFilter(p, filters?.category, filters?.subcategory)
+      );
+    }
+
+    // Apply campaign filter
+    if (filters?.campaign) {
+      cleaned = filterProductsByCampaign(cleaned, filters.campaign);
+    }
+
+    // Apply search filter across full catalogue
+    if (filters?.q || filters?.search) {
+      const qStr = (filters.q || filters.search || '').toLowerCase().trim();
+      cleaned = cleaned.filter((p) =>
+        p.name.toLowerCase().includes(qStr) ||
+        (p.description && p.description.toLowerCase().includes(qStr)) ||
+        (p.category_name && p.category_name.toLowerCase().includes(qStr)) ||
+        (p.category && String(p.category).toLowerCase().includes(qStr))
+      );
+    }
+
+    // Apply min/max price filter
+    if (filters?.min_price !== undefined) {
+      cleaned = cleaned.filter((p) => {
+        const val = parseFloat(String(p.price || p.base_price || '0'));
+        return val >= filters.min_price!;
+      });
+    }
+    if (filters?.max_price !== undefined) {
+      cleaned = cleaned.filter((p) => {
+        const val = parseFloat(String(p.price || p.base_price || '0'));
+        return val <= filters.max_price!;
+      });
+    }
+
+    // Apply rating filter
+    if (filters?.min_rating !== undefined) {
+      cleaned = cleaned.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
+    }
+
+    // Apply in_stock filter
+    if (filters?.in_stock) {
+      cleaned = cleaned.filter((p) => {
+        if (!p.variants || p.variants.length === 0) return true;
+        return p.variants.some((v) => (v.stock || 0) > 0);
+      });
+    }
+
+    // Apply sorting across full catalogue
+    if (filters?.sort === 'newest' || !filters?.sort) {
+      cleaned = [...cleaned].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+    } else if (filters?.sort === 'price_asc') {
+      cleaned = [...cleaned].sort((a, b) => {
+        const pA = parseFloat(String(a.price || a.base_price || '0'));
+        const pB = parseFloat(String(b.price || b.base_price || '0'));
+        return pA - pB;
+      });
+    } else if (filters?.sort === 'price_desc') {
+      cleaned = [...cleaned].sort((a, b) => {
+        const pA = parseFloat(String(a.price || a.base_price || '0'));
+        const pB = parseFloat(String(b.price || b.base_price || '0'));
+        return pB - pA;
+      });
+    } else if (filters?.sort === 'rating') {
+      cleaned = [...cleaned].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+    }
+
+    return {
+      count: cleaned.length,
+      results: cleaned,
+    };
+  },
+
   getById: async (id: string): Promise<Product> => {
     // 1. Try backend first
     try {

@@ -4224,6 +4224,18 @@ function wrapMutation<T extends (...args: any[]) => Promise<any>>(
     const result = await fn.apply(this, args);
     for (const ns of namespacesToInvalidate) {
       adminCache.invalidate(ns);
+      if (typeof window !== 'undefined') {
+        if (ns === 'products') {
+          sessionStorage.removeItem('dovi_real_products_cache');
+          sessionStorage.removeItem('dovi_real_products_cache_time');
+          localStorage.removeItem('dovi_real_products_cache');
+          window.dispatchEvent(new CustomEvent('dovi-products-updated'));
+        }
+        if (ns === 'categories') {
+          sessionStorage.removeItem('dovi_categories');
+          window.dispatchEvent(new CustomEvent('dovi-categories-updated'));
+        }
+      }
     }
     return result;
   }) as T;
