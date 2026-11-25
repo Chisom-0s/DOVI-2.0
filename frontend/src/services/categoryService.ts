@@ -531,6 +531,10 @@ async function pushCategoryStoreToServer(payload: {
 let lastCategorySyncTime = 0;
 const CATEGORY_SYNC_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL
 
+export function invalidateCategoryCache(): void {
+  lastCategorySyncTime = 0;
+}
+
 export async function syncCategoriesFromServer(force = false): Promise<void> {
   const now = Date.now();
   if (!force && (now - lastCategorySyncTime < CATEGORY_SYNC_TTL_MS)) {

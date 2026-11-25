@@ -86,6 +86,10 @@ interface CachedProductListEntry {
 const productListQueryCache = new Map<string, CachedProductListEntry>();
 const PRODUCT_QUERY_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
+export function invalidateProductQueryCache(): void {
+  productListQueryCache.clear();
+}
+
 export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
     const requestedPage = filters?.page || 1;

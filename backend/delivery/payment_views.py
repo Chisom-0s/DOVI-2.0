@@ -60,6 +60,20 @@ def get_minimum_order_settings(store=None):
     }
 
 
+def apply_cache_headers(response, max_age=180, swr=300):
+    """Sets standard Edge/Browser caching headers with stale-while-revalidate for public endpoints."""
+    response['Cache-Control'] = f'public, max-age={max_age}, stale-while-revalidate={swr}'
+    return response
+
+
+def apply_private_no_cache_headers(response):
+    """Ensures private customer/admin transaction data is never cached by intermediate proxies or browsers."""
+    response['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
+
+
 class IsAdminRolePermission(permissions.BasePermission):
     message = 'Permission denied. Only authorized administrators can perform this action.'
 
@@ -604,12 +618,12 @@ class AdminPaymentsListAPIView(views.APIView):
         end_idx = start_idx + page_size
         page_results = filtered[start_idx:end_idx]
 
-        return Response({
+        return apply_private_no_cache_headers(Response({
             'count': total_count,
             'next': f"?page={page+1}" if end_idx < total_count else None,
             'previous': f"?page={page-1}" if page > 1 else None,
             'results': page_results,
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK))
 
 
 class AdminPaymentVerifyAPIView(views.APIView):
@@ -955,7 +969,7 @@ class OrderTransitionAPIView(views.APIView):
             request=request,
         )
 
-        return Response(matched, status=status.HTTP_200_OK)
+        return apply_private_no_cache_headers(Response(matched, status=status.HTTP_200_OK))
 
 
 class MinimumOrderSettingsAPIView(views.APIView):
@@ -972,7 +986,7 @@ class MinimumOrderSettingsAPIView(views.APIView):
     def get(self, request):
         store = get_delivery_store()
         settings = get_minimum_order_settings(store)
-        return Response(settings, status=status.HTTP_200_OK)
+        return apply_cache_headers(Response(settings, status=status.HTTP_200_OK), max_age=300, swr=600)
 
     def post(self, request):
         data = request.data or {}
@@ -1230,11 +1244,11 @@ class PaymentSessionDetailAPIView(views.APIView):
             save_delivery_store(store)
 
         remaining_sec = max(0, int((exp_dt - now).total_seconds())) if session.get('status') == 'ACTIVE' else 0
-        return Response({
+        return apply_private_no_cache_headers(Response({
             **session,
             'server_time': now_iso,
             'remaining_seconds': remaining_sec,
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK))
 
 
 class PaymentSessionRenewAPIView(views.APIView):
@@ -1465,12 +1479,12 @@ class OrderListCreateAPIView(views.APIView):
         end_idx = start_idx + page_size
         results_slice = filtered_orders[start_idx:end_idx]
 
-        return Response({
+        return apply_private_no_cache_headers(Response({
             'count': total_count,
             'next': f"?page={page + 1}" if end_idx < total_count else None,
             'previous': f"?page={page - 1}" if page > 1 else None,
             'results': results_slice,
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK))
 
     def post(self, request):
         allowed, retry_after = check_rate_limit(request, action='order_create', max_requests=20, window_seconds=600)
@@ -1891,7 +1905,7 @@ class OrderDetailAPIView(views.APIView):
                 matched['payment_status'] = 'PENDING_VERIFICATION'
             matched['payment_evidence'] = p
 
-        return Response(matched, status=status.HTTP_200_OK)
+        return apply_private_no_cache_headers(Response(matched, status=status.HTTP_200_OK))
 
 
 class AdminAuditLogsAPIView(views.APIView):
@@ -1909,10 +1923,10 @@ class AdminAuditLogsAPIView(views.APIView):
         event_type = request.query_params.get('event_type')
         entity_id = request.query_params.get('entity_id')
         logs = get_audit_logs(limit=limit, event_type=event_type, entity_id=entity_id)
-        return Response({
+        return apply_private_no_cache_headers(Response({
             'count': len(logs),
             'results': logs,
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK))
 
 
 # ==============================================================================
@@ -2054,7 +2068,7 @@ class PublicPromotionalCampaignsAPIView(views.APIView):
             active_list.append(c)
 
         active_list.sort(key=lambda x: int(x.get('priority', 99)))
-        return Response({'results': active_list}, status=status.HTTP_200_OK)
+        return apply_cache_headers(Response({'results': active_list}, status=status.HTTP_200_OK), max_age=180, swr=300)
 
 
 class AdminPromotionalCampaignsListCreateAPIView(views.APIView):
@@ -2498,7 +2512,7 @@ class PublicHomepageBannersAPIView(APIView):
             active_banners.append(b)
 
         active_banners.sort(key=lambda x: x.get('display_order', 99))
-        return Response(active_banners, status=status.HTTP_200_OK)
+        return apply_cache_headers(Response(active_banners, status=status.HTTP_200_OK), max_age=180, swr=300)
 
 
 class AdminHomepageBannersAPIView(APIView):
@@ -2677,12 +2691,12 @@ class CampaignProductsAPIView(APIView):
             else:
                 matching_products = all_products[:12]
 
-        return Response({
+        return apply_cache_headers(Response({
             'campaign_key': campaign_key,
             'banner': banner,
             'total_products': len(matching_products),
             'products': matching_products
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK), max_age=180, swr=300)
 
     def post(self, request, campaign_key):
         # Admin assignment of products to a campaign (e.g. Christmas Deals)
