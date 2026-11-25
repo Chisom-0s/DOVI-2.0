@@ -31,7 +31,7 @@ export function enforceSystemResetCheck(serverData?: any): void {
       localStorage.removeItem('dovi_payment_accounts');
       try {
         adminCache.clear();
-      } catch {}
+      } catch { }
       if (Array.isArray(serverData?.users) && serverData.users.length > 0) {
         localStorage.setItem('dovi_admin_users_db', JSON.stringify(serverData.users));
       } else {
@@ -58,7 +58,7 @@ export function enforceSystemResetCheck(serverData?: any): void {
       }
       localStorage.setItem('dovi_system_reset_version', SYSTEM_RESET_VERSION);
     }
-  } catch {}
+  } catch { }
 }
 
 export function getLocalPayments(): Payment[] {
@@ -74,7 +74,7 @@ export function getLocalPayments(): Payment[] {
 export function saveLocalPayments(payments: Payment[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
-  } catch {}
+  } catch { }
 }
 
 export function getLocalOrders(): Record<string, any> {
@@ -91,7 +91,7 @@ export function saveLocalOrdersMap(ordersMap: Record<string, any>): void {
   try {
     localStorage.setItem(STORAGE_KEYS.LOCAL_ORDERS, JSON.stringify(ordersMap));
     localStorage.setItem(STORAGE_KEYS.LEGACY_ORDERS, JSON.stringify(Object.values(ordersMap)));
-  } catch {}
+  } catch { }
 }
 
 export function addCustomerNotification(title: string, message: string, type: 'SUCCESS' | 'WARNING' | 'INFO' = 'INFO') {
@@ -109,7 +109,7 @@ export function addCustomerNotification(title: string, message: string, type: 'S
     };
     list.unshift(notif);
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list));
-  } catch {}
+  } catch { }
 }
 
 export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Payment[]; orders: Record<string, any> }> {
@@ -173,7 +173,7 @@ export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Pay
         if (k && !userMap.has(k)) userMap.set(k, u);
       });
       localStorage.setItem('dovi_admin_users_db', JSON.stringify(Array.from(userMap.values())));
-    } catch {}
+    } catch { }
   }
 
   return {
