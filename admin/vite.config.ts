@@ -484,21 +484,133 @@ function doviSharedDeliveryDbPlugin() {
     // --- PRODUCTS ENDPOINT ---
     if (req.url && (req.url.startsWith('/api/v1/products') || req.url.startsWith('/api/v1/admin/products'))) {
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
 
-      let catalog = [];
       const catPath = path.resolve(import.meta.dirname, '../backend/products_catalog.json');
-      try {
-        if (fs.existsSync(catPath)) {
-          catalog = JSON.parse(fs.readFileSync(catPath, 'utf8'));
-        }
-      } catch {}
+      const adminDsPath = path.resolve(import.meta.dirname, '../admin/public/delivery_store.json');
+      const frontendDsPath = path.resolve(import.meta.dirname, '../frontend/public/delivery_store.json');
+
+      const getCatalog = () => {
+        try {
+          if (fs.existsSync(catPath)) return JSON.parse(fs.readFileSync(catPath, 'utf8'));
+        } catch {}
+        return [];
+      };
+
+      const saveCatalogAndStores = (newCatalog: any[]) => {
+        try {
+          fs.writeFileSync(catPath, JSON.stringify(newCatalog, null, 2), 'utf8');
+        } catch {}
+        try {
+          const store = readStore();
+          store.products = newCatalog;
+          writeStore(store);
+          if (fs.existsSync(adminDsPath)) fs.writeFileSync(adminDsPath, JSON.stringify(store, null, 2), 'utf8');
+          if (fs.existsSync(frontendDsPath)) fs.writeFileSync(frontendDsPath, JSON.stringify(store, null, 2), 'utf8');
+        } catch {}
+      };
 
       const urlObj = new URL(req.url, 'http://localhost');
       const parts = urlObj.pathname.replace(/\/+$/, '').split('/');
       const last = parts[parts.length - 1];
+
+      // Handle POST: Create new product
+      if (req.method === 'POST') {
+        const chunks: Buffer[] = [];
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+            const catalog = getCatalog();
+            const newId = body.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            const createdProd = {
+              id: newId,
+              vendor: body.vendor || 'ca901bff-43ad-40c7-a59e-7a8b6fbd7934',
+              vendor_name: body.vendor_name || 'Dovi Official Store',
+              category: body.category || '',
+              category_name: body.category_name || '',
+              name: body.name || body.title || 'Untitled Product',
+              slug: body.slug || (body.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              description: body.description || '',
+              base_price: String(body.base_price || body.price || '0.00'),
+              reference_code: body.reference_code || `DOV-P-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+              status: body.status || 'PUBLISHED',
+              variants: Array.isArray(body.variants) && body.variants.length > 0 ? body.variants : [
+                {
+                  id: `var-${Date.now()}`,
+                  name: 'Standard',
+                  sku: `${(body.name || 'SKU').substring(0, 3).toUpperCase()}-STD-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                  price_override: null,
+                  stock: body.stock ?? 10,
+                  reserved: 0
+                }
+              ],
+              images: Array.isArray(body.images) ? body.images : (body.primary_image_url ? [{ id: `img-${Date.now()}`, image_url: body.primary_image_url, is_primary: true }] : []),
+              primary_image_url: body.primary_image_url || (body.images && body.images[0]?.image_url) || null
+            };
+
+            catalog.push(createdProd);
+            saveCatalogAndStores(catalog);
+
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 201;
+            res.end(JSON.stringify(createdProd));
+          } catch (err: any) {
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: err?.message || 'Invalid product payload' }));
+          }
+        });
+        return;
+      }
+
+      // Handle PATCH or PUT: Update existing product
+      if (req.method === 'PATCH' || req.method === 'PUT') {
+        const chunks: Buffer[] = [];
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+            const catalog = getCatalog();
+            const targetIndex = catalog.findIndex((p: any) => p.id === last || p.slug === last);
+            if (targetIndex === -1) {
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = 404;
+              res.end(JSON.stringify({ detail: 'Product not found' }));
+              return;
+            }
+            catalog[targetIndex] = {
+              ...catalog[targetIndex],
+              ...body,
+              id: catalog[targetIndex].id,
+            };
+            saveCatalogAndStores(catalog);
+
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 200;
+            res.end(JSON.stringify(catalog[targetIndex]));
+          } catch (err: any) {
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: err?.message || 'Invalid product update payload' }));
+          }
+        });
+        return;
+      }
+
+      // Handle DELETE: Remove product
+      if (req.method === 'DELETE') {
+        const catalog = getCatalog();
+        const updated = catalog.filter((p: any) => p.id !== last && p.slug !== last);
+        saveCatalogAndStores(updated);
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+
+      let catalog = getCatalog();
 
       if (last !== 'products') {
         const prod = catalog.find((p: any) => p.id === last || p.slug === last);

@@ -197,9 +197,11 @@ export const productsApi = {
           if (fromLocal) list = JSON.parse(fromLocal);
         } catch {}
       }
-      if (!list || list.length < SEED_REAL_PRODUCTS.length) {
-        list = SEED_REAL_PRODUCTS;
-      }
+      // Never discard dynamically fetched/cached products; merge with SEED_REAL_PRODUCTS baseline
+      const mergedMap = new Map<string, ProductSummary>();
+      (SEED_REAL_PRODUCTS || []).forEach((p) => mergedMap.set(p.id, p));
+      (list || []).forEach((p) => mergedMap.set(p.id, p));
+      list = Array.from(mergedMap.values());
 
       if (Array.isArray(list) && list.length > 0) {
         let deletedIds: string[] = [];
@@ -228,7 +230,25 @@ export const productsApi = {
         if (filters?.min_rating) {
           cleaned = cleaned.filter((p) => (p.average_rating || 0) >= filters.min_rating!);
         }
-        if (filters?.sort === 'rating') {
+        if (filters?.sort === 'newest') {
+          cleaned = [...cleaned].sort((a, b) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return timeB - timeA;
+          });
+        } else if (filters?.sort === 'price_asc') {
+          cleaned = [...cleaned].sort((a, b) => {
+            const pA = parseFloat(String(a.price || a.base_price || '0'));
+            const pB = parseFloat(String(b.price || b.base_price || '0'));
+            return pA - pB;
+          });
+        } else if (filters?.sort === 'price_desc') {
+          cleaned = [...cleaned].sort((a, b) => {
+            const pA = parseFloat(String(a.price || a.base_price || '0'));
+            const pB = parseFloat(String(b.price || b.base_price || '0'));
+            return pB - pA;
+          });
+        } else if (filters?.sort === 'rating') {
           cleaned = [...cleaned].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
         }
         const p = filters?.page || 1;

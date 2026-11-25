@@ -2031,5 +2031,170 @@
       }
     ],
     "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/0023fd0f-715d-4578-94ad-e84efb1f3ba8/thumbnail/thumb_e5eeb6b6.jpg"
+  },
+  {
+    "id": "7eef659c-893b-4863-ba97-bba1c43edfe2",
+    "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+    "vendor_name": "Dovi Official Store",
+    "category": "43883124-1579-4c5a-8bde-dc785c3dbfe8",
+    "category_name": "Beauty & Personal Care",
+    "name": "Magic lip gloss",
+    "slug": "magic-lip-gloss",
+    "description": "Add a beautiful touch of colour and shine to your lips with this Magic Colour-Changing Lip Gloss. Designed to give your lips a glossy finish, its colour-changing formula reacts to your lips’ natural conditions to create a personalised tint.\n\nPerfect for everyday makeup, casual outings, parties and special occasions. Its compact design makes it easy to carry in your handbag for quick touch-ups whenever you need them.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+    "base_price": "2000.00",
+    "reference_code": "DOV-P-QCI48",
+    "status": "PUBLISHED",
+    "variants": [
+      {
+        "id": "e7491c12-3985-4d08-a80a-5aba67ca4c24",
+        "name": "Standard",
+        "sku": "MAG-STD-H8S4",
+        "price_override": null,
+        "stock": 10,
+        "reserved": 0
+      }
+    ],
+    "images": [
+      {
+        "id": "bb35f8af-129c-4219-a4ed-70484e18d22a",
+        "product": "7eef659c-893b-4863-ba97-bba1c43edfe2",
+        "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/original/image_9fe1d309.jpeg",
+        "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/thumbnail/thumb_9fe1d309.jpg",
+        "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/original/image_9fe1d309.jpeg",
+        "is_primary": true,
+        "created_at": "2026-11-24T07:29:54.245961Z"
+      }
+    ],
+    "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/thumbnail/thumb_9fe1d309.jpg"
+  },
+  {
+    "id": "33555e55-5d94-4597-aee8-977efdb4869e",
+    "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+    "vendor_name": "Dovi Official Store",
+    "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+    "category_name": "Home & Kitchen",
+    "name": "Duravolt 6inches Rechargeable Mist",
+    "slug": "duravolt-6inches-rechargeable-mist",
+    "description": "Stay cool and comfortable with this convenient Rechargeable Electric Fan. Designed to provide refreshing airflow, it offers a practical cooling solution for your home, office, shop or personal space.\n\nIts rechargeable functionality allows you to enjoy cooling even during power outages, making it a useful addition to your everyday home essentials.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+    "base_price": "25500.00",
+    "reference_code": "DOV-P-WEO3B",
+    "status": "PUBLISHED",
+    "variants": [
+      {
+        "id": "c0bb31f1-83df-41c8-9b48-6134150036a8",
+        "name": "Standard",
+        "sku": "DUR-STD-4CO2",
+        "price_override": null,
+        "stock": 10,
+        "reserved": 0
+      }
+    ],
+    "images": [
+      {
+        "id": "6bec4c61-4a75-404e-b46a-1853cbcd21a2",
+        "product": "33555e55-5d94-4597-aee8-977efdb4869e",
+        "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/original/image_707c2fb4.jpeg",
+        "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/thumbnail/thumb_707c2fb4.jpg",
+        "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/original/image_707c2fb4.jpeg",
+        "is_primary": true,
+        "created_at": "2026-11-24T07:25:29.889565Z"
+      }
+    ],
+    "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/thumbnail/thumb_707c2fb4.jpg"
+  },
+  {
+    "id": "a5cabfff-ad60-4504-84a6-f1f830eb5314",
+    "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+    "vendor_name": "Dovi Official Store",
+    "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+    "category_name": "Home & Kitchen",
+    "name": "Non stick frying pan",
+    "slug": "non-stick-frying-pan",
+    "description": "Make everyday cooking easier with this practical Non-Stick Frying Pan. Designed with a smooth cooking surface that helps prevent food from sticking, it makes frying, sautéing and preparing your favourite meals more convenient.\n\nIts comfortable handle provides a firm grip, while its versatile design makes it suitable for preparing eggs, pancakes, vegetables, fish and other delicious meals.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+    "base_price": "8500.00",
+    "reference_code": "DOV-P-UAYLW",
+    "status": "PUBLISHED",
+    "variants": [
+      {
+        "id": "0d35cb77-b539-4527-95db-ba685a2c4f4e",
+        "name": "Standard",
+        "sku": "NON-STD-ASD2",
+        "price_override": null,
+        "stock": 10,
+        "reserved": 0
+      }
+    ],
+    "images": [
+      {
+        "id": "78931659-2d06-41b2-9827-9d1fd9a9671a",
+        "product": "a5cabfff-ad60-4504-84a6-f1f830eb5314",
+        "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/original/image_fe22cd49.jpeg",
+        "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/thumbnail/thumb_fe22cd49.jpg",
+        "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/original/image_fe22cd49.jpeg",
+        "is_primary": true,
+        "created_at": "2026-11-24T07:22:51.665989Z"
+      }
+    ],
+    "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/thumbnail/thumb_fe22cd49.jpg"
+  },
+  {
+    "id": "15548fd1-1dcf-4e09-bf12-bce0153f5cb2",
+    "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+    "vendor_name": "Dovi Official Store",
+    "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+    "category_name": "Home & Kitchen",
+    "name": "2in1 rechargeable blender",
+    "slug": "2in1-rechargeable-blender",
+    "description": "Enjoy fresh smoothies and fruit drinks wherever you go with this Mini Portable Rechargeable Blender. Designed with a compact and lightweight body, it makes blending convenient at home, in the office, during travel or at the gym.\n\nWith its 400ml capacity, it is suitable for preparing personal servings of fruit smoothies, juice and other blended drinks. Its portable design makes it easy to carry and store.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+    "base_price": "15000.00",
+    "reference_code": "DOV-P-XLZEQ",
+    "status": "PUBLISHED",
+    "variants": [
+      {
+        "id": "5aa4961c-3fa8-4fe3-8f86-53bee4399c84",
+        "name": "Standard",
+        "sku": "2IN-STD-DND0",
+        "price_override": null,
+        "stock": 10,
+        "reserved": 0
+      }
+    ],
+    "images": [
+      {
+        "id": "5849987f-9a72-461b-86ef-6cbaabaa68b8",
+        "product": "15548fd1-1dcf-4e09-bf12-bce0153f5cb2",
+        "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/original/image_66b9d7c7.jpeg",
+        "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/thumbnail/thumb_66b9d7c7.jpg",
+        "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/original/image_66b9d7c7.jpeg",
+        "is_primary": true,
+        "created_at": "2026-11-24T07:17:44.030607Z"
+      }
+    ],
+    "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/thumbnail/thumb_66b9d7c7.jpg"
+  },
+  {
+    "id": "95260c69-b43e-4dfd-a3f5-32a7ae6fae8b",
+    "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+    "vendor_name": "Dovi Official Store",
+    "category": "da5c35ac-3d44-431a-aaaf-0301d508651b",
+    "category_name": "Furniture & Home Decor",
+    "name": "Astronaut Galaxy Light Projector",
+    "slug": "astronaut-galaxy-light-projector",
+    "description": "Transform your room into a magical galaxy with this adorable Astronaut Galaxy Light Projector. Designed in a unique astronaut shape, this decorative LED projector creates beautiful colourful star and nebula effects that bring a relaxing and dreamy atmosphere to your space.\n\nPerfect for bedrooms, children’s rooms, gaming setups, romantic evenings, parties and relaxation. Its cute astronaut design also makes it a lovely decorative piece and gift choice.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+    "base_price": "20000.00",
+    "reference_code": "DOV-P-PFUJR",
+    "status": "PUBLISHED",
+    "variants": [
+      {
+        "id": "e2fa231e-f24c-492d-8ecd-15c646aacf93",
+        "name": "Standard",
+        "sku": "AST-STD-OYTA",
+        "price_override": null,
+        "stock": 10,
+        "reserved": 0
+      }
+    ],
+    "images": [],
+    "primary_image_url": null
   }
 ]

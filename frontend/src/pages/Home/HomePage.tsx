@@ -138,11 +138,13 @@ export default function HomePage() {
 
     window.addEventListener('dovi-merchandising-updated', loadHomeData);
     window.addEventListener('dovi-homepage-placements-updated', loadHomeData);
+    window.addEventListener('dovi-products-updated', loadHomeData);
 
     return () => {
       isMounted = false;
       window.removeEventListener('dovi-merchandising-updated', loadHomeData);
       window.removeEventListener('dovi-homepage-placements-updated', loadHomeData);
+      window.removeEventListener('dovi-products-updated', loadHomeData);
     };
   }, []);
 

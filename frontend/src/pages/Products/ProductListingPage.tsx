@@ -47,7 +47,10 @@ export default function ProductListingPage() {
   const [products, setProducts] = useState<ProductSummary[]>(() => {
     if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam) {
       try {
-        const cached = sessionStorage.getItem('dovi_real_products_cache');
+        let cached = sessionStorage.getItem('dovi_real_products_cache');
+        if (!cached) {
+          cached = localStorage.getItem('dovi_real_products_cache');
+        }
         if (cached) {
           const list = JSON.parse(cached);
           if (Array.isArray(list) && list.length > 0) {
@@ -155,7 +158,13 @@ export default function ProductListingPage() {
 
       if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && !campaignParam && response.results.length > 0) {
         try {
-          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(response.results));
+          const existingRaw = localStorage.getItem('dovi_real_products_cache') || sessionStorage.getItem('dovi_real_products_cache');
+          const existingList: ProductSummary[] = existingRaw ? JSON.parse(existingRaw) : [];
+          const map = new Map<string, ProductSummary>(Array.isArray(existingList) ? existingList.map((p: any) => [p.id, p]) : []);
+          response.results.forEach((p) => map.set(p.id, p));
+          const merged = Array.from(map.values());
+          sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
+          localStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
         } catch {}
       }
     } catch (err: any) {
@@ -175,6 +184,13 @@ export default function ProductListingPage() {
 
   useEffect(() => {
     fetchProducts();
+    const handleProductsUpdated = () => {
+      fetchProducts();
+    };
+    window.addEventListener('dovi-products-updated', handleProductsUpdated);
+    return () => {
+      window.removeEventListener('dovi-products-updated', handleProductsUpdated);
+    };
   }, [fetchProducts]);
 
   // Load next batch of products on scroll (Continuous listing)
@@ -200,7 +216,21 @@ export default function ProductListingPage() {
       setProducts(prev => {
         const existingIds = new Set(prev.map(p => p.id));
         const newProducts = response.results.filter(p => !existingIds.has(p.id));
-        return [...prev, ...newProducts];
+        const updated = [...prev, ...newProducts];
+
+        if (!categoryParam && !subcategoryParam && !minPriceParam && !maxPriceParam && !inStockParam && !minRatingParam && !searchParam && !campaignParam && newProducts.length > 0) {
+          try {
+            const existingRaw = localStorage.getItem('dovi_real_products_cache') || sessionStorage.getItem('dovi_real_products_cache');
+            const existingList: ProductSummary[] = existingRaw ? JSON.parse(existingRaw) : [];
+            const map = new Map<string, ProductSummary>(Array.isArray(existingList) ? existingList.map((p: any) => [p.id, p]) : []);
+            updated.forEach((p) => map.set(p.id, p));
+            const merged = Array.from(map.values());
+            sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
+            localStorage.setItem('dovi_real_products_cache', JSON.stringify(merged));
+          } catch {}
+        }
+
+        return updated;
       });
 
       setPage(nextPage);

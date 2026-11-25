@@ -4921,6 +4921,171 @@
         }
       ],
       "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/0023fd0f-715d-4578-94ad-e84efb1f3ba8/thumbnail/thumb_e5eeb6b6.jpg"
+    },
+    {
+      "id": "7eef659c-893b-4863-ba97-bba1c43edfe2",
+      "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+      "vendor_name": "Dovi Official Store",
+      "category": "43883124-1579-4c5a-8bde-dc785c3dbfe8",
+      "category_name": "Beauty & Personal Care",
+      "name": "Magic lip gloss",
+      "slug": "magic-lip-gloss",
+      "description": "Add a beautiful touch of colour and shine to your lips with this Magic Colour-Changing Lip Gloss. Designed to give your lips a glossy finish, its colour-changing formula reacts to your lips’ natural conditions to create a personalised tint.\n\nPerfect for everyday makeup, casual outings, parties and special occasions. Its compact design makes it easy to carry in your handbag for quick touch-ups whenever you need them.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+      "base_price": "2000.00",
+      "reference_code": "DOV-P-QCI48",
+      "status": "PUBLISHED",
+      "variants": [
+        {
+          "id": "e7491c12-3985-4d08-a80a-5aba67ca4c24",
+          "name": "Standard",
+          "sku": "MAG-STD-H8S4",
+          "price_override": null,
+          "stock": 10,
+          "reserved": 0
+        }
+      ],
+      "images": [
+        {
+          "id": "bb35f8af-129c-4219-a4ed-70484e18d22a",
+          "product": "7eef659c-893b-4863-ba97-bba1c43edfe2",
+          "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/original/image_9fe1d309.jpeg",
+          "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/thumbnail/thumb_9fe1d309.jpg",
+          "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/original/image_9fe1d309.jpeg",
+          "is_primary": true,
+          "created_at": "2026-11-24T07:29:54.245961Z"
+        }
+      ],
+      "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/7eef659c-893b-4863-ba97-bba1c43edfe2/thumbnail/thumb_9fe1d309.jpg"
+    },
+    {
+      "id": "33555e55-5d94-4597-aee8-977efdb4869e",
+      "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+      "vendor_name": "Dovi Official Store",
+      "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+      "category_name": "Home & Kitchen",
+      "name": "Duravolt 6inches Rechargeable Mist",
+      "slug": "duravolt-6inches-rechargeable-mist",
+      "description": "Stay cool and comfortable with this convenient Rechargeable Electric Fan. Designed to provide refreshing airflow, it offers a practical cooling solution for your home, office, shop or personal space.\n\nIts rechargeable functionality allows you to enjoy cooling even during power outages, making it a useful addition to your everyday home essentials.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+      "base_price": "25500.00",
+      "reference_code": "DOV-P-WEO3B",
+      "status": "PUBLISHED",
+      "variants": [
+        {
+          "id": "c0bb31f1-83df-41c8-9b48-6134150036a8",
+          "name": "Standard",
+          "sku": "DUR-STD-4CO2",
+          "price_override": null,
+          "stock": 10,
+          "reserved": 0
+        }
+      ],
+      "images": [
+        {
+          "id": "6bec4c61-4a75-404e-b46a-1853cbcd21a2",
+          "product": "33555e55-5d94-4597-aee8-977efdb4869e",
+          "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/original/image_707c2fb4.jpeg",
+          "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/thumbnail/thumb_707c2fb4.jpg",
+          "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/original/image_707c2fb4.jpeg",
+          "is_primary": true,
+          "created_at": "2026-11-24T07:25:29.889565Z"
+        }
+      ],
+      "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/33555e55-5d94-4597-aee8-977efdb4869e/thumbnail/thumb_707c2fb4.jpg"
+    },
+    {
+      "id": "a5cabfff-ad60-4504-84a6-f1f830eb5314",
+      "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+      "vendor_name": "Dovi Official Store",
+      "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+      "category_name": "Home & Kitchen",
+      "name": "Non stick frying pan",
+      "slug": "non-stick-frying-pan",
+      "description": "Make everyday cooking easier with this practical Non-Stick Frying Pan. Designed with a smooth cooking surface that helps prevent food from sticking, it makes frying, sautéing and preparing your favourite meals more convenient.\n\nIts comfortable handle provides a firm grip, while its versatile design makes it suitable for preparing eggs, pancakes, vegetables, fish and other delicious meals.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+      "base_price": "8500.00",
+      "reference_code": "DOV-P-UAYLW",
+      "status": "PUBLISHED",
+      "variants": [
+        {
+          "id": "0d35cb77-b539-4527-95db-ba685a2c4f4e",
+          "name": "Standard",
+          "sku": "NON-STD-ASD2",
+          "price_override": null,
+          "stock": 10,
+          "reserved": 0
+        }
+      ],
+      "images": [
+        {
+          "id": "78931659-2d06-41b2-9827-9d1fd9a9671a",
+          "product": "a5cabfff-ad60-4504-84a6-f1f830eb5314",
+          "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/original/image_fe22cd49.jpeg",
+          "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/thumbnail/thumb_fe22cd49.jpg",
+          "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/original/image_fe22cd49.jpeg",
+          "is_primary": true,
+          "created_at": "2026-11-24T07:22:51.665989Z"
+        }
+      ],
+      "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/a5cabfff-ad60-4504-84a6-f1f830eb5314/thumbnail/thumb_fe22cd49.jpg"
+    },
+    {
+      "id": "15548fd1-1dcf-4e09-bf12-bce0153f5cb2",
+      "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+      "vendor_name": "Dovi Official Store",
+      "category": "7ae3e555-c3ae-47be-94bb-b358c03a072e",
+      "category_name": "Home & Kitchen",
+      "name": "2in1 rechargeable blender",
+      "slug": "2in1-rechargeable-blender",
+      "description": "Enjoy fresh smoothies and fruit drinks wherever you go with this Mini Portable Rechargeable Blender. Designed with a compact and lightweight body, it makes blending convenient at home, in the office, during travel or at the gym.\n\nWith its 400ml capacity, it is suitable for preparing personal servings of fruit smoothies, juice and other blended drinks. Its portable design makes it easy to carry and store.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+      "base_price": "15000.00",
+      "reference_code": "DOV-P-XLZEQ",
+      "status": "PUBLISHED",
+      "variants": [
+        {
+          "id": "5aa4961c-3fa8-4fe3-8f86-53bee4399c84",
+          "name": "Standard",
+          "sku": "2IN-STD-DND0",
+          "price_override": null,
+          "stock": 10,
+          "reserved": 0
+        }
+      ],
+      "images": [
+        {
+          "id": "5849987f-9a72-461b-86ef-6cbaabaa68b8",
+          "product": "15548fd1-1dcf-4e09-bf12-bce0153f5cb2",
+          "image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/original/image_66b9d7c7.jpeg",
+          "thumbnail_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/thumbnail/thumb_66b9d7c7.jpg",
+          "storage_key": "product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/original/image_66b9d7c7.jpeg",
+          "is_primary": true,
+          "created_at": "2026-11-24T07:17:44.030607Z"
+        }
+      ],
+      "primary_image_url": "https://pub-bea1ef75b06a40ca80bc2e2ce5c71fef.r2.dev/product-images/ca901bff-43ad-40c7-a59e-7a8b6fbd7934/15548fd1-1dcf-4e09-bf12-bce0153f5cb2/thumbnail/thumb_66b9d7c7.jpg"
+    },
+    {
+      "id": "95260c69-b43e-4dfd-a3f5-32a7ae6fae8b",
+      "vendor": "ca901bff-43ad-40c7-a59e-7a8b6fbd7934",
+      "vendor_name": "Dovi Official Store",
+      "category": "da5c35ac-3d44-431a-aaaf-0301d508651b",
+      "category_name": "Furniture & Home Decor",
+      "name": "Astronaut Galaxy Light Projector",
+      "slug": "astronaut-galaxy-light-projector",
+      "description": "Transform your room into a magical galaxy with this adorable Astronaut Galaxy Light Projector. Designed in a unique astronaut shape, this decorative LED projector creates beautiful colourful star and nebula effects that bring a relaxing and dreamy atmosphere to your space.\n\nPerfect for bedrooms, children’s rooms, gaming setups, romantic evenings, parties and relaxation. Its cute astronaut design also makes it a lovely decorative piece and gift choice.\n\n<!-- DOVI_DELIVERY: {\"delivery_classification\":\"SMALL_PARCEL\",\"weight_kg\":null,\"dimensions_cm\":\"\",\"requires_special_handling\":false,\"can_consolidate_with_furniture\":true,\"max_items_per_shipment\":null,\"delivery_notes\":\"\"} -->",
+      "base_price": "20000.00",
+      "reference_code": "DOV-P-PFUJR",
+      "status": "PUBLISHED",
+      "variants": [
+        {
+          "id": "e2fa231e-f24c-492d-8ecd-15c646aacf93",
+          "name": "Standard",
+          "sku": "AST-STD-OYTA",
+          "price_override": null,
+          "stock": 10,
+          "reserved": 0
+        }
+      ],
+      "images": [],
+      "primary_image_url": null
     }
   ],
   "users": [
@@ -5572,6 +5737,140 @@
         "end_date": "2026-12-20"
       },
       "timestamp": "2026-11-22T20:00:00Z"
+    }
+  ],
+  "homepageBanners": [
+    {
+      "id": "ban-hero-launch",
+      "campaign_key": "launch",
+      "title": "DOVI Launch Campaign",
+      "subtitle": "Discover More, Shop Smart",
+      "cta_text": "Shop Now",
+      "cta_url": "/promotions/launch",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_launch_campaign.jpg",
+      "mobile_image_url": "/images/hero/hero_launch_campaign.jpg",
+      "image_url": "/images/hero/hero_launch_campaign.jpg",
+      "is_active": true,
+      "display_order": 1,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": [
+        "7a16b38e-6767-4d3e-b95e-1ea5e5df233e",
+        "81e58fb1-05fb-4e70-8ffe-206aa97a5a30",
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+        "675dcfa8-cede-4398-93fe-26ebf3c5bf2a",
+        "04d1916c-5dc3-4d37-9247-a6a37be3ba1e",
+        "27e513ea-8080-4b57-98a9-6b1d02ca0427"
+      ]
+    },
+    {
+      "id": "ban-hero-black-friday",
+      "campaign_key": "black-friday",
+      "title": "Black Friday Mega Deals",
+      "subtitle": "Up to 70% OFF on Selected Products",
+      "cta_text": "Shop the Deals",
+      "cta_url": "/promotions/black-friday",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_black_friday.jpg",
+      "mobile_image_url": "/images/hero/hero_black_friday.jpg",
+      "image_url": "/images/hero/hero_black_friday.jpg",
+      "is_active": true,
+      "display_order": 2,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": [
+        "81e58fb1-05fb-4e70-8ffe-206aa97a5a30",
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+        "45d9616d-4af0-491b-b0d5-9b185404732f",
+        "74993487-eee2-4648-925c-53e3beaf5429",
+        "38897758-8093-46e3-a005-63a4581e3bb7"
+      ]
+    },
+    {
+      "id": "ban-hero-price-drops",
+      "campaign_key": "price-drops",
+      "title": "Price Drops",
+      "subtitle": "More Value, Less Spending on Selected Products",
+      "cta_text": "Shop Price Drops",
+      "cta_url": "/promotions/price-drops",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_price_drops.jpg",
+      "mobile_image_url": "/images/hero/hero_price_drops.jpg",
+      "image_url": "/images/hero/hero_price_drops.jpg",
+      "is_active": true,
+      "display_order": 3,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": []
+    },
+    {
+      "id": "ban-hero-free-gifts",
+      "campaign_key": "rewards",
+      "title": "Free Gifts & Shopping Rewards",
+      "subtitle": "Shop qualifying products and unlock exciting rewards!",
+      "cta_text": "Claim Your Free Gift",
+      "cta_url": "/promotions/giveaway",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_free_gifts.jpg",
+      "mobile_image_url": "/images/hero/hero_free_gifts.jpg",
+      "image_url": "/images/hero/hero_free_gifts.jpg",
+      "is_active": true,
+      "display_order": 4,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": []
+    },
+    {
+      "id": "ban-hero-limited-deals",
+      "campaign_key": "limited-deals",
+      "title": "Limited-Time Deals",
+      "subtitle": "Don't Miss Out on Special Offers - Up to 50% OFF",
+      "cta_text": "Shop Limited Deals",
+      "cta_url": "/promotions/limited-deals",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_limited_deals.jpg",
+      "mobile_image_url": "/images/hero/hero_limited_deals.jpg",
+      "image_url": "/images/hero/hero_limited_deals.jpg",
+      "is_active": true,
+      "display_order": 5,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": []
+    },
+    {
+      "id": "ban-hero-christmas-deals",
+      "campaign_key": "christmas",
+      "title": "Christmas Deals",
+      "subtitle": "Up to 60% OFF - Festive Gifts & Luxury Items",
+      "cta_text": "Shop Now",
+      "cta_url": "/promotions/christmas",
+      "destination_type": "CAMPAIGN",
+      "desktop_image_url": "/images/hero/hero_christmas_deals.jpg",
+      "mobile_image_url": "/images/hero/hero_christmas_deals.jpg",
+      "image_url": "/images/hero/hero_christmas_deals.jpg",
+      "is_active": true,
+      "display_order": 6,
+      "slide_interval_ms": 5000,
+      "start_date": "2026-11-20T00:00:00Z",
+      "end_date": "2026-12-31T23:59:59Z",
+      "product_ids": [
+        "81e58fb1-05fb-4e70-8ffe-206aa97a5a30",
+        "9b1920db-b6d5-47e5-8a12-1d7b09d1ad6d",
+        "45d9616d-4af0-491b-b0d5-9b185404732f",
+        "4afb3918-78db-4ab3-ab3a-960ecba22ef0",
+        "27e513ea-8080-4b57-98a9-6b1d02ca0427",
+        "675dcfa8-cede-4398-93fe-26ebf3c5bf2a",
+        "04d1916c-5dc3-4d37-9247-a6a37be3ba1e",
+        "74993487-eee2-4648-925c-53e3beaf5429",
+        "38897758-8093-46e3-a005-63a4581e3bb7",
+        "97487f6d-f8fa-4ed0-b74f-b9c86b9fc8fa"
+      ]
     }
   ]
 }

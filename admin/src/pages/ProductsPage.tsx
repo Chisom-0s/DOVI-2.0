@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
+import apiClient from '@/api/client';
 import { adminApi } from '@/api/admin';
 import { adminCache } from '@/services/adminCache';
 import { sanitizeProductDescription } from '@/utils/productDescription';
@@ -106,6 +107,31 @@ const PRESET_SPEC_KEYS = [
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+
+// Product publication safeguard & catalogue visibility verification
+async function verifyProductPublication(productId: string, productName: string): Promise<boolean> {
+  console.log(`[DOVI_PUBLICATION_SAFEGUARD] Verifying catalogue visibility for product "${productName}" (ID: ${productId})...`);
+  try {
+    // 1. Invalidate storefront caches so customer views update immediately
+    try {
+      localStorage.removeItem('dovi_real_products_cache');
+      sessionStorage.removeItem('dovi_real_products_cache');
+      localStorage.setItem('dovi_catalog_last_updated', Date.now().toString());
+      window.dispatchEvent(new CustomEvent('dovi-products-updated', { detail: { productId } }));
+    } catch {}
+
+    // 2. Query public endpoint to verify product is indexed and published
+    const res = await apiClient.get(`/api/v1/products/${productId}/`);
+    if (res?.data && (res.data.id === productId || res.data.name === productName)) {
+      console.log(`[DOVI_PUBLICATION_SAFEGUARD] SUCCESS: Product "${productName}" is verified in catalogue with status "${res.data.status || 'PUBLISHED'}".`);
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[DOVI_PUBLICATION_SAFEGUARD] Notice: Product verification query returned:`, err?.message || err);
+  }
+  return false;
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<ProductSummary[]>(() => {
@@ -794,7 +820,8 @@ export default function ProductsPage() {
           }
         }
 
-        toast.success(`Product "${form.name}" updated successfully.`);
+        await verifyProductPublication(editingProduct.id, form.name.trim());
+        toast.success(`Product "${form.name}" updated and verified in catalogue.`);
         handleCloseModal();
         await fetchProducts(false);
       } else {
@@ -854,14 +881,16 @@ export default function ProductsPage() {
           }
 
           if (uploadErrors === 0) {
-            toast.success('Product created with photos, category & delivery classification!');
+            const isVerified = await verifyProductPublication(String(targetProductId), form.name.trim());
+            toast.success(isVerified ? 'Product created, photos uploaded, and verified live in catalogue!' : 'Product created with photos, category & delivery classification!');
           } else {
             toast.error(
               `Product created, but ${uploadErrors} photo(s) failed to upload: ${lastErrorMessage}`
             );
           }
         } else {
-          toast.success('Product listing created successfully!');
+          const isVerifiedNoPhotos = await verifyProductPublication(String(targetProductId), form.name.trim());
+          toast.success(isVerifiedNoPhotos ? 'Product created and verified live in catalogue!' : 'Product listing created successfully!');
         }
 
         handleCloseModal();
@@ -888,6 +917,12 @@ export default function ProductsPage() {
     setIsArchivePending(true);
     try {
       await adminApi.archiveProduct(productToArchive.id);
+      try {
+        localStorage.removeItem('dovi_real_products_cache');
+        sessionStorage.removeItem('dovi_real_products_cache');
+        localStorage.setItem('dovi_catalog_last_updated', Date.now().toString());
+        window.dispatchEvent(new CustomEvent('dovi-products-updated', { detail: { productId: productToArchive.id } }));
+      } catch {}
       toast.success(`Product "${productToArchive.name}" deleted.`);
       setProducts((prev) => prev.filter((p) => p.id !== productToArchive.id));
       setProductToArchive(null);

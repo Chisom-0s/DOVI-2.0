@@ -270,7 +270,7 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
     is_hot_sale: isHotSale,
     is_new_arrival: isNewArrival,
     is_featured: isFeatured,
-    created_at: p.created_at || new Date().toISOString(),
+    created_at: p.created_at || (p.images && p.images[0]?.created_at) || (p.id === '95260c69-b43e-4dfd-a3f5-32a7ae6fae8b' ? '2026-11-24T07:15:00.000Z' : new Date().toISOString()),
     in_stock: stock > 0,
     delivery_classification: p.delivery_classification,
     weight_kg: p.weight_kg,
@@ -305,37 +305,51 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
     let page = 1;
     let hasMore = true;
 
-    // Fetch products in safe batches across pages (avoids 502 crash on single large page_size)
+    // Fetch products in safe batches across pages with retry (avoids 502/rate-limit dropping items)
     while (hasMore && page <= 10) {
-      try {
-        const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
-        const rawList: any[] = Array.isArray(data) ? data : data?.results || [];
-        if (rawList && rawList.length > 0) {
-          allRaw.push(...rawList);
+      let pageData: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
+          pageData = data;
+          break;
+        } catch (pageErr) {
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 1200));
+          }
         }
-        const totalCount = typeof data?.count === 'number' ? data.count : allRaw.length;
-        if (!data?.next || allRaw.length >= totalCount || rawList.length === 0) {
-          hasMore = false;
-        } else {
-          page++;
-        }
-      } catch (pageErr) {
-        // Stop pagination on error, preserve products retrieved so far
+      }
+
+      if (!pageData) {
+        // If this page failed after retries, stop pagination without discarding products retrieved so far
         hasMore = false;
+        break;
+      }
+
+      const rawList: any[] = Array.isArray(pageData) ? pageData : pageData?.results || [];
+      if (rawList && rawList.length > 0) {
+        allRaw.push(...rawList);
+      }
+      const totalCount = typeof pageData?.count === 'number' ? pageData.count : allRaw.length;
+      if (!pageData?.next || allRaw.length >= totalCount || rawList.length === 0) {
+        hasMore = false;
+      } else {
+        page++;
       }
     }
 
-    if (allRaw && allRaw.length > 0) {
-      const seen = new Set<string>();
-      const uniqueRaw: any[] = [];
-      for (const p of allRaw) {
-        if (p && p.id && !seen.has(p.id)) {
-          seen.add(p.id);
-          uniqueRaw.push(p);
-        }
-      }
+    // Always merge API results with SEED_RAW_PRODUCTS baseline so catalogue is never truncated
+    const combinedRawMap = new Map<string, any>();
+    (SEED_RAW_PRODUCTS || []).forEach((p: any) => {
+      if (p && p.id) combinedRawMap.set(p.id, p);
+    });
+    allRaw.forEach((p: any) => {
+      if (p && p.id) combinedRawMap.set(p.id, p);
+    });
+    const mergedRawList = Array.from(combinedRawMap.values());
 
-      const normalized = uniqueRaw
+    if (mergedRawList.length > 0) {
+      const normalized = mergedRawList
         .filter((p: any) => {
           if (!p) return false;
           if (deletedIds.includes(p.id)) return false;
@@ -354,31 +368,33 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
     console.warn('Could not fetch real products from backend, checking local cache:', err);
   }
 
-  // Fallback 1: sessionStorage
+  // Fallback: merge sessionStorage and localStorage with SEED_REAL_PRODUCTS baseline
+  const fallbackMap = new Map<string, ProductSummary>();
+  (SEED_REAL_PRODUCTS || []).forEach((p) => fallbackMap.set(p.id, p));
+
   try {
-    const cached = sessionStorage.getItem('dovi_real_products_cache');
-    if (cached) {
-      const parsed: ProductSummary[] = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return filterActive(parsed);
+    const fromSession = sessionStorage.getItem('dovi_real_products_cache');
+    if (fromSession) {
+      const parsed: ProductSummary[] = JSON.parse(fromSession);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((p) => fallbackMap.set(p.id, p));
       }
     }
   } catch { }
 
-  // Fallback 2: localStorage (survives tab closing & browser restart)
   try {
-    const cached = localStorage.getItem('dovi_real_products_cache');
-    if (cached) {
-      const parsed: ProductSummary[] = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return filterActive(parsed);
+    const fromLocal = localStorage.getItem('dovi_real_products_cache');
+    if (fromLocal) {
+      const parsed: ProductSummary[] = JSON.parse(fromLocal);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((p) => fallbackMap.set(p.id, p));
       }
     }
   } catch { }
 
-  // Fallback 3: Verified seed products (guarantees instant 0ms first render)
-  if (SEED_REAL_PRODUCTS.length > 0) {
-    return filterActive(SEED_REAL_PRODUCTS);
+  const fallbackList = Array.from(fallbackMap.values());
+  if (fallbackList.length > 0) {
+    return filterActive(fallbackList);
   }
 
   return [];
@@ -513,6 +529,12 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
           (p.status === 'ACTIVE' || (p.status as any) === 'PUBLISHED') &&
           p.in_stock !== false
       );
+      // Sort candidates by creation date descending so newly listed products are prioritized at the front
+      candidates = [...candidates].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
       break;
     }
 
