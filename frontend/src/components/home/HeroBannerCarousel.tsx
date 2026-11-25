@@ -346,13 +346,24 @@ export default function HeroBannerCarousel() {
               aria-label={`${slide.title}${slide.cta_text ? `: ${slide.cta_text}` : ''}`}
               tabIndex={isActive ? 0 : -1}
             >
-              <img
-                src={slide.image_url}
-                alt={slide.title}
-                className="hero-slide-image"
-                loading={index === 0 ? 'eager' : 'lazy'}
-                draggable={false}
-              />
+              <picture>
+                <source
+                  srcSet={slide.image_url.replace(/\.(jpe?g|png)$/i, '.webp')}
+                  type="image/webp"
+                />
+                <img
+                  src={slide.image_url}
+                  alt={slide.title}
+                  className="hero-slide-image"
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  decoding={index === 0 ? 'sync' : 'async'}
+                  fetchPriority={index === 0 ? 'high' : 'low'}
+                  draggable={false}
+                  width="1024"
+                  height="512"
+                  style={{ aspectRatio: '2 / 1' }}
+                />
+              </picture>
             </Link>
           </div>
         );

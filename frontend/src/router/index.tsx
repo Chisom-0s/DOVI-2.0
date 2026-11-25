@@ -1,83 +1,87 @@
+import React from 'react';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate, useParams } from 'react-router-dom';
 import SmartPromptManager from '@/components/common/SmartPromptManager';
 import { PromotionProvider } from '@/contexts/PromotionContext';
 import PromotionalPopup from '@/components/common/PromotionalPopup';
 import { RouteErrorBoundary } from '@/components/common/ErrorBoundary';
+import RouteLoader from '@/components/common/RouteLoader';
 import { AuthGuard } from '@/components/guards/AuthGuard';
 import { RoleGuard } from '@/components/guards/RoleGuard';
 
-// Auth pages
-import LoginPage from '@/pages/Auth/LoginPage';
-import RegisterPage from '@/pages/Auth/RegisterPage';
-import ForgotPasswordPage from '@/pages/Auth/ForgotPasswordPage';
-import ResetPasswordPage from '@/pages/Auth/ResetPasswordPage';
-import EmailVerificationPage from '@/pages/Auth/EmailVerificationPage';
+const lazy = (React as any).lazy as <T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) => T;
+const Suspense = (React as any).Suspense as React.ComponentType<{ fallback?: React.ReactNode; children?: React.ReactNode }>;
 
+// Eagerly loaded core shell components
 import MainLayout from '@/components/layout/MainLayout';
 import HomePage from '@/pages/Home/HomePage';
-import ProductListingPage from '@/pages/Products/ProductListingPage';
-import CategoryPage from '@/pages/Products/CategoryPage';
-import ProductDetailPage from '@/pages/Products/Detail/ProductDetailPage';
-import CampaignCollectionPage from '@/pages/Promotions/CampaignCollectionPage';
 
+// Lazy-loaded Auth pages
+const LoginPage = lazy(() => import('@/pages/Auth/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/Auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/Auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/Auth/ResetPasswordPage'));
+const EmailVerificationPage = lazy(() => import('@/pages/Auth/EmailVerificationPage'));
+
+// Lazy-loaded Catalogue & Promotional pages
+const ProductListingPage = lazy(() => import('@/pages/Products/ProductListingPage'));
+const CategoryPage = lazy(() => import('@/pages/Products/CategoryPage'));
+const ProductDetailPage = lazy(() => import('@/pages/Products/Detail/ProductDetailPage'));
+const CampaignCollectionPage = lazy(() => import('@/pages/Promotions/CampaignCollectionPage'));
 
 function DynamicOrderRedirect() {
   const { ref } = useParams<{ ref: string }>();
   return <Navigate to={ref ? `/dashboard/orders/${ref}` : '/dashboard/orders'} replace />;
 }
 
-// Knowledge & Information Pages
-import AboutPage from '@/pages/Info/AboutPage';
-import FAQPage from '@/pages/Info/FAQPage';
-import ContactPage from '@/pages/Info/ContactPage';
-import ShippingPolicyPage from '@/pages/Info/ShippingPolicyPage';
-import ReturnsPolicyPage from '@/pages/Info/ReturnsPolicyPage';
-import TermsPage from '@/pages/Info/TermsPage';
-import PrivacyPolicyPage from '@/pages/Info/PrivacyPolicyPage';
+// Lazy-loaded Knowledge & Information Pages
+const AboutPage = lazy(() => import('@/pages/Info/AboutPage'));
+const FAQPage = lazy(() => import('@/pages/Info/FAQPage'));
+const ContactPage = lazy(() => import('@/pages/Info/ContactPage'));
+const ShippingPolicyPage = lazy(() => import('@/pages/Info/ShippingPolicyPage'));
+const ReturnsPolicyPage = lazy(() => import('@/pages/Info/ReturnsPolicyPage'));
+const TermsPage = lazy(() => import('@/pages/Info/TermsPage'));
+const PrivacyPolicyPage = lazy(() => import('@/pages/Info/PrivacyPolicyPage'));
 
-// Phase 4 — Cart, Checkout, Orders, Payments, Refunds
-import CartPage from '@/pages/Cart/CartPage';
-import CheckoutPage from '@/pages/Checkout/CheckoutPage';
-import CheckoutSessionPage from '@/pages/Checkout/CheckoutSessionPage';
-import PaymentSuccessPage from '@/pages/Payment/PaymentSuccessPage';
-import PaymentFailedPage from '@/pages/Payment/PaymentFailedPage';
-import OrderConfirmationPage from '@/pages/Orders/OrderConfirmationPage';
-import OrderHistoryPage from '@/pages/Orders/OrderHistoryPage';
-import OrderDetailPage from '@/pages/Orders/OrderDetailPage';
-import RefundRequestPage from '@/pages/Refunds/RefundRequestPage';
-import RefundDetailPage from '@/pages/Refunds/RefundDetailPage';
+// Lazy-loaded Cart, Checkout, Orders, Payments, Refunds
+const CartPage = lazy(() => import('@/pages/Cart/CartPage'));
+const CheckoutPage = lazy(() => import('@/pages/Checkout/CheckoutPage'));
+const CheckoutSessionPage = lazy(() => import('@/pages/Checkout/CheckoutSessionPage'));
+const PaymentSuccessPage = lazy(() => import('@/pages/Payment/PaymentSuccessPage'));
+const PaymentFailedPage = lazy(() => import('@/pages/Payment/PaymentFailedPage'));
+const OrderConfirmationPage = lazy(() => import('@/pages/Orders/OrderConfirmationPage'));
+const OrderHistoryPage = lazy(() => import('@/pages/Orders/OrderHistoryPage'));
+const OrderDetailPage = lazy(() => import('@/pages/Orders/OrderDetailPage'));
+const RefundRequestPage = lazy(() => import('@/pages/Refunds/RefundRequestPage'));
+const RefundDetailPage = lazy(() => import('@/pages/Refunds/RefundDetailPage'));
 
-// Phase 5 — Buyer Dashboard
-import DashboardLayout from '@/pages/Dashboard/DashboardLayout';
-import DashboardOverviewPage from '@/pages/Dashboard/DashboardOverviewPage';
-import ProfilePage from '@/pages/Dashboard/ProfilePage';
-import AddressesPage from '@/pages/Dashboard/AddressesPage';
-import PaymentMethodsPage from '@/pages/Dashboard/PaymentMethodsPage';
-import WishlistPage from '@/pages/Dashboard/WishlistPage';
-import RecentlyViewedPage from '@/pages/Dashboard/RecentlyViewedPage';
-import MyReviewsPage from '@/pages/Dashboard/MyReviewsPage';
-import NotificationsPage from '@/pages/Dashboard/NotificationsPage';
-import AccountSettingsPage from '@/pages/Dashboard/AccountSettingsPage';
-import SecuritySettingsPage from '@/pages/Dashboard/SecuritySettingsPage';
+// Lazy-loaded Buyer Dashboard
+const DashboardLayout = lazy(() => import('@/pages/Dashboard/DashboardLayout'));
+const DashboardOverviewPage = lazy(() => import('@/pages/Dashboard/DashboardOverviewPage'));
+const ProfilePage = lazy(() => import('@/pages/Dashboard/ProfilePage'));
+const AddressesPage = lazy(() => import('@/pages/Dashboard/AddressesPage'));
+const PaymentMethodsPage = lazy(() => import('@/pages/Dashboard/PaymentMethodsPage'));
+const WishlistPage = lazy(() => import('@/pages/Dashboard/WishlistPage'));
+const RecentlyViewedPage = lazy(() => import('@/pages/Dashboard/RecentlyViewedPage'));
+const MyReviewsPage = lazy(() => import('@/pages/Dashboard/MyReviewsPage'));
+const NotificationsPage = lazy(() => import('@/pages/Dashboard/NotificationsPage'));
+const AccountSettingsPage = lazy(() => import('@/pages/Dashboard/AccountSettingsPage'));
+const SecuritySettingsPage = lazy(() => import('@/pages/Dashboard/SecuritySettingsPage'));
 
-// Phase 6 — Save2Own
-import Save2OwnGoalsPage from '@/pages/Save2Own/Save2OwnGoalsPage';
-import Save2OwnGoalDetailPage from '@/pages/Save2Own/Save2OwnGoalDetailPage';
-import Save2OwnCreateGoalPage from '@/pages/Save2Own/Save2OwnCreateGoalPage';
-
+// Lazy-loaded Save2Own
+const Save2OwnGoalsPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalsPage'));
+const Save2OwnGoalDetailPage = lazy(() => import('@/pages/Save2Own/Save2OwnGoalDetailPage'));
+const Save2OwnCreateGoalPage = lazy(() => import('@/pages/Save2Own/Save2OwnCreateGoalPage'));
 
 // ============================================================
 // Router
-// ============================================================
-// Router
-// All routes defined here. Placeholder pages will be replaced
-// phase by phase as the application is built.
 // ============================================================
 const router = createBrowserRouter([
   {
     element: (
       <PromotionProvider>
-        <Outlet />
+        <Suspense fallback={<RouteLoader />}>
+          <Outlet />
+        </Suspense>
         <SmartPromptManager />
         <PromotionalPopup />
       </PromotionProvider>

@@ -8,7 +8,6 @@ import type { User, APIError, UserRole, AccountStatus } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
-import { exportUsersToPdf, exportUsersToDocx } from '@/utils/exportUtils';
 
 // Helper to generate consistent avatar background colors from name
 const getAvatarGradient = (name: string): string => {
@@ -509,42 +508,62 @@ export default function UsersPage() {
     setSelectedUserIds(next);
   };
 
-  const handleExportSelectedDocx = () => {
+  const handleExportSelectedDocx = async () => {
     const targets = users.filter((u) => selectedUserIds.has(u.id));
     if (targets.length === 0) {
       toast.error('Please select at least one user to export.');
       return;
     }
-    exportUsersToDocx(targets, `dovi-selected-users-${targets.length}.docx`);
-    toast.success(`Exported ${targets.length} selected users to DOCX`);
+    try {
+      const { exportUsersToDocx } = await import('@/utils/exportUtils');
+      exportUsersToDocx(targets, `dovi-selected-users-${targets.length}.docx`);
+      toast.success(`Exported ${targets.length} selected users to DOCX`);
+    } catch {
+      toast.error('Failed to load DOCX export engine.');
+    }
   };
 
-  const handleExportSelectedPdf = () => {
+  const handleExportSelectedPdf = async () => {
     const targets = users.filter((u) => selectedUserIds.has(u.id));
     if (targets.length === 0) {
       toast.error('Please select at least one user to export.');
       return;
     }
-    exportUsersToPdf(targets, `dovi-selected-users-${targets.length}.pdf`);
-    toast.success(`Exported ${targets.length} selected users to PDF`);
+    try {
+      const { exportUsersToPdf } = await import('@/utils/exportUtils');
+      exportUsersToPdf(targets, `dovi-selected-users-${targets.length}.pdf`);
+      toast.success(`Exported ${targets.length} selected users to PDF`);
+    } catch {
+      toast.error('Failed to load PDF export engine.');
+    }
   };
 
-  const handleExportAllDocx = () => {
+  const handleExportAllDocx = async () => {
     if (users.length === 0) {
       toast.error('No users available to export.');
       return;
     }
-    exportUsersToDocx(users, `dovi-all-users-${users.length}.docx`);
-    toast.success(`Exported ${users.length} users to DOCX`);
+    try {
+      const { exportUsersToDocx } = await import('@/utils/exportUtils');
+      exportUsersToDocx(users, `dovi-all-users-${users.length}.docx`);
+      toast.success(`Exported ${users.length} users to DOCX`);
+    } catch {
+      toast.error('Failed to load DOCX export engine.');
+    }
   };
 
-  const handleExportAllPdf = () => {
+  const handleExportAllPdf = async () => {
     if (users.length === 0) {
       toast.error('No users available to export.');
       return;
     }
-    exportUsersToPdf(users, `dovi-all-users-${users.length}.pdf`);
-    toast.success(`Exported ${users.length} users to PDF`);
+    try {
+      const { exportUsersToPdf } = await import('@/utils/exportUtils');
+      exportUsersToPdf(users, `dovi-all-users-${users.length}.pdf`);
+      toast.success(`Exported ${users.length} users to PDF`);
+    } catch {
+      toast.error('Failed to load PDF export engine.');
+    }
   };
 
   if (isLoading) {

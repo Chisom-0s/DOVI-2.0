@@ -79,12 +79,28 @@ function getFallbackReviews(_id?: string, _rating?: number, _sort?: string): Rev
   return [];
 }
 
+interface CachedProductListEntry {
+  data: PaginatedResponse<ProductSummary>;
+  timestamp: number;
+}
+const productListQueryCache = new Map<string, CachedProductListEntry>();
+const PRODUCT_QUERY_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 export const productsApi = {
   list: async (filters?: ProductFilters): Promise<PaginatedResponse<ProductSummary>> => {
+    const requestedPage = filters?.page || 1;
+    const requestedPageSize = filters?.page_size || 24;
+    const cacheKey = JSON.stringify({ ...filters, page: requestedPage, page_size: requestedPageSize });
+
+    // 1. SWR Cache: Return fresh cache immediately (< 1 ms)
+    const cached = productListQueryCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < PRODUCT_QUERY_CACHE_TTL_MS)) {
+      return cached.data;
+    }
+
     try {
       await syncCategoriesFromServer();
-      const requestedPage = filters?.page || 1;
-      const requestedPageSize = filters?.page_size || 24;
       const queryParams: Record<string, any> = {
         page: requestedPage,
         page_size: requestedPageSize,
@@ -178,13 +194,19 @@ export const productsApi = {
       const totalCount = typeof data?.count === 'number' ? data.count : realProducts.length;
       const hasNext = Boolean(data?.next) || (requestedPage * requestedPageSize < totalCount);
 
-      return {
+      const result: PaginatedResponse<ProductSummary> = {
         count: totalCount,
         next: hasNext ? (data?.next ? String(data.next) : `?page=${requestedPage + 1}`) : null,
         previous: data?.previous ? String(data.previous) : (requestedPage > 1 ? `?page=${requestedPage - 1}` : null),
         results: realProducts,
       };
+
+      productListQueryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
     } catch (err: any) {
+      if (cached) {
+        return cached.data;
+      }
       console.warn('Backend products list fetch failed, falling back to cached seed:', err?.message || err);
       let list: ProductSummary[] = [];
       try {

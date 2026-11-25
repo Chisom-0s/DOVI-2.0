@@ -528,7 +528,14 @@ async function pushCategoryStoreToServer(payload: {
   } catch {}
 }
 
-export async function syncCategoriesFromServer(): Promise<void> {
+let lastCategorySyncTime = 0;
+const CATEGORY_SYNC_TTL_MS = 10 * 60 * 1000; // 10 minutes TTL
+
+export async function syncCategoriesFromServer(force = false): Promise<void> {
+  const now = Date.now();
+  if (!force && (now - lastCategorySyncTime < CATEGORY_SYNC_TTL_MS)) {
+    return;
+  }
   try {
     if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       return;
@@ -539,6 +546,7 @@ export async function syncCategoriesFromServer(): Promise<void> {
     const data = await res.json();
     if (Array.isArray(data?.categories) && data.categories.length > 0) {
       writeLocal(STORAGE_KEYS.CATEGORIES, data.categories);
+      lastCategorySyncTime = Date.now();
     }
     if (data?.productCategoryAssignments && typeof data.productCategoryAssignments === 'object') {
       const current = readLocal<Record<string, ProductCategoryAssignment>>(
@@ -549,6 +557,7 @@ export async function syncCategoriesFromServer(): Promise<void> {
         ...current,
         ...data.productCategoryAssignments,
       });
+      lastCategorySyncTime = Date.now();
     }
   } catch {}
 }

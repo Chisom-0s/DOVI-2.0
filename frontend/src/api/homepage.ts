@@ -286,8 +286,13 @@ export function normalizeBackendProductToSummary(p: any): ProductSummary {
 
 /**
  * Fetches real products posted by vendors directly from the backend API.
- * Uses sessionStorage cache as immediate fallback for speed and offline stability.
+ * Uses in-memory and sessionStorage cache for instant, zero-latency rendering.
+ * Bounded to 1 page (24 items) on initial load; subsequent pages prefetch progressively in the background.
  */
+let inMemoryProductsCache: ProductSummary[] | null = null;
+let lastProductsFetchTime = 0;
+const PRODUCTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes TTL
+
 export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
   await syncHomepagePlacementsFromServer().catch(() => { });
   let deletedIds: string[] = [];
@@ -300,50 +305,46 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
       .filter((p) => !deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED')
       .map((p) => enrichProductWithDelivery(p));
 
-  try {
-    const allRaw: any[] = [];
-    let page = 1;
-    let hasMore = true;
+  // 1. Check in-memory cache first (0 ms)
+  const now = Date.now();
+  if (inMemoryProductsCache && inMemoryProductsCache.length > 0 && (now - lastProductsFetchTime < PRODUCTS_CACHE_TTL_MS)) {
+    return filterActive(inMemoryProductsCache);
+  }
 
-    // Fetch products in safe batches across pages with retry (avoids 502/rate-limit dropping items)
-    while (hasMore && page <= 10) {
-      let pageData: any = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const { data } = await apiClient.get('/api/v1/products/', { params: { page, page_size: 24 } });
-          pageData = data;
-          break;
-        } catch (pageErr) {
-          if (attempt < 2) {
-            await new Promise((r) => setTimeout(r, 1200));
-          }
+  // 2. Check sessionStorage cache for instant hydration
+  try {
+    const fromSession = sessionStorage.getItem('dovi_real_products_cache');
+    if (fromSession) {
+      const parsed: ProductSummary[] = JSON.parse(fromSession);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryProductsCache = parsed;
+        // If cached within TTL, return immediately
+        const cachedTimestamp = Number(sessionStorage.getItem('dovi_real_products_cache_time') || '0');
+        if (now - cachedTimestamp < PRODUCTS_CACHE_TTL_MS) {
+          return filterActive(parsed);
         }
       }
-
-      if (!pageData) {
-        // If this page failed after retries, stop pagination without discarding products retrieved so far
-        hasMore = false;
-        break;
-      }
-
-      const rawList: any[] = Array.isArray(pageData) ? pageData : pageData?.results || [];
-      if (rawList && rawList.length > 0) {
-        allRaw.push(...rawList);
-      }
-      const totalCount = typeof pageData?.count === 'number' ? pageData.count : allRaw.length;
-      if (!pageData?.next || allRaw.length >= totalCount || rawList.length === 0) {
-        hasMore = false;
-      } else {
-        page++;
-      }
     }
+  } catch { }
+
+  // 3. Single bounded initial fetch (page 1, page_size 24) — avoids multi-roundtrip 40s freeze
+  try {
+    let pageData: any = null;
+    try {
+      const { data } = await apiClient.get('/api/v1/products/', { params: { page: 1, page_size: 24 } });
+      pageData = data;
+    } catch (pageErr: any) {
+      console.warn('Initial product page fetch failed, falling back to cache:', pageErr?.message || pageErr);
+    }
+
+    const rawList: any[] = pageData ? (Array.isArray(pageData) ? pageData : pageData?.results || []) : [];
 
     // Always merge API results with SEED_RAW_PRODUCTS baseline so catalogue is never truncated
     const combinedRawMap = new Map<string, any>();
     (SEED_RAW_PRODUCTS || []).forEach((p: any) => {
       if (p && p.id) combinedRawMap.set(p.id, p);
     });
-    allRaw.forEach((p: any) => {
+    rawList.forEach((p: any) => {
       if (p && p.id) combinedRawMap.set(p.id, p);
     });
     const mergedRawList = Array.from(combinedRawMap.values());
@@ -358,10 +359,41 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         })
         .map((p) => normalizeBackendProductToSummary(p));
 
+      inMemoryProductsCache = normalized;
+      lastProductsFetchTime = Date.now();
+
       try {
         sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
+        sessionStorage.setItem('dovi_real_products_cache_time', String(lastProductsFetchTime));
         localStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
       } catch { }
+
+      // 4. Progressive non-blocking background prefetch for remaining pages if available
+      const totalCount = typeof pageData?.count === 'number' ? pageData.count : rawList.length;
+      if (pageData?.next && totalCount > 24) {
+        setTimeout(async () => {
+          try {
+            const { data: p2Data } = await apiClient.get('/api/v1/products/', { params: { page: 2, page_size: 24 } });
+            const p2List: any[] = Array.isArray(p2Data) ? p2Data : p2Data?.results || [];
+            if (p2List.length > 0) {
+              const extendedMap = new Map<string, any>();
+              (inMemoryProductsCache || normalized).forEach((p) => extendedMap.set(p.id, p));
+              p2List.forEach((p) => {
+                if (!deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED') {
+                  extendedMap.set(p.id, normalizeBackendProductToSummary(p));
+                }
+              });
+              const extendedList = Array.from(extendedMap.values());
+              inMemoryProductsCache = extendedList;
+              try {
+                sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
+                localStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
+              } catch { }
+            }
+          } catch { }
+        }, 1500);
+      }
+
       return normalized;
     }
   } catch (err) {
@@ -604,15 +636,6 @@ function populateProductsForSection(section: HomepageSection, realProducts: Prod
 export const homepageApi = {
   getData: async (): Promise<HomepageData> => {
     const realProducts = await fetchRealBackendProducts();
-
-    try {
-      const { data } = await apiClient.get('/api/v1/homepage/');
-      if (data && data.sections && data.sections.length > 0) {
-        return data;
-      }
-    } catch {
-      // Expected when backend has no dedicated /homepage/ endpoint
-    }
 
     const rawSections = getMockSections();
     const sections = rawSections

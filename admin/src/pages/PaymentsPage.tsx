@@ -7,7 +7,6 @@ import type { Payment, PaymentSession, APIError } from '@/types';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ApiErrorMessage } from '@/components/common/ApiErrorMessage';
 import { EmptyState } from '@/components/common/EmptyState';
-import { exportTransactionsToPdf, exportTransactionsToDocx } from '@/utils/exportUtils';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>(() => {
@@ -235,42 +234,62 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleExportSelectedDocx = () => {
+  const handleExportSelectedDocx = async () => {
     const targets = payments.filter((p) => selectedPaymentIds.has(p.id));
     if (targets.length === 0) {
       toast.error('Please select at least one transaction to export.');
       return;
     }
-    exportTransactionsToDocx(targets, `dovi-selected-transactions-${targets.length}.docx`);
-    toast.success(`Exported ${targets.length} selected transactions to DOCX`);
+    try {
+      const { exportTransactionsToDocx } = await import('@/utils/exportUtils');
+      exportTransactionsToDocx(targets, `dovi-selected-transactions-${targets.length}.docx`);
+      toast.success(`Exported ${targets.length} selected transactions to DOCX`);
+    } catch {
+      toast.error('Failed to load DOCX export engine.');
+    }
   };
 
-  const handleExportSelectedPdf = () => {
+  const handleExportSelectedPdf = async () => {
     const targets = payments.filter((p) => selectedPaymentIds.has(p.id));
     if (targets.length === 0) {
       toast.error('Please select at least one transaction to export.');
       return;
     }
-    exportTransactionsToPdf(targets, `dovi-selected-transactions-${targets.length}.pdf`);
-    toast.success(`Exported ${targets.length} selected transactions to PDF`);
+    try {
+      const { exportTransactionsToPdf } = await import('@/utils/exportUtils');
+      exportTransactionsToPdf(targets, `dovi-selected-transactions-${targets.length}.pdf`);
+      toast.success(`Exported ${targets.length} selected transactions to PDF`);
+    } catch {
+      toast.error('Failed to load PDF export engine.');
+    }
   };
 
-  const handleExportAllDocx = () => {
+  const handleExportAllDocx = async () => {
     if (payments.length === 0) {
       toast.error('No transactions available to export.');
       return;
     }
-    exportTransactionsToDocx(payments, `dovi-all-transactions-${payments.length}.docx`);
-    toast.success(`Exported ${payments.length} transactions to DOCX`);
+    try {
+      const { exportTransactionsToDocx } = await import('@/utils/exportUtils');
+      exportTransactionsToDocx(payments, `dovi-all-transactions-${payments.length}.docx`);
+      toast.success(`Exported ${payments.length} transactions to DOCX`);
+    } catch {
+      toast.error('Failed to load DOCX export engine.');
+    }
   };
 
-  const handleExportAllPdf = () => {
+  const handleExportAllPdf = async () => {
     if (payments.length === 0) {
       toast.error('No transactions available to export.');
       return;
     }
-    exportTransactionsToPdf(payments, `dovi-all-transactions-${payments.length}.pdf`);
-    toast.success(`Exported ${payments.length} transactions to PDF`);
+    try {
+      const { exportTransactionsToPdf } = await import('@/utils/exportUtils');
+      exportTransactionsToPdf(payments, `dovi-all-transactions-${payments.length}.pdf`);
+      toast.success(`Exported ${payments.length} transactions to PDF`);
+    } catch {
+      toast.error('Failed to load PDF export engine.');
+    }
   };
 
   const pendingCount = payments.filter(

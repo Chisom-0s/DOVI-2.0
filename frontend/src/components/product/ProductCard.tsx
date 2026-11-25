@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCart } from '@/contexts/CartContext';
@@ -9,6 +9,7 @@ import { getProductImageUrl, getProductFallbackImage } from '@/utils/image';
 import type { ProductSummary } from '@/types';
 import { ItemImageLoader } from '@/components/common/ItemImageLoader';
 import { isDiscountActiveNow } from '@/services/homepagePlacementService';
+import { useSharedClock } from '@/utils/clock';
 
 interface ProductCardProps {
   key?: string;
@@ -19,18 +20,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [isCartLoading, setIsCartLoading] = useState(false);
-  const [now, setNow] = useState<Date>(new Date());
 
   const hasTimedDiscount = Boolean(product.discount_config?.end_time);
-
-  // Update timer every second only if this specific product has an active timed discount
-  useEffect(() => {
-    if (!hasTimedDiscount) return;
-    const interval = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [hasTimedDiscount]);
+  const now = useSharedClock(hasTimedDiscount);
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault();

@@ -214,7 +214,7 @@ function saveStoredEmailLogs(logs: EmailLog[]) {
  * Loads EVERY page of a paginated DRF list endpoint (the previous dashboard only read page 1,
  * so counts and revenue silently stopped at the first page of results).
  */
-async function fetchAllPages(
+export async function fetchAllPages(
   path: string,
   params: Record<string, any> = {},
   maxPages = 200
@@ -1076,20 +1076,7 @@ export const adminApi = {
       paths: string[],
       params: Record<string, any> = {}
     ): Promise<any[] | null> => {
-      let lastError = '';
-      for (const path of paths) {
-        try {
-          const res = await fetchAllPages(path, params);
-          if (Array.isArray(res.items)) {
-            sources.push({ name, ok: true, count: res.items.length, truncated: res.truncated });
-            return res.items;
-          }
-        } catch (err: any) {
-          lastError = err?.response?.status ? `HTTP ${err.response.status}` : err?.message || 'request failed';
-        }
-      }
-
-      // Authoritative fallback to delivery store / local database
+      // 1. Check local/shared store snapshot first for instant zero-latency resolution
       const db = await getSharedDb();
       if (db) {
         let fallbackList: any[] | null = null;
@@ -1128,9 +1115,23 @@ export const adminApi = {
           fallbackList = db.routes || [];
         }
 
-        if (fallbackList !== null) {
+        if (fallbackList !== null && fallbackList.length > 0) {
           sources.push({ name, ok: true, count: fallbackList.length, truncated: false });
           return fallbackList;
+        }
+      }
+
+      // 2. Fetch single bounded page (page 1, page_size 50) without multi-page looping
+      let lastError = '';
+      for (const path of paths) {
+        try {
+          const { data } = await apiClient.get(path, { params: { ...params, page: 1, page_size: 50 } });
+          const items = Array.isArray(data) ? data : (data?.results || []);
+          const totalCount = typeof data?.count === 'number' ? data.count : items.length;
+          sources.push({ name, ok: true, count: totalCount, truncated: totalCount > items.length });
+          return items;
+        } catch (err: any) {
+          lastError = err?.response?.status ? `HTTP ${err.response.status}` : err?.message || 'request failed';
         }
       }
 
