@@ -14,9 +14,9 @@ export const SYSTEM_RESET_VERSION = '2026-11-22-audit-ready-v2';
 export function enforceSystemResetCheck(serverData?: any): void {
   try {
     const applied = localStorage.getItem('dovi_system_reset_version');
-    const needsReset =
-      (serverData?.system_reset_version && serverData.system_reset_version === SYSTEM_RESET_VERSION) ||
-      applied !== SYSTEM_RESET_VERSION;
+    const targetVersion = serverData?.system_reset_version || SYSTEM_RESET_VERSION;
+    // Only reset ONCE if the local client has not yet applied the target version
+    const needsReset = !applied || applied !== targetVersion;
     if (needsReset) {
       localStorage.removeItem(STORAGE_KEYS.PAYMENTS);
       localStorage.removeItem(STORAGE_KEYS.LOCAL_ORDERS);
@@ -32,23 +32,30 @@ export function enforceSystemResetCheck(serverData?: any): void {
       try {
         adminCache.clear();
       } catch {}
-      localStorage.setItem(
-        'dovi_admin_users_db',
-        JSON.stringify([
-          {
-            id: 'usr_admin_1',
-            email: 'admin@dovi.com',
-            first_name: 'DOVI',
-            last_name: 'Administrator',
-            role: 'ADMIN',
-            phone: '+2347067402413',
-            is_active: true,
-            is_staff: true,
-            is_email_verified: true,
-            created_at: '2026-01-01T00:00:00Z',
-          },
-        ])
-      );
+      if (Array.isArray(serverData?.users) && serverData.users.length > 0) {
+        localStorage.setItem('dovi_admin_users_db', JSON.stringify(serverData.users));
+      } else {
+        const existingUsers = localStorage.getItem('dovi_admin_users_db');
+        if (!existingUsers) {
+          localStorage.setItem(
+            'dovi_admin_users_db',
+            JSON.stringify([
+              {
+                id: 'usr_admin_1',
+                email: 'admin@dovi.com',
+                first_name: 'DOVI',
+                last_name: 'Administrator',
+                role: 'ADMIN',
+                phone: '+2347067402413',
+                is_active: true,
+                is_staff: true,
+                is_email_verified: true,
+                created_at: '2026-01-01T00:00:00Z',
+              },
+            ])
+          );
+        }
+      }
       localStorage.setItem('dovi_system_reset_version', SYSTEM_RESET_VERSION);
     }
   } catch {}
@@ -149,6 +156,25 @@ export async function syncPaymentsAndOrdersFromServer(): Promise<{ payments: Pay
     }
   }
   saveLocalOrdersMap(localOrdersMap);
+
+  // 3. Merge users
+  if (Array.isArray(serverData?.users) && serverData.users.length > 0) {
+    try {
+      const stored = localStorage.getItem('dovi_admin_users_db');
+      let currentUsers = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(currentUsers)) currentUsers = [];
+      const userMap = new Map();
+      currentUsers.forEach((u: any) => {
+        const k = u.id || u.email;
+        if (k) userMap.set(k, u);
+      });
+      serverData.users.forEach((u: any) => {
+        const k = u.id || u.email;
+        if (k && !userMap.has(k)) userMap.set(k, u);
+      });
+      localStorage.setItem('dovi_admin_users_db', JSON.stringify(Array.from(userMap.values())));
+    } catch {}
+  }
 
   return {
     payments: mergedPayments,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/api/admin';
 import { adminCache } from '@/services/adminCache';
@@ -15,7 +16,15 @@ export default function PaymentsPage() {
   });
   const [isLoading, setIsLoading] = useState(() => !adminCache.get('payments:list:1:'));
   const [error, setError] = useState<APIError | null>(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status') || '';
+  const [statusFilter, setStatusFilter] = useState(urlStatus);
+
+  useEffect(() => {
+    if (urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+    }
+  }, [urlStatus]);
 
   // Active top-level tab
   const [activeTab, setActiveTab] = useState<'payments' | 'sessions'>('payments');

@@ -239,23 +239,8 @@ async function fetchAllPages(
 function isTestUserOrEmail(email?: string, name?: string): boolean {
   if (!email && !name) return false;
   const em = (email || '').toLowerCase().trim();
-  const nm = (name || '').toLowerCase().trim();
   if (em === 'admin@dovi.com') return false;
-  return (
-    em.includes('test') ||
-    em.includes('demo') ||
-    em.includes('example.com') ||
-    em.includes('invalid-mail') ||
-    em.includes('campus.edu') ||
-    em === 'user@dovi.com' ||
-    em === 'buyer@dovi.com' ||
-    em === 'customer@dovi.com' ||
-    em === 'participant@dovi.com' ||
-    em.startsWith('test_') ||
-    em.startsWith('user_') ||
-    nm.includes('test') ||
-    nm.includes('demo')
-  );
+  return em.endsWith('@example.com') || em.includes('invalid-mail');
 }
 
 function isTestOrder(order: any): boolean {
@@ -1075,6 +1060,7 @@ export const adminApi = {
           return sharedDb;
         }
       } catch {}
+
       try {
         const res = await fetch('/delivery_store.json');
         if (res.ok) {
@@ -1267,11 +1253,10 @@ export const adminApi = {
     try {
       const { data } = await apiClient.get('/api/v1/admin/users/', { params });
       if (data && Array.isArray(data.results)) {
-        const filtered = data.results.filter((u: User) => !isTestUserOrEmail(u.email, `${u.first_name} ${u.last_name}`));
         return {
           ...data,
-          count: filtered.length,
-          results: filtered,
+          count: typeof data.count === 'number' ? data.count : data.results.length,
+          results: data.results,
         };
       }
       return data;
@@ -1282,6 +1267,36 @@ export const adminApi = {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) list = parsed;
+        }
+      } catch {}
+
+      try {
+        const res = await fetch('/__dovi_delivery_db__');
+        if (res.ok) {
+          const ds = await res.json();
+          if (Array.isArray(ds?.users)) {
+            const map = new Map(list.map((u) => [u.id || u.email, u]));
+            ds.users.forEach((u: any) => {
+              const k = u.id || u.email;
+              if (k && !map.has(k)) map.set(k, u);
+            });
+            list = Array.from(map.values());
+          }
+        }
+      } catch {}
+
+      try {
+        const res = await fetch('/delivery_store.json');
+        if (res.ok) {
+          const ds = await res.json();
+          if (Array.isArray(ds?.users)) {
+            const map = new Map(list.map((u) => [u.id || u.email, u]));
+            ds.users.forEach((u: any) => {
+              const k = u.id || u.email;
+              if (k && !map.has(k)) map.set(k, u);
+            });
+            list = Array.from(map.values());
+          }
         }
       } catch {}
 
@@ -1372,12 +1387,32 @@ export const adminApi = {
       const { data } = await apiClient.patch(`/api/v1/admin/users/${id}/suspend/`);
       return data;
     } catch {
-      return {
+      let found: any = null;
+      try {
+        const stored = localStorage.getItem('dovi_admin_users_db');
+        if (stored) {
+          const list: User[] = JSON.parse(stored);
+          const idx = list.findIndex((u) => u.id === id);
+          if (idx !== -1) {
+            list[idx] = { ...list[idx], status: 'SUSPENDED', is_active: false };
+            found = list[idx];
+            localStorage.setItem('dovi_admin_users_db', JSON.stringify(list));
+            void fetch('/__dovi_delivery_db__', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: list }),
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+
+      return found || {
         id,
         email: 'user@dovi.com',
         first_name: 'Platform',
         last_name: 'User',
         role: 'BUYER',
+        status: 'SUSPENDED',
         is_active: false,
         is_staff: false,
         is_email_verified: true,
@@ -1391,12 +1426,32 @@ export const adminApi = {
       const { data } = await apiClient.patch(`/api/v1/admin/users/${id}/activate/`);
       return data;
     } catch {
-      return {
+      let found: any = null;
+      try {
+        const stored = localStorage.getItem('dovi_admin_users_db');
+        if (stored) {
+          const list: User[] = JSON.parse(stored);
+          const idx = list.findIndex((u) => u.id === id);
+          if (idx !== -1) {
+            list[idx] = { ...list[idx], status: 'ACTIVE', is_active: true };
+            found = list[idx];
+            localStorage.setItem('dovi_admin_users_db', JSON.stringify(list));
+            void fetch('/__dovi_delivery_db__', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: list }),
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+
+      return found || {
         id,
         email: 'user@dovi.com',
         first_name: 'Platform',
         last_name: 'User',
         role: 'BUYER',
+        status: 'ACTIVE',
         is_active: true,
         is_staff: false,
         is_email_verified: true,
@@ -1410,7 +1465,30 @@ export const adminApi = {
       const { data } = await apiClient.post('/api/v1/admin/users/create-admin/', payload);
       return data;
     } catch (err) {
-      throw normalizeApiError(err);
+      const newAdmin: User = {
+        id: `usr_adm_${Date.now()}`,
+        email: payload.email,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        is_active: true,
+        is_staff: true,
+        is_email_verified: true,
+        date_joined: new Date().toISOString(),
+      };
+      try {
+        const stored = localStorage.getItem('dovi_admin_users_db');
+        const list: User[] = stored ? JSON.parse(stored) : [];
+        list.unshift(newAdmin);
+        localStorage.setItem('dovi_admin_users_db', JSON.stringify(list));
+        void fetch('/__dovi_delivery_db__', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ users: list }),
+        }).catch(() => {});
+      } catch {}
+      return newAdmin;
     }
   },
 
@@ -1419,12 +1497,41 @@ export const adminApi = {
       const { data } = await apiClient.patch(`/api/v1/admin/users/${id}/`, payload);
       return data;
     } catch {
-      return {
+      let found: any = null;
+      try {
+        const stored = localStorage.getItem('dovi_admin_users_db');
+        if (stored) {
+          const list: User[] = JSON.parse(stored);
+          const idx = list.findIndex((u) => u.id === id);
+          if (idx !== -1) {
+            list[idx] = {
+              ...list[idx],
+              email: payload.email || list[idx].email,
+              first_name: payload.first_name !== undefined ? payload.first_name : list[idx].first_name,
+              last_name: payload.last_name !== undefined ? payload.last_name : list[idx].last_name,
+              role: (payload.role as any) || list[idx].role,
+              is_active: payload.is_active !== undefined ? payload.is_active : list[idx].is_active,
+              status: payload.is_active === false ? 'SUSPENDED' : (payload.is_active ? 'ACTIVE' : list[idx].status),
+              is_email_verified: payload.is_email_verified !== undefined ? payload.is_email_verified : list[idx].is_email_verified,
+            };
+            found = list[idx];
+            localStorage.setItem('dovi_admin_users_db', JSON.stringify(list));
+            void fetch('/__dovi_delivery_db__', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: list }),
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+
+      return found || {
         id,
         email: payload.email || 'user@dovi.com',
         first_name: payload.first_name || '',
         last_name: payload.last_name || '',
         role: (payload.role as any) || 'BUYER',
+        status: payload.is_active === false ? 'SUSPENDED' : 'ACTIVE',
         is_active: payload.is_active !== undefined ? payload.is_active : true,
         is_staff: payload.role === 'ADMIN',
         is_email_verified: payload.is_email_verified !== undefined ? payload.is_email_verified : true,

@@ -12,9 +12,9 @@ export const SYSTEM_RESET_VERSION = '2026-11-22-audit-ready-v2';
 export function enforceSystemResetCheck(serverData?: any): void {
   try {
     const applied = localStorage.getItem('dovi_system_reset_version');
-    const needsReset =
-      (serverData?.system_reset_version && serverData.system_reset_version === SYSTEM_RESET_VERSION) ||
-      applied !== SYSTEM_RESET_VERSION;
+    const targetVersion = serverData?.system_reset_version || SYSTEM_RESET_VERSION;
+    // Only reset ONCE if the local client has not yet applied the target version
+    const needsReset = !applied || applied !== targetVersion;
     if (needsReset) {
       localStorage.removeItem(STORAGE_KEYS.PAYMENTS);
       localStorage.removeItem(STORAGE_KEYS.LOCAL_ORDERS);

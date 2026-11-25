@@ -915,6 +915,7 @@ function doviSharedDeliveryDbPlugin() {
         save2ownParticipants: s.save2ownParticipants || [],
         save2ownContributions: s.save2ownContributions || [],
         save2ownRefunds: s.save2ownRefunds || [],
+        users: s.users || [],
         payments: s.payments || [],
         orders: s.orders || [],
         minimumOrderSettings: s.minimumOrderSettings || {
@@ -996,7 +997,25 @@ function doviSharedDeliveryDbPlugin() {
             mergedSessions = Array.from(sessMap.values());
           }
 
+          let mergedUsers = current.users || [];
+          if (Array.isArray(incoming.users)) {
+            const userMap = new Map();
+            for (const u of mergedUsers) {
+              const k = u.id || u.email;
+              if (k) userMap.set(k, u);
+            }
+            for (const u of incoming.users) {
+              const k = u.id || u.email;
+              if (k) {
+                const prev = userMap.get(k) || {};
+                userMap.set(k, { ...prev, ...u });
+              }
+            }
+            mergedUsers = Array.from(userMap.values());
+          }
+
           const merged = {
+            users: mergedUsers,
             routes: incoming.routes !== undefined ? incoming.routes : current.routes,
             rateHistory: rHist,
             rate_history: rHist,

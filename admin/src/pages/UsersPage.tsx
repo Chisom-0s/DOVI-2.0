@@ -119,6 +119,8 @@ export default function UsersPage() {
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalDbCount, setTotalDbCount] = useState(0);
+  const [dbUsers, setDbUsers] = useState<User[]>([]);
 
   const fetchUsers = async (showSkeleton = true) => {
     const cacheKey = `users:list:${page}:${activeTab === 'ALL' ? '' : activeTab}:${searchTerm || ''}`;
@@ -132,7 +134,15 @@ export default function UsersPage() {
         role: activeTab === 'ALL' || activeTab === 'PENDING_VENDOR' ? undefined : activeTab,
       });
       setUsers(res.results || []);
-      setTotalPages(Math.ceil(res.count / 20) || 1);
+      setTotalDbCount(typeof res.count === 'number' ? res.count : (res.results?.length || 0));
+      setTotalPages(Math.ceil((res.count || res.results?.length || 1) / 20) || 1);
+      try {
+        const stored = localStorage.getItem('dovi_admin_users_db');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) setDbUsers(parsed);
+        }
+      } catch {}
     } catch (err: any) {
       setError(err);
       toast.error('Failed to load user list.');
@@ -151,16 +161,22 @@ export default function UsersPage() {
     fetchUsers(true);
   };
 
-  // KPI Statistics Summary
+  // Authoritative KPI Statistics Summary
   const stats = useMemo(() => {
-    const total = users.length;
-    const buyers = users.filter(u => u.role === 'BUYER').length;
-    const vendors = users.filter(u => u.role === 'VENDOR').length;
-    const pendingVendors = users.filter(
-      u => u.role === 'VENDOR' && (u.profile?.vendor_status === 'PENDING' || u.vendor_status === 'PENDING' || !u.profile?.vendor_status)
+    const source = dbUsers.length > 0 ? dbUsers : users;
+    const total = Math.max(totalDbCount, source.length);
+    const buyers = source.filter((u) => u.role === 'BUYER').length;
+    const vendors = source.filter((u) => u.role === 'VENDOR').length;
+    const admins = source.filter((u) => u.role === 'ADMIN').length;
+    const active = source.filter((u) => u.status === 'ACTIVE' || (u.is_active !== false && u.status !== 'SUSPENDED')).length;
+    const suspended = source.filter((u) => u.status === 'SUSPENDED' || u.is_active === false).length;
+    const pendingVendors = source.filter(
+      (u) =>
+        u.role === 'VENDOR' &&
+        (u.profile?.vendor_status === 'PENDING' || u.vendor_status === 'PENDING' || !u.profile?.vendor_status)
     ).length;
-    return { total, buyers, vendors, pendingVendors };
-  }, [users]);
+    return { total, buyers, vendors, admins, active, suspended, pendingVendors };
+  }, [users, dbUsers, totalDbCount]);
 
   // Client-side filtering across current page view
   const filteredUsers = useMemo(() => {
@@ -614,8 +630,8 @@ export default function UsersPage() {
 
       <ApiErrorMessage error={error} />
 
-      {/* KPI Overview Cards */}
-      <div style={kpiGridStyles}>
+      {/* Authoritative KPI Overview Cards */}
+      <div style={{ ...kpiGridStyles, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div style={kpiCardStyles}>
           <div style={kpiIconWrapperStyles('#f0fdf4', '#16a34a')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -626,22 +642,52 @@ export default function UsersPage() {
             </svg>
           </div>
           <div>
-            <div style={kpiLabelStyles}>Total Users</div>
+            <div style={kpiLabelStyles}>Total Customers</div>
             <div style={kpiValueStyles}>{stats.total}</div>
           </div>
         </div>
 
-        <div style={kpiCardStyles}>
-          <div style={kpiIconWrapperStyles('#eff6ff', '#2563eb')}>
+        <div
+          onClick={() => setLoginStatusFilter(loginStatusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE')}
+          style={{
+            ...kpiCardStyles,
+            cursor: 'pointer',
+            borderColor: loginStatusFilter === 'ACTIVE' ? '#10b981' : '#e5e7eb',
+            backgroundColor: loginStatusFilter === 'ACTIVE' ? '#f0fdf4' : '#ffffff',
+          }}
+        >
+          <div style={kpiIconWrapperStyles('#ecfdf5', '#059669')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-              <path d="M3 6h18" />
-              <path d="M16 10a4 4 0 0 1-8 0" />
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
           <div>
-            <div style={kpiLabelStyles}>Buyers</div>
-            <div style={kpiValueStyles}>{stats.buyers}</div>
+            <div style={kpiLabelStyles}>Active Accounts</div>
+            <div style={{ ...kpiValueStyles, color: '#059669' }}>{stats.active}</div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setLoginStatusFilter(loginStatusFilter === 'SUSPENDED' ? 'ALL' : 'SUSPENDED')}
+          style={{
+            ...kpiCardStyles,
+            cursor: 'pointer',
+            borderColor: loginStatusFilter === 'SUSPENDED' ? '#ef4444' : '#e5e7eb',
+            backgroundColor: loginStatusFilter === 'SUSPENDED' ? '#fef2f2' : '#ffffff',
+          }}
+        >
+          <div style={kpiIconWrapperStyles('#fff1f2', '#e11d48')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
+          </div>
+          <div>
+            <div style={kpiLabelStyles}>Suspended</div>
+            <div style={{ ...kpiValueStyles, color: stats.suspended > 0 ? '#e11d48' : '#6b7280' }}>
+              {stats.suspended}
+            </div>
           </div>
         </div>
 
@@ -653,13 +699,13 @@ export default function UsersPage() {
             </svg>
           </div>
           <div>
-            <div style={kpiLabelStyles}>Registered Vendors</div>
+            <div style={kpiLabelStyles}>Vendors</div>
             <div style={kpiValueStyles}>{stats.vendors}</div>
           </div>
         </div>
 
         <div
-          onClick={() => setActiveTab('PENDING_VENDOR')}
+          onClick={() => setActiveTab(activeTab === 'PENDING_VENDOR' ? 'ALL' : 'PENDING_VENDOR')}
           style={{
             ...kpiCardStyles,
             cursor: 'pointer',
@@ -675,7 +721,7 @@ export default function UsersPage() {
           </div>
           <div>
             <div style={{ ...kpiLabelStyles, color: stats.pendingVendors > 0 ? '#c2410c' : '#6b7280' }}>
-              Pending Approvals
+              Pending Review
             </div>
             <div style={{ ...kpiValueStyles, color: stats.pendingVendors > 0 ? '#c2410c' : '#1f2937' }}>
               {stats.pendingVendors}
@@ -822,10 +868,11 @@ export default function UsersPage() {
                       style={{ cursor: 'pointer' }}
                     />
                   </th>
-                  <th style={tableHeadCellStyles}>User Profile</th>
+                  <th style={tableHeadCellStyles}>Customer</th>
+                  <th style={tableHeadCellStyles}>Phone Number</th>
                   <th style={tableHeadCellStyles}>Role</th>
-                  <th style={tableHeadCellStyles}>Login Access</th>
-                  <th style={tableHeadCellStyles}>Merchant Verification</th>
+                  <th style={tableHeadCellStyles}>Account Status</th>
+                  <th style={tableHeadCellStyles}>Orders</th>
                   <th style={tableHeadCellStyles}>Date Registered</th>
                   <th style={{ ...tableHeadCellStyles, textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -838,10 +885,6 @@ export default function UsersPage() {
                       : 'Unnamed User';
                   const initials = getInitials(u.first_name, u.last_name, u.email);
                   const avatarBg = getAvatarGradient(u.email);
-                  const merchantStatus =
-                    u.profile?.vendor_status ||
-                    u.vendor_status ||
-                    (u.role === 'VENDOR' ? 'PENDING' : 'N/A');
 
                   return (
                     <tr key={u.id} style={tableDataRowStyles}>
@@ -867,33 +910,42 @@ export default function UsersPage() {
                         </div>
                       </td>
 
+                      {/* Phone Number */}
+                      <td style={tableDataCellStyles}>
+                        <span style={{ fontSize: '13px', color: '#374151', fontFamily: 'monospace' }}>
+                          {u.phone || u.profile?.phone_number || '—'}
+                        </span>
+                      </td>
+
                       {/* Role Badge */}
                       <td style={tableDataCellStyles}>
                         <span style={rolePillStyles(u.role)}>{u.role}</span>
                       </td>
 
-                      {/* Login Status Badge */}
+                      {/* Account Status Badge */}
                       <td style={tableDataCellStyles}>
                         <div style={statusIndicatorWrapperStyles}>
                           <span style={statusDotStyles(u.status === 'ACTIVE')} />
                           <span style={{ fontSize: '13px', fontWeight: 600, color: u.status === 'ACTIVE' ? '#166534' : '#991b1b' }}>
-                            {u.status}
+                            {u.status || (u.is_active ? 'ACTIVE' : 'SUSPENDED')}
                           </span>
                         </div>
                       </td>
 
-                      {/* Merchant Status Badge */}
+                      {/* Orders Count */}
                       <td style={tableDataCellStyles}>
-                        {u.role === 'VENDOR' ? (
-                          <span style={merchantBadgeStyles(merchantStatus)}>
-                            {merchantStatus === 'APPROVED' && '✓ '}
-                            {merchantStatus === 'PENDING' && '⏳ '}
-                            {merchantStatus === 'REJECTED' && '✕ '}
-                            {merchantStatus}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
-                        )}
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: ((u as any).orders_count || 0) > 0 ? '#e0f2fe' : '#f1f5f9',
+                            color: ((u as any).orders_count || 0) > 0 ? '#0369a1' : '#64748b',
+                          }}
+                        >
+                          {(u as any).orders_count !== undefined ? (u as any).orders_count : 0} orders
+                        </span>
                       </td>
 
                       {/* Date Joined */}
@@ -905,17 +957,25 @@ export default function UsersPage() {
 
                       {/* Actions */}
                       <td style={{ ...tableDataCellStyles, textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                          {u.role !== 'ADMIN' && (
-                            <button
-                              type="button"
-                              onClick={() => handlePromote(u)}
-                              title="Promote to Administrator"
-                              style={quickPromoteBtnStyles}
-                            >
-                              🛡️ Promote
-                            </button>
-                          )}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLoginStatus(u)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid',
+                              cursor: 'pointer',
+                              borderColor: u.status === 'ACTIVE' ? '#fecaca' : '#bbf7d0',
+                              color: u.status === 'ACTIVE' ? '#b91c1c' : '#15803d',
+                              backgroundColor: u.status === 'ACTIVE' ? '#fef2f2' : '#f0fdf4',
+                            }}
+                            title={u.status === 'ACTIVE' ? 'Suspend account login access' : 'Reactivate account'}
+                          >
+                            {u.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(u)}
@@ -929,7 +989,7 @@ export default function UsersPage() {
                             onClick={() => setSelectedUser(u)}
                             style={inspectBtnStyles}
                           >
-                            Inspect
+                            View
                           </button>
                         </div>
                       </td>

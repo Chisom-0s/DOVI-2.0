@@ -382,7 +382,7 @@ export function computeAnalytics(input: RawAnalyticsInput): AnalyticsOverviewRes
     payments_summary: (() => {
       const pList = input.payments || [];
       const succ = pList.filter((p) => ['SUCCESSFUL', 'SUCCESS', 'PAID', 'VERIFIED'].includes((p.status || '').toUpperCase()));
-      const pend = pList.filter((p) => ['PENDING', 'INITIALIZED', 'PROCESSING'].includes((p.status || '').toUpperCase()));
+      const pend = pList.filter((p) => ['PENDING', 'INITIALIZED', 'PROCESSING', 'PENDING_VERIFICATION'].includes((p.status || '').toUpperCase()));
       const fail = pList.filter((p) => ['FAILED', 'REJECTED', 'ABANDONED'].includes((p.status || '').toUpperCase()));
       const ref = pList.filter((p) => ['REFUNDED', 'REVERSED'].includes((p.status || '').toUpperCase()));
       return {
