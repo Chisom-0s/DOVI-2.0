@@ -1215,4 +1215,7 @@ export default defineConfig({
     port: 5174,
     open: true,
   },
+  build: {
+    sourcemap: false,
+  },
 });

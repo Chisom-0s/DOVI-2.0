@@ -180,6 +180,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'EXCEPTION_HANDLER': 'delivery.exceptions.sanitized_exception_handler',
     'UNICODE_JSON': True,
 }
 

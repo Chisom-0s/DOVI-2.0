@@ -1212,6 +1212,7 @@ export default defineConfig({
     },
   },
   build: {
+    sourcemap: false,
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
