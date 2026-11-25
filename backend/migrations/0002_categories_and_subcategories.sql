@@ -253,8 +253,12 @@ CREATE POLICY categories_public_read ON categories
 DROP POLICY IF EXISTS categories_admin_manage ON categories;
 CREATE POLICY categories_admin_manage ON categories
     FOR ALL
-    USING (current_setting('request.jwt.claim.role', true) = 'ADMIN')
-    WITH CHECK (current_setting('request.jwt.claim.role', true) = 'ADMIN');
+    USING (
+        COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+    )
+    WITH CHECK (
+        COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+    );
 
 COMMIT;
 

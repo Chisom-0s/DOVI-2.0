@@ -15,9 +15,34 @@ def _load_env():
 
 _load_env()
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dovi-production-resend-infrastucture-secret-key-2026')
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
-ALLOWED_HOSTS = ['*']
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
+
+# Cryptographic Secret Key Configuration
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'dovi-insecure-dev-key-8f4c2b9a1e7d3c5b9f8a2e1d7c4b6a9e3d2c1b8a'
+    else:
+        # Use deployment revision or persistent machine secret
+        SECRET_KEY = os.environ.get('RENDER_GIT_COMMIT') or 'dovi-prod-vault-92f7a81c3e4b5d6e7f8a9b0c1d2e3f4a'
+
+_raw_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if _raw_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '0.0.0.0',
+        'dovishop.com',
+        'www.dovishop.com',
+        'admin.dovishop.com',
+        'dovi-2-0-backend.onrender.com',
+        '.onrender.com',
+        '.vercel.app',
+    ]
+    if DEBUG:
+        ALLOWED_HOSTS.append('*')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -74,7 +99,23 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        },
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Lagos'
@@ -88,14 +129,54 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024  # 15MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 15 * 1024 * 1024  # 15MB
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# ============================================================================
+# Security & Protection Headers
+# ============================================================================
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
-# REST Framework
+# ============================================================================
+# CORS Access Whitelist
+# ============================================================================
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'https://dovishop.com',
+    'https://www.dovishop.com',
+    'https://admin.dovishop.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+]
+_extra_cors = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if _extra_cors:
+    for origin in _extra_cors.split(','):
+        cleaned = origin.strip()
+        if cleaned and cleaned not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(cleaned)
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https:\/\/.*\.vercel\.app$',
+    r'^https:\/\/.*\.onrender\.com$',
+]
+
+# ============================================================================
+# REST Framework Configuration & Authentication
+# ============================================================================
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'delivery.authentication.DoviJWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],

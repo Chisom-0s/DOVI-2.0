@@ -63,32 +63,42 @@ class IsAdminRolePermission(permissions.BasePermission):
     def has_permission(self, request, view):
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:
-            # Allow in development / decoupled mode if header or bearer token present
-            auth_header = request.headers.get('Authorization', '')
-            if 'Bearer' in auth_header:
-                return True
             return False
-        return getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False)
+        return getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+
+
+def _verify_file_magic_bytes(header_bytes: bytes, ext: str) -> bool:
+    """Verifies that uploaded file binary magic bytes match the declared file extension."""
+    if ext in ('.jpg', '.jpeg'):
+        return header_bytes.startswith(b'\xff\xd8\xff')
+    if ext == '.png':
+        return header_bytes.startswith(b'\x89PNG\r\n\x1a\n')
+    if ext == '.webp':
+        return len(header_bytes) >= 12 and header_bytes.startswith(b'RIFF') and b'WEBP' in header_bytes[8:12]
+    if ext == '.pdf':
+        return header_bytes.startswith(b'%PDF')
+    return False
 
 
 def save_receipt_file(file_obj=None, base64_str=None, order_ref='receipt'):
     """
-    Saves a receipt image or document to MEDIA_ROOT / 'receipts' and returns the public media URL.
-    Handles both direct uploaded files (InMemoryUploadedFile) and base64 Data URLs.
+    Saves a receipt image or document to MEDIA_ROOT / 'receipts' with a cryptographically secure
+    random filename to prevent enumeration and unauthorized access.
     """
+    import secrets
     media_root = getattr(settings, 'MEDIA_ROOT', None) or (Path(__file__).resolve().parent.parent / 'media')
     receipts_dir = Path(media_root) / 'receipts'
     os.makedirs(receipts_dir, exist_ok=True)
 
     safe_ref = ''.join(c for c in str(order_ref) if c.isalnum() or c in ('-', '_')).strip() or 'rec'
     ts = int(datetime.now(timezone.utc).timestamp())
-    rand_suffix = uuid.uuid4().hex[:6]
+    rand_entropy = secrets.token_hex(16)
 
     if file_obj:
         ext = os.path.splitext(file_obj.name)[1].lower() or '.jpg'
         if ext not in ('.jpg', '.jpeg', '.png', '.webp', '.pdf'):
             ext = '.jpg'
-        filename = f"{safe_ref}_{ts}_{rand_suffix}{ext}"
+        filename = f"{safe_ref}_{ts}_{rand_entropy}{ext}"
         dest_path = receipts_dir / filename
         with open(dest_path, 'wb+') as dest:
             for chunk in file_obj.chunks():
@@ -105,7 +115,7 @@ def save_receipt_file(file_obj=None, base64_str=None, order_ref='receipt'):
                 ext = '.webp'
             elif 'pdf' in header:
                 ext = '.pdf'
-            filename = f"{safe_ref}_{ts}_{rand_suffix}{ext}"
+            filename = f"{safe_ref}_{ts}_{rand_entropy}{ext}"
             dest_path = receipts_dir / filename
             data_bytes = base64.b64decode(encoded)
             with open(dest_path, 'wb+') as dest:
@@ -122,9 +132,9 @@ class ReceiptUploadAPIView(views.APIView):
     Dedicated secure receipt upload endpoint.
     Accepts multipart form-data with file under 'receipt', 'file', or 'payment_proof'.
     Validates:
-    - Allowed file types: JPEG, PNG, WEBP, PDF
+    - Allowed file types: JPEG, PNG, WEBP, PDF with verified magic byte signatures
     - Max size: 10MB
-    Stores in MEDIA_ROOT / 'receipts' / <safe_filename>.
+    Stores in MEDIA_ROOT / 'receipts' with unpredictable high-entropy tokenized filenames.
     """
     permission_classes = [permissions.AllowAny]
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.pdf'}
@@ -149,7 +159,15 @@ class ReceiptUploadAPIView(views.APIView):
                 'error': f"Invalid file format '{ext}'. Allowed formats are JPEG, PNG, WEBP, and PDF."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        order_ref = request.data.get('order_reference') or 'receipt'
+        # Inspect binary magic bytes to prevent file extension spoofing
+        header_sample = uploaded_file.read(16)
+        uploaded_file.seek(0)
+        if not _verify_file_magic_bytes(header_sample, ext):
+            return Response({
+                'error': f"File content does not match the declared extension '{ext}'. Please upload a valid image or PDF document."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        order_ref = str(request.data.get('order_reference') or 'receipt').strip()
         receipt_url = save_receipt_file(file_obj=uploaded_file, order_ref=order_ref)
         if not receipt_url:
             return Response({'error': 'Failed to save receipt file to storage.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1199,10 +1217,6 @@ class OrderListCreateAPIView(views.APIView):
             is_admin = getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False)
             user_id = str(getattr(user, 'id', ''))
             user_email = str(getattr(user, 'email', '')).lower().strip()
-        else:
-            auth_header = request.headers.get('Authorization', '')
-            if 'Bearer' in auth_header:
-                is_admin = True
 
         param_customer_id = request.query_params.get('customer_id') or request.query_params.get('buyer_id')
         param_email = (request.query_params.get('buyer_email') or request.query_params.get('email') or '').lower().strip()
@@ -1424,12 +1438,40 @@ class OrderListCreateAPIView(views.APIView):
 
             pid = str(it.get('product_id') or (it.get('product', {}) if isinstance(it.get('product'), dict) else {}).get('id') or it.get('id') or '')
             p_cat = catalog_map.get(pid)
-            try:
-                base_p = float(p_cat.get('base_price')) if p_cat and p_cat.get('base_price') is not None else float(it.get('unit_price') or it.get('price') or 0)
-            except Exception:
-                base_p = float(it.get('unit_price') or it.get('price') or 0)
+            if not p_cat and catalog_map:
+                return Response({
+                    'error': 'PRODUCT_NOT_FOUND',
+                    'message': f"Item '{it.get('name') or it.get('product_name') or pid}' is not available in the official product catalog."
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-            qty = max(1, int(it.get('quantity') or 1))
+            try:
+                if p_cat and p_cat.get('base_price') is not None:
+                    base_p = float(p_cat.get('base_price'))
+                else:
+                    base_p = float(it.get('unit_price') or it.get('price') or 0)
+            except Exception:
+                return Response({
+                    'error': 'INVALID_PRICE',
+                    'message': f"Invalid price specification for product '{it.get('name') or it.get('product_name') or pid}'."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if base_p <= 0:
+                return Response({
+                    'error': 'INVALID_PRICE',
+                    'message': f"Product price for '{it.get('name') or it.get('product_name') or pid}' must be greater than zero."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                raw_qty = int(it.get('quantity') or 1)
+            except Exception:
+                raw_qty = 1
+            if raw_qty < 1 or raw_qty > 100:
+                return Response({
+                    'error': 'INVALID_QUANTITY',
+                    'message': f"Quantity for '{it.get('name') or it.get('product_name') or pid}' must be between 1 and 100."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            qty = raw_qty
+
             line_tot = round(base_p * qty, 2)
             verified_subtotal += line_tot
             verified_items.append({
@@ -1598,7 +1640,12 @@ class OrderDetailAPIView(views.APIView):
             return Response({'detail': f'Order {order_id} not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         user = getattr(request, 'user', None)
-        if user and user.is_authenticated:
+        if not user or not user.is_authenticated:
+            guest_email = (request.query_params.get('email') or request.headers.get('X-Guest-Email') or '').lower().strip()
+            o_email = str(matched.get('buyer_email') or (matched.get('delivery_address') or {}).get('email') or '').lower().strip()
+            if not guest_email or guest_email != o_email:
+                return Response({'detail': 'Authentication required to view order details.'}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
             is_admin = getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False)
             if not is_admin:
                 u_id = str(user.id)
@@ -1619,8 +1666,7 @@ class OrderDetailAPIView(views.APIView):
                 match_found = bool(
                     (u_id and o_cid == u_id) or
                     (u_email and o_email == u_email) or
-                    p_user_match or
-                    (not o_cid and not o_email)
+                    p_user_match
                 )
 
                 if not match_found:

@@ -234,27 +234,39 @@ CREATE POLICY delivery_routes_read_policy ON delivery_routes
 
 DROP POLICY IF EXISTS delivery_routes_admin_write_policy ON delivery_routes;
 CREATE POLICY delivery_routes_admin_write_policy ON delivery_routes
-  FOR ALL USING (current_setting('app.current_user_role', true) = 'ADMIN')
-  WITH CHECK (current_setting('app.current_user_role', true) = 'ADMIN');
+  FOR ALL USING (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  )
+  WITH CHECK (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  );
 
 -- Only ADMIN role can view or insert rate change history
 DROP POLICY IF EXISTS delivery_rate_history_admin_policy ON delivery_rate_change_history;
 CREATE POLICY delivery_rate_history_admin_policy ON delivery_rate_change_history
-  FOR ALL USING (current_setting('app.current_user_role', true) = 'ADMIN')
-  WITH CHECK (current_setting('app.current_user_role', true) = 'ADMIN');
+  FOR ALL USING (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  )
+  WITH CHECK (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  );
 
 -- Customers can only access their own shipments; ADMIN can access all
 DROP POLICY IF EXISTS order_shipments_access_policy ON order_shipments;
 CREATE POLICY order_shipments_access_policy ON order_shipments
   FOR SELECT USING (
-    current_setting('app.current_user_role', true) = 'ADMIN'
-    OR buyer_id::text = current_setting('app.current_user_id', true)
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+    OR buyer_id::text = COALESCE(NULLIF(current_setting('request.jwt.claim.sub', true), ''), NULLIF(current_setting('app.current_user_id', true), ''))
   );
 
 DROP POLICY IF EXISTS order_shipments_admin_write_policy ON order_shipments;
 CREATE POLICY order_shipments_admin_write_policy ON order_shipments
-  FOR ALL USING (current_setting('app.current_user_role', true) = 'ADMIN')
-  WITH CHECK (current_setting('app.current_user_role', true) = 'ADMIN');
+  FOR ALL USING (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  )
+  WITH CHECK (
+    COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), NULLIF(current_setting('app.current_user_role', true), '')) = 'ADMIN'
+  );
 
 COMMIT;
 

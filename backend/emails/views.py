@@ -27,6 +27,20 @@ except ImportError:
     HAS_SVIX = False
 
 
+class IsAdminRolePermission(permissions.BasePermission):
+    """
+    Strict permission class verifying that only authenticated users with ADMIN role
+    or staff status can access administrative email logs, testing, and broadcasting.
+    """
+    message = 'Permission denied. Only authorized administrators can access this email endpoint.'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return getattr(user, 'role', None) == 'ADMIN' or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+
+
 class StandardPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'page_size'
@@ -40,8 +54,7 @@ class AdminEmailLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = EmailLog.objects.all().prefetch_related('delivery_attempts')
     serializer_class = EmailLogSerializer
     pagination_class = StandardPagination
-    # In production, guarded by IsAdminUser or RoleGuard
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminRolePermission]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -153,7 +166,7 @@ class AdminEmailConfigView(APIView):
     Returns non-secret email configuration for the admin dashboard.
     Never exposes raw API keys.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminRolePermission]
 
     def get(self, request):
         api_key = EmailConfig.get_api_key()
@@ -186,7 +199,7 @@ class AdminSendTestEmailView(APIView):
     """
     Sends a test transactional email to verify integration.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminRolePermission]
 
     def post(self, request):
         serializer = SendTestEmailSerializer(data=request.data)
@@ -242,7 +255,7 @@ class AdminPlatformAnnouncementView(APIView):
     """
     Broadcasts an authorized platform announcement to users.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdminRolePermission]
 
     def post(self, request):
         serializer = PlatformAnnouncementSerializer(data=request.data)
@@ -296,6 +309,12 @@ class ResendWebhookView(APIView):
     def post(self, request):
         payload_bytes = request.body
         secret = EmailConfig.get_webhook_secret()
+
+        # In production, require configured webhook secret
+        from django.conf import settings
+        if not secret and not getattr(settings, 'DEBUG', False):
+            logger.error("[ResendWebhook] Webhook received but RESEND_WEBHOOK_SECRET is not configured.")
+            return Response({'error': 'Webhook signature validation is required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Signature verification if secret configured and svix installed
         if secret:
