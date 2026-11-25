@@ -368,30 +368,43 @@ export async function fetchRealBackendProducts(): Promise<ProductSummary[]> {
         localStorage.setItem('dovi_real_products_cache', JSON.stringify(normalized));
       } catch { }
 
-      // 4. Progressive non-blocking background prefetch for remaining pages if available
+      // 4. Progressive non-blocking background prefetch for all remaining pages
       const totalCount = typeof pageData?.count === 'number' ? pageData.count : rawList.length;
       if (pageData?.next && totalCount > 24) {
         setTimeout(async () => {
           try {
-            const { data: p2Data } = await apiClient.get('/api/v1/products/', { params: { page: 2, page_size: 24 } });
-            const p2List: any[] = Array.isArray(p2Data) ? p2Data : p2Data?.results || [];
-            if (p2List.length > 0) {
-              const extendedMap = new Map<string, any>();
-              (inMemoryProductsCache || normalized).forEach((p) => extendedMap.set(p.id, p));
-              p2List.forEach((p) => {
+            let nextP = 2;
+            let more = true;
+            const extendedMap = new Map<string, any>();
+            (inMemoryProductsCache || normalized).forEach((p) => extendedMap.set(p.id, p));
+
+            while (more) {
+              const { data: pData } = await apiClient.get('/api/v1/products/', { params: { page: nextP, page_size: 24 } });
+              const pList: any[] = Array.isArray(pData) ? pData : pData?.results || [];
+              if (pList.length === 0) {
+                more = false;
+                break;
+              }
+              pList.forEach((p) => {
                 if (!deletedIds.includes(p.id) && p.status !== 'ARCHIVED' && p.status !== 'DELETED') {
                   extendedMap.set(p.id, normalizeBackendProductToSummary(p));
                 }
               });
-              const extendedList = Array.from(extendedMap.values());
-              inMemoryProductsCache = extendedList;
-              try {
-                sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
-                localStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
-              } catch { }
+              more = Boolean(pData?.next);
+              nextP++;
             }
+
+            const extendedList = Array.from(extendedMap.values());
+            inMemoryProductsCache = extendedList;
+            try {
+              sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
+              localStorage.setItem('dovi_real_products_cache', JSON.stringify(extendedList));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dovi-products-updated'));
+              }
+            } catch { }
           } catch { }
-        }, 1500);
+        }, 1000);
       }
 
       return normalized;

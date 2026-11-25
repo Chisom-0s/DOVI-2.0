@@ -294,7 +294,7 @@ export const productsApi = {
   },
 
   getAllPublished: async (filters?: ProductFilters): Promise<{ count: number; results: ProductSummary[] }> => {
-    // 1. Gather all published products
+    // 1. Gather all cached products for instant 0ms mount
     let list: ProductSummary[] = [];
     try {
       const fromSession = sessionStorage.getItem('dovi_real_products_cache');
@@ -307,47 +307,58 @@ export const productsApi = {
       } catch {}
     }
 
-    // Always merge with SEED_REAL_PRODUCTS baseline so catalogue is never empty or truncated
     const mergedMap = new Map<string, ProductSummary>();
+    // Baseline from authoritative live seed so initial view has accurate inventory
     (SEED_REAL_PRODUCTS || []).forEach((p) => mergedMap.set(p.id, p));
     (list || []).forEach((p) => mergedMap.set(p.id, p));
 
-    // Fast bounded background hydration from server if cache is empty or stale
+    // 2. True SWR Background Revalidation: Fetch live data from backend across ALL pages
     const now = Date.now();
     const lastSyncTime = Number(sessionStorage.getItem('dovi_real_products_cache_time') || '0');
-    if (mergedMap.size === 0 || now - lastSyncTime > PRODUCT_QUERY_CACHE_TTL_MS) {
-      try {
-        const { data: page1 } = await apiClient.get('/api/v1/products/', { params: { page: 1, page_size: 24 } });
-        const rawResults: any[] = page1 ? (Array.isArray(page1) ? page1 : page1?.results || []) : [];
-        rawResults.forEach((p) => {
-          if (p && p.id) {
-            mergedMap.set(p.id, normalizeBackendProductToSummary(p));
-          }
-        });
-        sessionStorage.setItem('dovi_real_products_cache_time', String(now));
+    const isStale = now - lastSyncTime > 15000; // 15 seconds SWR revalidation threshold
 
-        // If more pages exist, fetch remaining pages in the background
-        const totalServerCount = typeof page1?.count === 'number' ? page1.count : rawResults.length;
-        if (page1?.next && totalServerCount > 24) {
-          setTimeout(async () => {
-            try {
-              const { data: page2 } = await apiClient.get('/api/v1/products/', { params: { page: 2, page_size: 24 } });
-              const p2List: any[] = Array.isArray(page2) ? page2 : page2?.results || [];
-              p2List.forEach((p) => {
-                if (p && p.id) {
-                  mergedMap.set(p.id, normalizeBackendProductToSummary(p));
-                }
-              });
-              const allItems = Array.from(mergedMap.values());
-              sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
-              localStorage.setItem('dovi_real_products_cache', JSON.stringify(allItems));
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('dovi-products-updated'));
+    if (isStale || mergedMap.size === 0) {
+      // Trigger background progressive fetch without blocking initial UI render
+      (async () => {
+        try {
+          let currentPage = 1;
+          let hasMore = true;
+          const liveMap = new Map<string, ProductSummary>();
+
+          while (hasMore) {
+            const { data: pageData } = await apiClient.get('/api/v1/products/', {
+              params: { page: currentPage, page_size: 24 }
+            });
+            const rawList: any[] = pageData ? (Array.isArray(pageData) ? pageData : pageData?.results || []) : [];
+            if (rawList.length === 0) {
+              hasMore = false;
+              break;
+            }
+
+            rawList.forEach((p) => {
+              if (p && p.id && p.status !== 'ARCHIVED' && p.status !== 'DELETED') {
+                const norm = normalizeBackendProductToSummary(p);
+                liveMap.set(p.id, norm);
               }
-            } catch {}
-          }, 500);
+            });
+
+            hasMore = Boolean(pageData?.next);
+            currentPage++;
+          }
+
+          if (liveMap.size > 0) {
+            const freshList = Array.from(liveMap.values());
+            sessionStorage.setItem('dovi_real_products_cache', JSON.stringify(freshList));
+            sessionStorage.setItem('dovi_real_products_cache_time', String(Date.now()));
+            localStorage.setItem('dovi_real_products_cache', JSON.stringify(freshList));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('dovi-products-updated'));
+            }
+          }
+        } catch (err: any) {
+          console.warn('Background SWR catalogue revalidation paused:', err?.message || err);
         }
-      } catch {}
+      })();
     }
 
     const allItems = Array.from(mergedMap.values());
