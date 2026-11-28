@@ -1776,15 +1776,19 @@ export const adminApi = {
         return true;
       });
 
+      const results = filtered
+        .map((p: any) => enrichProductWithCategory(p))
+        .filter((p: any) => !params?.category || doesProductMatchCategoryFilter(p, params.category));
+
+      const totalCount = typeof data?.count === 'number'
+        ? (params?.category ? results.length : data.count)
+        : results.length;
+
       return {
-        count: filtered
-          .map((p: any) => enrichProductWithCategory(p))
-          .filter((p: any) => !params?.category || doesProductMatchCategoryFilter(p, params.category)).length,
+        count: totalCount,
         next: data?.next || null,
         previous: data?.previous || null,
-        results: filtered
-          .map((p: any) => enrichProductWithCategory(p))
-          .filter((p: any) => !params?.category || doesProductMatchCategoryFilter(p, params.category)),
+        results,
       };
     } catch (err) {
       throw normalizeApiError(err);

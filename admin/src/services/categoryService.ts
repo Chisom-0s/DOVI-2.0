@@ -1,3 +1,4 @@
+import apiClient from '@/api/client';
 import type {
   Category,
   Subcategory,
@@ -528,6 +529,37 @@ async function pushCategoryStoreToServer(payload: {
 
 export async function syncCategoriesFromServer(): Promise<void> {
   try {
+    // 1. Fetch live backend categories from DRF endpoint
+    try {
+      const { data: backendCats } = await apiClient.get('/api/v1/categories/');
+      if (Array.isArray(backendCats) && backendCats.length > 0) {
+        setCachedBackendCategories(backendCats);
+
+        // Map backend UUIDs onto local category tree
+        const localTree = ensureCategoriesInitialized();
+        let changed = false;
+        backendCats.forEach((bCat: any) => {
+          if (!bCat || !bCat.id) return;
+          const match = localTree.find(
+            (c) =>
+              c.slug.toLowerCase() === (bCat.slug || '').toLowerCase() ||
+              c.name.trim().toLowerCase() === (bCat.name || '').trim().toLowerCase() ||
+              c.id.toLowerCase() === (bCat.slug || '').toLowerCase()
+          );
+          if (match && (!match.uuid || match.uuid !== bCat.id)) {
+            match.uuid = bCat.id;
+            match.database_id = bCat.id;
+            changed = true;
+          }
+        });
+        if (changed) {
+          writeLocal(STORAGE_KEYS.CATEGORIES, localTree);
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Backend categories sync via API failed:', apiErr);
+    }
+
     const data = await fetchSharedDbOnce();
     if (!data) return;
     if (Array.isArray(data?.categories) && data.categories.length > 0) {
@@ -1370,19 +1402,32 @@ export function doesProductMatchCategoryFilter(
       );
     }
 
+    const rawProdCat = typeof product.category === 'object' && product.category
+      ? (product.category.id || product.category.slug || product.category.name)
+      : (product.category || product.category_id || (product as any).category_name || '');
+    const normRawProdCat = String(rawProdCat).toLowerCase().trim();
+
     const mainTarget = findMainCategory(categoryFilter.trim());
     if (mainTarget) {
-      return (
+      if (
         resolved.category_id === mainTarget.id ||
-        resolved.category_slug === mainTarget.slug
-      );
+        resolved.category_slug === mainTarget.slug ||
+        (mainTarget.uuid && (resolved.category_id === mainTarget.uuid || normRawProdCat === mainTarget.uuid.toLowerCase())) ||
+        (mainTarget.database_id && (resolved.category_id === mainTarget.database_id || normRawProdCat === mainTarget.database_id.toLowerCase())) ||
+        normRawProdCat === mainTarget.id.toLowerCase() ||
+        normRawProdCat === mainTarget.slug.toLowerCase() ||
+        normRawProdCat === mainTarget.name.toLowerCase()
+      ) {
+        return true;
+      }
     }
 
     const normCat = categoryFilter.trim().toLowerCase();
     return (
       resolved.category_slug.toLowerCase() === normCat ||
       resolved.category_id.toLowerCase() === normCat ||
-      resolved.category_name.toLowerCase() === normCat
+      resolved.category_name.toLowerCase() === normCat ||
+      normRawProdCat === normCat
     );
   }
 

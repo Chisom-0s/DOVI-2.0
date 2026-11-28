@@ -666,9 +666,11 @@ export default function ProductsPage() {
       return;
     }
 
+    // Sanitize user input description first to remove stray markup or malicious scripts
+    let formattedDescription = sanitizeProductDescription(form.description.trim());
+
     // Specifications metadata embedding
     const activeSpecs = specifications.filter((s) => s.key.trim() && s.value.trim());
-    let formattedDescription = form.description.trim();
     if (activeSpecs.length > 0) {
       const specsObj: Record<string, string> = {};
       activeSpecs.forEach((s) => {
@@ -731,8 +733,9 @@ export default function ProductsPage() {
           }
         : null,
     };
-    // Keep description strictly clean of internal metadata comments
-    formattedDescription = sanitizeProductDescription(formattedDescription);
+
+    // Embed authoritative homepage merchandising placement into description so it persists in DB
+    formattedDescription = `${formattedDescription}\n\n<!-- DOVI_HOMEPAGE: ${JSON.stringify(placementPayload)} -->`.trim();
 
     // Delivery Classification & Attributes metadata embedding (kept separate from product category)
     formattedDescription = serializeProductDescriptionWithDelivery(formattedDescription, deliveryForm);
@@ -849,6 +852,7 @@ export default function ProductsPage() {
             subcategoryIdOrSlug: catValidation.subcategory?.id || null,
           });
           saveProductDeliveryAttributes(String(targetProductId), deliveryForm);
+          await saveProductHomepagePlacement(String(targetProductId), placementPayload);
         }
 
         // Upload Images defensively
